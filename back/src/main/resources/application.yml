@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: tributario-back
+  datasource:
+    url: jdbc:postgresql://localhost:5432/municipalidad
+    username: municipalidad
+    password: municipalidad
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: 8080
