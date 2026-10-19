@@ -1,28 +1,418 @@
 :root {
+  /* Paleta Corporativa Institucional */
   --azul: #1C5CAB;
   --azul-oscuro: #154A8C;
   --azul-suave: #E8F0FB;
   --cabecera: #0F2A4A;
+  --cabecera-sub: #1E3A5F;
   --texto: #1B1F24;
   --texto-secundario: #3D434B;
   --texto-atenuado: #5A616B;
   --fondo: #F3F4F6;
   --superficie: #FFFFFF;
   --borde: #DDE1E6;
+  --borde-focus: #1C5CAB;
+  
+  /* Estados */
   --critico: #B42318;
   --critico-fondo: #FDF1F0;
+  --critico-borde: #FECDCA;
+  
   --exito: #067647;
   --exito-fondo: #ECFDF3;
-  --advertencia: #7A4100;
+  --exito-borde: #A6F4C5;
+  
+  --advertencia: #B54708;
   --advertencia-fondo: #FFF4DF;
+  --advertencia-borde: #FEDF89;
+  
+  /* Paleta Categórica por Tributo */
+  --tributo-predial: #2A78D6;
+  --tributo-limpieza: #EB6834;
+  --tributo-parques: #1BAF7A;
+  --tributo-serenazgo: #EDA100;
+
+  /* Elevaciones */
+  --sombra-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --sombra-md: 0 4px 6px -1px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --sombra-lg: 0 10px 15px -3px rgba(16, 24, 40, 0.1), 0 4px 6px -4px rgba(16, 24, 40, 0.05);
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 15px;
+  font-size: 14px;
+  line-height: 1.5;
   color: var(--texto);
-  background: var(--fondo);
+  background-color: var(--fondo);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Numeración tabular para montos y métricas financieras */
+.tabular-nums, .monto-num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Contenedores y Estructura */
+.app-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  max-width: 1320px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+}
+
+/* Header Institucional */
+.navbar-header {
+  background-color: var(--cabecera);
+  color: #FFFFFF;
+  padding: 12px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.brand-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.brand-icon {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(135deg, #1C5CAB, #2A78D6);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -0.5px;
+}
+
+.brand-text h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+}
+
+.brand-text p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Tarjetas y Paneles */
+.card {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--sombra-sm);
+  margin-bottom: 20px;
+}
+
+/* Formularios y Campos */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto-secundario);
+}
+
+.form-input, .form-select {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--borde);
+  background-color: #FFFFFF;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--texto);
+  transition: all 0.2s ease-in-out;
+  outline: none;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--borde-focus);
+  box-shadow: 0 0 0 3px rgba(28, 92, 171, 0.15);
+}
+
+/* Botones */
+.btn-primary {
+  background-color: var(--azul);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--azul-oscuro);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: var(--azul-suave);
+  color: var(--azul);
+  border: 1px solid rgba(28, 92, 171, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #D6E4F7;
+}
+
+/* Etiquetas y Píldoras de Estado (Ícono + Texto) */
+.badge-estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+}
+
+.badge-vencido {
+  background-color: var(--critico-fondo);
+  color: var(--critico);
+  border: 1px solid var(--critico-borde);
+}
+
+.badge-pagado {
+  background-color: var(--exito-fondo);
+  color: var(--exito);
+  border: 1px solid var(--exito-borde);
+}
+
+.badge-pendiente, .badge-por-vencer {
+  background-color: var(--advertencia-fondo);
+  color: var(--advertencia);
+  border: 1px solid var(--advertencia-borde);
+}
+
+/* Indicadores de Tributo */
+.tributo-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.tributo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Tablas Modernas */
+.table-responsive {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--borde);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  background: #FFFFFF;
+}
+
+.data-table th {
+  background-color: #F8FAFC;
+  color: var(--texto-secundario);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.data-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #EDF2F7;
+  color: var(--texto);
+  font-size: 13.5px;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background-color: #F8FAFC;
+}
+
+.data-table tfoot td {
+  background-color: #F8FAFC;
+  font-weight: 700;
+  border-top: 2px solid var(--borde);
+}
+
+/* Grid de KPIs */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.kpi-card {
+  background: #FFFFFF;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: var(--sombra-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--sombra-md);
+}
+
+.kpi-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.kpi-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--texto-secundario);
+}
+
+.kpi-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kpi-value {
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+  margin: 4px 0;
+}
+
+.kpi-caption {
+  font-size: 12px;
+  color: var(--texto-atenuado);
+}
+
+/* Modificadores de KPI */
+.kpi-card.vencido {
+  border-left: 4px solid var(--critico);
+}
+.kpi-card.vencido .kpi-value {
+  color: var(--critico);
+}
+.kpi-card.vencido .kpi-icon-badge {
+  background: var(--critico-fondo);
+  color: var(--critico);
+}
+
+.kpi-card.pendiente {
+  border-left: 4px solid var(--advertencia);
+}
+.kpi-card.pendiente .kpi-value {
+  color: var(--advertencia);
+}
+.kpi-card.pendiente .kpi-icon-badge {
+  background: var(--advertencia-fondo);
+  color: var(--advertencia);
+}
+
+.kpi-card.pagado {
+  border-left: 4px solid var(--exito);
+}
+.kpi-card.pagado .kpi-value {
+  color: var(--exito);
+}
+.kpi-card.pagado .kpi-icon-badge {
+  background: var(--exito-fondo);
+  color: var(--exito);
+}
+
+.kpi-card.emitido {
+  border-left: 4px solid var(--azul);
+}
+.kpi-card.emitido .kpi-value {
+  color: var(--azul);
+}
+.kpi-card.emitido .kpi-icon-badge {
+  background: var(--azul-suave);
+  color: var(--azul);
 }
