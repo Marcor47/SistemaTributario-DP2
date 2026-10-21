@@ -22,6 +22,7 @@ export default function BarraBusqueda({ etiqueta, placeholder, onBuscar, onLimpi
           type="text"
           value={texto}
           placeholder={placeholder}
+          disabled={ocupado}
           onChange={(e) => setTexto(e.target.value)}
         />
       </div>

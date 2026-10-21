@@ -82,7 +82,7 @@ function Cuenta({ cuenta, onVolver }) {
   )
 }
 
-export default function EstadoCuenta() {
+export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle }) {
   const [consulta, setConsulta] = useState('')
   const [lista, setLista] = useState(null) // contribuyentes encontrados; null = aún no se busca
   const [cuenta, setCuenta] = useState(null)
@@ -90,11 +90,16 @@ export default function EstadoCuenta() {
   const [servicioCaido, setServicioCaido] = useState(false)
   const [error, setError] = useState('')
 
+  function actualizarCuenta(nuevaCuenta) {
+    setCuenta(nuevaCuenta)
+    onSeleccionarContribuyente?.(nuevaCuenta?.contribuyente ?? null)
+  }
+
   async function cargarCuenta(codigo) {
     setOcupado(true)
     setError('')
     try {
-      setCuenta(await obtenerEstadoCuenta(codigo, { servicioCaido }))
+      actualizarCuenta(await obtenerEstadoCuenta(codigo, { servicioCaido }))
     } catch {
       setError('No se pudo obtener el estado de cuenta. Intenta nuevamente.')
     } finally {
@@ -105,7 +110,7 @@ export default function EstadoCuenta() {
   async function buscar(texto) {
     setOcupado(true)
     setConsulta(texto.trim())
-    setCuenta(null)
+    actualizarCuenta(null)
     setError('')
     try {
       const encontrados = await buscarContribuyentes(texto)
@@ -118,12 +123,14 @@ export default function EstadoCuenta() {
 
   function limpiar() {
     setLista(null)
-    setCuenta(null)
+    actualizarCuenta(null)
     setConsulta('')
     setError('')
   }
 
   const eligiendo = !ocupado && !cuenta && lista?.length > 1
+  const volver = lista?.length > 1 ? () => actualizarCuenta(null) : null
+  const detalle = cuenta && <Cuenta cuenta={cuenta} onVolver={volver} />
 
   return (
     <>
@@ -172,7 +179,7 @@ export default function EstadoCuenta() {
       )}
 
       {!ocupado && cuenta && (
-        <Cuenta cuenta={cuenta} onVolver={lista?.length > 1 ? () => setCuenta(null) : null} />
+        renderDetalle ? renderDetalle(detalle, volver) : detalle
       )}
     </>
   )

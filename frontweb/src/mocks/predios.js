@@ -8,6 +8,7 @@ export const CONTRIBUYENTES = [
   { codigo: '045067', nombre: 'CENTRO EDUCATIVO SOL DE LIMA E.I.R.L.', tipoDoc: 'RUC', doc: '20512309876' },
   { codigo: '058934', nombre: 'MEDINA CRUZ, PATRICIA', tipoDoc: 'DNI', doc: '45871203' },
   { codigo: '061177', nombre: 'MEDINA CRUZ, ROBERTO', tipoDoc: 'DNI', doc: '45871777' },
+  { codigo: '072845', nombre: 'SALAZAR VEGA, LUCÍA', tipoDoc: 'DNI', doc: '47639182' },
 ]
 
 // `titulares`: códigos de contribuyente y su porcentaje de propiedad.

@@ -15,12 +15,14 @@ export const FECHA_CORTE_ANTERIOR = '2026-10-16' // última información disponi
 
 // Importe trimestral base por tributo y cuántos periodos recientes están impagos.
 const PERFIL = {
-  '014502': { factor: 1, impagos: 0 },
-  '021390': { factor: 5.2, impagos: 3 },
-  '033218': { factor: 0.55, impagos: 0 },
-  '045067': { factor: 2.4, impagos: 1 },
-  '058934': { factor: 0.8, impagos: 2 },
-  '061177': { factor: 0.8, impagos: 2 },
+  '014502': { factor: 1, impagos: 0, atrasos: [-5, 0, -2, 0, -4, 0] },
+  '021390': { factor: 5.2, impagos: 3, atrasos: [0, 12, 8, 0, 0, 0] },
+  '033218': { factor: 0.55, impagos: 0, atrasos: [0, 5, 0, 10, 0, 3] },
+  '045067': { factor: 2.4, impagos: 1, atrasos: [4, 0, 0, 7, 8, 0] },
+  '058934': { factor: 0.8, impagos: 2, atrasos: [0, 0, 6, 0, 0, 0] },
+  '061177': { factor: 0.8, impagos: 2, atrasos: [2, 0, 0, 0, 0, 0] },
+  // Lucía: 50 % de cuotas pagadas a tiempo en 2026 y 75 % en 2025.
+  '072845': { factor: 1.15, impagos: 0, atrasos: [0, 0, 7, 0, 0, 9] },
 }
 const BASE = {
   'Impuesto Predial': 180,
@@ -30,7 +32,7 @@ const BASE = {
 }
 
 export function generarCuenta(codigo, fechaCorte) {
-  const { factor, impagos } = PERFIL[codigo]
+  const { factor, impagos, atrasos } = PERFIL[codigo]
   const filas = []
   TRIBUTOS.forEach((tributo, t) => {
     PERIODOS.forEach((periodo, i) => {
@@ -39,12 +41,18 @@ export function generarCuenta(codigo, fechaCorte) {
       // El último periodo aún no vence al corte: queda pendiente aunque no se haya pagado.
       const vencido = VENCIMIENTO[periodo] < fechaCorte
       const pagado = impago ? 0 : emitido
+      // Fechas adicionales para HU010; los montos y estados de HU004 se conservan.
+      const fechaVencimiento = VENCIMIENTO[periodo]
+      const pago = new Date(`${fechaVencimiento}T00:00:00Z`)
+      pago.setUTCDate(pago.getUTCDate() + atrasos[i])
       filas.push({
         id: `${t}-${periodo}`,
         tributo,
         periodo,
         emitido,
         pagado,
+        fechaVencimiento,
+        fechaPago: impago ? null : pago.toISOString().slice(0, 10),
         deuda: Math.round((emitido - pagado) * 100) / 100,
         estado: !impago ? 'Pagada' : vencido ? 'Vencida' : 'Pendiente',
       })
