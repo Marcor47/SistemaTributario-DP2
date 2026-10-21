@@ -1,0 +1,26 @@
+spring:
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+  datasource:
+    url: jdbc:h2:file:./tributario-demo;MODE=PostgreSQL
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: validate
+server:
+  address: 127.0.0.1
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: strict
+        secure: true
+tributario:
+  demo:
+    citizen-code: ${DEMO_CITIZEN_CODE:}
+    citizen-password: ${DEMO_CITIZEN_PASSWORD:}
+    internal-read-key: ${DEMO_INTERNAL_READ_KEY:}
+    internal-admin-key: ${DEMO_INTERNAL_ADMIN_KEY:}
