@@ -65,7 +65,7 @@ test('HU049: el catálogo publica una sola versión vigente por documento y perm
 
 test('HU049: una nueva publicación sustituye a la anterior y bloquea su descarga', async () => {
   const constancia = FORMULARIOS.find((item) => item.codigo === 'PL-001')
-  constancia.versiones.push({ numero: 3, fechaPublicacion: '2026-10-21', archivo: 'constancia-no-adeudo-v3.pdf' })
+  constancia.versiones.push({ numero: 3, fechaPublicacion: '2026-10-21', archivo: 'constancia-no-adeudo-v3.docx' })
   try {
     const [vigente] = await obtenerFormularios('PL-001')
     assert.equal(vigente.version, 3)
@@ -78,11 +78,12 @@ test('HU049: una nueva publicación sustituye a la anterior y bloquea su descarg
   await assert.rejects(descargarFormulario('inexistente', 1), /no está disponible/)
 })
 
-test('HU049: cada versión vigente tiene un archivo PDF descargable', async () => {
+test('HU049: cada versión vigente tiene un archivo Word descargable', async () => {
   for (const documento of FORMULARIOS) {
     const vigente = documento.versiones.at(-1)
     const archivo = await readFile(new URL(`../public/formularios/${vigente.archivo}`, import.meta.url))
-    assert.equal(archivo.subarray(0, 5).toString(), '%PDF-')
-    assert.ok(archivo.includes(Buffer.from('%%EOF')))
+    assert.equal(archivo.subarray(0, 2).toString(), 'PK')
+    assert.ok(archivo.includes(Buffer.from('[Content_Types].xml')))
+    assert.ok(archivo.includes(Buffer.from('word/document.xml')))
   }
 })

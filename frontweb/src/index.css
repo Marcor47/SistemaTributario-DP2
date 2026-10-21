@@ -98,6 +98,8 @@ body {
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn.primary { background: var(--azul); border-color: var(--azul); color: #fff; }
 .btn.primary:hover:not(:disabled) { background: var(--azul-oscuro); }
+.btn.peligro { color: var(--critico); border-color: var(--critico); }
+.btn.peligro:hover:not(:disabled) { background: var(--critico-fondo); }
 
 /* Mensajes */
 .info, .alert {
@@ -138,11 +140,11 @@ body {
 .demo-opcion { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--texto-atenuado); margin-bottom: 16px; }
 
 /* Regularidad de pago y catálogo de formularios */
-.fld select {
+.fld select, .fld textarea {
   padding: 8px 10px; border: 1px solid var(--borde); border-radius: 6px;
   font: inherit; color: var(--texto); background: var(--superficie);
 }
-.fld select:focus-visible, .modebtn:focus-visible, .tabla-scroll:focus-visible {
+.fld select:focus-visible, .fld textarea:focus-visible, .modebtn:focus-visible, .tabla-scroll:focus-visible {
   outline: 2px solid var(--azul); outline-offset: 2px;
 }
 .selector-anio { min-width: 0; max-width: 200px; }
@@ -180,6 +182,13 @@ body {
 .tabla-formularios td:first-child { min-width: 240px; }
 .documento-descripcion { display: block; color: var(--texto-atenuado); font-size: 13px; line-height: 1.5; margin-top: 4px; }
 .fecha-documento { white-space: nowrap; }
+.acciones-documento { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.tabla-formularios td:last-child { min-width: 220px; }
+.formulario-plantilla fieldset { border: 0; padding: 0; min-width: 0; }
+.formulario-plantilla .fld { min-width: 0; }
+.formulario-plantilla input, .formulario-plantilla textarea { width: 100%; }
+.formulario-plantilla textarea { resize: vertical; }
+.campo-completo { grid-column: 1 / -1; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
 @media (max-width: 600px) {
