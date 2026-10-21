@@ -26,3 +26,51 @@ body {
   color: var(--texto);
   background: var(--fondo);
 }
+
+/* Cabecera */
+.topbar {
+  background: var(--cabecera);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 10px 24px;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand h1 { margin: 0; font-size: 18px; font-weight: 650; }
+.brand p { margin: 2px 0 0; font-size: 12.5px; opacity: 0.8; }
+.logo {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--azul); color: #fff;
+  display: grid; place-items: center; font-weight: 700;
+}
+.modesw { display: flex; gap: 4px; flex-wrap: wrap; margin-left: 16px; }
+.modebtn {
+  color: #fff; text-decoration: none; padding: 6px 14px;
+  border-radius: 6px; font-size: 13.5px; font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+.modebtn:hover { background: rgba(255, 255, 255, 0.12); }
+.modebtn.active { background: var(--azul); border-color: var(--azul); }
+.badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+}
+.badge.demo {
+  margin-left: auto;
+  background: var(--advertencia-fondo); color: var(--advertencia);
+}
+
+/* Contenido */
+.pmain { max-width: 1100px; margin: 0 auto; padding: 24px; }
+.pcard {
+  background: var(--superficie); border: 1px solid var(--borde);
+  border-radius: 8px; padding: 16px 20px; margin-bottom: 16px;
+}
+.pcard h2 { margin: 0 0 8px; font-size: 18px; }
+.hint { color: var(--texto-atenuado); font-size: 13px; margin: 0; }
+.pie {
+  max-width: 1100px; margin: 0 auto; padding: 16px 24px;
+  font-size: 12.5px; color: var(--texto-atenuado);
+}
