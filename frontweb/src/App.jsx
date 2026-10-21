@@ -1,21 +1,23 @@
-import { useEffect, useState } from 'react'
-
-const API_URL = import.meta.env.VITE_API_URL
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import Cabecera from './components/Cabecera.jsx'
+import ConsultaPredio from './pages/ConsultaPredio.jsx'
+import EstadoCuenta from './pages/EstadoCuenta.jsx'
 
 export default function App() {
-  const [estado, setEstado] = useState('Consultando...')
-
-  useEffect(() => {
-    fetch(`${API_URL}/health`)
-      .then((r) => r.json())
-      .then((d) => setEstado(`${d.servicio}: ${d.estado}`))
-      .catch(() => setEstado('No se pudo conectar con el back'))
-  }, [])
-
   return (
-    <main style={{ padding: 24 }}>
-      <h1 style={{ color: 'var(--cabecera)' }}>Plataforma Analítica SAMNET</h1>
-      <p>{estado}</p>
-    </main>
+    <BrowserRouter>
+      <Cabecera />
+      <main className="pmain">
+        <Routes>
+          <Route path="/" element={<Navigate to="/predios" replace />} />
+          <Route path="/predios" element={<ConsultaPredio />} />
+          <Route path="/estado-cuenta" element={<EstadoCuenta />} />
+        </Routes>
+      </main>
+      <footer className="pie">
+        Todos los nombres, códigos y montos son <strong>ficticios</strong>, generados para la demostración; no
+        representan a contribuyentes reales.
+      </footer>
+    </BrowserRouter>
   )
 }
