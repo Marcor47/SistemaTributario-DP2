@@ -25,7 +25,7 @@ export default function Formularios() {
     let activo = true
     obtenerFormularios()
       .then((resultado) => { if (activo) setDocumentos(resultado) })
-      .catch(() => { if (activo) setError('No se pudo cargar el catálogo. Intenta nuevamente con Actualizar catálogo.') })
+      .catch(() => { if (activo) setError('No se pudo cargar el catálogo. Recarga la página para intentarlo nuevamente.') })
       .finally(() => { if (activo) setOcupado(false) })
     return () => { activo = false }
   }, [])
@@ -49,7 +49,7 @@ export default function Formularios() {
       const resultado = await obtenerFormularios(texto)
       if (actual === solicitud.current) setDocumentos(resultado)
     } catch {
-      if (actual === solicitud.current) setError('No se pudo cargar el catálogo. Intenta nuevamente con Actualizar catálogo.')
+      if (actual === solicitud.current) setError('No se pudo cargar el catálogo. Recarga la página para intentarlo nuevamente.')
     } finally {
       if (actual === solicitud.current) setOcupado(false)
     }
@@ -101,7 +101,7 @@ export default function Formularios() {
       try {
         setDocumentos(await obtenerFormularios(consulta))
       } catch {
-        setError('El documento se guardó, pero no se pudo actualizar la lista. Usa Actualizar catálogo.')
+        setError('El documento se guardó, pero no se pudo actualizar la lista. Recarga la página para verlo.')
       }
       cerrarFormulario()
     } catch (err) {
@@ -186,10 +186,7 @@ export default function Formularios() {
             <h2>Documentos vigentes</h2>
             <p className="hint" role="status">{ocupado ? 'Consultando catálogo…' : `${documentos.length} ${documentos.length === 1 ? 'documento disponible' : 'documentos disponibles'}${consulta ? ` para «${consulta}»` : ''}.`}</p>
           </div>
-          <div className="acciones-documento">
-            <button className="btn" type="button" onClick={() => buscar(consulta)} disabled={bloqueado}>Actualizar catálogo</button>
-            <button className="btn primary" type="button" ref={botonAgregar} aria-expanded={mostrarFormulario} aria-controls="nueva-plantilla" disabled={bloqueado || mostrarFormulario} onClick={() => { setMostrarFormulario(true); setPendienteEliminar(null); setErrorFormulario(''); setAviso('') }}>Agregar plantilla</button>
-          </div>
+          <button className="btn primary" type="button" ref={botonAgregar} aria-expanded={mostrarFormulario} aria-controls="nueva-plantilla" disabled={bloqueado || mostrarFormulario} onClick={() => { setMostrarFormulario(true); setPendienteEliminar(null); setErrorFormulario(''); setAviso('') }}>Agregar plantilla</button>
         </div>
 
         {pendienteEliminar && (
