@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Cabecera from './components/Cabecera.jsx'
 import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
+import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/predios" replace />} />
           <Route path="/predios" element={<ConsultaPredio />} />
           <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
+          <Route path="/metas" element={<ConfiguracionMetas />} />
           <Route path="/formularios" element={<Formularios />} />
         </Routes>
       </main>
