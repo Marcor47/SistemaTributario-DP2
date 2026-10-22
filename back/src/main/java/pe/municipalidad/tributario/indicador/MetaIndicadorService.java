@@ -96,6 +96,12 @@ public class MetaIndicadorService {
         return MetaIndicadorRespuesta.desde(meta, hoy);
     }
 
+    @Transactional
+    public void eliminarMeta(Long id) {
+        /* Esta operación se restringirá al Administrador cuando se integre el control de acceso. */
+        metaIndicadorRepository.delete(buscarMetaExistente(id));
+    }
+
     private Indicador buscarIndicadorActivo(String codigo) {
         Indicador indicador = indicadorRepository.findById(codigo)
                 .orElseThrow(() -> new RecursoNoEncontradoException("INDICADOR_NO_ENCONTRADO",

@@ -6,6 +6,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -219,12 +220,26 @@ class MetaIndicadorControllerTest {
     }
 
     @Test
+    void eliminaUnaMetaYDejaDeEstarDisponible() throws Exception {
+        long id = idDeMetaRegistrada(cuerpoMeta("MONTO_RECAUDADO", 2027, 1, "1000000"));
+
+        mockMvc.perform(delete(RUTA_METAS + "/" + id))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get(RUTA_METAS + "/" + id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("META_NO_ENCONTRADA"));
+    }
+
+    @Test
     void metaInexistenteDevuelve404() throws Exception {
         mockMvc.perform(get(RUTA_METAS + "/999999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("META_NO_ENCONTRADA"));
         mockMvc.perform(put(RUTA_METAS + "/999999").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"valorMeta\": 10}"))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete(RUTA_METAS + "/999999"))
                 .andExpect(status().isNotFound());
     }
 
