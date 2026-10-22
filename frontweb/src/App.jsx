@@ -1,7 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Cabecera from './components/Cabecera.jsx'
 import ConsultaPredio from './pages/ConsultaPredio.jsx'
-import FichaContribuyente from './pages/FichaContribuyente.jsx'
+import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import Formularios from './pages/Formularios.jsx'
 
 export default function App() {
@@ -12,8 +12,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/predios" replace />} />
           <Route path="/predios" element={<ConsultaPredio />} />
-          <Route path="/estado-cuenta" element={<FichaContribuyente />} />
-          <Route path="/regularidad-pago" element={<Navigate to="/estado-cuenta?vista=regularidad" replace />} />
+          <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
           <Route path="/formularios" element={<Formularios />} />
         </Routes>
       </main>

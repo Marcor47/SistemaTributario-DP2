@@ -15,7 +15,7 @@ const PESTANAS = [
 
 const VISTAS = new Set(PESTANAS.map((pestana) => pestana.id))
 
-export default function FichaContribuyente() {
+export default function ConsultaContribuyente() {
   const [contribuyente, setContribuyente] = useState(null)
   const [ficha, setFicha] = useState(null)
   const [ocupadoFicha, setOcupadoFicha] = useState(false)

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 
 const MODULOS = [
   { ruta: '/predios', texto: 'Consulta de predios' },
-  { ruta: '/estado-cuenta', texto: 'Contribuyentes' },
+  { ruta: '/contribuyentes', texto: 'Contribuyentes' },
   { ruta: '/formularios', texto: 'Formularios y plantillas' },
 ]
 
