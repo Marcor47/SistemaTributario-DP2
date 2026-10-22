@@ -2,13 +2,16 @@ spring:
   application:
     name: tributario-back
   datasource:
-    url: jdbc:postgresql://localhost:5432/municipalidad
-    username: municipalidad
-    password: municipalidad
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/municipalidad}
+    username: ${DB_USER:municipalidad}
+    password: ${DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  flyway:
+    # db/datos-prueba solo tiene datos ficticios para desarrollo; se quita al pasar a un entorno real
+    locations: classpath:db/migration,classpath:db/datos-prueba
 
 server:
   port: 8080
