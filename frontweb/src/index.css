@@ -136,3 +136,41 @@ body {
 .estado.critico { color: var(--critico); background: var(--critico-fondo); }
 .estado.aviso { color: var(--advertencia); background: var(--advertencia-fondo); }
 .demo-opcion { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--texto-atenuado); margin-bottom: 16px; }
+
+/* Búsqueda separada (Estado de Cuenta) */
+.filters-separados {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+.filters-header {
+  margin-bottom: 12px;
+}
+.filters-header h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: var(--cabecera);
+}
+.filters-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+.filters-fields .fld {
+  min-width: 200px;
+  flex: 1 1 200px;
+}
+.filters-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+input::placeholder {
+  color: #8c939d;
+  font-style: italic;
+  opacity: 0.8;
+}
