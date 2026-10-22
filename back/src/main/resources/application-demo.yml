@@ -10,6 +10,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  flyway:
+    locations: classpath:db/migration
 server:
   address: 127.0.0.1
   servlet:

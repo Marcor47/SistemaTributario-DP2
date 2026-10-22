@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:featuretests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+        "spring.flyway.locations=classpath:db/migration",
         "tributario.demo.internal-read-key=lectura-test",
         "tributario.demo.internal-admin-key=admin-test",
         "tributario.demo.citizen-code=CIUDADANO",

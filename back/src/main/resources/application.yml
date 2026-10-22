@@ -9,6 +9,9 @@ spring:
     hibernate:
       ddl-auto: validate
     open-in-view: false
+  flyway:
+    # db/datos-prueba solo tiene datos ficticios para desarrollo; se quita al pasar a un entorno real
+    locations: classpath:db/migration,classpath:db/datos-prueba
 
 server:
   port: 8080
