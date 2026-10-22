@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import BarraBusqueda from '../components/BarraBusqueda.jsx'
 import { buscarContribuyentes, obtenerEstadoCuenta } from '../services/cuentaService.js'
 import { TRIBUTOS } from '../mocks/cuentas.js'
 import { fecha, moneda } from '../utils/formato.js'
@@ -83,6 +82,7 @@ function Cuenta({ cuenta, onVolver }) {
 }
 
 export default function EstadoCuenta() {
+  const [filtros, setFiltros] = useState({ codigo: '', documento: '', nombre: '' })
   const [consulta, setConsulta] = useState('')
   const [lista, setLista] = useState(null) // contribuyentes encontrados; null = aún no se busca
   const [cuenta, setCuenta] = useState(null)
@@ -102,13 +102,22 @@ export default function EstadoCuenta() {
     }
   }
 
-  async function buscar(texto) {
+  async function buscar(e) {
+    if (e) e.preventDefault()
+    const { codigo, documento, nombre } = filtros
+    if (!codigo.trim() && !documento.trim() && !nombre.trim()) return
+
     setOcupado(true)
-    setConsulta(texto.trim())
+    const partes = [
+      codigo.trim() && `Código: ${codigo.trim()}`,
+      documento.trim() && `Doc: ${documento.trim()}`,
+      nombre.trim() && `Nombre: ${nombre.trim()}`,
+    ].filter(Boolean)
+    setConsulta(partes.join(' | '))
     setCuenta(null)
     setError('')
     try {
-      const encontrados = await buscarContribuyentes(texto)
+      const encontrados = await buscarContribuyentes(filtros)
       setLista(encontrados)
       if (encontrados.length === 1) await cargarCuenta(encontrados[0].codigo)
     } finally {
@@ -117,23 +126,64 @@ export default function EstadoCuenta() {
   }
 
   function limpiar() {
+    setFiltros({ codigo: '', documento: '', nombre: '' })
     setLista(null)
     setCuenta(null)
     setConsulta('')
     setError('')
   }
 
+  const tieneCriterios = Boolean(filtros.codigo.trim() || filtros.documento.trim() || filtros.nombre.trim())
   const eligiendo = !ocupado && !cuenta && lista?.length > 1
 
   return (
     <>
-      <BarraBusqueda
-        etiqueta="Buscar contribuyente"
-        placeholder="Código, documento (DNI / RUC) o nombre"
-        onBuscar={buscar}
-        onLimpiar={limpiar}
-        ocupado={ocupado}
-      />
+      <form className="filters-separados" onSubmit={buscar} role="search">
+        <div className="filters-header">
+          <h3>Buscar Contribuyente</h3>
+          <p className="hint">Ingresa uno o más criterios de búsqueda:</p>
+        </div>
+        <div className="filters-fields">
+          <div className="fld">
+            <label htmlFor="busq-codigo">Código</label>
+            <input
+              id="busq-codigo"
+              type="text"
+              value={filtros.codigo}
+              placeholder="ej. 021390"
+              onChange={(e) => setFiltros((prev) => ({ ...prev, codigo: e.target.value }))}
+            />
+          </div>
+          <div className="fld">
+            <label htmlFor="busq-doc">DNI / RUC</label>
+            <input
+              id="busq-doc"
+              type="text"
+              value={filtros.documento}
+              placeholder="ej. 41028765 o 20549812341"
+              onChange={(e) => setFiltros((prev) => ({ ...prev, documento: e.target.value }))}
+            />
+          </div>
+          <div className="fld">
+            <label htmlFor="busq-nombre">Nombre o Razón Social</label>
+            <input
+              id="busq-nombre"
+              type="text"
+              value={filtros.nombre}
+              placeholder="ej. García Torres o Inversiones S.A.C."
+              onChange={(e) => setFiltros((prev) => ({ ...prev, nombre: e.target.value }))}
+            />
+          </div>
+          <div className="filters-actions">
+            <button className="btn primary" type="submit" disabled={ocupado || !tieneCriterios}>
+              Buscar
+            </button>
+            <button className="btn" type="button" onClick={limpiar} disabled={ocupado}>
+              Limpiar
+            </button>
+          </div>
+        </div>
+      </form>
 
       <label className="demo-opcion">
         <input type="checkbox" checked={servicioCaido} onChange={(e) => setServicioCaido(e.target.checked)} />

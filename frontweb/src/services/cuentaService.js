@@ -8,11 +8,27 @@ const RETRASO_MS = 250
 const esperar = () => new Promise((r) => setTimeout(r, RETRASO_MS))
 
 // Busca contribuyentes por código, documento (DNI / RUC) o nombre.
-export async function buscarContribuyentes(consulta) {
+// Admite tanto búsqueda individualizada { codigo, documento, nombre } como búsqueda libre por texto.
+export async function buscarContribuyentes(criterios) {
   await esperar()
-  const texto = normalizar(consulta)
+  if (typeof criterios === 'object' && criterios !== null) {
+    const { codigo = '', documento = '', nombre = '' } = criterios
+    const cod = normalizar(codigo)
+    const nom = normalizar(nombre)
+    const docDigits = documento.replace(/\D/g, '')
+    if (!cod && !nom && !docDigits) return []
+
+    return CONTRIBUYENTES.filter((c) => {
+      if (cod && !c.codigo.toLowerCase().includes(cod.toLowerCase())) return false
+      if (nom && !normalizar(c.nombre).includes(nom)) return false
+      if (docDigits && !c.doc.includes(docDigits)) return false
+      return true
+    })
+  }
+
+  const texto = normalizar(criterios)
   if (!texto) return []
-  const digitos = consulta.replace(/\D/g, '')
+  const digitos = String(criterios).replace(/\D/g, '')
   return CONTRIBUYENTES.filter(
     (c) => c.codigo.includes(texto) || normalizar(c.nombre).includes(texto) || (digitos && c.doc.includes(digitos)),
   )
