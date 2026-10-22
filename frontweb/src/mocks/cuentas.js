@@ -32,7 +32,11 @@ const BASE = {
 }
 
 export function generarCuenta(codigo, fechaCorte) {
-  const { factor, impagos, atrasos } = PERFIL[codigo]
+  // La búsqueda usa el padrón real; si el contribuyente no tiene perfil ficticio
+  // preferimos no inventar movimientos y mostrar un estado vacío.
+  const perfil = PERFIL[codigo]
+  if (!perfil) return []
+  const { factor, impagos, atrasos } = perfil
   const filas = []
   TRIBUTOS.forEach((tributo, t) => {
     PERIODOS.forEach((periodo, i) => {

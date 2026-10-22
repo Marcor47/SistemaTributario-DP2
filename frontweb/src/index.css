@@ -217,12 +217,145 @@ body {
   min-width: 200px;
   flex: 1 1 200px;
 }
-.filters-actions {
+.filters-separados .filters-fields .fld-tipo-doc {
+  flex: 0 0 150px;
+  min-width: 0;
+}
+.filters-separados .filters-fields .fld-numero-doc {
+  flex: 1 1 280px;
+  min-width: 220px;
+}
+.filters-separados .fld-tipo-doc select {
+  width: 100%;
+}
+.filters-separados .filters-actions {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 0;
 }
+.documento-mensajes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+.documento-combobox {
+  position: relative;
+  width: 100%;
+}
+.documento-combobox input {
+  display: block;
+  width: 100%;
+}
+.documento-opciones {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(15, 42, 74, 0.16);
+}
+.documento-opciones li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.documento-opciones li:hover,
+.documento-opciones li.activa {
+  background: var(--azul-suave);
+}
+.documento-opciones strong {
+  font-size: 14px;
+}
+.documento-opciones .hint {
+  font-size: 12.5px;
+}
+.campo-error {
+  color: var(--critico);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.ficha-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ficha-cabecera h2 { margin: 0 0 4px; }
+.ficha-estado { margin: 12px 0 4px; }
+.btn-compacto {
+  padding: 5px 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.estado.neutro {
+  color: var(--texto-atenuado);
+  background: var(--fondo);
+}
+.linea-tiempo {
+  position: relative;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+.linea-tiempo::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--borde);
+}
+.linea-tiempo li {
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding-bottom: 20px;
+}
+.linea-tiempo li:last-child { padding-bottom: 0; }
+.linea-tiempo-marca {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 4px;
+  border: 2px solid var(--borde);
+  border-radius: 50%;
+  background: var(--superficie);
+}
+.linea-tiempo li.actual .linea-tiempo-marca {
+  border-color: var(--azul);
+  background: var(--azul);
+  box-shadow: 0 0 0 4px var(--azul-suave);
+}
+.linea-tiempo-contenido {
+  flex: 1;
+  min-width: 0;
+}
+.linea-tiempo-titulo {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.linea-tiempo-contenido p { margin: 4px 0; }
 input::placeholder {
   color: #8c939d;
   font-style: italic;
@@ -235,4 +368,9 @@ input::placeholder {
   .pmain { padding: 16px; }
   .filters .fld { min-width: 0; flex-basis: 100%; }
   .filters input { width: 100%; }
+  .filters-separados .filters-fields .fld-tipo-doc,
+  .filters-separados .filters-fields .fld-numero-doc {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
 }

@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import { Buffer } from 'node:buffer'
 import { readFile } from 'node:fs/promises'
 import test from 'node:test'
+import { generarCuenta } from '../src/mocks/cuentas.js'
 import { calcularRegularidad, generarRegularidad } from '../src/mocks/regularidad.js'
 import { FORMULARIOS } from '../src/mocks/formularios.js'
-import { obtenerRegularidad } from '../src/services/regularidadService.js'
+import { obtenerRegularidad, tieneDatosRegularidad } from '../src/services/regularidadService.js'
 import { descargarFormulario, obtenerFormularios } from '../src/services/formularioService.js'
 
 test('HU010: cuenta pagos anticipados y al vencimiento, y conserva cuotas futuras en el denominador', () => {
@@ -40,6 +41,12 @@ test('HU010: diferencia un año sin cuotas de una regularidad de cero', () => {
   assert.equal(generarRegularidad('021390', 2026).porcentaje, 0)
   assert.equal(generarRegularidad('033218', 2026).porcentaje, 50)
   assert.equal(generarRegularidad('014502', 2026).porcentaje, 100)
+})
+
+test('HU010: un contribuyente real sin datos ficticios no rompe la ficha', () => {
+  assert.equal(tieneDatosRegularidad('072405'), false)
+  assert.equal(tieneDatosRegularidad('072845'), true)
+  assert.deepEqual(generarCuenta('072405', '2026-10-19'), [])
 })
 
 test('HU010: el servicio devuelve la ficha correcta y valida contribuyente y año', async () => {

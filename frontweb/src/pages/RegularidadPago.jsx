@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { obtenerRegularidad } from '../services/regularidadService.js'
+import { obtenerRegularidad, tieneDatosRegularidad } from '../services/regularidadService.js'
 import { fecha, moneda } from '../utils/formato.js'
 
-function FichaRegularidad({ ficha, ocupado, onAnio, onVolver }) {
+function FichaRegularidad({ ficha, ocupado, onAnio }) {
   const { contribuyente, anio, porcentaje, cuotas } = ficha
   const valor = porcentaje === null ? 'Sin cuotas' : `${porcentaje.toLocaleString('es-PE', { maximumFractionDigits: 1 })} %`
   const nivel = porcentaje === null ? 'sin-datos' : porcentaje >= 80 ? 'alta' : porcentaje >= 50 ? 'media' : 'baja'
@@ -10,7 +10,6 @@ function FichaRegularidad({ ficha, ocupado, onAnio, onVolver }) {
 
   return (
     <>
-      {onVolver && <button className="btn volver" type="button" onClick={onVolver} disabled={ocupado}>← Volver a los resultados</button>}
       <section className="pcard" aria-label="Ficha del contribuyente">
         <h2>{contribuyente.nombre}</h2>
         <p className="hint">Código {contribuyente.codigo} · {contribuyente.tipoDoc} {contribuyente.doc}</p>
@@ -76,20 +75,22 @@ function FichaRegularidad({ ficha, ocupado, onAnio, onVolver }) {
   )
 }
 
-export default function RegularidadPago({ contribuyente, onVolver }) {
+export default function RegularidadPago({ contribuyente }) {
   const [ficha, setFicha] = useState(null)
   const [ocupado, setOcupado] = useState(true)
   const [error, setError] = useState('')
   const solicitud = useRef(0)
+  const disponible = tieneDatosRegularidad(contribuyente.codigo)
 
   useEffect(() => {
+    if (!disponible) return undefined
     let activo = true
     obtenerRegularidad(contribuyente.codigo)
       .then((resultado) => { if (activo) setFicha(resultado) })
       .catch(() => { if (activo) setError('No se pudo consultar la regularidad. Intenta nuevamente.') })
       .finally(() => { if (activo) setOcupado(false) })
     return () => { activo = false }
-  }, [contribuyente.codigo])
+  }, [contribuyente.codigo, disponible])
 
   async function cargarFicha(anio) {
     const actual = ++solicitud.current
@@ -105,6 +106,14 @@ export default function RegularidadPago({ contribuyente, onVolver }) {
     }
   }
 
+  if (!disponible) {
+    return (
+      <div className="info" role="status">
+        No hay información de regularidad de pago disponible para este contribuyente en la demostración.
+      </div>
+    )
+  }
+
   return (
     <div aria-busy={ocupado}>
       {ocupado && <p className="hint mensaje-carga" role="status">Consultando regularidad de pago…</p>}
@@ -116,7 +125,7 @@ export default function RegularidadPago({ contribuyente, onVolver }) {
           </button>
         </div>
       )}
-      {ficha && <FichaRegularidad ficha={ficha} ocupado={ocupado} onAnio={cargarFicha} onVolver={onVolver} />}
+      {ficha && <FichaRegularidad ficha={ficha} ocupado={ocupado} onAnio={cargarFicha} />}
     </div>
   )
 }
