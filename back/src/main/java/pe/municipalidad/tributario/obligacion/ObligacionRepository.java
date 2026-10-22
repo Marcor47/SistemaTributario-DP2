@@ -31,4 +31,13 @@ public interface ObligacionRepository extends JpaRepository<Obligacion, Long> {
             order by o.anio asc, o.numeroCuota asc, o.tributo asc
             """)
     List<Obligacion> findAllByContribuyenteCodigo(@Param("codigo") String codigo);
+
+    /* HU010: todas las obligaciones de un contribuyente en un anio dado para calcular su regularidad. */
+    @Query("""
+            select o from Obligacion o
+            where o.contribuyente.codigo = :codigo
+              and o.anio = :anio
+            order by o.numeroCuota asc, o.tributo asc
+            """)
+    List<Obligacion> findAllByContribuyenteCodigoAndAnio(@Param("codigo") String codigo, @Param("anio") int anio);
 }
