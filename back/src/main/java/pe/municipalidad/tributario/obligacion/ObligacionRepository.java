@@ -23,4 +23,12 @@ public interface ObligacionRepository extends JpaRepository<Obligacion, Long> {
             """)
     List<Obligacion> buscarVencidas(@Param("contribuyenteCodigo") String contribuyenteCodigo,
             @Param("fecha") LocalDate fecha);
+
+    /* HU004: todas las obligaciones de un contribuyente, ordenadas cronologicamente y por tributo. */
+    @Query("""
+            select o from Obligacion o
+            where o.contribuyente.codigo = :codigo
+            order by o.anio asc, o.numeroCuota asc, o.tributo asc
+            """)
+    List<Obligacion> findAllByContribuyenteCodigo(@Param("codigo") String codigo);
 }
