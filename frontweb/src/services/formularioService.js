@@ -49,8 +49,8 @@ async function obtenerDocumentos() {
   return [...documentos.values()]
 }
 
-async function validarArchivoWord(archivo) {
-  if (!archivo || !/\.docx$/i.test(archivo.name)) throw new Error('Selecciona un archivo de Word con extensión .docx.')
+async function validarArchivoWord(archivo, nombre = archivo?.name) {
+  if (!archivo || !/\.docx$/i.test(nombre)) throw new Error('Selecciona un archivo de Word con extensión .docx.')
   if (archivo.size > TAMANO_MAXIMO) throw new Error('El archivo debe pesar como máximo 10 MB.')
   const contenido = await archivo.arrayBuffer()
   const firma = new Uint8Array(contenido)
@@ -90,11 +90,13 @@ export async function descargarFormulario(codigo, version) {
   let archivo = documento.archivoLocal
   if (!archivo) {
     const respuesta = await fetch(`${import.meta.env.BASE_URL}formularios/${vigente.archivo}`)
-    if (!respuesta.ok || !respuesta.headers.get('content-type')?.includes(TIPO_WORD)) {
+    if (!respuesta.ok) {
       throw new Error('No se pudo descargar el documento Word. Intenta nuevamente.')
     }
     archivo = await respuesta.blob()
   }
+  // Algunos servidores no identifican el MIME de .docx; validamos el contenido.
+  await validarArchivoWord(archivo, vigente.archivo)
   return { archivo: archivo.slice(0, archivo.size, TIPO_WORD), nombre: vigente.archivo }
 }
 
