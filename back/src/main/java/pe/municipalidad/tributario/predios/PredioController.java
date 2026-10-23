@@ -14,7 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/predios")
-@Profile("demo")
+@Profile("local")
 public class PredioController {
     private final PredioGateway gateway;
     private final DemoInternalAccess access;

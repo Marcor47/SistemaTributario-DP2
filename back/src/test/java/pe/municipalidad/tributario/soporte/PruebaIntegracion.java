@@ -7,6 +7,7 @@ import java.lang.annotation.Target;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 
 /* Atajo para los tests de API: contexto completo, MockMvc y PostgreSQL embebido con fecha fija. */
 @Target(ElementType.TYPE)
@@ -14,5 +15,7 @@ import org.springframework.context.annotation.Import;
 @SpringBootTest
 @AutoConfigureMockMvc
 @Import(PostgresEmbebidoConfig.class)
+@TestPropertySource(properties = {
+        "spring.flyway.locations=classpath:db/migration,classpath:db/datos-prueba,classpath:db/local"})
 public @interface PruebaIntegracion {
 }

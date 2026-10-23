@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -194,7 +195,7 @@ class MetaIndicadorControllerTest {
     void actualizaValorYObservacionDeUnaMetaVigente() throws Exception {
         long id = idDeMetaRegistrada(cuerpoMeta("MONTO_RECAUDADO", 2026, 12, "1000000"));
 
-        mockMvc.perform(put(RUTA_METAS + "/" + id).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put(RUTA_METAS + "/" + id).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"valorMeta\": 1100000, \"observacion\": \"Ajuste por campaña\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valorMeta").value(1100000))
@@ -213,7 +214,7 @@ class MetaIndicadorControllerTest {
                 .andReturn().getResponse().getContentAsString();
         long idTrimestreConcluido = ((Number) JsonPath.read(metasDelAnio, "$[0].id")).longValue();
 
-        mockMvc.perform(put(RUTA_METAS + "/" + idTrimestreConcluido).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put(RUTA_METAS + "/" + idTrimestreConcluido).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"valorMeta\": 40}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("PERIODO_CERRADO"));
@@ -223,7 +224,7 @@ class MetaIndicadorControllerTest {
     void eliminaUnaMetaYDejaDeEstarDisponible() throws Exception {
         long id = idDeMetaRegistrada(cuerpoMeta("MONTO_RECAUDADO", 2027, 1, "1000000"));
 
-        mockMvc.perform(delete(RUTA_METAS + "/" + id))
+        mockMvc.perform(delete(RUTA_METAS + "/" + id).with(csrf()))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get(RUTA_METAS + "/" + id))
@@ -236,10 +237,10 @@ class MetaIndicadorControllerTest {
         mockMvc.perform(get(RUTA_METAS + "/999999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("META_NO_ENCONTRADA"));
-        mockMvc.perform(put(RUTA_METAS + "/999999").contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(put(RUTA_METAS + "/999999").with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"valorMeta\": 10}"))
                 .andExpect(status().isNotFound());
-        mockMvc.perform(delete(RUTA_METAS + "/999999"))
+        mockMvc.perform(delete(RUTA_METAS + "/999999").with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
@@ -251,7 +252,7 @@ class MetaIndicadorControllerTest {
     }
 
     private ResultActions registrar(String cuerpo) throws Exception {
-        return mockMvc.perform(post(RUTA_METAS).contentType(MediaType.APPLICATION_JSON).content(cuerpo));
+        return mockMvc.perform(post(RUTA_METAS).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(cuerpo));
     }
 
     private long idDeMetaRegistrada(String cuerpo) throws Exception {

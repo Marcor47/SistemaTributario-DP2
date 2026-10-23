@@ -4,14 +4,28 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/municipalidad}
     username: ${DB_USER:municipalidad}
-    password: ${DB_PASSWORD:municipalidad}
+    password: ${DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
   flyway:
-    # db/datos-prueba solo tiene datos ficticios para desarrollo; se quita al pasar a un entorno real
-    locations: classpath:db/migration,classpath:db/datos-prueba
+    locations: classpath:db/migration
+  session:
+    timeout: 15m
+    jdbc:
+      initialize-schema: never
+      table-name: seguridad.spring_session
 
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: strict
+        secure: ${SESSION_COOKIE_SECURE:true}
+
+tributario:
+  seguridad:
+    origenes-permitidos: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:8081}

@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("demo")
+@Profile("local")
 public class DemoPredioGateway implements PredioGateway {
     private static final List<Predio> PREDIOS = List.of(
             new Predio("DEM-001", "CAT-DEM-001", "Av. Ejemplo 100", "Activo", "Vivienda",

@@ -1,11 +1,12 @@
 import { useId, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { MotionConfig, motion } from 'framer-motion'
 import { CREDENCIALES_DEMO, MODO_DEMO, iniciarSesion } from '../services/authService.js'
 import './Login.css'
 
 export default function Login() {
   const navegar = useNavigate()
+  const ubicacion = useLocation()
   const idCodigo = useId()
   const idClave = useId()
   const idError = useId()
@@ -26,7 +27,7 @@ export default function Login() {
     setEnviando(true)
     try {
       await iniciarSesion(codigo.trim(), clave)
-      navegar('/predios', { replace: true })
+      navegar(ubicacion.state?.desde || '/predios', { replace: true })
     } catch (err) {
       setError(err.message)
       setClave('')
