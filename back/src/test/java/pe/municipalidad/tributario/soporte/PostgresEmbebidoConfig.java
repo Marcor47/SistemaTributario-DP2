@@ -14,7 +14,7 @@ import org.springframework.context.annotation.Primary;
 import pe.municipalidad.tributario.config.RelojConfig;
 
 /*
- * Los tests corren contra un PostgreSQL real embebido (no H2), para que las
+ * Los tests corren contra un PostgreSQL real embebido, para que las
  * migraciones de Flyway y la validación de Hibernate sean las mismas que en desarrollo.
  * Se levanta una sola instancia por ejecución y la comparten todos los contextos de Spring.
  */
