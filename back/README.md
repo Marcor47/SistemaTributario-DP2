@@ -2,13 +2,17 @@
 
 ## APIs de demostración
 
-Las rutas nuevas se activan **solo** con el perfil `demo`. Este perfil usa predios ficticios,
-autenticación simulada y una base H2 local para el catálogo de formularios. No consulta SAMNET.
+Las rutas nuevas se activan **solo** con el perfil `demo`. Este perfil usa predios ficticios y
+autenticación simulada. El catálogo de formularios utiliza PostgreSQL, igual que el resto del
+backend. No consulta SAMNET.
 El servidor de demostración escucha únicamente en `127.0.0.1`.
 
-En PowerShell, define valores de prueba propios y arranca el servidor:
+En PowerShell, configura la conexión PostgreSQL y valores de prueba propios antes de arrancar:
 
 ```powershell
+$env:DB_URL = 'jdbc:postgresql://localhost:5432/municipalidad'
+$env:DB_USER = 'municipalidad'
+$env:DB_PASSWORD = '<contraseña-local>'
 $env:DEMO_CITIZEN_CODE = 'USUARIO_DE_PRUEBA'
 $env:DEMO_CITIZEN_PASSWORD = '<clave-de-prueba>'
 $env:DEMO_INTERNAL_READ_KEY = '<clave-lectura-distinta>'
@@ -16,9 +20,9 @@ $env:DEMO_INTERNAL_ADMIN_KEY = '<clave-admin-distinta>'
 .\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=demo'
 ```
 
-El perfil `demo` guarda las versiones de formularios en `tributario-demo.mv.db`, que Git ignora.
-Las claves de prueba se configuran fuera del repositorio. Para el perfil normal, configura
-`DB_URL`, `DB_USER` y `DB_PASSWORD` para PostgreSQL.
+Las versiones de formularios se guardan en la base indicada por `DB_URL`. No se crea una base
+local de demostración. Sin PostgreSQL disponible, el backend no inicia. Las claves de prueba se
+configuran fuera del repositorio. El perfil normal usa las mismas variables de conexión.
 
 | Ruta | Acción | Acceso demo |
 | --- | --- | --- |
@@ -42,7 +46,7 @@ dejan de aparecer en las consultas vigentes.
 - Integrar el acceso de los usuarios internos por rol. Las claves de `demo` no son el esquema
   de autenticación definitivo.
 - Acordar el almacenamiento definitivo de plantillas en el lakehouse y cargar los archivos
-  oficiales. La base H2 de demostración no representa ese almacenamiento.
+  oficiales. PostgreSQL conserva el catálogo actual mientras se define ese almacenamiento.
 
 Ejecuta `mvnw.cmd test` para verificar consultas, sesión, control de acceso de demostración y
-versionado de formularios sin necesitar PostgreSQL.
+versionado de formularios. Las pruebas levantan un PostgreSQL temporal; no requieren uno instalado.

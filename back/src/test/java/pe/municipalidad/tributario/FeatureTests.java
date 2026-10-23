@@ -18,6 +18,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.context.annotation.Import;
+import pe.municipalidad.tributario.soporte.PostgresEmbebidoConfig;
 import org.springframework.web.server.ResponseStatusException;
 import pe.municipalidad.tributario.auth.AuthController;
 import pe.municipalidad.tributario.auth.DemoMunicipalAuthClient;
@@ -32,9 +34,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @ActiveProfiles("demo")
 @AutoConfigureMockMvc
+@Import(PostgresEmbebidoConfig.class)
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:featuretests;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-        "spring.flyway.locations=classpath:db/migration",
         "tributario.demo.internal-read-key=lectura-test",
         "tributario.demo.internal-admin-key=admin-test",
         "tributario.demo.citizen-code=CIUDADANO",
