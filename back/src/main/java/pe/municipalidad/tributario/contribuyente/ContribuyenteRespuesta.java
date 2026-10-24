@@ -11,12 +11,12 @@ public record ContribuyenteRespuesta(
 
     public static ContribuyenteRespuesta desde(Contribuyente contribuyente) {
         return new ContribuyenteRespuesta(
-                contribuyente.getCodigo(),
-                contribuyente.getNombre(),
+                contribuyente.getCodigoContribuyente(),
+                contribuyente.getNombreRazonSocial(),
                 contribuyente.getTipoPersona(),
                 contribuyente.getTipoDocumento(),
                 contribuyente.getNumeroDocumento(),
-                contribuyente.getDomicilioFiscal(),
+                contribuyente.getDomicilioFiscal().direccion(),
                 contribuyente.getEstado());
     }
 }

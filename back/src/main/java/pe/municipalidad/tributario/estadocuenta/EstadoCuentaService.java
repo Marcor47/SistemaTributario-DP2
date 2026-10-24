@@ -1,47 +1,50 @@
 package pe.municipalidad.tributario.estadocuenta;
 
 import java.time.Clock;
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
-import pe.municipalidad.tributario.contribuyente.ContribuyenteRepository;
-import pe.municipalidad.tributario.obligacion.ObligacionRepository;
+import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
+import pe.municipalidad.tributario.gestiontributaria.EstadoCuentaCopia;
+import pe.municipalidad.tributario.gestiontributaria.EstadoCuentaCopiaRepository;
+import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
+import pe.municipalidad.tributario.integracion.samnet.SamnetNoDisponibleException;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
- * HU004 - logica de negocio para el estado de cuenta de un contribuyente.
+ * HU004 - estado de cuenta de un contribuyente, obtenido de SAMNET con SamnetGateway (ps_ctacte).
  *
- * <p>Hoy sirve los datos de la tabla tributario.obligacion (llenada con datos ficticios de
- * prueba). Cuando el ETL este disponible, el esquema ya estara en produccion y estos endpoints
- * funcionaran sin cambios: solo habra que reemplazar los datos de prueba por los reales.</p>
- *
- * <p>desactualizado siempre es false aqui porque la fuente es la propia BD; el flag existe
- * para cuando se agregue un servicio externo (SAMNET) que pueda estar caido, reproduciendo
- * el flujo alterno que ya tiene el front.</p>
+ * <p>Cada consulta exitosa guarda la última copia. Si SAMNET no responde, se devuelve esa copia con su
+ * fecha de corte y desactualizado = true (RNF-002); si no hay copia, se informa que SAMNET no está
+ * disponible.</p>
  */
 @Service
-@Transactional(readOnly = true)
 public class EstadoCuentaService {
 
-    private final ContribuyenteRepository contribuyenteRepository;
-    private final ObligacionRepository obligacionRepository;
+    private final SamnetGateway samnet;
+    private final ContribuyenteService contribuyenteService;
+    private final EstadoCuentaCopiaRepository copiaRepository;
+    private final JsonMapper json;
     private final Clock reloj;
 
-    public EstadoCuentaService(ContribuyenteRepository contribuyenteRepository,
-            ObligacionRepository obligacionRepository, Clock reloj) {
-        this.contribuyenteRepository = contribuyenteRepository;
-        this.obligacionRepository = obligacionRepository;
+    public EstadoCuentaService(SamnetGateway samnet, ContribuyenteService contribuyenteService,
+            EstadoCuentaCopiaRepository copiaRepository, JsonMapper json, Clock reloj) {
+        this.samnet = samnet;
+        this.contribuyenteService = contribuyenteService;
+        this.copiaRepository = copiaRepository;
+        this.json = json;
         this.reloj = reloj;
     }
 
-    /** Busca contribuyentes por codigo, nombre o numero de documento (coincidencia parcial). */
+    /** Busca contribuyentes cuyo codigo, nombre o numero de documento contengan el texto (coincidencia parcial). */
     public List<ContribuyenteCuentaRespuesta> buscarContribuyentes(String q) {
         if (q == null || q.isBlank()) {
             return List.of();
         }
-        return contribuyenteRepository.buscarPorTexto(q.trim())
+        return samnet.buscarContribuyentes(q.trim())
                 .stream()
                 .map(ContribuyenteCuentaRespuesta::desde)
                 .toList();
@@ -51,25 +54,41 @@ public class EstadoCuentaService {
      * Devuelve el estado de cuenta completo, desglosado por tributo y periodo.
      *
      * @param codigo codigo del contribuyente (ej. "021390")
-     * @throws RecursoNoEncontradoException si no existe el contribuyente
      */
+    @Transactional
     public EstadoCuentaRespuesta obtenerEstadoCuenta(String codigo) {
-        Contribuyente contribuyente = contribuyenteRepository.findById(codigo)
-                .orElseThrow(() -> new RecursoNoEncontradoException("CONTRIBUYENTE_NO_ENCONTRADO",
-                        "No existe un contribuyente con codigo " + codigo + "."));
+        try {
+            Contribuyente contribuyente = contribuyenteService.obtenerPorCodigo(codigo);
+            EstadoCuenta estadoCuenta = samnet.obtenerEstadoCuenta(codigo);
 
-        LocalDate fechaCorte = LocalDate.now(reloj);
+            List<EstadoCuentaFilaRespuesta> filas = estadoCuenta.getObligaciones()
+                    .stream()
+                    .map(o -> EstadoCuentaFilaRespuesta.desde(o, estadoCuenta.obtenerFechaCorte()))
+                    .toList();
+            EstadoCuentaRespuesta respuesta = new EstadoCuentaRespuesta(
+                    ContribuyenteCuentaRespuesta.desde(contribuyente),
+                    estadoCuenta.obtenerFechaCorte(),
+                    false,
+                    filas);
+            guardarCopia(estadoCuenta, respuesta);
+            return respuesta;
+        } catch (SamnetNoDisponibleException ex) {
+            return copiaRepository.findById(codigo)
+                    .map(this::desdeCopia)
+                    .orElseThrow(() -> ex);
+        }
+    }
 
-        List<EstadoCuentaFilaRespuesta> filas = obligacionRepository
-                .findAllByContribuyenteCodigo(codigo)
-                .stream()
-                .map(o -> EstadoCuentaFilaRespuesta.desde(o, fechaCorte))
-                .toList();
+    private void guardarCopia(EstadoCuenta estadoCuenta, EstadoCuentaRespuesta respuesta) {
+        EstadoCuentaCopia copia = copiaRepository.findById(estadoCuenta.getCodigoContribuyente())
+                .orElseGet(() -> new EstadoCuentaCopia(estadoCuenta.getCodigoContribuyente()));
+        copia.actualizar(estadoCuenta.obtenerFechaCorte(), estadoCuenta.getTotalDeuda(),
+                estadoCuenta.getTotalPagado(), json.writeValueAsString(respuesta), LocalDateTime.now(reloj));
+        copiaRepository.save(copia);
+    }
 
-        return new EstadoCuentaRespuesta(
-                ContribuyenteCuentaRespuesta.desde(contribuyente),
-                fechaCorte,
-                false,
-                filas);
+    private EstadoCuentaRespuesta desdeCopia(EstadoCuentaCopia copia) {
+        EstadoCuentaRespuesta guardada = json.readValue(copia.getDetalle(), EstadoCuentaRespuesta.class);
+        return new EstadoCuentaRespuesta(guardada.contribuyente(), copia.getFechaCorte(), true, guardada.filas());
     }
 }

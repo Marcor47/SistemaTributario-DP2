@@ -104,7 +104,7 @@ class CobranzaControllerTest {
 
     @Test
     @Sql(statements = """
-            INSERT INTO tributario.obligacion
+            INSERT INTO samnet.obligacion
                 (contribuyente_codigo, tributo, anio, numero_cuota, fecha_vencimiento, monto_emitido, monto_pagado)
             VALUES ('014502', 'IMPUESTO_PREDIAL', 2026, 4, DATE '2026-12-31', 205.20, 0);
             """)
@@ -167,7 +167,7 @@ class CobranzaControllerTest {
     /* Para obligaciones que no aparecen en el listado de vencidas (pagadas o pendientes). */
     private long idDeObligacion(String contribuyenteCodigo, String tributo, int anio, int numeroCuota) {
         return jdbcTemplate.queryForObject("""
-                SELECT id FROM tributario.obligacion
+                SELECT id FROM samnet.obligacion
                 WHERE contribuyente_codigo = ? AND tributo = ? AND anio = ? AND numero_cuota = ?
                 """, Long.class, contribuyenteCodigo, tributo, anio, numeroCuota);
     }

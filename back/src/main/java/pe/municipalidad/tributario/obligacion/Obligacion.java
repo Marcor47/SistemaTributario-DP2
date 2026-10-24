@@ -1,62 +1,49 @@
 package pe.municipalidad.tributario.obligacion;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import pe.municipalidad.tributario.contribuyente.Contribuyente;
+import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 
 /*
- * Cuota emitida de un tributo para un periodo. El Impuesto Predial se emite al
- * contribuyente; los arbitrios se emiten por predio, por eso codigoPredio es opcional.
+ * Cuota de un tributo para un periodo (RF-004, RF-007, RF-014). Se obtiene de SAMNET con SamnetGateway.
+ * El Impuesto Predial se emite al contribuyente; los arbitrios por predio, por eso codigoPredio es opcional.
+ * El estado de pago no se guarda: depende de la fecha de corte (estadoAl).
  */
-@Entity
-@Table(name = "obligacion", schema = "tributario")
 public class Obligacion {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private final Long idObligacion;
+    private final String codigoContribuyente;
+    private final String codigoPredio;
+    private final Tributo tributo;
+    private final int anio;
+    private final int cuota;
+    private final LocalDate fechaVencimiento;
+    private final BigDecimal montoEmitido;
+    private final BigDecimal montoPagado;
+    private final BigDecimal porcentajeDescuento;
+    private final EtapaCobranza etapaCobranza;
+    private final LocalDate fechaEtapa;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "contribuyente_codigo", nullable = false)
-    private Contribuyente contribuyente;
-
-    @Column(name = "codigo_predio", length = 12)
-    private String codigoPredio;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tributo", nullable = false, length = 25)
-    private Tributo tributo;
-
-    @Column(name = "anio", nullable = false)
-    private int anio;
-
-    @Column(name = "numero_cuota", nullable = false)
-    private int numeroCuota;
-
-    @Column(name = "fecha_vencimiento", nullable = false)
-    private LocalDate fechaVencimiento;
-
-    @Column(name = "monto_emitido", nullable = false, precision = 14, scale = 2)
-    private BigDecimal montoEmitido;
-
-    @Column(name = "monto_pagado", nullable = false, precision = 14, scale = 2)
-    private BigDecimal montoPagado;
-
-    protected Obligacion() {
+    public Obligacion(Long idObligacion, String codigoContribuyente, String codigoPredio, Tributo tributo, int anio,
+            int cuota, LocalDate fechaVencimiento, BigDecimal montoEmitido, BigDecimal montoPagado,
+            BigDecimal porcentajeDescuento, EtapaCobranza etapaCobranza, LocalDate fechaEtapa) {
+        this.idObligacion = idObligacion;
+        this.codigoContribuyente = codigoContribuyente;
+        this.codigoPredio = codigoPredio;
+        this.tributo = tributo;
+        this.anio = anio;
+        this.cuota = cuota;
+        this.fechaVencimiento = fechaVencimiento;
+        this.montoEmitido = montoEmitido;
+        this.montoPagado = montoPagado;
+        this.porcentajeDescuento = porcentajeDescuento;
+        this.etapaCobranza = etapaCobranza;
+        this.fechaEtapa = fechaEtapa;
     }
 
+    /* Insoluto pendiente: monto emitido menos lo pagado. */
     public BigDecimal saldo() {
         return montoEmitido.subtract(montoPagado);
     }
@@ -68,6 +55,17 @@ public class Obligacion {
         return fechaVencimiento.isBefore(fecha) ? EstadoObligacion.VENCIDA : EstadoObligacion.PENDIENTE;
     }
 
+    public boolean estaVencida(LocalDate fecha) {
+        return estadoAl(fecha) == EstadoObligacion.VENCIDA;
+    }
+
+    /* Saldo con el descuento del beneficio aplicable; el porcentaje lo calcula SAMNET (RNF-004). */
+    public BigDecimal montoConBeneficio() {
+        BigDecimal descuento = saldo().multiply(porcentajeDescuento).divide(BigDecimal.valueOf(100), 2,
+                RoundingMode.HALF_UP);
+        return saldo().subtract(descuento);
+    }
+
     /* Días transcurridos desde el vencimiento; 0 si aún no vence. */
     public long diasVencidaAl(LocalDate fecha) {
         return Math.max(0, ChronoUnit.DAYS.between(fechaVencimiento, fecha));
@@ -75,15 +73,15 @@ public class Obligacion {
 
     /* Mismo formato de periodo que usa el front: 2025-T3. */
     public String etiquetaPeriodo() {
-        return anio + "-T" + numeroCuota;
+        return anio + "-T" + cuota;
     }
 
-    public Long getId() {
-        return id;
+    public Long getIdObligacion() {
+        return idObligacion;
     }
 
-    public Contribuyente getContribuyente() {
-        return contribuyente;
+    public String getCodigoContribuyente() {
+        return codigoContribuyente;
     }
 
     public String getCodigoPredio() {
@@ -98,8 +96,8 @@ public class Obligacion {
         return anio;
     }
 
-    public int getNumeroCuota() {
-        return numeroCuota;
+    public int getCuota() {
+        return cuota;
     }
 
     public LocalDate getFechaVencimiento() {
@@ -112,5 +110,17 @@ public class Obligacion {
 
     public BigDecimal getMontoPagado() {
         return montoPagado;
+    }
+
+    public BigDecimal getPorcentajeDescuento() {
+        return porcentajeDescuento;
+    }
+
+    public EtapaCobranza getEtapaCobranza() {
+        return etapaCobranza;
+    }
+
+    public LocalDate getFechaEtapa() {
+        return fechaEtapa;
     }
 }
