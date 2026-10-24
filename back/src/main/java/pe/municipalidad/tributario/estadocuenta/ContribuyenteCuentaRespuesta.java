@@ -15,8 +15,8 @@ public record ContribuyenteCuentaRespuesta(
 
     public static ContribuyenteCuentaRespuesta desde(Contribuyente c) {
         return new ContribuyenteCuentaRespuesta(
-                c.getCodigo(),
-                c.getNombre(),
+                c.getCodigoContribuyente(),
+                c.getNombreRazonSocial(),
                 c.getTipoDocumento().name(),
                 c.getNumeroDocumento());
     }

@@ -2,6 +2,7 @@ package pe.municipalidad.tributario.formularios;
 
 import java.util.List;
 import pe.municipalidad.tributario.common.DemoInternalAccess;
+import pe.municipalidad.tributario.documentos.VersionPlantilla;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -41,12 +42,12 @@ public class FormularioController {
     public ResponseEntity<byte[]> descargar(@PathVariable String codigo,
             @RequestHeader(value = "X-Demo-Internal-Key", required = false) String key) {
         access.requireRead(key);
-        FormularioVersion f = service.vigente(codigo);
+        VersionPlantilla f = service.vigente(codigo);
         return ResponseEntity.ok().contentType(MediaType.parseMediaType(f.getTipoContenido()))
                 .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename(f.getNombreArchivo()).build().toString())
+                        ContentDisposition.attachment().filename(f.getArchivo()).build().toString())
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")
-                .body(f.getContenido());
+                .body(f.descargar());
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

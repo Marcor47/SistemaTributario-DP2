@@ -1,6 +1,6 @@
 -- Datos ficticios de demostración: las mismas cuotas que genera frontweb/src/mocks/cuentas.js
 -- (4 tributos x 6 trimestres por contribuyente). El Impuesto Predial no tiene predio; los arbitrios sí.
-INSERT INTO tributario.obligacion
+INSERT INTO samnet.obligacion
     (contribuyente_codigo, codigo_predio, tributo, anio, numero_cuota, fecha_vencimiento, monto_emitido, monto_pagado)
 SELECT d.contribuyente_codigo, d.codigo_predio, d.tributo, d.anio, d.numero_cuota, d.fecha_vencimiento,
        d.monto_emitido, d.monto_pagado
@@ -151,7 +151,7 @@ FROM (VALUES
     ('061177', '058934-01', 'SEGURIDAD_CIUDADANA', 2026, 2, DATE '2026-06-30', 66.00, 0.00)
 ) AS d (contribuyente_codigo, codigo_predio, tributo, anio, numero_cuota, fecha_vencimiento, monto_emitido, monto_pagado)
 WHERE NOT EXISTS (
-    SELECT 1 FROM tributario.obligacion o
+    SELECT 1 FROM samnet.obligacion o
     WHERE o.contribuyente_codigo = d.contribuyente_codigo
       AND o.tributo = d.tributo
       AND o.anio = d.anio
@@ -160,7 +160,7 @@ WHERE NOT EXISTS (
 ORDER BY d.contribuyente_codigo, d.anio, d.numero_cuota, d.tributo;
 
 -- Etapas registradas para algunas deudas vencidas; las demás quedan en cobranza ordinaria implícita.
-INSERT INTO tributario.seguimiento_cobranza
+INSERT INTO samnet.seguimiento_cobranza
     (obligacion_id, etapa, fecha_inicio, documento_referencia, observacion, fecha_registro)
 SELECT o.id, s.etapa, s.fecha_inicio, s.documento_referencia, s.observacion, s.fecha_registro
 FROM (VALUES
@@ -173,7 +173,7 @@ FROM (VALUES
     ('058934', 'IMPUESTO_PREDIAL', 2026, 1, 'ORDINARIA', DATE '2026-04-10', NULL, 'Aviso de cobranza enviado por correo', TIMESTAMP '2026-04-10 12:00'),
     ('058934', 'IMPUESTO_PREDIAL', 2026, 1, 'VALOR_EMITIDO', DATE '2026-06-01', 'OP-2026-000502', NULL, TIMESTAMP '2026-06-01 09:30')
 ) AS s (contribuyente_codigo, tributo, anio, numero_cuota, etapa, fecha_inicio, documento_referencia, observacion, fecha_registro)
-JOIN tributario.obligacion o
+JOIN samnet.obligacion o
   ON o.contribuyente_codigo = s.contribuyente_codigo
  AND o.tributo = s.tributo
  AND o.anio = s.anio

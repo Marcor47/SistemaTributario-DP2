@@ -6,33 +6,28 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
-import pe.municipalidad.tributario.contribuyente.ContribuyenteRepository;
+import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.obligacion.Obligacion;
-import pe.municipalidad.tributario.obligacion.ObligacionRepository;
 
 /**
  * HU010 - Logica de negocio para calcular la regularidad de pago del contribuyente.
  *
- * <p>Hoy calcula la metrica directamente a partir de las obligaciones registradas
- * en la tabla tributario.obligacion. Cuando el equipo de BD entregue el Stored Procedure
- * correspondiente (ej. sp_calcular_regularidad_contribuyente), se invocara aqui
- * directamente sin alterar el contrato del controlador ni la integracion con el frontend.</p>
+ * <p>Calcula la metrica a partir de las obligaciones del estado de cuenta que devuelve SAMNET
+ * (SamnetGateway, ps_ctacte). Cuando el ETL cargue el modelo estrella, el valor tambien queda en
+ * analitica.dim_contribuyente.porcentaje_pago_a_tiempo como insumo de la segmentacion.</p>
  */
 @Service
-@Transactional(readOnly = true)
 public class RegularidadPagoService {
 
-    private final ContribuyenteRepository contribuyenteRepository;
-    private final ObligacionRepository obligacionRepository;
+    private final SamnetGateway samnet;
+    private final ContribuyenteService contribuyenteService;
     private final Clock reloj;
 
-    public RegularidadPagoService(ContribuyenteRepository contribuyenteRepository,
-            ObligacionRepository obligacionRepository, Clock reloj) {
-        this.contribuyenteRepository = contribuyenteRepository;
-        this.obligacionRepository = obligacionRepository;
+    public RegularidadPagoService(SamnetGateway samnet, ContribuyenteService contribuyenteService, Clock reloj) {
+        this.samnet = samnet;
+        this.contribuyenteService = contribuyenteService;
         this.reloj = reloj;
     }
 
@@ -43,22 +38,19 @@ public class RegularidadPagoService {
      * @param codigo codigo unico del contribuyente (ej. "014502")
      * @param anio anio fiscal a evaluar (opcional)
      * @return regularidad calculada con porcentaje y clasificacion para segmentacion
-     * @throws RecursoNoEncontradoException si el contribuyente no existe
      */
     public RegularidadPagoRespuesta calcularRegularidad(String codigo, Integer anio) {
-        Contribuyente contribuyente = contribuyenteRepository.findById(codigo)
-                .orElseThrow(() -> new RecursoNoEncontradoException("CONTRIBUYENTE_NO_ENCONTRADO",
-                        "No existe un contribuyente con codigo " + codigo + "."));
+        Contribuyente contribuyente = contribuyenteService.obtenerPorCodigo(codigo);
 
         int anioEvaluado = (anio != null) ? anio : LocalDate.now(reloj).getYear();
 
-        List<Obligacion> cuotas = obligacionRepository.findAllByContribuyenteCodigoAndAnio(codigo, anioEvaluado);
+        List<Obligacion> cuotas = samnet.obtenerEstadoCuenta(codigo).desglosar(null, anioEvaluado);
         int totalCuotas = cuotas.size();
 
         if (totalCuotas == 0) {
             return new RegularidadPagoRespuesta(
-                    contribuyente.getCodigo(),
-                    contribuyente.getNombre(),
+                    contribuyente.getCodigoContribuyente(),
+                    contribuyente.getNombreRazonSocial(),
                     anioEvaluado,
                     0,
                     0,
@@ -94,8 +86,8 @@ public class RegularidadPagoService {
                 cuotasPagadas, totalCuotas, porcentaje);
 
         return new RegularidadPagoRespuesta(
-                contribuyente.getCodigo(),
-                contribuyente.getNombre(),
+                contribuyente.getCodigoContribuyente(),
+                contribuyente.getNombreRazonSocial(),
                 anioEvaluado,
                 totalCuotas,
                 cuotasPagadas,

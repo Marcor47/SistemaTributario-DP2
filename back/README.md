@@ -39,10 +39,41 @@ cinco fallos en quince minutos por usuario o IP. El backend no devuelve la contr
 token municipal. Las versiones anteriores de un formulario permanecen registradas, pero
 dejan de aparecer en las consultas vigentes.
 
+## Base de datos y SAMNET sintético
+
+Hay **una sola base** (`municipalidad`). Flyway la organiza en esquemas, según el Modelo de Análisis
+y Diseño:
+
+| Esquema | Contenido |
+| --- | --- |
+| `samnet` | BD sintética que emula SAMNET (contribuyentes, predios, DJ, obligaciones, pagos, beneficios) y sus SP `ps_*`. |
+| `seguridad` | Usuarios internos, roles, sesiones, auditoría, eventos de seguridad y parámetros. |
+| `operativo` | Constancia y pago en línea, solicitudes de predio, plantillas, buzón, avisos, copia del estado de cuenta y reportes. |
+| `maestros` | Entidades maestras y correspondencia con el origen (datos reidentificables, acceso restringido). |
+| `analitica` | Lotes del ETL, homologación, modelo estrella, indicadores, metas, alertas e IA. |
+
+No hay acceso a los SP reales de la Municipalidad. Por eso los datos de Rentas salen de funciones
+propias con el nombre y el propósito de los SP reales (`samnet.ps_ctacte`, `ps_resumenpagos`,
+`ps_verificarbeneficio`, `ps_login`, etc., en `db/migration/R__samnet_procedimientos.sql`). El código
+**nunca** lee las tablas de `samnet` directamente: usa `SamnetGateway`. Si algún día hay acceso a
+SAMNET, solo cambia `SamnetApiGateway`.
+
+Los demás servicios externos tienen implementación simulada con el mismo contrato (`NiubizSimuladoGateway`,
+`FirmadorSimuladoGateway`, `CorreoSimuladoGateway`). La autenticación del contribuyente usa
+`samnet.ps_login`. Para probarla en local, crea una credencial (solo se guarda el hash bcrypt):
+
+```sql
+INSERT INTO samnet.credencial_web (contribuyente_codigo, clave_hash)
+VALUES ('014502', public.crypt('<clave-local>', public.gen_salt('bf', 12)));
+```
+
+Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
+`tributario.integracion.autenticacion-simulada.documento` y `.clave`.
+
 ## Integraciones pendientes
 
-- Sustituir `DemoPredioGateway` por un cliente de la API municipal que consulta SAMNET.
-- Sustituir `DemoMunicipalAuthClient` por `/api/Autenticacion/ps_login` y validar su contrato real.
+- Sustituir `DemoPredioGateway` por `SamnetGateway.buscarPredio` (SP `ps_predio`).
+- Sustituir `DemoMunicipalAuthClient` por `AutenticacionMunicipalGateway` (SP `ps_login`).
 - Integrar el acceso de los usuarios internos por rol. Las claves de `demo` no son el esquema
   de autenticación definitivo.
 - Acordar el almacenamiento definitivo de plantillas en el lakehouse y cargar los archivos

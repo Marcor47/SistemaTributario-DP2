@@ -5,35 +5,45 @@ import java.util.List;
 import java.util.zip.ZipInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.time.Instant;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import pe.municipalidad.tributario.documentos.PlantillaDocumento;
+import pe.municipalidad.tributario.documentos.PlantillaDocumentoRepository;
+import pe.municipalidad.tributario.documentos.TipoPlantilla;
+import pe.municipalidad.tributario.documentos.VersionPlantilla;
+import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 
+/* HU049: los formularios son plantillas del maestro (operativo.plantilla_documento y version_plantilla). */
 @Service
 @Profile("demo")
 public class FormularioService {
     public record Resumen(String codigo, String nombre, int version, java.time.Instant fechaPublicacion) {
-        static Resumen from(FormularioVersion f) {
-            return new Resumen(f.getCodigo(), f.getNombre(), f.getVersionNumero(), f.getFechaPublicacion());
+        static Resumen from(VersionPlantilla v) {
+            return new Resumen(v.getPlantilla().getCodigo(), v.getPlantilla().getNombre(), v.getNumeroVersion(),
+                    v.getFechaPublicacion());
         }
     }
 
-    private final FormularioRepository repository;
+    private final PlantillaDocumentoRepository plantillas;
+    private final VersionPlantillaRepository versiones;
 
-    public FormularioService(FormularioRepository repository) {
-        this.repository = repository;
+    public FormularioService(PlantillaDocumentoRepository plantillas, VersionPlantillaRepository versiones) {
+        this.plantillas = plantillas;
+        this.versiones = versiones;
     }
 
     @Transactional(readOnly = true)
     public List<Resumen> vigentes() {
-        return repository.findByVigenteTrueOrderByCodigoAsc().stream().map(Resumen::from).toList();
+        return versiones.findByVigenteTrueOrderByPlantillaCodigoAsc().stream().map(Resumen::from).toList();
     }
 
     @Transactional(readOnly = true)
-    public FormularioVersion vigente(String codigo) {
-        return repository.findByCodigoAndVigenteTrue(codigo).orElseThrow(
+    public VersionPlantilla vigente(String codigo) {
+        return versiones.findByPlantillaCodigoAndVigenteTrue(codigo).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Formulario no encontrado"));
     }
 
@@ -55,16 +65,19 @@ public class FormularioService {
         } else {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Solo se aceptan PDF o DOCX válidos");
         }
-        FormularioVersion anterior = repository.findByCodigoAndVigenteTrue(codigo).orElse(null);
-        int nuevaVersion = repository.findTopByCodigoOrderByVersionNumeroDesc(codigo)
-                .map(f -> f.getVersionNumero() + 1).orElse(1);
-        if (anterior != null) {
-            anterior.setVigente(false);
-            repository.save(anterior);
-        }
-        FormularioVersion nuevo = new FormularioVersion(codigo, nombre.trim(), nuevaVersion,
-                codigo + "-v" + nuevaVersion + extension, contentType, contenido);
-        return Resumen.from(repository.save(nuevo));
+        PlantillaDocumento plantilla = plantillas.findByCodigo(codigo).orElseGet(() -> plantillas.save(
+                new PlantillaDocumento(codigo, nombre.trim(), TipoPlantilla.FORMULARIO_MANUAL, null)));
+        plantilla.renombrar(nombre.trim());
+        versiones.findByPlantillaCodigoAndVigenteTrue(codigo).ifPresent(anterior -> {
+            anterior.retirar();
+            /* Se escribe antes de insertar la nueva: solo puede haber una versión vigente por plantilla. */
+            versiones.saveAndFlush(anterior);
+        });
+        int nuevaVersion = versiones.findTopByPlantillaCodigoOrderByNumeroVersionDesc(codigo)
+                .map(v -> v.getNumeroVersion() + 1).orElse(1);
+        VersionPlantilla nueva = new VersionPlantilla(plantilla, nuevaVersion, codigo + "-v" + nuevaVersion + extension,
+                contentType, contenido, null, Instant.now());
+        return Resumen.from(versiones.save(nueva));
     }
 
     private boolean startsWith(byte[] bytes, byte[] prefix) {

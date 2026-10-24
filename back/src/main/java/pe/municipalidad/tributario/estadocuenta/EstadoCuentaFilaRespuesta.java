@@ -27,7 +27,7 @@ public record EstadoCuentaFilaRespuesta(
             case PENDIENTE -> "Pendiente";
         };
         return new EstadoCuentaFilaRespuesta(
-                String.valueOf(o.getId()),
+                String.valueOf(o.getIdObligacion()),
                 o.getTributo().getDescripcion(),
                 o.etiquetaPeriodo(),
                 o.getMontoEmitido(),

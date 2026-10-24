@@ -25,7 +25,7 @@ import pe.municipalidad.tributario.auth.AuthController;
 import pe.municipalidad.tributario.auth.DemoMunicipalAuthClient;
 import pe.municipalidad.tributario.auth.LoginLimiter;
 import pe.municipalidad.tributario.common.DemoInternalAccess;
-import pe.municipalidad.tributario.formularios.FormularioRepository;
+import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 import pe.municipalidad.tributario.formularios.FormularioService;
 import pe.municipalidad.tributario.predios.PredioGateway;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -44,7 +44,7 @@ class FeatureTests {
     @Autowired MockMvc mvc;
     @Autowired PredioGateway predios;
     @Autowired FormularioService formularios;
-    @Autowired FormularioRepository repository;
+    @Autowired VersionPlantillaRepository repository;
 
     @Test
     void buscaPredioPorCodigoOTitularYDevuelveListaVaciaSiNoExiste() {
@@ -84,10 +84,10 @@ class FeatureTests {
         byte[] segunda = "%PDF-1.4\nsegunda".getBytes(StandardCharsets.US_ASCII);
         assertEquals(1, formularios.publicar("FORM_TEST", "Formulario de prueba", "original.pdf", primera).version());
         assertEquals(2, formularios.publicar("FORM_TEST", "Formulario de prueba", "original.pdf", segunda).version());
-        assertEquals(2, formularios.vigente("FORM_TEST").getVersionNumero());
-        assertArrayEquals(segunda, formularios.vigente("FORM_TEST").getContenido());
-        assertEquals(2, repository.findAll().stream().filter(f -> f.getCodigo().equals("FORM_TEST")).count());
-        assertEquals(1, repository.findAll().stream().filter(f -> f.getCodigo().equals("FORM_TEST") && f.isVigente()).count());
+        assertEquals(2, formularios.vigente("FORM_TEST").getNumeroVersion());
+        assertArrayEquals(segunda, formularios.vigente("FORM_TEST").descargar());
+        assertEquals(2, repository.findByPlantillaCodigo("FORM_TEST").size());
+        assertEquals(1, repository.findByPlantillaCodigo("FORM_TEST").stream().filter(f -> f.isVigente()).count());
         assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ResponseStatusException.class,
                 () -> formularios.publicar("FORM_TEST", "Formulario", "malo.pdf", new byte[] {1, 2, 3}))
                 .getStatusCode());
