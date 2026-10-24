@@ -31,7 +31,7 @@ class CobranzaControllerTest {
     private JdbcTemplate jdbcTemplate;
 
     @Test
-    void obligacionEnCoactivaMuestraLaEtapaActualYTodoSuHistorial() throws Exception {
+    void obligacionExigibleEnViaCoactivaMuestraLaEtapaActualYTodoSuHistorial() throws Exception {
         long id = idDeObligacionVencida("021390", "IMPUESTO_PREDIAL", "2025-T4");
 
         mockMvc.perform(get("/api/obligaciones/" + id + "/etapa-cobranza"))
@@ -46,30 +46,33 @@ class CobranzaControllerTest {
                 .andExpect(jsonPath("$.fechaConsulta").value("2026-10-19"))
                 .andExpect(jsonPath("$.diasVencida").value(292))
                 .andExpect(jsonPath("$.etapaActual.etapa").value("COACTIVA"))
-                .andExpect(jsonPath("$.etapaActual.nombre").value("Cobranza coactiva"))
-                .andExpect(jsonPath("$.etapaActual.documentoReferencia").value("REC-2026-000045"))
+                .andExpect(jsonPath("$.etapaActual.nombre").value("Exigible en vía coactiva"))
+                .andExpect(jsonPath("$.etapaActual.documentoReferencia").value("OP-2026-000101"))
                 .andExpect(jsonPath("$.etapaActual.fechaFin").isEmpty())
                 .andExpect(jsonPath("$.diasEnEtapaActual").value(160))
-                .andExpect(jsonPath("$.historial", hasSize(4)))
-                .andExpect(jsonPath("$.historial[0].etapa").value("ORDINARIA"))
+                .andExpect(jsonPath("$.historial", hasSize(5)))
+                .andExpect(jsonPath("$.historial[0].etapa").value("MORA_TEMPRANA"))
                 .andExpect(jsonPath("$.historial[0].registrada").value(false))
                 .andExpect(jsonPath("$.historial[0].fechaInicio").value("2026-01-01"))
-                .andExpect(jsonPath("$.historial[0].fechaFin").value("2026-01-20"))
-                .andExpect(jsonPath("$.historial[1].etapa").value("VALOR_EMITIDO"))
-                .andExpect(jsonPath("$.historial[1].fechaFin").value("2026-02-03"))
-                .andExpect(jsonPath("$.historial[2].etapa").value("VALOR_NOTIFICADO"))
-                .andExpect(jsonPath("$.historial[2].observacion").value("Notificado en el domicilio fiscal"))
-                .andExpect(jsonPath("$.historial[3].etapa").value("COACTIVA"))
-                .andExpect(jsonPath("$.historial[3].registrada").value(true));
+                .andExpect(jsonPath("$.historial[0].fechaFin").value("2026-01-12"))
+                .andExpect(jsonPath("$.historial[1].etapa").value("CAMPANA"))
+                .andExpect(jsonPath("$.historial[1].fechaFin").value("2026-01-20"))
+                .andExpect(jsonPath("$.historial[2].etapa").value("VALOR_EMITIDO"))
+                .andExpect(jsonPath("$.historial[2].fechaFin").value("2026-02-03"))
+                .andExpect(jsonPath("$.historial[3].etapa").value("ESPERA_LEGAL"))
+                .andExpect(jsonPath("$.historial[3].observacion").value("Notificado en el domicilio fiscal"))
+                .andExpect(jsonPath("$.historial[3].fechaFin").value("2026-05-12"))
+                .andExpect(jsonPath("$.historial[4].etapa").value("COACTIVA"))
+                .andExpect(jsonPath("$.historial[4].registrada").value(true));
     }
 
     @Test
-    void obligacionSinEtapasRegistradasEstaEnCobranzaOrdinariaDesdeElDiaSiguienteAlVencimiento() throws Exception {
+    void obligacionSinEtapasRegistradasEstaEnMoraTempranaDesdeElDiaSiguienteAlVencimiento() throws Exception {
         long id = idDeObligacionVencida("045067", "IMPUESTO_PREDIAL", "2026-T2");
 
         mockMvc.perform(get("/api/obligaciones/" + id + "/etapa-cobranza"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.etapaActual.etapa").value("ORDINARIA"))
+                .andExpect(jsonPath("$.etapaActual.etapa").value("MORA_TEMPRANA"))
                 .andExpect(jsonPath("$.etapaActual.registrada").value(false))
                 .andExpect(jsonPath("$.etapaActual.fechaInicio").value("2026-07-01"))
                 .andExpect(jsonPath("$.diasVencida").value(111))
@@ -78,14 +81,14 @@ class CobranzaControllerTest {
     }
 
     @Test
-    void cobranzaOrdinariaRegistradaReemplazaALaImplicita() throws Exception {
+    void moraTempranaRegistradaReemplazaALaImplicita() throws Exception {
         long id = idDeObligacionVencida("058934", "IMPUESTO_PREDIAL", "2026-T1");
 
         mockMvc.perform(get("/api/obligaciones/" + id + "/etapa-cobranza"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.etapaActual.etapa").value("VALOR_EMITIDO"))
                 .andExpect(jsonPath("$.historial", hasSize(2)))
-                .andExpect(jsonPath("$.historial[0].etapa").value("ORDINARIA"))
+                .andExpect(jsonPath("$.historial[0].etapa").value("MORA_TEMPRANA"))
                 .andExpect(jsonPath("$.historial[0].registrada").value(true))
                 .andExpect(jsonPath("$.historial[0].fechaInicio").value("2026-04-10"))
                 .andExpect(jsonPath("$.historial[0].observacion").value("Aviso de cobranza enviado por correo"));
@@ -132,12 +135,12 @@ class CobranzaControllerTest {
                 .andExpect(jsonPath("$[0].periodo").value("2025-T4"))
                 .andExpect(jsonPath("$[0].tributo").value("IMPUESTO_PREDIAL"))
                 .andExpect(jsonPath("$[0].etapaActual").value("COACTIVA"))
-                .andExpect(jsonPath("$[0].etapaNombre").value("Cobranza coactiva"))
+                .andExpect(jsonPath("$[0].etapaNombre").value("Exigible en vía coactiva"))
                 .andExpect(jsonPath("$[0].diasVencida").value(292))
                 .andExpect(jsonPath("$[1].tributo").value("LIMPIEZA_PUBLICA"))
                 .andExpect(jsonPath("$[1].codigoPredio").value("021390-01"))
-                .andExpect(jsonPath("$[1].etapaActual").value("VALOR_NOTIFICADO"))
-                .andExpect(jsonPath("$[2].etapaActual").value("ORDINARIA"))
+                .andExpect(jsonPath("$[1].etapaActual").value("ESPERA_LEGAL"))
+                .andExpect(jsonPath("$[2].etapaActual").value("MORA_TEMPRANA"))
                 .andExpect(jsonPath("$[11].periodo").value("2026-T2"));
     }
 
