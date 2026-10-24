@@ -159,18 +159,20 @@ WHERE NOT EXISTS (
 )
 ORDER BY d.contribuyente_codigo, d.anio, d.numero_cuota, d.tributo;
 
--- Etapas registradas para algunas deudas vencidas; las demás quedan en cobranza ordinaria implícita.
+-- Etapas de la cobranza inductiva registradas para algunas deudas vencidas; las demás están en mora temprana
+-- desde el día siguiente a su vencimiento.
 INSERT INTO samnet.seguimiento_cobranza
     (obligacion_id, etapa, fecha_inicio, documento_referencia, observacion, fecha_registro)
 SELECT o.id, s.etapa, s.fecha_inicio, s.documento_referencia, s.observacion, s.fecha_registro
 FROM (VALUES
+    ('021390', 'IMPUESTO_PREDIAL', 2025, 4, 'CAMPANA', DATE '2026-01-12', NULL, 'Incluida en la campaña de cobranza de enero', TIMESTAMP '2026-01-12 08:30'),
     ('021390', 'IMPUESTO_PREDIAL', 2025, 4, 'VALOR_EMITIDO', DATE '2026-01-20', 'OP-2026-000101', NULL, TIMESTAMP '2026-01-20 09:15'),
-    ('021390', 'IMPUESTO_PREDIAL', 2025, 4, 'VALOR_NOTIFICADO', DATE '2026-02-03', 'OP-2026-000101', 'Notificado en el domicilio fiscal', TIMESTAMP '2026-02-03 16:40'),
-    ('021390', 'IMPUESTO_PREDIAL', 2025, 4, 'COACTIVA', DATE '2026-05-12', 'REC-2026-000045', 'Resolución de ejecución coactiva N.° 45', TIMESTAMP '2026-05-12 11:05'),
+    ('021390', 'IMPUESTO_PREDIAL', 2025, 4, 'ESPERA_LEGAL', DATE '2026-02-03', 'OP-2026-000101', 'Notificado en el domicilio fiscal', TIMESTAMP '2026-02-03 16:40'),
+    ('021390', 'IMPUESTO_PREDIAL', 2025, 4, 'COACTIVA', DATE '2026-05-12', 'OP-2026-000101', 'Venció la espera legal sin pago ni reclamación', TIMESTAMP '2026-05-12 11:05'),
     ('021390', 'LIMPIEZA_PUBLICA', 2025, 4, 'VALOR_EMITIDO', DATE '2026-02-10', 'RD-2026-000310', NULL, TIMESTAMP '2026-02-10 10:00'),
-    ('021390', 'LIMPIEZA_PUBLICA', 2025, 4, 'VALOR_NOTIFICADO', DATE '2026-02-24', 'RD-2026-000310', NULL, TIMESTAMP '2026-02-24 15:20'),
+    ('021390', 'LIMPIEZA_PUBLICA', 2025, 4, 'ESPERA_LEGAL', DATE '2026-02-24', 'RD-2026-000310', NULL, TIMESTAMP '2026-02-24 15:20'),
     ('021390', 'IMPUESTO_PREDIAL', 2026, 1, 'VALOR_EMITIDO', DATE '2026-05-05', 'OP-2026-000388', NULL, TIMESTAMP '2026-05-05 08:50'),
-    ('058934', 'IMPUESTO_PREDIAL', 2026, 1, 'ORDINARIA', DATE '2026-04-10', NULL, 'Aviso de cobranza enviado por correo', TIMESTAMP '2026-04-10 12:00'),
+    ('058934', 'IMPUESTO_PREDIAL', 2026, 1, 'MORA_TEMPRANA', DATE '2026-04-10', NULL, 'Aviso de cobranza enviado por correo', TIMESTAMP '2026-04-10 12:00'),
     ('058934', 'IMPUESTO_PREDIAL', 2026, 1, 'VALOR_EMITIDO', DATE '2026-06-01', 'OP-2026-000502', NULL, TIMESTAMP '2026-06-01 09:30')
 ) AS s (contribuyente_codigo, tributo, anio, numero_cuota, etapa, fecha_inicio, documento_referencia, observacion, fecha_registro)
 JOIN samnet.obligacion o

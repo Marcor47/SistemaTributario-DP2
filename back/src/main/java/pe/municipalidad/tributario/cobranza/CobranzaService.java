@@ -66,9 +66,9 @@ public class CobranzaService {
                 .sorted(Comparator.comparing(Obligacion::getFechaVencimiento)
                         .thenComparing(obligacion -> obligacion.getTributo().name()))
                 .map(obligacion -> {
-                    /* Sin etapas registradas en SAMNET, la deuda está en cobranza ordinaria implícita. */
+                    /* Sin etapas registradas en SAMNET, la deuda está en mora temprana desde su vencimiento. */
                     EtapaCobranza etapaActual = obligacion.getEtapaCobranza() == null
-                            ? EtapaCobranza.ORDINARIA
+                            ? EtapaCobranza.MORA_TEMPRANA
                             : obligacion.getEtapaCobranza();
                     return new ObligacionVencidaRespuesta(
                             obligacion.getIdObligacion(),
@@ -86,17 +86,17 @@ public class CobranzaService {
     }
 
     /*
-     * Une la cobranza ordinaria implícita con las etapas registradas y calcula la
+     * Une la mora temprana implícita con las etapas registradas y calcula la
      * fecha de fin de cada tramo como la fecha de inicio del siguiente. Los
      * seguimientos llegan ordenados por fecha de inicio.
      */
     private List<EtapaRespuesta> armarHistorial(Obligacion obligacion, List<SeguimientoCobranza> seguimientos) {
         List<EtapaRespuesta> tramos = new ArrayList<>();
-        boolean ordinariaRegistrada = !seguimientos.isEmpty()
-                && seguimientos.getFirst().etapa() == EtapaCobranza.ORDINARIA;
-        if (!ordinariaRegistrada) {
-            EtapaCobranza ordinaria = EtapaCobranza.ORDINARIA;
-            tramos.add(new EtapaRespuesta(ordinaria, ordinaria.getNombre(), ordinaria.getDescripcion(),
+        boolean moraTempranaRegistrada = !seguimientos.isEmpty()
+                && seguimientos.getFirst().etapa() == EtapaCobranza.MORA_TEMPRANA;
+        if (!moraTempranaRegistrada) {
+            EtapaCobranza moraTemprana = EtapaCobranza.MORA_TEMPRANA;
+            tramos.add(new EtapaRespuesta(moraTemprana, moraTemprana.getNombre(), moraTemprana.getDescripcion(),
                     obligacion.getFechaVencimiento().plusDays(1), null, null, null, false));
         }
         for (SeguimientoCobranza seguimiento : seguimientos) {

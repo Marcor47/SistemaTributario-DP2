@@ -12,6 +12,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import pe.municipalidad.tributario.constancia.ConstanciaRepository;
+import pe.municipalidad.tributario.documentos.DocumentoBuzon;
+import pe.municipalidad.tributario.documentos.DocumentoBuzonRepository;
+import pe.municipalidad.tributario.documentos.TipoDocumentoBuzon;
 import pe.municipalidad.tributario.etl.LoteETL;
 import pe.municipalidad.tributario.etl.LoteETLRepository;
 import pe.municipalidad.tributario.etl.ReglaCalidadRepository;
@@ -23,7 +27,13 @@ import pe.municipalidad.tributario.indicador.AlcanceIndicador;
 import pe.municipalidad.tributario.indicador.IndicadorRepository;
 import pe.municipalidad.tributario.indicador.ValorIndicador;
 import pe.municipalidad.tributario.indicador.ValorIndicadorRepository;
+import pe.municipalidad.tributario.reclamo.AreaMunicipalRepository;
+import pe.municipalidad.tributario.reclamo.Reclamo;
+import pe.municipalidad.tributario.reclamo.ReclamoRepository;
+import pe.municipalidad.tributario.reclamo.TipoReclamo;
 import pe.municipalidad.tributario.seguridad.NombreRol;
+import pe.municipalidad.tributario.seguridad.Usuario;
+import pe.municipalidad.tributario.seguridad.UsuarioRepository;
 import pe.municipalidad.tributario.seguridad.RegistroAuditoria;
 import pe.municipalidad.tributario.seguridad.RegistroAuditoriaRepository;
 import pe.municipalidad.tributario.seguridad.RolRepository;
@@ -35,6 +45,8 @@ import pe.municipalidad.tributario.tramitepredio.TipoTramitePredio;
 @PruebaIntegracion
 @Transactional
 class PersistenciaModeloTest {
+
+    private static final LocalDateTime AHORA = LocalDateTime.of(2026, 10, 19, 12, 0);
 
     @Autowired
     private JdbcTemplate jdbc;
@@ -60,9 +72,25 @@ class PersistenciaModeloTest {
     @Autowired
     private RequisitoDocumentalRepository requisitos;
 
+    @Autowired
+    private UsuarioRepository usuarios;
+
+    @Autowired
+    private AreaMunicipalRepository areas;
+
+    @Autowired
+    private ReclamoRepository reclamos;
+
+    @Autowired
+    private DocumentoBuzonRepository buzon;
+
+    @Autowired
+    private ConstanciaRepository constancias;
+
     @Test
-    void cargaLosSeisRolesYLasCincoReglasDeCalidad() {
-        assertThat(roles.findAll()).hasSize(6);
+    void cargaLosSieteRolesYLasCincoReglasDeCalidad() {
+        assertThat(roles.findAll()).hasSize(7);
+        assertThat(roles.findByNombre(NombreRol.GESTOR_RECLAMOS)).isPresent();
         assertThat(roles.findByNombre(NombreRol.VENTANILLA)).isPresent();
         assertThat(reglas.findAll()).hasSize(5);
         assertThat(requisitos.findByTipoTramiteAndTipoPredio(TipoTramitePredio.TRASPASO, TipoPredio.URBANO))
@@ -87,6 +115,50 @@ class PersistenciaModeloTest {
                 "DELETE FROM seguridad.registro_auditoria WHERE id_registro = ?", registro.getIdRegistro()))
                 .isInstanceOf(DataAccessException.class)
                 .rootCause().hasMessageContaining("no se puede modificar ni eliminar");
+    }
+
+    @Test
+    void elSistemaNumeraLasConstanciasYLosReclamos() {
+        LocalDate hoy = LocalDate.of(2026, 10, 19);
+
+        assertThat(constancias.siguienteNumero(hoy)).matches("CNA-2026-[0-9]{6}");
+        String primero = reclamos.siguienteNumero(hoy);
+        assertThat(primero).matches("REC-2026-[0-9]{6}");
+        assertThat(reclamos.siguienteNumero(hoy)).isNotEqualTo(primero);
+    }
+
+    @Test
+    void unReclamoDerivadoGuardaSuHistorialYLaRespuestaLlegaAlBuzon() {
+        Usuario gestor = usuarios.save(new Usuario("gestor.reclamos", "GESTOR DE PRUEBA", "gestor@muni.test", "hash",
+                roles.findByNombre(NombreRol.GESTOR_RECLAMOS).orElseThrow(), AHORA));
+        Usuario analista = usuarios.save(new Usuario("analista.rentas", "ANALISTA DE PRUEBA", "analista@muni.test",
+                "hash", roles.findByNombre(NombreRol.ANALISTA_RENTAS).orElseThrow(), AHORA));
+        Reclamo reclamo = Reclamo.deContribuyente(reclamos.siguienteNumero(AHORA.toLocalDate()), "41028765",
+                TipoReclamo.COBRANZA, "OP-2026-000101", AHORA.minusDays(1), "Me cobraron una cuota pagada.", AHORA);
+        reclamo.derivar(areas.findByCodigo("REGISTRO_TRIBUTARIO").orElseThrow(), analista, gestor, "Revisar pagos", AHORA);
+        reclamos.saveAndFlush(reclamo);
+        reclamo.responder("Se anuló la cuota cobrada por error.", AHORA.plusHours(3));
+        buzon.saveAndFlush(DocumentoBuzon.respuestaAReclamo(reclamo, null, AHORA.plusHours(3)));
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM operativo.derivacion_reclamo WHERE id_reclamo = ?",
+                Integer.class, reclamo.getIdReclamo())).isEqualTo(1);
+        assertThat(buzon.findByDocumentoContribuyenteOrderByFechaEnvioDesc("41028765"))
+                .extracting(DocumentoBuzon::getTipo).contains(TipoDocumentoBuzon.RESPUESTA_RECLAMO);
+        assertThatThrownBy(() -> jdbc.update("DELETE FROM operativo.derivacion_reclamo WHERE id_reclamo = ?",
+                reclamo.getIdReclamo()))
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("no se puede modificar ni eliminar");
+    }
+
+    @Test
+    void laBaseRechazaUnTipoDeReclamoQueNoCorrespondeAlReclamante() {
+        assertThatThrownBy(() -> jdbc.update("""
+                INSERT INTO operativo.reclamo (numero_reclamo, tipo_reclamante, documento_contribuyente, tipo_reclamo,
+                    fecha_hora_incidente, comentario, estado, fecha_registro)
+                VALUES ('REC-PRUEBA', 'CONTRIBUYENTE', '41028765', 'AREA_RELACIONADA', now(), 'x', 'ENVIADO', now())
+                """))
+                .isInstanceOf(DataAccessException.class)
+                .rootCause().hasMessageContaining("ck_reclamo_tipo_por_reclamante");
     }
 
     private RegistroAuditoria registrarAuditoria() {

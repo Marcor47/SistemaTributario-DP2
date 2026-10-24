@@ -12,12 +12,15 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.constancia.Constancia;
+import pe.municipalidad.tributario.reclamo.Reclamo;
+import pe.municipalidad.tributario.reclamo.TipoReclamante;
 import pe.municipalidad.tributario.tramitepredio.SolicitudPredio;
 
 /*
- * Documento en el buzón del contribuyente: constancias, estados de cuenta y respuestas a solicitudes,
- * con la fecha de envío y la de primera lectura (RF-030).
+ * Documento en el buzón del contribuyente: constancias, estados de cuenta y respuestas a solicitudes y a
+ * reclamos, con la fecha de envío y la de primera lectura (RF-030, RF-064).
  */
 @Entity
 @Table(name = "documento_buzon", schema = "operativo")
@@ -58,6 +61,11 @@ public class DocumentoBuzon {
     @JoinColumn(name = "id_solicitud_predio", unique = true)
     private SolicitudPredio solicitudPredio;
 
+    /* Reclamo 1 respuesta 0..1 DocumentoBuzon (RF-064) */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_reclamo", unique = true)
+    private Reclamo reclamo;
+
     protected DocumentoBuzon() {
     }
 
@@ -84,6 +92,18 @@ public class DocumentoBuzon {
         DocumentoBuzon documento = new DocumentoBuzon(solicitud.getDocumentoContribuyente(),
                 TipoDocumentoBuzon.RESPUESTA_SOLICITUD, titulo, archivo, fechaEnvio);
         documento.solicitudPredio = solicitud;
+        return documento;
+    }
+
+    /* Solo los reclamos de contribuyentes llegan al buzón; los internos se consultan en la plataforma. */
+    public static DocumentoBuzon respuestaAReclamo(Reclamo reclamo, String archivo, LocalDateTime fechaEnvio) {
+        if (reclamo.getTipoReclamante() != TipoReclamante.CONTRIBUYENTE) {
+            throw new ReglaNegocioException("RECLAMO_INTERNO", "La respuesta a un reclamo interno no va al buzón.");
+        }
+        DocumentoBuzon documento = new DocumentoBuzon(reclamo.getDocumentoContribuyente(),
+                TipoDocumentoBuzon.RESPUESTA_RECLAMO, "Respuesta al reclamo " + reclamo.getNumeroReclamo(), archivo,
+                fechaEnvio);
+        documento.reclamo = reclamo;
         return documento;
     }
 
@@ -134,5 +154,9 @@ public class DocumentoBuzon {
 
     public SolicitudPredio getSolicitudPredio() {
         return solicitudPredio;
+    }
+
+    public Reclamo getReclamo() {
+        return reclamo;
     }
 }

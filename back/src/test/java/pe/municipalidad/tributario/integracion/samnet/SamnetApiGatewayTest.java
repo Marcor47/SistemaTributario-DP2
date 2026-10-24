@@ -88,7 +88,7 @@ class SamnetApiGatewayTest {
 
         assertThat(samnet.obtenerObligacion(id)).hasValueSatisfying(
                 o -> assertThat(o.getEtapaCobranza()).hasToString("COACTIVA"));
-        assertThat(samnet.obtenerSeguimientoCobranza(id)).hasSize(3);
+        assertThat(samnet.obtenerSeguimientoCobranza(id)).hasSize(4);
         assertThat(samnet.obtenerObligacion(999_999)).isEmpty();
     }
 

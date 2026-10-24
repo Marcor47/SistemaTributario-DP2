@@ -35,7 +35,7 @@ export default function LineaTiempoCobranza({ detalle }) {
         <p className="hint">Días en la etapa actual: {diasEnEtapaActual}</p>
         {!etapaActual.registrada && (
           <div className="info" role="status">
-            Esta etapa no está registrada en SAMNET. Se muestra como cobranza ordinaria automática y la fecha
+            Esta etapa no está registrada en SAMNET. Se muestra como mora temprana y la fecha
             de inicio es calculada a partir del vencimiento.
           </div>
         )}
