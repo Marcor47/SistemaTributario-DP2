@@ -33,4 +33,10 @@ export const MODULOS = [
     descripcion: 'Descarga y administra las plantillas oficiales de la Municipalidad.',
     icono: icono(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>),
   },
+  {
+    ruta: '/morosidad',
+    texto: 'Morosidad',
+    titulo: 'Índice de Morosidad',
+    icono: icono(<><path d="M3 3v18h18" /><path d="M18 8l-6 6-3-3-5 5" /></>),
+  },
 ]

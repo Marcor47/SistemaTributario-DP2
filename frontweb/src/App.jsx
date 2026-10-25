@@ -7,6 +7,7 @@ import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
+import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 
 function LayoutInterno() {
   const { pathname } = useLocation()
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
           <Route path="/metas" element={<ConfiguracionMetas />} />
           <Route path="/formularios" element={<Formularios />} />
+          <Route path="/morosidad" element={<IndiceMorosidad />} />
         </Route>
       </Routes>
     </BrowserRouter>
