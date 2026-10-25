@@ -13,7 +13,8 @@ public interface FirmadorGateway {
     /* Los documentos firmados con un servicio simulado llevan la marca "DOCUMENTO DE PRUEBA" (RNF-015). */
     boolean esSimulado();
 
-    record ResultadoFirma(boolean valida, String entidadCertificadora, String hashDocumento) {
+    /* motivoRechazo explica al contribuyente por qué la firma no es válida (HU015); es nulo si es válida. */
+    record ResultadoFirma(boolean valida, String entidadCertificadora, String hashDocumento, String motivoRechazo) {
     }
 
     record DocumentoFirmado(byte[] contenido, ResultadoFirma firma) {

@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.indicador;
 
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -8,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 public interface MetaIndicadorRepository extends JpaRepository<MetaIndicador, Long> {
 
     boolean existsByIndicadorCodigoAndAnioAndNumeroPeriodo(String indicadorCodigo, int anio, int numeroPeriodo);
+
+    Optional<MetaIndicador> findByIndicadorCodigoAndAnioAndNumeroPeriodo(String indicadorCodigo, int anio,
+            int numeroPeriodo);
 
     /* Los filtros son opcionales: un parámetro nulo no filtra. Se trae el indicador en la misma consulta. */
     @Query("""

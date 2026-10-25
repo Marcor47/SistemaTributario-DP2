@@ -72,6 +72,11 @@ public class ValorIndicador {
         this.fechaCorte = lote.getFechaCorte();
     }
 
+    /* Recalcular el mismo lote reemplaza el valor; la fila se conserva porque sus alertas la referencian. */
+    public void recalcular(BigDecimal nuevoValor) {
+        this.valor = nuevoValor;
+    }
+
     public String etiquetaPeriodo() {
         return indicador.getPeriodicidad().etiqueta(anio, numeroPeriodo);
     }

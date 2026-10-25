@@ -51,17 +51,17 @@ public class AuthController {
         if (existing != null) existing.invalidate();
         HttpSession session = request.getSession(true);
         session.setMaxInactiveInterval(600);
-        session.setAttribute("citizenCode", subject);
+        session.setAttribute(SesionContribuyente.ATRIBUTO_CODIGO_CONTRIBUYENTE, subject);
         return new SessionResponse(subject);
     }
 
     @GetMapping("/me")
     public SessionResponse me(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute("citizenCode") == null) {
+        if (session == null || session.getAttribute(SesionContribuyente.ATRIBUTO_CODIGO_CONTRIBUYENTE) == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         }
-        return new SessionResponse((String) session.getAttribute("citizenCode"));
+        return new SessionResponse((String) session.getAttribute(SesionContribuyente.ATRIBUTO_CODIGO_CONTRIBUYENTE));
     }
 
     @PostMapping("/logout")
