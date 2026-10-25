@@ -437,3 +437,89 @@ input::placeholder {
   .menu-enlace span { white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }
+
+/* ─── HU008: Índice de Morosidad ────────────────────────────── */
+.morosidad-filtros { margin-bottom: 20px; }
+.morosidad-filtros .fld { max-width: 220px; flex: 0 1 220px; }
+
+.morosidad-lote-header { margin-bottom: 20px; }
+.morosidad-lote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+}
+.morosidad-lote-grid > div { display: flex; flex-direction: column; gap: 2px; }
+
+.morosidad-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.morosidad-kpi-card { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.morosidad-kpi-principal { border-left: 5px solid var(--marino); }
+.morosidad-kpi-principal.critico { border-left-color: var(--critico); background: var(--critico-fondo); }
+.morosidad-kpi-principal.aviso  { border-left-color: #D9892B;       background: var(--advertencia-fondo); }
+.morosidad-kpi-principal.ok     { border-left-color: var(--exito);  background: var(--exito-fondo); }
+.morosidad-kpi-valor {
+  font-size: clamp(28px, 4vw, 38px);
+  font-variant-numeric: tabular-nums;
+  color: var(--marino-osc);
+  line-height: 1.1;
+}
+.morosidad-kpi-secundario { color: var(--marino-osc); }
+.morosidad-badge-alerta {
+  align-self: flex-start;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  animation: pulso-alerta 2s ease-in-out infinite;
+}
+@keyframes pulso-alerta {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+@media (prefers-reduced-motion: reduce) { .morosidad-badge-alerta { animation: none; } }
+
+.morosidad-seccion-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.morosidad-seccion-cab h2 { margin: 0; }
+
+/* Tabla detalle */
+.tabla-morosidad-detalle { min-width: 820px; }
+.tabla-morosidad-detalle .fila-total td { font-weight: 700; background: #F1F5FA; }
+.tabla-th-orden { padding: 0 !important; }
+.btn-ordenar {
+  display: flex; align-items: center; justify-content: flex-end; width: 100%;
+  padding: 12px 14px; background: none; border: none; font: inherit; font-size: 13px;
+  font-weight: 700; color: var(--marino-osc); cursor: pointer; white-space: nowrap;
+}
+.tabla-th-orden.activo .btn-ordenar { color: var(--marino); text-decoration: underline; }
+.orden-icono { color: var(--texto-atenuado); margin-left: 4px; }
+
+/* Skeleton loaders */
+.morosidad-skeleton {
+  background: linear-gradient(90deg, #E3ECF5 25%, #F1F5FA 50%, #E3ECF5 75%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}
+@keyframes shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .morosidad-skeleton { animation: none; background: #E3ECF5; }
+}
+
+@media (max-width: 600px) {
+  .morosidad-kpi-grid { grid-template-columns: 1fr; }
+  .morosidad-filtros .fld { max-width: 100%; flex: 1 1 100%; }
+}
+
