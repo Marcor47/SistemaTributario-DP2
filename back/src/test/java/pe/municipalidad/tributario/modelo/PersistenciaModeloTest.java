@@ -180,7 +180,7 @@ class PersistenciaModeloTest {
 
         Integer resultados = jdbc.queryForObject(
                 "SELECT count(*) FROM analitica.resultado_regla WHERE id_lote = ?", Integer.class, lote.getIdLote());
-        List<ValorIndicador> guardados = valores.findAll();
+        List<ValorIndicador> guardados = valores.buscarPorLote(lote.getIdLote());
         assertThat(resultados).isEqualTo(1);
         assertThat(guardados).hasSize(1);
         assertThat(guardados.getFirst().getFechaCorte()).isEqualTo(LocalDate.of(2026, 10, 19));
