@@ -2,6 +2,7 @@ package pe.municipalidad.tributario.integracion.samnet;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -11,10 +12,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 import pe.municipalidad.tributario.cobranza.EtapaCobranza;
@@ -151,6 +154,27 @@ public class SamnetApiGateway implements SamnetGateway {
                         fecha(rs, "vigencia_desde"),
                         fecha(rs, "vigencia_hasta")),
                 codigoContribuyente, Date.valueOf(LocalDate.now(reloj))));
+    }
+
+    @Override
+    public String registrarPagoEnLinea(String codigoContribuyente, long idTransaccion, Set<Long> obligaciones,
+            BigDecimal monto, LocalDate fechaPago) {
+        return invocar(() -> jdbc.execute((ConnectionCallback<String>) conexion -> {
+            Array ids = conexion.createArrayOf("bigint", obligaciones.toArray(Long[]::new));
+            try (var sentencia = conexion.prepareStatement("SELECT samnet.ps_registrarpagoweb(?, ?, ?, ?, ?)")) {
+                sentencia.setString(1, codigoContribuyente);
+                sentencia.setLong(2, idTransaccion);
+                sentencia.setArray(3, ids);
+                sentencia.setBigDecimal(4, monto);
+                sentencia.setDate(5, Date.valueOf(fechaPago));
+                try (var resultado = sentencia.executeQuery()) {
+                    resultado.next();
+                    return resultado.getString(1);
+                }
+            } finally {
+                ids.free();
+            }
+        }));
     }
 
     @Override

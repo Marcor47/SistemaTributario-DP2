@@ -1,5 +1,47 @@
 # Backend tributario
 
+## Portal del contribuyente (HU014, HU022 y HU046)
+
+El perfil normal usa PostgreSQL para autenticar y consultar datos. El login recibe en el campo
+`codigoContribuyente` el código o el número de documento y la clave guardada con bcrypt en
+`samnet.credencial_web`. Devuelve una cookie de sesión; las rutas `/api/portal/**` toman la
+identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas el backend por HTTPS.
+
+| Ruta | Operación |
+| --- | --- |
+| `POST /api/auth/login` | Iniciar sesión con `codigoContribuyente` y `password`. |
+| `GET /api/auth/me`, `POST /api/auth/logout` | Consultar o cerrar la sesión. |
+| `GET /api/portal/estado-cuenta` | Ver únicamente el estado de cuenta propio. |
+| `GET /api/estado-cuenta/{codigo}` y `/contribuyentes?q=...` | Rutas anteriores: ahora requieren sesión y solo devuelven la cuenta propia. |
+| `POST /api/portal/pagos` | Crear una orden con `{"obligaciones":[123,456]}`. |
+| `GET /api/portal/pagos/{id}` | Consultar el estado del pago propio. |
+| `POST /api/portal/pagos/{id}/confirmacion` | Consultar la pasarela servidor a servidor y registrar el pago autorizado en PostgreSQL. Repetirlo no crea otro pago. |
+| `GET /api/portal/solicitudes-predio/requisitos?tipoTramite=REGISTRO&tipoPredio=URBANO` | Consultar los documentos requeridos. |
+| `POST /api/portal/solicitudes-predio` | Enviar formulario multipart con `tipoTramite`, `tipoPredio`, `codigoPredio` opcional, `requisitoIds` y `archivos` en el mismo orden. |
+| `GET /api/portal/solicitudes-predio`, `GET /api/portal/solicitudes-predio/{id}` | Consultar solicitudes propias. |
+| `GET /api/portal/solicitudes-predio/{id}/adjuntos/{idAdjunto}` | Descargar un adjunto de una solicitud propia. |
+
+Los pagos usan `NiubizSimuladoGateway`: quedan identificados como `dePrueba`, no mueven dinero
+real, pero sí actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
+el saldo completo de las obligaciones seleccionadas; los beneficios o descuentos no se aplican
+automáticamente en este flujo. Si la deuda cambia después de crear la orden, la confirmación
+devuelve `409 SALDO_CAMBIO` y el contribuyente debe crear un pago nuevo.
+
+Los adjuntos se guardan cifrados con AES-GCM en `back/storage/predios` al iniciar el backend desde
+`back/`. Esa carpeta está excluida de Git. La BD solo guarda metadatos y ruta. Configura
+`PREDIO_FILES_DIR` para otra ubicación y `PREDIO_FILES_KEY` con 32 bytes aleatorios en Base64;
+sin esa clave no se aceptan archivos. Genera una clave de desarrollo en PowerShell:
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
+```
+
+Conserva la misma clave para poder leer los archivos ya guardados. No la subas al repositorio.
+Los requisitos de `db/datos-prueba` son provisionales y deben validarse antes de un despliegue
+municipal.
+
 ## APIs de demostración
 
 Las rutas nuevas se activan **solo** con el perfil `demo`. Este perfil usa predios ficticios y

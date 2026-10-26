@@ -1,12 +1,15 @@
 package pe.municipalidad.tributario.estadocuenta;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.municipalidad.tributario.auth.SesionContribuyente;
+import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 
 /**
  * HU004 - API de Estado de Cuenta desglosado por tributo y periodo.
@@ -36,8 +39,11 @@ public class EstadoCuentaController {
      */
     @GetMapping("/contribuyentes")
     public List<ContribuyenteCuentaRespuesta> buscarContribuyentes(
-            @RequestParam @NotBlank(message = "es obligatorio") String q) {
-        return estadoCuentaService.buscarContribuyentes(q);
+            @RequestParam @NotBlank(message = "es obligatorio") String q, HttpServletRequest request) {
+        String propio = SesionContribuyente.codigoContribuyente(request);
+        return estadoCuentaService.buscarContribuyentes(q).stream()
+                .filter(c -> propio.equals(c.codigo()))
+                .toList();
     }
 
     /**
@@ -47,7 +53,11 @@ public class EstadoCuentaController {
      */
     @GetMapping("/{codigo}")
     public EstadoCuentaRespuesta obtenerEstadoCuenta(
-            @PathVariable @NotBlank(message = "es obligatorio") String codigo) {
+            @PathVariable @NotBlank(message = "es obligatorio") String codigo, HttpServletRequest request) {
+        String propio = SesionContribuyente.codigoContribuyente(request);
+        if (!propio.equals(codigo)) {
+            throw new RecursoNoEncontradoException("CUENTA_NO_ENCONTRADA", "No existe esa cuenta.");
+        }
         return estadoCuentaService.obtenerEstadoCuenta(codigo);
     }
 }
