@@ -49,6 +49,13 @@ const MODULOS = [
     ),
   },
   {
+    titulo: 'Índice de morosidad',
+    ruta: '/morosidad',
+    imagen: '/modulos/metas.jpg',
+    texto: 'Consulta la morosidad total, por tributo y por zona de las cargas publicadas.',
+    icono: <><path d="M3 3v18h18" /><path d="M7 9h3v8H7zM13 6h3v11h-3zM19 12h2v5h-2z" /></>,
+  },
+  {
     titulo: 'Formularios y plantillas',
     ruta: '/formularios',
     imagen: '/modulos/formularios.jpg',

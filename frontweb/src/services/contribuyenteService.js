@@ -37,7 +37,7 @@ export async function obtenerContribuyentePorDocumento(tipoDocumento, numeroDocu
       const encontrado = CONTRIBUYENTES.find(
         (c) => c.tipoDoc === tipoDocumento && String(c.doc).toUpperCase() === numero,
       )
-      if (!encontrado) throw new Error('No se encontró el contribuyente en el padrón.')
+      if (!encontrado) throw new Error('No se encontró el contribuyente en el padrón.', { cause: err })
       return {
         ...encontrado,
         estado: 'ACTIVO',

@@ -1,0 +1,47 @@
+.consulta-tributaria { min-width: 0; }
+.consulta-cabecera, .consulta-acciones { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.consulta-cabecera h2 { margin-bottom: 6px; }
+.consulta-herramientas { margin-bottom: 20px; }
+.consulta-filtros .fld { min-width: 170px; flex: 1 1 180px; }
+.consulta-filtros-interiores { padding: 20px 0; border: 0; border-radius: 0; box-shadow: none; margin-bottom: 12px; }
+.consulta-indicadores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.consulta-indicador { display: flex; flex-direction: column; gap: 10px; padding: 22px; min-width: 0; }
+.consulta-indicador.principal { border-top: 4px solid var(--marino); }
+.consulta-cifra { font-size: clamp(24px, 2.6vw, 36px); line-height: 1.2; color: var(--marino-osc); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.consulta-cifra.secundaria { font-size: clamp(20px, 2vw, 28px); }
+.consulta-cifra.deuda { color: var(--critico); }
+.consulta-cifra.pagado { color: var(--exito); }
+.consulta-orden { display: flex; flex-direction: column; gap: 4px; color: var(--texto-atenuado); font-size: 14px; }
+.consulta-orden select { min-height: 44px; border: 1px solid var(--borde-fuerte); background: var(--superficie); color: var(--texto); border-radius: 8px; padding: 8px 12px; font: inherit; }
+.consulta-orden select:focus-visible, .consulta-metodologia summary:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.consulta-barras { display: grid; gap: 22px; padding: 10px 0 0; margin: 20px 0 8px; list-style: none; }
+.consulta-barras li > div:first-child { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+.consulta-barras strong { white-space: nowrap; color: var(--marino-osc); font-variant-numeric: tabular-nums; }
+.consulta-barra { height: 12px; border-radius: 6px; background: var(--fondo); overflow: hidden; }
+.consulta-barra span { display: block; height: 100%; border-radius: inherit; background: var(--marino); }
+.consulta-vacio { padding: 32px 24px; text-align: center; color: var(--texto-atenuado); }
+.consulta-vacio p { max-width: 65ch; margin: 12px auto 20px; }
+.consulta-vacio .btn { text-decoration: none; }
+.consulta-metodologia summary { color: var(--marino-osc); font-weight: 700; cursor: pointer; padding: 4px 0; }
+.consulta-metodologia p { max-width: 85ch; }
+.consulta-corte { padding: 8px 12px; border-radius: 8px; background: var(--azul-suave); color: var(--marino-osc); }
+.consulta-vistas { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.consulta-conteo { color: var(--texto-atenuado); font-size: 14px; margin: 16px 0 0; }
+.consulta-tabla-cuenta { min-width: 850px; }
+.consulta-tabla-cuenta th[scope="row"] { font-weight: 400; }
+.consulta-tabla-cuenta tfoot { background: var(--fondo); }
+.consulta-tributaria .alert p { margin: 8px 0 12px; }
+.consulta-pagos { border: 0; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+.consulta-pagos label { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--borde); border-radius: 10px; cursor: pointer; }
+.consulta-pagos label span { flex: 1; }
+.consulta-pagos input { width: 18px; height: 18px; accent-color: var(--marino); }
+@media (max-width: 1050px) { .consulta-indicadores { grid-template-columns: 1fr; gap: 0; } }
+@media (max-width: 600px) {
+  .consulta-tributaria .pcard { padding: 20px 16px; }
+  .consulta-filtros .fld { flex-basis: 100%; min-width: 0; }
+  .consulta-acciones { width: 100%; align-items: end; }
+  .consulta-orden { flex: 1; }
+  .consulta-tributaria .btn { min-height: 44px; }
+  .consulta-barras li > div:first-child { align-items: start; }
+  .consulta-corte { width: 100%; }
+}
