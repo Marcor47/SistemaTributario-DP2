@@ -9,13 +9,50 @@ import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Constancia from './pages/Constancia.jsx'
+import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 
-function LayoutInterno() {
+/**
+ * Layout exclusivo para el Portal del Ciudadano (Servicios en Línea).
+ * Solo muestra los módulos de la sección 'portal' en el menú lateral.
+ * Cabecera: "Portal del Ciudadano · Servicios en Línea"
+ */
+function LayoutPortal() {
   const { pathname } = useLocation()
-  const modulo = MODULOS.find((m) => pathname.startsWith(m.ruta))
+  const modulo = MODULOS.filter((m) => m.seccion === 'portal').find((m) => pathname.startsWith(m.ruta))
   return (
     <div className="app">
-      <MenuLateral />
+      <MenuLateral solo="portal" />
+      <div className="contenido">
+        {modulo && (
+          <header className="pagina-cab">
+            <p className="pagina-cab__ruta">Portal del Ciudadano · Servicios en Línea · {modulo.texto}</p>
+            <h1>{modulo.titulo}</h1>
+            <p className="pagina-cab__desc">{modulo.descripcion}</p>
+          </header>
+        )}
+        <main className="pmain">
+          <Outlet />
+        </main>
+        <footer className="pie">
+          Todos los nombres, códigos y montos son <strong>ficticios</strong>, generados para la demostración; no
+          representan a contribuyentes reales.
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Layout para los módulos internos de funcionarios (Gestión Municipal).
+ * Solo muestra los módulos de la sección 'gestion' en el menú lateral.
+ * Cabecera: "Sistema de Gestión Tributaria"
+ */
+function LayoutGestion() {
+  const { pathname } = useLocation()
+  const modulo = MODULOS.filter((m) => m.seccion !== 'portal').find((m) => pathname.startsWith(m.ruta))
+  return (
+    <div className="app">
+      <MenuLateral solo="gestion" />
       <div className="contenido">
         {modulo && (
           <header className="pagina-cab">
@@ -42,12 +79,21 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Inicio />} />
         <Route path="/login" element={<Login />} />
-        <Route element={<LayoutInterno />}>
+
+        {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
+        <Route element={<LayoutPortal />}>
+          <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
+          <Route path="/portal/estado-cuenta" element={<EstadoCuentaPortal />} />
+          <Route path="/mi-cuenta" element={<EstadoCuentaPortal />} />
+          <Route path="/constancias" element={<Constancia />} />
+        </Route>
+
+        {/* Rutas de funcionarios (Gestión Municipal) */}
+        <Route element={<LayoutGestion />}>
           <Route path="/predios" element={<ConsultaPredio />} />
           <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
           <Route path="/metas" element={<ConfiguracionMetas />} />
           <Route path="/formularios" element={<Formularios />} />
-          <Route path="/constancias" element={<Constancia />} />
           <Route path="/morosidad" element={<IndiceMorosidad />} />
         </Route>
       </Routes>
