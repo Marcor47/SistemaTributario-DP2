@@ -23,7 +23,8 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 Los pagos usan `NiubizSimuladoGateway`: quedan identificados como `dePrueba`, no mueven dinero
 real, pero sí actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
 el saldo completo de las obligaciones seleccionadas; los beneficios o descuentos no se aplican
-automáticamente en este flujo.
+automáticamente en este flujo. Si la deuda cambia después de crear la orden, la confirmación
+devuelve `409 SALDO_CAMBIO` y el contribuyente debe crear un pago nuevo.
 
 Los adjuntos se guardan cifrados con AES-GCM en `back/storage/predios` al iniciar el backend desde
 `back/`. Esa carpeta está excluida de Git. La BD solo guarda metadatos y ruta. Configura

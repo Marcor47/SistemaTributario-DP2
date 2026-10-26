@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.pagos;
 
 import java.math.BigDecimal;
+import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -11,8 +12,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
+import pe.municipalidad.tributario.common.ConflictoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.constancia.EstadoTransaccion;
@@ -88,7 +91,27 @@ public class PagoPortalService {
             throw new ReglaNegocioException("PAGO_NO_AUTORIZADO", "La pasarela aún no autorizó el pago.");
         }
         Set<Long> ids = transaccion.getObligaciones().stream().map(Long::valueOf).collect(Collectors.toSet());
-        samnet.registrarPagoEnLinea(codigo, id, ids, transaccion.getMontoTotal(), LocalDate.now(reloj));
+        Map<Long, Obligacion> actuales = samnet.obtenerEstadoCuenta(codigo).getObligaciones().stream()
+                .collect(Collectors.toMap(Obligacion::getIdObligacion, Function.identity()));
+        BigDecimal saldoActual = BigDecimal.ZERO;
+        for (Long obligacionId : ids) {
+            Obligacion obligacion = actuales.get(obligacionId);
+            if (obligacion == null || obligacion.saldo().signum() <= 0) {
+                throw saldoCambio();
+            }
+            saldoActual = saldoActual.add(obligacion.saldo());
+        }
+        if (saldoActual.compareTo(transaccion.getMontoTotal()) != 0) {
+            throw saldoCambio();
+        }
+        try {
+            samnet.registrarPagoEnLinea(codigo, id, ids, transaccion.getMontoTotal(), LocalDate.now(reloj));
+        } catch (DataAccessException ex) {
+            if (ex.getMostSpecificCause() instanceof SQLException sql && "P0001".equals(sql.getSQLState())) {
+                throw saldoCambio();
+            }
+            throw ex;
+        }
         transaccion.confirmar("WEB-" + id);
         return PagoRespuesta.desde(transaccion, null);
     }
@@ -101,5 +124,10 @@ public class PagoPortalService {
 
     private String documento(String codigo) {
         return contribuyentes.obtenerPorCodigo(codigo).getNumeroDocumento();
+    }
+
+    private static ConflictoException saldoCambio() {
+        return new ConflictoException("SALDO_CAMBIO",
+                "La deuda cambió desde que se creó la orden. Consulte su cuenta y cree un nuevo pago.");
     }
 }

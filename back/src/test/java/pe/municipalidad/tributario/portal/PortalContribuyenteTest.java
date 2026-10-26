@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
@@ -85,6 +86,45 @@ class PortalContribuyenteTest {
     }
 
     @Test
+    void segundaOrdenSobreLaMismaDeudaNoSeCobraDosVeces() throws Exception {
+        Long id = jdbc.queryForObject("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo = '021390' "
+                + "AND monto_pagado = 0 ORDER BY id LIMIT 1", Long.class);
+        String cuerpo = "{\"obligaciones\":[" + id + "]}";
+        int primera = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
+        int segunda = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
+        mvc.perform(post("/api/portal/pagos/" + primera + "/confirmacion").session(sesion("021390")))
+                .andExpect(status().isOk());
+        mvc.perform(post("/api/portal/pagos/" + segunda + "/confirmacion").session(sesion("021390")))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("SALDO_CAMBIO"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.pago WHERE id_pago IN (?, ?)",
+                Integer.class, "WEB-" + primera, "WEB-" + segunda)).isEqualTo(1);
+    }
+
+    @Test
+    void pagoSoloAceptaObligacionesPropiasYVariasSeAplicanCompletas() throws Exception {
+        Long ajena = jdbc.queryForObject("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo = '021390' "
+                + "AND monto_pagado = 0 ORDER BY id LIMIT 1", Long.class);
+        mvc.perform(post("/api/portal/pagos").session(sesion("014502"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"obligaciones\":[" + ajena + "]}"))
+                .andExpect(status().isUnprocessableEntity());
+        var propias = jdbc.queryForList("SELECT id FROM samnet.obligacion "
+                + "WHERE contribuyente_codigo = '021390' AND monto_pagado = 0 ORDER BY id LIMIT 2", Long.class);
+        String cuerpo = "{\"obligaciones\":[" + propias.get(0) + "," + propias.get(1) + "]}";
+        int transaccion = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
+        mvc.perform(post("/api/portal/pagos/" + transaccion + "/confirmacion").session(sesion("021390")))
+                .andExpect(status().isOk());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.pago_obligacion WHERE id_pago = ?",
+                Integer.class, "WEB-" + transaccion)).isEqualTo(2);
+    }
+
+    @Test
     void solicitudValidaDocumentosYNoExponeLosDeOtroContribuyente() throws Exception {
         var requisitoIds = jdbc.queryForList("SELECT id_requisito FROM operativo.requisito_documental "
                 + "WHERE tipo_tramite='REGISTRO' AND tipo_predio='URBANO' AND obligatorio "
@@ -104,9 +144,14 @@ class PortalContribuyenteTest {
         int adjunto = JsonPath.read(creado.getResponse().getContentAsString(), "$.adjuntos[0].id");
         mvc.perform(get("/api/portal/solicitudes-predio/" + solicitud).session(sesion("021390")))
                 .andExpect(status().isNotFound());
-        mvc.perform(get("/api/portal/solicitudes-predio/" + solicitud + "/adjuntos/" + adjunto)
+        var descarga = mvc.perform(get("/api/portal/solicitudes-predio/" + solicitud + "/adjuntos/" + adjunto)
                 .session(sesion("014502")))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk()).andReturn();
+        assertThat(descarga.getResponse().getContentAsByteArray()).isEqualTo(primero.getBytes());
+        String ruta = jdbc.queryForObject("SELECT ruta_cifrada FROM operativo.documento_adjunto "
+                + "WHERE id_adjunto = ?", String.class, adjunto);
+        assertThat(new String(Files.readAllBytes(Path.of(ruta)), StandardCharsets.ISO_8859_1))
+                .doesNotContain("%PDF-1.7 prueba");
     }
 
     @Test
