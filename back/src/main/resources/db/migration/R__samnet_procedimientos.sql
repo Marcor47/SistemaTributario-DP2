@@ -192,7 +192,7 @@ LANGUAGE sql STABLE AS $$
     SELECT c.codigo, c.nombre
     FROM samnet.contribuyente c
     JOIN samnet.credencial_web w ON w.contribuyente_codigo = c.codigo
-    WHERE c.numero_documento = p_documento
+    WHERE (c.numero_documento = p_documento OR c.codigo = p_documento)
       AND c.estado = 'ACTIVO'
       AND w.habilitada
       AND w.clave_hash = public.crypt(p_clave, w.clave_hash);

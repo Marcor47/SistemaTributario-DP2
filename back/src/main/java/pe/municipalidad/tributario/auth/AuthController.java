@@ -2,7 +2,6 @@ package pe.municipalidad.tributario.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,7 +12,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/auth")
-@Profile("demo")
 public class AuthController {
     public record LoginRequest(String codigoContribuyente, String password) {}
     public record SessionResponse(String codigoContribuyente) {}

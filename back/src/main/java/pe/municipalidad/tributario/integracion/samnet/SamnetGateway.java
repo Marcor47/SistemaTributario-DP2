@@ -1,9 +1,11 @@
 package pe.municipalidad.tributario.integracion.samnet;
 
 import java.time.LocalDate;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import pe.municipalidad.tributario.cobranza.SeguimientoCobranza;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.gestiontributaria.BeneficioTributario;
@@ -45,6 +47,10 @@ public interface SamnetGateway {
 
     /* RF-036: beneficios vigentes hoy. */
     List<BeneficioTributario> verificarBeneficio(String codigoContribuyente);
+
+    /** Registra un pago autorizado en la base PostgreSQL y cancela sus obligaciones de forma atómica. */
+    String registrarPagoEnLinea(String codigoContribuyente, long idTransaccion, Set<Long> obligaciones,
+            BigDecimal monto, LocalDate fechaPago);
 
     /* RF-048, RF-056: registra o edita el predio y su titular; devuelve el código predial. */
     String registrarPredio(Predio predio, String codigoContribuyente);
