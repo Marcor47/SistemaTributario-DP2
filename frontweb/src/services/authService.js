@@ -42,3 +42,9 @@ export async function iniciarSesion(codigoContribuyente, password) {
   }
   return respuesta.json()
 }
+
+export async function cerrarSesion() {
+  if (MODO_DEMO) return
+  const respuesta = await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' })
+  if (!respuesta.ok) throw new Error('No se pudo cerrar la sesión. Intenta nuevamente.')
+}

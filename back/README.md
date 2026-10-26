@@ -12,6 +12,7 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 | `POST /api/auth/login` | Iniciar sesión con `codigoContribuyente` y `password`. |
 | `GET /api/auth/me`, `POST /api/auth/logout` | Consultar o cerrar la sesión. |
 | `GET /api/portal/estado-cuenta` | Ver únicamente el estado de cuenta propio. |
+| `GET /api/estado-cuenta/{codigo}` y `/contribuyentes?q=...` | Rutas anteriores: ahora requieren sesión y solo devuelven la cuenta propia. |
 | `POST /api/portal/pagos` | Crear una orden con `{"obligaciones":[123,456]}`. |
 | `GET /api/portal/pagos/{id}` | Consultar el estado del pago propio. |
 | `POST /api/portal/pagos/{id}/confirmacion` | Consultar la pasarela servidor a servidor y registrar el pago autorizado en PostgreSQL. Repetirlo no crea otro pago. |

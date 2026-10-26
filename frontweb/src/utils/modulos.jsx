@@ -34,6 +34,13 @@ export const MODULOS = [
     icono: icono(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>),
   },
   {
+    ruta: '/constancias',
+    texto: 'Constancia de No Adeudo',
+    titulo: 'Firma de solicitud de constancia',
+    descripcion: 'Prepara y firma tu solicitud de Constancia de No Adeudo desde el portal.',
+    icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /></>),
+  },
+  {
     ruta: '/morosidad',
     texto: 'Morosidad',
     titulo: 'Índice de Morosidad',

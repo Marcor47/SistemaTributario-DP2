@@ -6,6 +6,7 @@ export async function pedir(ruta, opciones = {}) {
   try {
     respuesta = await fetch(`${API}${ruta}`, {
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       ...opciones,
     })
   } catch {
