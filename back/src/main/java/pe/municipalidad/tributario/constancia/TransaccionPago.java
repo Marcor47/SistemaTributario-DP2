@@ -16,6 +16,8 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 
@@ -71,6 +73,11 @@ public class TransaccionPago {
     @Column(name = "id_obligacion", length = 20)
     private Set<String> obligaciones = new HashSet<>();
 
+    @ElementCollection
+    @CollectionTable(name = "transaccion_pago_detalle", schema = "operativo",
+            joinColumns = @JoinColumn(name = "id_transaccion"))
+    private List<DetallePago> detalles = new ArrayList<>();
+
     protected TransaccionPago() {
     }
 
@@ -90,6 +97,18 @@ public class TransaccionPago {
         TransaccionPago transaccion = new TransaccionPago(documentoContribuyente, MotivoPago.OBLIGACIONES, montoBase,
                 montoDescuento, fechaHora);
         transaccion.obligaciones.addAll(idsObligacion);
+        return transaccion;
+    }
+
+    public static TransaccionPago deObligaciones(String documentoContribuyente, List<DetallePago> detalles,
+            LocalDateTime fechaHora) {
+        BigDecimal base = detalles.stream().map(DetallePago::getMontoBase).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal descuento = detalles.stream().map(DetallePago::getMontoDescuento)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        TransaccionPago transaccion = new TransaccionPago(documentoContribuyente, MotivoPago.OBLIGACIONES,
+                base, descuento, fechaHora);
+        transaccion.detalles.addAll(detalles);
+        detalles.stream().map(d -> d.getIdObligacion().toString()).forEach(transaccion.obligaciones::add);
         return transaccion;
     }
 
@@ -174,5 +193,9 @@ public class TransaccionPago {
 
     public Set<String> getObligaciones() {
         return Set.copyOf(obligaciones);
+    }
+
+    public List<DetallePago> getDetalles() {
+        return List.copyOf(detalles);
     }
 }

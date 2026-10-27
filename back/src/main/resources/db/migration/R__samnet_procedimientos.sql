@@ -71,7 +71,8 @@ RETURNS TABLE (
     insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE)
 LANGUAGE sql STABLE AS $$
     SELECT o.id, o.contribuyente_codigo, o.codigo_predio, o.tributo, o.anio, o.numero_cuota,
-           o.fecha_vencimiento, o.monto_emitido, o.monto_pagado, o.monto_emitido - o.monto_pagado,
+           o.fecha_vencimiento, o.monto_emitido, o.monto_pagado,
+           o.monto_emitido - o.monto_pagado - o.monto_descontado,
            o.porcentaje_descuento, s.etapa, s.fecha_inicio
     FROM samnet.obligacion o
     LEFT JOIN LATERAL (
