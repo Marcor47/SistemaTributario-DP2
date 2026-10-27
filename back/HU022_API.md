@@ -74,6 +74,11 @@ Errores de negocio usan `{ "codigo": "...", "mensaje": "...", "detalles": [] }`.
 
 ## Flujo para frontend
 
+El componente actual `frontweb/src/components/PagoCuentaPortal.jsx` todavía permite escoger
+periodos y calcula el importe en el navegador. Debe adaptarse por el equipo de frontend antes
+de usar este contrato: enviar `{}`, mostrar el total de la respuesta del servidor y manejar
+`PAGO_DEBE_CUBRIR_TODO`, `BENEFICIO_INDETERMINADO` y `SIN_COBRO_VIRTUAL`.
+
 1. Iniciar sesión. Consultar `GET /api/portal/estado-cuenta` para mostrar la deuda informativa.
 2. Crear la orden con `{}` y mostrar `montoBase`, `montoDescuento`, `montoTotal` y `dePrueba`.
 3. Abrir `urlPasarela` para la operación simulada. El retorno del navegador no confirma el pago.
