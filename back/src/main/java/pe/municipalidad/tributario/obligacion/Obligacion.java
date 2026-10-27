@@ -22,6 +22,7 @@ public class Obligacion {
     private final LocalDate fechaVencimiento;
     private final BigDecimal montoEmitido;
     private final BigDecimal montoPagado;
+    private final BigDecimal montoDescontado;
     private final BigDecimal porcentajeDescuento;
     private final EtapaCobranza etapaCobranza;
     private final LocalDate fechaEtapa;
@@ -29,6 +30,14 @@ public class Obligacion {
     public Obligacion(Long idObligacion, String codigoContribuyente, String codigoPredio, Tributo tributo, int anio,
             int cuota, LocalDate fechaVencimiento, BigDecimal montoEmitido, BigDecimal montoPagado,
             BigDecimal porcentajeDescuento, EtapaCobranza etapaCobranza, LocalDate fechaEtapa) {
+        this(idObligacion, codigoContribuyente, codigoPredio, tributo, anio, cuota, fechaVencimiento,
+                montoEmitido, montoPagado, BigDecimal.ZERO, porcentajeDescuento, etapaCobranza, fechaEtapa);
+    }
+
+    public Obligacion(Long idObligacion, String codigoContribuyente, String codigoPredio, Tributo tributo, int anio,
+            int cuota, LocalDate fechaVencimiento, BigDecimal montoEmitido, BigDecimal montoPagado,
+            BigDecimal montoDescontado, BigDecimal porcentajeDescuento, EtapaCobranza etapaCobranza,
+            LocalDate fechaEtapa) {
         this.idObligacion = idObligacion;
         this.codigoContribuyente = codigoContribuyente;
         this.codigoPredio = codigoPredio;
@@ -38,6 +47,7 @@ public class Obligacion {
         this.fechaVencimiento = fechaVencimiento;
         this.montoEmitido = montoEmitido;
         this.montoPagado = montoPagado;
+        this.montoDescontado = montoDescontado;
         this.porcentajeDescuento = porcentajeDescuento;
         this.etapaCobranza = etapaCobranza;
         this.fechaEtapa = fechaEtapa;
@@ -45,7 +55,7 @@ public class Obligacion {
 
     /* Insoluto pendiente: monto emitido menos lo pagado. */
     public BigDecimal saldo() {
-        return montoEmitido.subtract(montoPagado);
+        return montoEmitido.subtract(montoPagado).subtract(montoDescontado);
     }
 
     public EstadoObligacion estadoAl(LocalDate fecha) {
@@ -110,6 +120,10 @@ public class Obligacion {
 
     public BigDecimal getMontoPagado() {
         return montoPagado;
+    }
+
+    public BigDecimal getMontoDescontado() {
+        return montoDescontado;
     }
 
     public BigDecimal getPorcentajeDescuento() {

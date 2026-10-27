@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -66,10 +67,8 @@ class PortalContribuyenteTest {
 
     @Test
     void pagoDePruebaSeRegistraUnaVezYActualizaLaCuenta() throws Exception {
-        Long id = jdbc.queryForObject("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo = '021390' "
-                + "AND monto_pagado = 0 ORDER BY id LIMIT 1", Long.class);
         var creado = mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
-                .contentType(MediaType.APPLICATION_JSON).content("{\"obligaciones\":[" + id + "]}"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado").value("INICIADA"))
                 .andExpect(jsonPath("$.dePrueba").value(true)).andReturn();
@@ -79,17 +78,15 @@ class PortalContribuyenteTest {
         mvc.perform(post(ruta).session(sesion("021390")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("CONFIRMADA"));
         mvc.perform(post(ruta).session(sesion("021390"))).andExpect(status().isOk());
-        assertThat(jdbc.queryForObject("SELECT monto_emitido = monto_pagado FROM samnet.obligacion WHERE id = ?",
-                Boolean.class, id)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.obligacion WHERE contribuyente_codigo = '021390' "
+                + "AND monto_emitido > monto_pagado + monto_descontado", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.pago WHERE id_pago = ?", Integer.class,
                 "WEB-" + transaccion)).isEqualTo(1);
     }
 
     @Test
     void segundaOrdenSobreLaMismaDeudaNoSeCobraDosVeces() throws Exception {
-        Long id = jdbc.queryForObject("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo = '021390' "
-                + "AND monto_pagado = 0 ORDER BY id LIMIT 1", Long.class);
-        String cuerpo = "{\"obligaciones\":[" + id + "]}";
+        String cuerpo = "{}";
         int primera = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
                 .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
@@ -106,22 +103,133 @@ class PortalContribuyenteTest {
 
     @Test
     void pagoSoloAceptaObligacionesPropiasYVariasSeAplicanCompletas() throws Exception {
-        Long ajena = jdbc.queryForObject("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo = '021390' "
+        Long ajena = jdbc.queryForObject("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo = '058934' "
                 + "AND monto_pagado = 0 ORDER BY id LIMIT 1", Long.class);
-        mvc.perform(post("/api/portal/pagos").session(sesion("014502"))
+        mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"obligaciones\":[" + ajena + "]}"))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("PAGO_DEBE_CUBRIR_TODO"));
+        Long pagada = jdbc.queryForObject("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo='021390' "
+                + "AND monto_pagado=monto_emitido ORDER BY id LIMIT 1", Long.class);
+        mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"obligaciones\":[" + pagada + "]}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("PAGO_DEBE_CUBRIR_TODO"));
         var propias = jdbc.queryForList("SELECT id FROM samnet.obligacion "
                 + "WHERE contribuyente_codigo = '021390' AND monto_pagado = 0 ORDER BY id LIMIT 2", Long.class);
         String cuerpo = "{\"obligaciones\":[" + propias.get(0) + "," + propias.get(1) + "]}";
-        int transaccion = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+        mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
                 .contentType(MediaType.APPLICATION_JSON).content(cuerpo))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("PAGO_DEBE_CUBRIR_TODO"));
+        var todas = jdbc.queryForList("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo='021390' "
+                + "AND monto_emitido > monto_pagado ORDER BY id", Long.class);
+        String listaCompleta = "{\"obligaciones\":[" + todas.stream().map(String::valueOf)
+                .collect(java.util.stream.Collectors.joining(",")) + "]}";
+        int transaccion = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content(listaCompleta))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
         mvc.perform(post("/api/portal/pagos/" + transaccion + "/confirmacion").session(sesion("021390")))
                 .andExpect(status().isOk());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.pago_obligacion WHERE id_pago = ?",
-                Integer.class, "WEB-" + transaccion)).isEqualTo(2);
+                Integer.class, "WEB-" + transaccion)).isGreaterThan(2);
+    }
+
+    @Test
+    void sinDeudaNoCreaOrdenYBeneficioIndeterminadoDerivaAVentanilla() throws Exception {
+        mvc.perform(post("/api/portal/pagos").session(sesion("033218"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("SIN_DEUDA"));
+        mvc.perform(post("/api/portal/pagos").session(sesion("058934"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("BENEFICIO_INDETERMINADO"));
+    }
+
+    @Test
+    void beneficioVigenteSeDesglosaSinConfundirDescuentoConDinero() throws Exception {
+        jdbc.update("INSERT INTO samnet.beneficio_tributario VALUES "
+                + "('BEN-HU022-TEST', '021390', 'PARTICULAR', 50, DATE '2026-01-01', DATE '2026-12-31')");
+        var ids = jdbc.queryForList("SELECT id FROM samnet.obligacion WHERE contribuyente_codigo='021390' "
+                + "AND monto_emitido > monto_pagado ORDER BY id LIMIT 2", Long.class);
+        jdbc.update("UPDATE samnet.obligacion SET porcentaje_descuento=50, id_beneficio='BEN-HU022-TEST' "
+                + "WHERE id IN (?, ?)", ids.get(0), ids.get(1));
+        var creado = mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.montoDescuento").isNumber()).andReturn();
+        int transaccion = JsonPath.read(creado.getResponse().getContentAsString(), "$.idTransaccion");
+        var montos = jdbc.queryForMap("SELECT monto_base, monto_descuento, monto_total FROM operativo.transaccion_pago "
+                + "WHERE id_transaccion=?", transaccion);
+        assertThat((BigDecimal) montos.get("monto_descuento")).isPositive();
+        assertThat((BigDecimal) montos.get("monto_base")).isEqualByComparingTo(
+                ((BigDecimal) montos.get("monto_total")).add((BigDecimal) montos.get("monto_descuento")));
+        mvc.perform(post("/api/portal/pagos/" + transaccion + "/confirmacion").session(sesion("021390")))
+                .andExpect(status().isOk());
+        var pago = jdbc.queryForMap("SELECT monto_pagado, monto_correspondiente FROM samnet.pago "
+                + "WHERE id_pago=?", "WEB-" + transaccion);
+        assertThat((BigDecimal) pago.get("monto_pagado")).isEqualByComparingTo((BigDecimal) montos.get("monto_total"));
+        assertThat((BigDecimal) pago.get("monto_correspondiente"))
+                .isEqualByComparingTo((BigDecimal) montos.get("monto_base"));
+        assertThat(jdbc.queryForObject("SELECT sum(monto_descuento) FROM samnet.pago_obligacion WHERE id_pago=?",
+                BigDecimal.class, "WEB-" + transaccion)).isEqualByComparingTo((BigDecimal) montos.get("monto_descuento"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.obligacion WHERE contribuyente_codigo='021390' "
+                + "AND monto_emitido > monto_pagado + monto_descontado", Integer.class)).isZero();
+    }
+
+    @Test
+    void beneficioVencidoNoSeAplicaYElCienPorCientoNoCreaCobro() throws Exception {
+        jdbc.update("INSERT INTO samnet.beneficio_tributario VALUES "
+                + "('BEN-VENCIDO', '021390', 'AMNISTIA', 100, DATE '2025-01-01', DATE '2025-12-31')");
+        mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.montoDescuento").value(0));
+        jdbc.update("INSERT INTO samnet.beneficio_tributario VALUES "
+                + "('BEN-TOTAL', '021390', 'AMNISTIA', 100, DATE '2026-01-01', DATE '2026-12-31')");
+        jdbc.update("UPDATE samnet.obligacion SET porcentaje_descuento=100, id_beneficio='BEN-TOTAL' "
+                + "WHERE contribuyente_codigo='021390' "
+                + "AND monto_emitido > monto_pagado");
+        mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("SIN_COBRO_VIRTUAL"));
+    }
+
+    @Test
+    void nuevaDeudaOBeneficioCambiadoInvalidaLaOrden() throws Exception {
+        int primera = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
+        jdbc.update("UPDATE samnet.obligacion SET monto_pagado=monto_pagado-1 WHERE id="
+                + "(SELECT id FROM samnet.obligacion WHERE contribuyente_codigo='021390' AND monto_pagado=monto_emitido "
+                + "ORDER BY id LIMIT 1)");
+        mvc.perform(post("/api/portal/pagos/" + primera + "/confirmacion").session(sesion("021390")))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("SALDO_CAMBIO"));
+        int segunda = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
+        jdbc.update("INSERT INTO samnet.beneficio_tributario VALUES "
+                + "('BEN-CAMBIO', '021390', 'PARTICULAR', 10, DATE '2026-01-01', DATE '2026-12-31')");
+        jdbc.update("UPDATE samnet.obligacion SET porcentaje_descuento=10, id_beneficio='BEN-CAMBIO' "
+                + "WHERE contribuyente_codigo='021390' "
+                + "AND monto_emitido > monto_pagado");
+        mvc.perform(post("/api/portal/pagos/" + segunda + "/confirmacion").session(sesion("021390")))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.codigo").value("SALDO_CAMBIO"));
+    }
+
+    @Test
+    void beneficioIndeterminableAntesDeConfirmarBloqueaYDerivaAVentanilla() throws Exception {
+        int transaccion = JsonPath.read(mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.idTransaccion");
+        jdbc.update("UPDATE samnet.obligacion SET porcentaje_descuento=10 WHERE contribuyente_codigo='021390' "
+                + "AND monto_emitido > monto_pagado");
+        mvc.perform(post("/api/portal/pagos/" + transaccion + "/confirmacion").session(sesion("021390")))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.codigo").value("BENEFICIO_INDETERMINADO"));
     }
 
     @Test

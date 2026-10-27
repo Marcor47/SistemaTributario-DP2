@@ -2,6 +2,8 @@
 
 ## Portal del contribuyente (HU014, HU022 y HU046)
 
+El contrato corregido de pago total y beneficios de HU022 está en [HU022_API.md](HU022_API.md).
+
 El perfil normal usa PostgreSQL para autenticar y consultar datos. El login recibe en el campo
 `codigoContribuyente` el código o el número de documento y la clave guardada con bcrypt en
 `samnet.credencial_web`. Devuelve una cookie de sesión; las rutas `/api/portal/**` toman la
@@ -13,7 +15,7 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 | `GET /api/auth/me`, `POST /api/auth/logout` | Consultar o cerrar la sesión. |
 | `GET /api/portal/estado-cuenta` | Ver únicamente el estado de cuenta propio. |
 | `GET /api/estado-cuenta/{codigo}` y `/contribuyentes?q=...` | Rutas anteriores: ahora requieren sesión y solo devuelven la cuenta propia. |
-| `POST /api/portal/pagos` | Crear una orden con `{"obligaciones":[123,456]}`. |
+| `POST /api/portal/pagos` | Crear una orden por toda la deuda pendiente con body `{}`. Una lista `obligaciones` opcional solo se acepta si coincide con el conjunto completo. |
 | `GET /api/portal/pagos/{id}` | Consultar el estado del pago propio. |
 | `POST /api/portal/pagos/{id}/confirmacion` | Consultar la pasarela servidor a servidor y registrar el pago autorizado en PostgreSQL. Repetirlo no crea otro pago. |
 | `GET /api/portal/solicitudes-predio/requisitos?tipoTramite=REGISTRO&tipoPredio=URBANO` | Consultar los documentos requeridos. |
@@ -23,9 +25,9 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 
 Los pagos usan `NiubizSimuladoGateway`: quedan identificados como `dePrueba`, no mueven dinero
 real, pero sí actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
-el saldo completo de las obligaciones seleccionadas; los beneficios o descuentos no se aplican
-automáticamente en este flujo. Si la deuda cambia después de crear la orden, la confirmación
-devuelve `409 SALDO_CAMBIO` y el contribuyente debe crear un pago nuevo.
+el total pendiente con beneficios asignados explícitamente por SAMNET a cada obligación. Si
+la asignación no se puede verificar, se deriva a ventanilla. Si la deuda o los beneficios cambian
+después de crear la orden, la confirmación devuelve `409 SALDO_CAMBIO`.
 
 Los adjuntos se guardan cifrados con AES-GCM en `back/storage/predios` al iniciar el backend desde
 `back/`. Esa carpeta está excluida de Git. La BD solo guarda metadatos y ruta. Configura

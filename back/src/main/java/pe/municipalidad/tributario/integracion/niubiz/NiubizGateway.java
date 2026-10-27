@@ -16,6 +16,7 @@ public interface NiubizGateway {
     record OrdenPago(String idOrden, String urlPasarela) {
     }
 
-    record EstadoPagoPasarela(String idOrden, boolean autorizado, String codigoAutorizacion) {
+    record EstadoPagoPasarela(String idOrden, boolean autorizado, String codigoAutorizacion,
+            BigDecimal montoAutorizado) {
     }
 }

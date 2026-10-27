@@ -1,7 +1,9 @@
 package pe.municipalidad.tributario.integracion.niubiz;
 
 import java.math.BigDecimal;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 
@@ -9,17 +11,21 @@ import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 @Component
 public class NiubizSimuladoGateway implements NiubizGateway {
 
+    private final Map<String, BigDecimal> ordenes = new ConcurrentHashMap<>();
+
     @Override
     public OrdenPago crearOrdenPago(BigDecimal monto, String referencia) {
         String idOrden = "SIM-" + UUID.randomUUID();
+        ordenes.put(idOrden, monto);
         return new OrdenPago(idOrden, "/pasarela-simulada/" + idOrden);
     }
 
     @Override
     public EstadoPagoPasarela consultarEstadoPago(String idOrden) {
-        if (idOrden == null || !idOrden.matches("SIM-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
+        BigDecimal monto = idOrden == null ? null : ordenes.get(idOrden);
+        if (monto == null) {
             throw new RecursoNoEncontradoException("ORDEN_NO_ENCONTRADA", "La pasarela no conoce la orden " + idOrden + ".");
         }
-        return new EstadoPagoPasarela(idOrden, true, "SIM" + Math.abs(idOrden.hashCode() % 1_000_000));
+        return new EstadoPagoPasarela(idOrden, true, "SIM" + Math.abs(idOrden.hashCode() % 1_000_000), monto);
     }
 }

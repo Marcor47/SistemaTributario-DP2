@@ -5,23 +5,27 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
-import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.common.ConflictoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.constancia.EstadoTransaccion;
+import pe.municipalidad.tributario.constancia.DetallePago;
 import pe.municipalidad.tributario.constancia.TransaccionPago;
 import pe.municipalidad.tributario.constancia.TransaccionPagoRepository;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.gestiontributaria.BeneficioTributario;
+import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
 import pe.municipalidad.tributario.integracion.niubiz.NiubizGateway;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.obligacion.Obligacion;
@@ -45,27 +49,21 @@ public class PagoPortalService {
 
     @Transactional
     public PagoRespuesta iniciar(String codigo, PagoSolicitud solicitud) {
-        List<Long> ids = solicitud.obligaciones();
-        if (ids.size() != new HashSet<>(ids).size()) {
-            throw new DatoInvalidoException("OBLIGACIONES_REPETIDAS", "No repita obligaciones en un pago.");
-        }
-        Map<Long, Obligacion> propias = samnet.obtenerEstadoCuenta(codigo).getObligaciones().stream()
-                .collect(Collectors.toMap(Obligacion::getIdObligacion, Function.identity()));
-        BigDecimal monto = BigDecimal.ZERO;
-        for (Long id : ids) {
-            Obligacion obligacion = propias.get(id);
-            if (obligacion == null || obligacion.saldo().signum() <= 0) {
-                throw new ReglaNegocioException("OBLIGACION_NO_PAGABLE",
-                        "Una obligación no pertenece a su cuenta o ya está pagada.");
+        List<DetallePago> detalles = cotizar(codigo);
+        Set<Long> todos = detalles.stream().map(DetallePago::getIdObligacion).collect(Collectors.toSet());
+        if (solicitud != null && solicitud.obligaciones() != null) {
+            List<Long> seleccion = solicitud.obligaciones();
+            if (seleccion.contains(null) || seleccion.size() != todos.size()
+                    || !todos.equals(new HashSet<>(seleccion))) {
+                throw new ReglaNegocioException("PAGO_DEBE_CUBRIR_TODO",
+                        "El pago virtual debe cubrir todas las obligaciones pendientes. Consulte su cuenta.");
             }
-            monto = monto.add(obligacion.saldo());
         }
         String documento = contribuyentes.obtenerPorCodigo(codigo).getNumeroDocumento();
-        TransaccionPago transaccion = TransaccionPago.deObligaciones(documento,
-                ids.stream().map(String::valueOf).collect(Collectors.toSet()), monto, BigDecimal.ZERO,
-                LocalDateTime.now(reloj));
+        TransaccionPago transaccion = TransaccionPago.deObligaciones(documento, detalles, LocalDateTime.now(reloj));
         transacciones.saveAndFlush(transaccion);
-        NiubizGateway.OrdenPago orden = pasarela.crearOrdenPago(monto, "OBLIGACIONES-" + transaccion.getIdTransaccion());
+        NiubizGateway.OrdenPago orden = pasarela.crearOrdenPago(transaccion.getMontoTotal(),
+                "OBLIGACIONES-" + transaccion.getIdTransaccion());
         transaccion.iniciar(orden.idOrden());
         return PagoRespuesta.desde(transaccion, orden.urlPasarela());
     }
@@ -87,25 +85,25 @@ public class PagoPortalService {
             throw new ReglaNegocioException("PAGO_CERRADO", "Este pago ya no puede confirmarse.");
         }
         NiubizGateway.EstadoPagoPasarela estado = pasarela.consultarEstadoPago(transaccion.getIdOrdenPasarela());
-        if (!transaccion.getIdOrdenPasarela().equals(estado.idOrden()) || !estado.autorizado()) {
+        if (!transaccion.getIdOrdenPasarela().equals(estado.idOrden()) || !estado.autorizado()
+                || estado.montoAutorizado() == null
+                || estado.montoAutorizado().compareTo(transaccion.getMontoTotal()) != 0) {
             throw new ReglaNegocioException("PAGO_NO_AUTORIZADO", "La pasarela aún no autorizó el pago.");
         }
-        Set<Long> ids = transaccion.getObligaciones().stream().map(Long::valueOf).collect(Collectors.toSet());
-        Map<Long, Obligacion> actuales = samnet.obtenerEstadoCuenta(codigo).getObligaciones().stream()
-                .collect(Collectors.toMap(Obligacion::getIdObligacion, Function.identity()));
-        BigDecimal saldoActual = BigDecimal.ZERO;
-        for (Long obligacionId : ids) {
-            Obligacion obligacion = actuales.get(obligacionId);
-            if (obligacion == null || obligacion.saldo().signum() <= 0) {
-                throw saldoCambio();
-            }
-            saldoActual = saldoActual.add(obligacion.saldo());
+        List<DetallePago> actuales;
+        try {
+            actuales = cotizar(codigo);
+        } catch (ReglaNegocioException ex) {
+            if ("BENEFICIO_INDETERMINADO".equals(ex.getCodigo())) throw ex;
+            throw saldoCambio();
         }
-        if (saldoActual.compareTo(transaccion.getMontoTotal()) != 0) {
+        Map<Long, DetallePago> original = transaccion.getDetalles().stream()
+                .collect(Collectors.toMap(DetallePago::getIdObligacion, Function.identity()));
+        if (original.isEmpty() || originalesCambiaron(original, actuales)) {
             throw saldoCambio();
         }
         try {
-            samnet.registrarPagoEnLinea(codigo, id, ids, transaccion.getMontoTotal(), LocalDate.now(reloj));
+            samnet.registrarPagoEnLinea(codigo, id, LocalDate.now(reloj));
         } catch (DataAccessException ex) {
             if (ex.getMostSpecificCause() instanceof SQLException sql && "P0001".equals(sql.getSQLState())) {
                 throw saldoCambio();
@@ -128,6 +126,67 @@ public class PagoPortalService {
 
     private static ConflictoException saldoCambio() {
         return new ConflictoException("SALDO_CAMBIO",
-                "La deuda cambió desde que se creó la orden. Consulte su cuenta y cree un nuevo pago.");
+                "La deuda o sus beneficios cambiaron desde que se creó la orden. Consulte su cuenta y cree un nuevo pago.");
+    }
+
+    private List<DetallePago> cotizar(String codigo) {
+        EstadoCuenta cuenta = samnet.obtenerEstadoCuenta(codigo);
+        if (cuenta.isDesdeCopia()) {
+            throw ventanilla();
+        }
+        List<Obligacion> pendientes = cuenta.getObligaciones().stream()
+                .filter(o -> o.saldo().signum() > 0).toList();
+        if (pendientes.isEmpty()) {
+            throw new ReglaNegocioException("SIN_DEUDA", "No hay obligaciones pendientes para crear un pago.");
+        }
+        List<BeneficioTributario> beneficios = samnet.verificarBeneficio(codigo);
+        Map<Long, String> asignaciones = samnet.obtenerBeneficiosPorObligacion(codigo);
+        List<DetallePago> detalles = new ArrayList<>();
+        for (Obligacion obligacion : pendientes) {
+            var porcentaje = obligacion.getPorcentajeDescuento();
+            if (porcentaje == null || porcentaje.signum() < 0 || porcentaje.compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw ventanilla();
+            }
+            if (!asignaciones.containsKey(obligacion.getIdObligacion())) throw ventanilla();
+            String idBeneficio = asignaciones.get(obligacion.getIdObligacion());
+            if (porcentaje.signum() > 0) {
+                List<BeneficioTributario> coincidentes = beneficios.stream()
+                        .filter(b -> b.estaVigente(LocalDate.now(reloj)))
+                        .filter(b -> codigo.equals(b.codigoContribuyente()))
+                        .filter(b -> b.idBeneficio().equals(idBeneficio))
+                        .filter(b -> b.porcentajeDescuento().compareTo(porcentaje) == 0).toList();
+                if (idBeneficio == null || coincidentes.size() != 1) throw ventanilla();
+            } else if (idBeneficio != null) {
+                throw ventanilla();
+            }
+            detalles.add(new DetallePago(obligacion.getIdObligacion(), obligacion.saldo(),
+                    obligacion.saldo().subtract(obligacion.montoConBeneficio()), idBeneficio));
+        }
+        if (!beneficios.isEmpty() && detalles.stream().noneMatch(d -> d.getIdBeneficio() != null)) {
+            throw ventanilla();
+        }
+        var total = detalles.stream().map(d -> d.getMontoBase().subtract(d.getMontoDescuento()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (total.signum() == 0) {
+            throw new ReglaNegocioException("SIN_COBRO_VIRTUAL",
+                    "Los beneficios cubren toda la deuda. No se creó un cobro; acuda a ventanilla para su aplicación.");
+        }
+        return detalles;
+    }
+
+    private static boolean originalesCambiaron(Map<Long, DetallePago> original, List<DetallePago> actuales) {
+        if (original.size() != actuales.size()) return true;
+        for (DetallePago actual : actuales) {
+            DetallePago anterior = original.get(actual.getIdObligacion());
+            if (anterior == null || anterior.getMontoBase().compareTo(actual.getMontoBase()) != 0
+                    || anterior.getMontoDescuento().compareTo(actual.getMontoDescuento()) != 0
+                    || !Objects.equals(anterior.getIdBeneficio(), actual.getIdBeneficio())) return true;
+        }
+        return false;
+    }
+
+    private static ReglaNegocioException ventanilla() {
+        return new ReglaNegocioException("BENEFICIO_INDETERMINADO",
+                "No se pudo determinar el beneficio aplicable a cada obligación. Acuda a ventanilla.");
     }
 }
