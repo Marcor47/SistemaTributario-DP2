@@ -18,3 +18,6 @@ export async function obtenerEstadoCuenta(contribuyente, { servicioCaido = false
     filas: generarCuenta(contribuyente.codigo, fechaCorte),
   }
 }
+
+export { obtenerEstadoCuentaPortal, obtenerHistorialPagosPortal } from './portalCuentaService.js'
+

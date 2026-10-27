@@ -1,16 +1,19 @@
 import { Link } from 'react-router-dom'
 import { MotionConfig, motion } from 'framer-motion'
+import { esSesionDemo } from '../services/authService.js'
 import './Inicio.css'
 
 const MODULOS = [
   {
     titulo: 'Consulta de predios',
+    ruta: '/predios',
     imagen: '/modulos/predios.jpg',
     texto: 'Ubica un predio por código y revisa su ficha, titulares y estado de cuenta tributaria.',
     icono: <path d="M3 21V9l9-6 9 6v12M9 21v-7h6v7" />,
   },
   {
     titulo: 'Contribuyentes',
+    ruta: '/contribuyentes',
     imagen: '/modulos/contribuyentes.jpg',
     texto: 'Consulta por documento o nombre los datos del contribuyente y sus predios asociados.',
     icono: (
@@ -22,6 +25,7 @@ const MODULOS = [
   },
   {
     titulo: 'Regularidad de pago',
+    ruta: '/contribuyentes',
     imagen: '/modulos/regularidad.jpg',
     texto: 'Identifica el comportamiento de pago y la línea de tiempo de cobranza de cada cuenta.',
     icono: (
@@ -33,6 +37,7 @@ const MODULOS = [
   },
   {
     titulo: 'Metas de recaudación',
+    ruta: '/metas',
     imagen: '/modulos/metas.jpg',
     texto: 'Configura y da seguimiento a las metas de recaudación de la Gerencia de Rentas.',
     icono: (
@@ -44,7 +49,15 @@ const MODULOS = [
     ),
   },
   {
+    titulo: 'Índice de morosidad',
+    ruta: '/morosidad',
+    imagen: '/modulos/metas.jpg',
+    texto: 'Consulta la morosidad total, por tributo y por zona de las cargas publicadas.',
+    icono: <><path d="M3 3v18h18" /><path d="M7 9h3v8H7zM13 6h3v11h-3zM19 12h2v5h-2z" /></>,
+  },
+  {
     titulo: 'Formularios y plantillas',
+    ruta: '/formularios',
     imagen: '/modulos/formularios.jpg',
     texto: 'Descarga las plantillas oficiales: declaración jurada, constancia de no adeudo y más.',
     icono: (
@@ -56,6 +69,7 @@ const MODULOS = [
   },
   {
     titulo: 'Estado de cuenta',
+    ruta: '/estado-cuenta',
     imagen: '/modulos/estado-cuenta.jpg',
     texto: 'Revisa deudas, pagos y cobranza pendiente por tributo y periodo en un solo lugar.',
     icono: (
@@ -81,6 +95,8 @@ const aparece = {
 }
 
 export default function Inicio() {
+  const tieneSesion = esSesionDemo()
+
   return (
     <MotionConfig reducedMotion="user">
       <div className="inicio">
@@ -94,7 +110,18 @@ export default function Inicio() {
             <a href="#modulos">Módulos</a>
             <a href="#como-funciona">Cómo funciona</a>
           </nav>
-          <Link to="/login" className="in-btn in-btn--primario">Ingresar</Link>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <Link
+              to={tieneSesion ? '/estado-cuenta' : '/login'}
+              state={tieneSesion ? undefined : { from: '/estado-cuenta', motivo: 'servicios-en-linea' }}
+              className="in-btn in-btn--cian"
+            >
+              Servicios en Línea
+            </Link>
+            <Link to={tieneSesion ? '/estado-cuenta' : '/login'} className="in-btn in-btn--primario">
+              {tieneSesion ? 'Mi Cuenta' : 'Ingresar'}
+            </Link>
+          </div>
         </header>
 
         <main>
@@ -123,8 +150,12 @@ export default function Inicio() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.2 }}
               >
-                <Link to="/login" className="in-btn in-btn--cian in-btn--grande">
-                  Ingresar al sistema
+                <Link
+                  to={tieneSesion ? '/estado-cuenta' : '/login'}
+                  state={tieneSesion ? undefined : { from: '/estado-cuenta', motivo: 'servicios-en-linea' }}
+                  className="in-btn in-btn--cian in-btn--grande"
+                >
+                  {tieneSesion ? 'Ir a mi Estado de Cuenta' : 'Ingresar al sistema'}
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
@@ -187,18 +218,20 @@ export default function Inicio() {
                   transition={{ duration: 0.45, delay: (i % 3) * 0.08 }}
                   whileHover={{ y: -4 }}
                 >
-                  <div className="in-card__media">
-                    <img src={m.imagen} alt="" width="900" height="502" loading="lazy" />
-                  </div>
-                  <div className="in-card__cuerpo">
-                    <span className="in-card__icono">
-                      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        {m.icono}
-                      </svg>
-                    </span>
-                    <h3>{m.titulo}</h3>
-                    <p>{m.texto}</p>
-                  </div>
+                  <Link to={m.ruta || '/login'} style={{ textDecoration: 'none', color: 'inherit', display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div className="in-card__media">
+                      <img src={m.imagen} alt="" width="900" height="502" loading="lazy" />
+                    </div>
+                    <div className="in-card__cuerpo">
+                      <span className="in-card__icono">
+                        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          {m.icono}
+                        </svg>
+                      </span>
+                      <h3>{m.titulo}</h3>
+                      <p>{m.texto}</p>
+                    </div>
+                  </Link>
                 </motion.li>
               ))}
             </ul>

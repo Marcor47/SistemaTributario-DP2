@@ -1,5 +1,28 @@
 # React + Vite
 
+## Morosidad (HU008) y mi estado de cuenta (HU014)
+
+- `/morosidad`: consulta de la última carga publicada o de un año/mes, índice total,
+  gráficos y tablas por tributo y zona, ordenados por morosidad o nombre.
+- `/estado-cuenta`: consulta propia por cookie de sesión, fecha de corte, resumen de
+  deuda, pagos aplicados (incluidos los parciales) y filtros por año, tributo, estado y texto.
+  `/portal/estado-cuenta` y `/mi-cuenta` redirigen a esta pantalla.
+- No se muestran recibos, fechas de pago ni montos base que el contrato de la API no entregue.
+  Una consulta fallida muestra su error; un 401 solicita iniciar sesión y elimina la cuenta de la vista.
+- El cálculo ETL se mantiene en el backend. Se conserva el acceso existente a Pagos
+  en Línea: tras una confirmación se vuelve a consultar el estado de cuenta al servidor,
+  sin simular un pago exitoso por una caída de conexión.
+
+Para una demostración local sin backend, copia `.env.example` a `.env.local`, configura
+`VITE_USAR_MOCK=true` y `VITE_AUTH_DEMO=true`, y reinicia Vite. HU008 usa una muestra
+consistente de octubre de 2026. Para HU014, inicia sesión con `DEMO-0001` / `demo1234`.
+Ambas pantallas identifican explícitamente los datos de demostración.
+
+En integración deja ambas opciones en `false` y configura `VITE_API_URL`. El estado
+de cuenta utiliza `GET /api/portal/estado-cuenta`, sin enviar identificadores del contribuyente;
+morosidad utiliza `GET /api/indicadores/morosidad` con año y mes opcionales.
+
+
 ## Constancia de No Adeudo (HU015)
 
 La pantalla `/constancias` permite iniciar o recuperar una solicitud, revisar y descargar el
