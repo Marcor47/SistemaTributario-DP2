@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import PagoCuentaPortal from '../components/PagoCuentaPortal.jsx'
 import { obtenerEstadoCuentaPortal } from '../services/portalCuentaService.js'
-import { filtrarCuenta, resumirCuenta } from '../utils/estadoCuentaPortal.js'
+import { agruparCuentaPorPeriodo, filtrarPeriodos, resumirCuenta } from '../utils/estadoCuentaPortal.js'
 import { fecha, moneda } from '../utils/formato.js'
 import './ConsultasTributarias.css'
 
-const FILTROS_INICIALES = { anio: '', tributo: '', estado: '', texto: '', vista: 'obligaciones' }
+const FILTROS_INICIALES = { anio: '', estado: '', texto: '', vista: 'obligaciones' }
 const claseEstado = { Pagada: 'ok', Vencida: 'critico', Pendiente: 'aviso' }
 
 export default function EstadoCuentaPortal() {
@@ -32,12 +32,12 @@ export default function EstadoCuentaPortal() {
   const { cuenta, error, cargando } = resultado
   const filas = cuenta?.filas || []
   const resumen = resumirCuenta(filas)
-  const filtradas = filtrarCuenta(filas, filtros)
+  const grupos = agruparCuentaPorPeriodo(filas)
+  const filtradas = filtrarPeriodos(grupos, filtros)
   const subtotal = resumirCuenta(filtradas)
   const anios = [...new Set(filas.map((fila) => fila.anio).filter(Boolean))].sort((a, b) => b - a)
-  const tributos = [...new Set(filas.map((fila) => fila.tributo))].sort((a, b) => a.localeCompare(b, 'es'))
   const esPagos = filtros.vista === 'pagos'
-  const hayFiltros = Boolean(filtros.anio || filtros.tributo || filtros.estado || filtros.texto)
+  const hayFiltros = Boolean(filtros.anio || filtros.estado || filtros.texto)
 
   function cambiarFiltro(evento) {
     setFiltros((actual) => ({ ...actual, [evento.target.name]: evento.target.value }))
@@ -73,25 +73,24 @@ export default function EstadoCuentaPortal() {
           {resumen.deuda === 0 && <div className="confirmacion" role="status"><strong>No registras deuda pendiente</strong> en las obligaciones de esta consulta, al {fecha(cuenta.fechaCorte)}.</div>}
           <section className="pcard" aria-label="Detalle de mi cuenta">
             <div className="consulta-vistas" role="group" aria-label="Información de la cuenta">
-              <button type="button" className={`btn ${!esPagos ? 'primary' : ''}`} aria-pressed={!esPagos} onClick={() => setFiltros((actual) => ({ ...actual, vista: 'obligaciones', estado: '' }))}>Obligaciones ({filas.length})</button>
-              <button type="button" className={`btn ${esPagos ? 'primary' : ''}`} aria-pressed={esPagos} onClick={() => setFiltros((actual) => ({ ...actual, vista: 'pagos', estado: '' }))}>Pagos aplicados ({filas.filter((fila) => fila.pagado > 0).length})</button>
+              <button type="button" className={`btn ${!esPagos ? 'primary' : ''}`} aria-pressed={!esPagos} onClick={() => setFiltros((actual) => ({ ...actual, vista: 'obligaciones', estado: '' }))}>Periodos ({grupos.length})</button>
+              <button type="button" className={`btn ${esPagos ? 'primary' : ''}`} aria-pressed={esPagos} onClick={() => setFiltros((actual) => ({ ...actual, vista: 'pagos', estado: '' }))}>Periodos con pagos ({grupos.filter((grupo) => grupo.pagado > 0).length})</button>
             </div>
             <form className="filters consulta-filtros consulta-filtros-interiores" onSubmit={(e) => e.preventDefault()} aria-label="Filtrar estado de cuenta">
               <div className="fld"><label htmlFor="cuenta-anio">Año</label><select id="cuenta-anio" name="anio" value={filtros.anio} onChange={cambiarFiltro}><option value="">Todos los años</option>{anios.map((anio) => <option key={anio}>{anio}</option>)}</select></div>
-              <div className="fld"><label htmlFor="cuenta-tributo">Tributo</label><select id="cuenta-tributo" name="tributo" value={filtros.tributo} onChange={cambiarFiltro}><option value="">Todos los tributos</option>{tributos.map((tributo) => <option key={tributo}>{tributo}</option>)}</select></div>
               <div className="fld"><label htmlFor="cuenta-estado">Estado</label><select id="cuenta-estado" name="estado" value={filtros.estado} onChange={cambiarFiltro}><option value="">Todos los estados</option><option>Vencida</option><option>Pendiente</option><option>Pagada</option></select></div>
-              <div className="fld"><label htmlFor="cuenta-busqueda">Buscar tributo o periodo</label><input id="cuenta-busqueda" name="texto" type="search" value={filtros.texto} onChange={cambiarFiltro} placeholder="Ej. Predial o 2026" /></div>
+              <div className="fld"><label htmlFor="cuenta-busqueda">Buscar periodo o concepto</label><input id="cuenta-busqueda" name="texto" type="search" value={filtros.texto} onChange={cambiarFiltro} placeholder="Ej. 2026-T1 o Predial" /></div>
               {hayFiltros && <button type="button" className="btn" onClick={() => setFiltros({ ...FILTROS_INICIALES, vista: filtros.vista })}>Limpiar filtros</button>}
             </form>
-            <h2>{esPagos ? 'Pagos aplicados a tus obligaciones' : 'Detalle de obligaciones'}</h2>
-            <p className="hint">{esPagos ? 'Importes registrados en cada obligación, incluidos los pagos parciales. No corresponde a un historial de recibos o transacciones.' : 'Los saldos corresponden a la fecha de corte. Los totales superiores resumen toda la cuenta.'}</p>
-            <p className="consulta-conteo" role="status">{filtradas.length} {filtradas.length === 1 ? 'obligación encontrada' : 'obligaciones encontradas'}</p>
+            <h2>{esPagos ? 'Pagos aplicados por periodo' : 'Estado de cuenta por trimestre'}</h2>
+            <p className="hint">Los cuatro conceptos municipales se presentan en un total por trimestre. Puedes ver los conceptos incluidos en cada fila; los importes corresponden a la fecha de corte. {esPagos && 'Los pagos aplicados no son un historial de recibos o transacciones.'}</p>
+            <p className="consulta-conteo" role="status">{filtradas.length} {filtradas.length === 1 ? 'periodo encontrado' : 'periodos encontrados'}</p>
             {filtradas.length === 0 ? <p className="consulta-vacio">{hayFiltros ? 'No hay obligaciones que coincidan con los filtros seleccionados.' : 'No hay pagos aplicados en esta cuenta.'}</p> : (
-              <div className="tabla-scroll" tabIndex={0} role="region" aria-label={esPagos ? 'Pagos aplicados por obligación' : 'Mis obligaciones tributarias'}>
+              <div className="tabla-scroll" tabIndex={0} role="region" aria-label={esPagos ? 'Pagos aplicados por periodo' : 'Mi estado de cuenta por periodo'}>
                 <table className="tabla consulta-tabla-cuenta"><caption className="sr-only">Estado de cuenta al {fecha(cuenta.fechaCorte)}</caption>
-                  <thead><tr><th scope="col">Tributo</th><th scope="col">Periodo</th><th scope="col">Vencimiento</th><th scope="col" className="num">Emitido</th><th scope="col" className="num">Pagado</th><th scope="col" className="num">Saldo pendiente</th><th scope="col">Estado</th></tr></thead>
-                  <tbody>{filtradas.map((fila) => <tr key={fila.id}><th scope="row">{fila.tributo}</th><td>{fila.periodo}</td><td>{fila.fechaVencimiento ? fecha(fila.fechaVencimiento) : 'No informado'}</td><td className="num">{moneda(fila.emitido)}</td><td className="num">{moneda(fila.pagado)}</td><td className="num"><strong>{moneda(fila.deuda)}</strong></td><td><span className={`estado ${claseEstado[fila.estado] || ''}`}>{fila.estado}</span></td></tr>)}</tbody>
-                  <tfoot><tr><th scope="row" colSpan={3}>Total de la selección</th><td className="num">{moneda(subtotal.emitido)}</td><td className="num">{moneda(subtotal.pagado)}</td><td className="num"><strong>{moneda(subtotal.deuda)}</strong></td><td /></tr></tfoot>
+                  <thead><tr><th scope="col">Concepto</th><th scope="col">Periodo</th><th scope="col">Vencimiento</th><th scope="col" className="num">Emitido</th><th scope="col" className="num">Pagado</th><th scope="col" className="num">Saldo pendiente</th><th scope="col">Estado</th><th scope="col">Detalle</th></tr></thead>
+                  <tbody>{filtradas.map((grupo) => <tr key={grupo.id}><th scope="row">{grupo.titulo}</th><td>{grupo.periodo}</td><td>{grupo.fechaVencimiento ? fecha(grupo.fechaVencimiento) : grupo.conceptos.some((fila) => fila.fechaVencimiento) ? 'Varios vencimientos' : 'No informado'}</td><td className="num">{moneda(grupo.emitido)}</td><td className="num">{moneda(grupo.pagado)}</td><td className="num"><strong>{moneda(grupo.deuda)}</strong></td><td><span className={`estado ${claseEstado[grupo.estado] || ''}`}>{grupo.estado}</span></td><td>{grupo.esTrimestral ? <details className="consulta-detalle-periodo"><summary>Ver conceptos</summary><ul>{[...new Set(grupo.conceptos.map((fila) => fila.tributo))].map((concepto) => <li key={concepto}>{concepto}</li>)}</ul></details> : '—'}</td></tr>)}</tbody>
+                  <tfoot><tr><th scope="row" colSpan={3}>Total de la selección</th><td className="num">{moneda(subtotal.emitido)}</td><td className="num">{moneda(subtotal.pagado)}</td><td className="num"><strong>{moneda(subtotal.deuda)}</strong></td><td colSpan={2} /></tr></tfoot>
                 </table>
               </div>
             )}

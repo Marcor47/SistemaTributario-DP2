@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { obtenerEstadoCuentaPortal, iniciarPagoPortal, confirmarPagoPortal } from '../src/services/portalCuentaService.js'
-import { filtrarCuenta, normalizarCuenta, resumirCuenta } from '../src/utils/estadoCuentaPortal.js'
+import { agruparCuentaPorPeriodo, filtrarCuenta, filtrarPeriodos, normalizarCuenta, resumirCuenta } from '../src/utils/estadoCuentaPortal.js'
+import { FECHA_CORTE, generarCuenta } from '../src/mocks/cuentas.js'
 
 const respuesta = {
   contribuyente: { codigo: '014502', nombre: 'Contribuyente de prueba', tipoDoc: 'DNI', doc: '12345678' },
@@ -63,6 +64,38 @@ test('HU014: no inventa año, vencimiento, recibo ni fecha de pago cuando faltan
 
 test('HU014: cuenta sin obligaciones tiene todos los totales en cero', () => {
   assert.deepEqual(resumirCuenta([]), { emitido: 0, pagado: 0, deuda: 0, vencido: 0, vigente: 0 })
+})
+
+test('HU014: unifica los cuatro conceptos por trimestre sin alterar importes ni IDs de pago', () => {
+  const filas = normalizarCuenta({ fechaCorte: FECHA_CORTE, filas: generarCuenta('021390', FECHA_CORTE) }).filas
+  const grupos = agruparCuentaPorPeriodo(filas)
+  assert.equal(filas.length, 24)
+  assert.equal(grupos.length, 6)
+  assert.ok(grupos.every((grupo) => grupo.conceptos.length === 4 && grupo.titulo === 'Tributos municipales'))
+  assert.deepEqual(grupos.map((grupo) => grupo.periodo), ['2025-T1', '2025-T2', '2025-T3', '2025-T4', '2026-T1', '2026-T2'])
+  for (const campo of ['emitido', 'pagado', 'deuda']) {
+    assert.equal(resumirCuenta(grupos)[campo], resumirCuenta(filas)[campo])
+  }
+  const grupo = grupos.find((item) => item.periodo === '2026-T1')
+  assert.deepEqual(grupo.idsPendientes, filas.filter((fila) => fila.periodo === '2026-T1' && fila.deuda > 0)
+    .map((fila) => fila.id))
+  assert.equal(filtrarPeriodos(grupos, { anio: 2026, texto: 'Predial' }).length, 2)
+  assert.equal(filtrarPeriodos(grupos, { vista: 'pagos' }).length, 3)
+})
+
+test('HU014: no mezcla obligaciones ajenas al trimestre ni inventa un vencimiento único', () => {
+  const filas = normalizarCuenta({ fechaCorte: '2026-10-19', filas: [
+    { id: 1, tributo: 'Impuesto Predial', periodo: '2026-T1', emitido: 10, pagado: 5, deuda: 5, estado: 'VENCIDA', fechaVencimiento: '2026-03-31' },
+    { id: 2, tributo: 'Limpieza Pública', periodo: '2026-T1', emitido: 20, pagado: 20, deuda: 0, estado: 'PAGADA', fechaVencimiento: '2026-04-30' },
+    { id: 3, tributo: 'Derecho de trámite', periodo: '2026-T1', emitido: 7, pagado: 0, deuda: 7, estado: 'PENDIENTE' },
+  ] }).filas
+  const grupos = agruparCuentaPorPeriodo(filas)
+  assert.equal(grupos.length, 2)
+  assert.equal(grupos[0].deuda, 5)
+  assert.equal(grupos[0].estado, 'Vencida')
+  assert.equal(grupos[0].fechaVencimiento, null)
+  assert.deepEqual(grupos[0].idsPendientes, ['1'])
+  assert.equal(grupos[1].titulo, 'Derecho de trámite')
 })
 
 test('el acceso existente a pagos propaga una caída de red sin inventar confirmaciones', async (t) => {

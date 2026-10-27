@@ -27,9 +27,13 @@
 .consulta-corte { padding: 8px 12px; border-radius: 8px; background: var(--azul-suave); color: var(--marino-osc); }
 .consulta-vistas { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
 .consulta-conteo { color: var(--texto-atenuado); font-size: 14px; margin: 16px 0 0; }
-.consulta-tabla-cuenta { min-width: 850px; }
+.consulta-tabla-cuenta { min-width: 950px; }
 .consulta-tabla-cuenta th[scope="row"] { font-weight: 400; }
 .consulta-tabla-cuenta tfoot { background: var(--fondo); }
+.consulta-detalle-periodo summary { cursor: pointer; color: var(--marino-osc); font-weight: 700; white-space: nowrap; }
+.consulta-detalle-periodo summary:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.consulta-detalle-periodo ul { margin: 8px 0 0; padding-left: 18px; min-width: 170px; }
+.consulta-detalle-periodo li { margin: 4px 0; }
 .consulta-tributaria .alert p { margin: 8px 0 12px; }
 .consulta-pagos { border: 0; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
 .consulta-pagos label { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--borde); border-radius: 10px; cursor: pointer; }

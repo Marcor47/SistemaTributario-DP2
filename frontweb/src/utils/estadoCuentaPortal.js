@@ -34,3 +34,42 @@ export function filtrarCuenta(filas, { anio = '', tributo = '', estado = '', tex
     && (vista !== 'pagos' || fila.pagado > 0)
     && normalizar(`${fila.tributo} ${fila.periodo}`).includes(normalizar(texto)))
 }
+
+const CONCEPTOS_TRIMESTRALES = new Set([
+  'Impuesto Predial', 'Limpieza Pública', 'Parques y Jardines', 'Seguridad Ciudadana',
+])
+
+// Agrupa los conceptos del mismo trimestre y conserva los IDs originales para pagos.
+export function agruparCuentaPorPeriodo(filas) {
+  const grupos = new Map()
+  for (const fila of filas) {
+    const esTrimestral = /^\d{4}-T[1-4]$/.test(fila.periodo || '') && CONCEPTOS_TRIMESTRALES.has(fila.tributo)
+    const clave = esTrimestral ? `trimestre:${fila.periodo}` : `obligacion:${fila.id}`
+    if (!grupos.has(clave)) {
+      grupos.set(clave, {
+        id: clave, titulo: esTrimestral ? 'Tributos municipales' : fila.tributo,
+        periodo: fila.periodo, anio: fila.anio, esTrimestral, conceptos: [],
+      })
+    }
+    grupos.get(clave).conceptos.push(fila)
+  }
+  return Array.from(grupos.values(), (grupo) => {
+    const totales = resumirCuenta(grupo.conceptos)
+    const vencimientos = [...new Set(grupo.conceptos.map((fila) => fila.fechaVencimiento))]
+    const estado = totales.deuda === 0 ? 'Pagada'
+      : grupo.conceptos.some((fila) => fila.estado === 'Vencida' && fila.deuda > 0) ? 'Vencida' : 'Pendiente'
+    return {
+      ...grupo, emitido: totales.emitido, pagado: totales.pagado, deuda: totales.deuda, estado,
+      fechaVencimiento: vencimientos.length === 1 ? vencimientos[0] : null,
+      idsPendientes: grupo.conceptos.filter((fila) => fila.deuda > 0).map((fila) => fila.id),
+    }
+  })
+}
+
+export function filtrarPeriodos(grupos, { anio = '', estado = '', texto = '', vista = 'obligaciones' } = {}) {
+  return grupos.filter((grupo) => (!anio || String(grupo.anio) === String(anio))
+    && (!estado || grupo.estado === estado)
+    && (vista !== 'pagos' || grupo.pagado > 0)
+    && normalizar(`${grupo.titulo} ${grupo.periodo} ${grupo.conceptos.map((fila) => fila.tributo).join(' ')}`)
+      .includes(normalizar(texto)))
+}

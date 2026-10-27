@@ -30,6 +30,10 @@ public class RegistroAuditoria {
     @JoinColumn(name = "id_usuario")
     private Usuario usuario;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_usuario_objetivo")
+    private Usuario usuarioObjetivo;
+
     @Column(name = "accion", nullable = false, length = 60)
     private String accion;
 
@@ -57,6 +61,16 @@ public class RegistroAuditoria {
         this.valorAnterior = valorAnterior;
         this.valorNuevo = valorNuevo;
         this.fechaHora = fechaHora;
+    }
+
+    public RegistroAuditoria(Usuario usuario, Usuario usuarioObjetivo, String accion, String entidad,
+            String valorAnterior, String valorNuevo, LocalDateTime fechaHora) {
+        this(usuario, accion, entidad, valorAnterior, valorNuevo, fechaHora);
+        this.usuarioObjetivo = usuarioObjetivo;
+    }
+
+    public Usuario getUsuarioObjetivo() {
+        return usuarioObjetivo;
     }
 
     public Long getIdRegistro() {
