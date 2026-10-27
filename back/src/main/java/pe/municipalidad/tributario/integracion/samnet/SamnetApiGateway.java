@@ -2,7 +2,6 @@ package pe.municipalidad.tributario.integracion.samnet;
 
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Clock;
@@ -12,7 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Supplier;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.TransientDataAccessException;
@@ -157,22 +155,26 @@ public class SamnetApiGateway implements SamnetGateway {
     }
 
     @Override
-    public String registrarPagoEnLinea(String codigoContribuyente, long idTransaccion, Set<Long> obligaciones,
-            BigDecimal monto, LocalDate fechaPago) {
+    public Map<Long, String> obtenerBeneficiosPorObligacion(String codigoContribuyente) {
+        return invocar(() -> jdbc.query("SELECT * FROM samnet.ps_beneficios_obligacion(?)",
+                rs -> {
+                    Map<Long, String> asignaciones = new LinkedHashMap<>();
+                    while (rs.next()) asignaciones.put(rs.getLong("id_obligacion"), rs.getString("id_beneficio"));
+                    return asignaciones;
+                }, codigoContribuyente));
+    }
+
+    @Override
+    public String registrarPagoEnLinea(String codigoContribuyente, long idTransaccion, LocalDate fechaPago) {
         return invocar(() -> jdbc.execute((ConnectionCallback<String>) conexion -> {
-            Array ids = conexion.createArrayOf("bigint", obligaciones.toArray(Long[]::new));
-            try (var sentencia = conexion.prepareStatement("SELECT samnet.ps_registrarpagoweb(?, ?, ?, ?, ?)")) {
+            try (var sentencia = conexion.prepareStatement("SELECT samnet.ps_registrarpagoweb(?, ?, ?)")) {
                 sentencia.setString(1, codigoContribuyente);
                 sentencia.setLong(2, idTransaccion);
-                sentencia.setArray(3, ids);
-                sentencia.setBigDecimal(4, monto);
-                sentencia.setDate(5, Date.valueOf(fechaPago));
+                sentencia.setDate(3, Date.valueOf(fechaPago));
                 try (var resultado = sentencia.executeQuery()) {
                     resultado.next();
                     return resultado.getString(1);
                 }
-            } finally {
-                ids.free();
             }
         }));
     }
@@ -247,6 +249,8 @@ public class SamnetApiGateway implements SamnetGateway {
             fecha(rs, "fecha_vencimiento"),
             rs.getBigDecimal("monto_emitido"),
             rs.getBigDecimal("monto_pagado"),
+            rs.getBigDecimal("monto_emitido").subtract(rs.getBigDecimal("monto_pagado"))
+                    .subtract(rs.getBigDecimal("insoluto")),
             rs.getBigDecimal("porcentaje_descuento"),
             rs.getString("etapa_cobranza") == null ? null : EtapaCobranza.valueOf(rs.getString("etapa_cobranza")),
             fecha(rs, "fecha_etapa"));
