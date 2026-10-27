@@ -1,5 +1,22 @@
 # React + Vite
 
+## Declaración jurada del predio (HU003)
+
+En `/predios`, busca y selecciona un predio. Las minipestañas **Resumen** y
+**Declaración jurada** conservan el mismo predio seleccionado. La segunda consulta
+`GET /api/predios/{codigoPredio}/declaracion-jurada` mediante `VITE_API_URL`
+(por defecto `http://localhost:8080/api`). Requiere el backend disponible, incluso
+si otras pantallas están en modo demostración; no sustituye errores por una DJ ficticia.
+
+La pantalla muestra la DJ vigente y su autoavalúo, el historial no vigente, la fecha
+de consulta y las advertencias de SAMNET. La vigencia la resuelve la API y no se
+deduce por el año. Las consultas fallidas permiten reintentar; cambiar de predio
+descarta la consulta anterior. Un importe ausente se muestra como no disponible.
+
+Para probar la integración, usa `014502-01` (vigente 2024 e histórica 2012) o
+`021390-01` (solo vigente). La búsqueda y el resumen de HU002 siguen usando los
+datos de demostración existentes; conectarlos a su API queda fuera de HU003.
+
 ## Morosidad (HU008) y mi estado de cuenta (HU014)
 
 - `/morosidad`: consulta de la última carga publicada o de un año/mes, índice total,
