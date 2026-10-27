@@ -3,8 +3,8 @@
  * Reproducen la muestra de control de IndiceMorosidadControllerTest y los datos
  * de R__datos_prueba_06_alertas_desvio.sql (lote ficticio de octubre de 2026).
  *
- * La pantalla usa estos datos si el backend no está disponible (VITE_USAR_MOCK=true
- * o si la petición falla). Al integrar el backend real sólo se reemplaza morosidadService.js.
+ * La pantalla usa estos datos únicamente con VITE_USAR_MOCK=true.
+ * Ambos desgloses suman 1 050 000 emitidos y 155 400 vencidos no pagados.
  */
 
 export const LOTE_DEMO = {
@@ -28,16 +28,15 @@ export const DATOS_DEMO = {
   umbral: UMBRAL_DESVIO,
   porTributo: [
     { valorAlcance: 'PREDIAL',             indice: 18.75, montoEmitido: 800_000, montoVencido: 150_000 },
-    { valorAlcance: 'LIMPIEZA_PUBLICA',    indice:  5.00, montoEmitido: 100_000, montoVencido:   5_000 },
-    { valorAlcance: 'PARQUES_JARDINES',    indice:  2.00, montoEmitido:  50_000, montoVencido:   1_000 },
-    { valorAlcance: 'SEGURIDAD_CIUDADANA', indice:  1.60, montoEmitido:  62_500, montoVencido:   1_000 },
+    { valorAlcance: 'LIMPIEZA_PUBLICA',    indice:  3.00, montoEmitido: 100_000, montoVencido:   3_000 },
+    { valorAlcance: 'PARQUES_JARDINES',    indice:  2.00, montoEmitido: 100_000, montoVencido:   2_000 },
+    { valorAlcance: 'SEGURIDAD_CIUDADANA', indice:  0.80, montoEmitido:  50_000, montoVencido:     400 },
   ],
   porZona: [
-    { valorAlcance: 'Zona Norte',  indice: 20.40, montoEmitido: 280_000, montoVencido:  57_120 },
-    { valorAlcance: 'Zona Sur',    indice: 15.80, montoEmitido: 310_000, montoVencido:  48_980 },
-    { valorAlcance: 'Zona Este',   indice:  9.20, montoEmitido: 260_000, montoVencido:  23_920 },
-    { valorAlcance: 'Zona Oeste',  indice:  5.00, montoEmitido: 130_000, montoVencido:   6_500 },
-    { valorAlcance: 'Zona Centro', indice:  3.25, montoEmitido:  70_000, montoVencido:   2_275 },
+    { valorAlcance: 'Zona Norte', indice: 25, montoEmitido: 400_000, montoVencido: 100_000 },
+    { valorAlcance: 'Zona Sur', indice: 13.3333, montoEmitido: 300_000, montoVencido: 40_000 },
+    { valorAlcance: 'Zona Este', indice: 5, montoEmitido: 200_000, montoVencido: 10_000 },
+    { valorAlcance: 'Zona Oeste', indice: 3.6, montoEmitido: 150_000, montoVencido: 5_400 },
   ],
   alertas: [
     {

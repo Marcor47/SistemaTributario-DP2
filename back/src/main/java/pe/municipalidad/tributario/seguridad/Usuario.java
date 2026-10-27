@@ -73,6 +73,11 @@ public class Usuario {
         roles.add(rol);
     }
 
+    public void sustituirRol(Rol rol) {
+        roles.clear();
+        roles.add(rol);
+    }
+
     public boolean tienePermiso(String modulo, String accion) {
         return activo && roles.stream().anyMatch(r -> r.tienePermiso(modulo, accion));
     }

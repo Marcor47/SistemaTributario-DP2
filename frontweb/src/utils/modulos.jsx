@@ -62,6 +62,7 @@ export const MODULOS = [
     ruta: '/morosidad',
     texto: 'Morosidad',
     titulo: 'Índice de Morosidad',
+    descripcion: 'Consulta el índice total, por tributo y por zona de cada periodo publicado para priorizar la gestión de cobranza.',
     seccion: 'gestion',
     icono: icono(<><path d="M3 3v18h18" /><path d="M18 8l-6 6-3-3-5 5" /></>),
   },

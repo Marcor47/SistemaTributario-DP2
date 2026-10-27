@@ -1,4 +1,4 @@
-import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import MenuLateral from './components/MenuLateral.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
@@ -83,8 +83,8 @@ export default function App() {
         {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
         <Route element={<LayoutPortal />}>
           <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
-          <Route path="/portal/estado-cuenta" element={<EstadoCuentaPortal />} />
-          <Route path="/mi-cuenta" element={<EstadoCuentaPortal />} />
+          <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
+          <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
           <Route path="/constancias" element={<Constancia />} />
         </Route>
 

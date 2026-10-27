@@ -1,87 +1,105 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import {
-  confirmarPagoPortal,
-  iniciarPagoPortal,
-  obtenerEstadoCuentaPortal,
-  obtenerHistorialPagosPortal,
-} from '../src/services/portalCuentaService.js'
+import { obtenerEstadoCuentaPortal, iniciarPagoPortal, confirmarPagoPortal } from '../src/services/portalCuentaService.js'
+import { agruparCuentaPorPeriodo, filtrarCuenta, filtrarPeriodos, normalizarCuenta, resumirCuenta } from '../src/utils/estadoCuentaPortal.js'
+import { FECHA_CORTE, generarCuenta } from '../src/mocks/cuentas.js'
 
-test('HU014 RF-018: obtenerEstadoCuentaPortal devuelve los datos del contribuyente propio sin requerir ID en la URL (prevención IDOR)', async () => {
+const respuesta = {
+  contribuyente: { codigo: '014502', nombre: 'Contribuyente de prueba', tipoDoc: 'DNI', doc: '12345678' },
+  fechaCorte: '2026-10-19', desactualizado: false,
+  filas: [
+    { id: '1', tributo: 'Impuesto Predial', periodo: '2026-T1', emitido: 400, pagado: 150, deuda: 250, estado: 'Vencida' },
+    { id: '2', tributo: 'Limpieza Pública', periodo: '2026-11', emitido: 100, pagado: 0, deuda: 100, estado: 'Pendiente' },
+    { id: '3', tributo: 'Impuesto Predial', periodo: '2025-T4', emitido: 400, pagado: 400, deuda: 0, estado: 'Pagada' },
+  ],
+}
+
+test('HU014: consulta exclusivamente la ruta propia con cookie, sin enviar un código', async (t) => {
+  const llamadas = []
+  t.mock.method(globalThis, 'fetch', async (url, opciones) => {
+    llamadas.push({ url, opciones })
+    return new Response(JSON.stringify(respuesta), { status: 200 })
+  })
   const cuenta = await obtenerEstadoCuentaPortal()
-  assert.ok(cuenta.contribuyente, 'Debe incluir los datos del contribuyente')
-  assert.equal(cuenta.contribuyente.codigo, '021390')
-  assert.equal(cuenta.contribuyente.tipoDoc, 'RUC')
-  assert.equal(cuenta.contribuyente.doc, '20456781239')
-  assert.ok(cuenta.fechaCorte, 'Debe incluir la fecha de corte')
-  assert.equal(cuenta.desactualizado, false)
-  assert.equal(cuenta.esUltimaCopia, false)
-  assert.ok(Array.isArray(cuenta.filas), 'Debe incluir la lista de obligaciones')
-  assert.ok(cuenta.filas.length > 0, 'Debe tener obligaciones cargadas')
+  assert.equal(cuenta.contribuyente.codigo, '014502')
+  assert.equal(llamadas.length, 1)
+  assert.ok(llamadas[0].url.endsWith('/portal/estado-cuenta'))
+  assert.equal(llamadas[0].opciones.credentials, 'include')
+  assert.equal(llamadas[0].opciones.body, undefined)
 })
 
-test('HU014 RNF-002: cuando SAMNET no responde, la contingencia entrega la última copia con esUltimaCopia = true', async () => {
-  const contingencia = await obtenerEstadoCuentaPortal({ simularCaida: true })
-  assert.equal(contingencia.desactualizado, true)
-  assert.equal(contingencia.esUltimaCopia, true)
-  assert.equal(contingencia.fechaCorte, '2026-10-16', 'La copia de contingencia conserva su fecha de corte anterior')
-  assert.ok(contingencia.filas.length > 0)
+test('HU014: propaga la sesión caducada y los errores sin sustituir datos ficticios', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify({ codigo: 'SESION_REQUERIDA', mensaje: 'Inicie sesión.' }), { status: 401 }))
+  await assert.rejects(obtenerEstadoCuentaPortal(), { estado: 401, codigo: 'SESION_REQUERIDA' })
+  globalThis.fetch = async () => { throw new Error('Sin red') }
+  await assert.rejects(obtenerEstadoCuentaPortal(), { codigo: 'SIN_CONEXION', estado: 0 })
 })
 
-test('HU014 RF-018: las multas y sanciones se presentan obligatoriamente por separado de los tributos', async () => {
-  const cuenta = await obtenerEstadoCuentaPortal()
-  const predial = cuenta.filas.filter((f) => f.categoria === 'PREDIAL')
-  const arbitrios = cuenta.filas.filter((f) => f.categoria === 'ARBITRIOS')
-  const multas = cuenta.filas.filter((f) => f.categoria === 'MULTAS')
+test('HU014: conserva fecha de corte y copia desactualizada recibidas del servidor', () => {
+  const cuenta = normalizarCuenta({ ...respuesta, fechaCorte: '2026-10-16', desactualizado: true })
+  assert.equal(cuenta.fechaCorte, '2026-10-16')
+  assert.equal(cuenta.desactualizado, true)
+  assert.deepEqual(cuenta.contribuyente, respuesta.contribuyente)
+})
 
-  assert.ok(predial.length > 0, 'Debe contener obligaciones de Impuesto Predial')
-  assert.ok(arbitrios.length > 0, 'Debe contener obligaciones de Arbitrios Municipales')
-  assert.ok(multas.length > 0, 'Debe contener multas y sanciones separadas')
+test('HU014: suma pagos parciales y distingue deuda vencida de obligaciones vigentes', () => {
+  assert.deepEqual(resumirCuenta(normalizarCuenta(respuesta).filas), { emitido: 900, pagado: 550, deuda: 350, vencido: 250, vigente: 100 })
+})
 
-  // Verificar que ninguna multa está clasificada como impuesto predial o arbitrio
-  for (const m of multas) {
-    assert.notEqual(m.tributo, 'Impuesto Predial')
-    assert.notEqual(m.tributo, 'Limpieza Pública')
-    assert.notEqual(m.categoria, 'PREDIAL')
-    assert.notEqual(m.categoria, 'ARBITRIOS')
+test('HU014: filtros combinados y pagos aplicados incluyen obligaciones parcialmente pagadas', () => {
+  const filas = normalizarCuenta(respuesta).filas
+  assert.deepEqual(filtrarCuenta(filas, { vista: 'pagos' }).map((fila) => fila.id), ['1', '3'])
+  assert.deepEqual(filtrarCuenta(filas, { anio: 2026, tributo: 'Impuesto Predial', estado: 'Vencida', texto: 'predial' }).map((fila) => fila.id), ['1'])
+  assert.deepEqual(filtrarCuenta(filas, { texto: 'publica' }).map((fila) => fila.id), ['2'])
+  assert.deepEqual(filtrarCuenta(filas, { anio: 2024 }), [])
+})
+
+test('HU014: no inventa año, vencimiento, recibo ni fecha de pago cuando faltan', () => {
+  const cuenta = normalizarCuenta({ ...respuesta, filas: [{ id: 9, tributo: 'Predial', periodo: '', emitido: '100.50', pagado: '40.25' }] })
+  assert.equal(cuenta.filas[0].anio, null)
+  assert.equal(cuenta.filas[0].deuda, 60.25)
+  assert.equal(cuenta.filas[0].fechaVencimiento, undefined)
+  assert.equal(cuenta.filas[0].fechaPago, undefined)
+})
+
+test('HU014: cuenta sin obligaciones tiene todos los totales en cero', () => {
+  assert.deepEqual(resumirCuenta([]), { emitido: 0, pagado: 0, deuda: 0, vencido: 0, vigente: 0 })
+})
+
+test('HU014: unifica los cuatro conceptos por trimestre sin alterar importes ni IDs de pago', () => {
+  const filas = normalizarCuenta({ fechaCorte: FECHA_CORTE, filas: generarCuenta('021390', FECHA_CORTE) }).filas
+  const grupos = agruparCuentaPorPeriodo(filas)
+  assert.equal(filas.length, 24)
+  assert.equal(grupos.length, 6)
+  assert.ok(grupos.every((grupo) => grupo.conceptos.length === 4 && grupo.titulo === 'Tributos municipales'))
+  assert.deepEqual(grupos.map((grupo) => grupo.periodo), ['2025-T1', '2025-T2', '2025-T3', '2025-T4', '2026-T1', '2026-T2'])
+  for (const campo of ['emitido', 'pagado', 'deuda']) {
+    assert.equal(resumirCuenta(grupos)[campo], resumirCuenta(filas)[campo])
   }
+  const grupo = grupos.find((item) => item.periodo === '2026-T1')
+  assert.deepEqual(grupo.idsPendientes, filas.filter((fila) => fila.periodo === '2026-T1' && fila.deuda > 0)
+    .map((fila) => fila.id))
+  assert.equal(filtrarPeriodos(grupos, { anio: 2026, texto: 'Predial' }).length, 2)
+  assert.equal(filtrarPeriodos(grupos, { vista: 'pagos' }).length, 3)
 })
 
-test('HU014 RF-014: las obligaciones vencidas muestran su etapa de cobranza inductiva', async () => {
-  const cuenta = await obtenerEstadoCuentaPortal()
-  const vencidas = cuenta.filas.filter((f) => f.estado === 'Vencida')
-  assert.ok(vencidas.length > 0, 'Debe haber cuotas vencidas para comprobar la etapa')
-
-  for (const v of vencidas) {
-    assert.ok(v.etapaCobranza, `La cuota vencida ${v.id} debe tener una etapa de cobranza`)
-    assert.ok(
-      ['Mora temprana', 'Campaña persuasiva', 'Valor emitido', 'Espera legal', 'Exigible en vía coactiva'].includes(
-        v.etapaCobranza,
-      ),
-      `Etapa desconocida: ${v.etapaCobranza}`,
-    )
-  }
+test('HU014: no mezcla obligaciones ajenas al trimestre ni inventa un vencimiento único', () => {
+  const filas = normalizarCuenta({ fechaCorte: '2026-10-19', filas: [
+    { id: 1, tributo: 'Impuesto Predial', periodo: '2026-T1', emitido: 10, pagado: 5, deuda: 5, estado: 'VENCIDA', fechaVencimiento: '2026-03-31' },
+    { id: 2, tributo: 'Limpieza Pública', periodo: '2026-T1', emitido: 20, pagado: 20, deuda: 0, estado: 'PAGADA', fechaVencimiento: '2026-04-30' },
+    { id: 3, tributo: 'Derecho de trámite', periodo: '2026-T1', emitido: 7, pagado: 0, deuda: 7, estado: 'PENDIENTE' },
+  ] }).filas
+  const grupos = agruparCuentaPorPeriodo(filas)
+  assert.equal(grupos.length, 2)
+  assert.equal(grupos[0].deuda, 5)
+  assert.equal(grupos[0].estado, 'Vencida')
+  assert.equal(grupos[0].fechaVencimiento, null)
+  assert.deepEqual(grupos[0].idsPendientes, ['1'])
+  assert.equal(grupos[1].titulo, 'Derecho de trámite')
 })
 
-test('HU014 RF-062: obtenerHistorialPagosPortal devuelve fecha, canal, monto y beneficio aplicado', async () => {
-  const pagos = await obtenerHistorialPagosPortal()
-  assert.ok(Array.isArray(pagos))
-  assert.ok(pagos.length > 0)
-
-  for (const p of pagos) {
-    assert.ok(p.fechaPago, 'Debe incluir fecha de pago')
-    assert.ok(['En línea', 'Ventanilla'].includes(p.canal), `Canal inválido: ${p.canal}`)
-    assert.ok(typeof p.montoPagado === 'number' && p.montoPagado > 0, 'Monto pagado debe ser positivo')
-    assert.ok(typeof p.beneficioAplicado === 'number', 'Debe reportar beneficio aplicado')
-  }
-})
-
-test('HU014 / HU022: iniciarPagoPortal y confirmarPagoPortal gestionan la orden de pago de cuotas', async () => {
-  const orden = await iniciarPagoPortal([5, 6])
-  assert.ok(orden.idTransaccion, 'Debe generar un id de transacción')
-  assert.ok(['INICIADA', 'PENDIENTE'].includes(orden.estado))
-
-  const confirmacion = await confirmarPagoPortal(orden.idTransaccion)
-  assert.equal(confirmacion.idTransaccion, orden.idTransaccion)
-  assert.equal(confirmacion.estado, 'CONFIRMADA')
+test('el acceso existente a pagos propaga una caída de red sin inventar confirmaciones', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => { throw new Error('Sin red') })
+  await assert.rejects(iniciarPagoPortal([1]), { codigo: 'SIN_CONEXION' })
+  await assert.rejects(confirmarPagoPortal(12), { codigo: 'SIN_CONEXION' })
 })
