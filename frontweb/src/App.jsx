@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'rea
 import MenuLateral from './components/MenuLateral.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
+import Dashboard from './pages/Dashboard.jsx'
 import Login from './pages/Login.jsx'
 import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
@@ -90,6 +91,7 @@ export default function App() {
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
         <Route element={<LayoutGestion />}>
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/predios" element={<ConsultaPredio />} />
           <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
           <Route path="/metas" element={<ConfiguracionMetas />} />

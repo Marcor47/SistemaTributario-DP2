@@ -71,9 +71,9 @@ body {
   padding: 28px clamp(16px, 3vw, 40px) 24px; background: #fff; border-bottom: 1px solid var(--borde);
   background-image: radial-gradient(circle at 100% 0%, rgba(25, 195, 243, 0.14) 0, rgba(25, 195, 243, 0) 40%);
 }
-.pagina-cab__ruta { margin: 0 0 6px; font-size: 14px; color: var(--texto-atenuado); }
+.pagina-cab__ruta { margin: 0 0 4px; font-size: 14px; color: var(--texto-atenuado); }
 .pagina-cab h1 { margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; color: var(--marino-osc); }
-.pagina-cab p.pagina-cab__desc { margin: 8px 0 0; max-width: 70ch; color: var(--texto-secundario); }
+.pagina-cab p.pagina-cab__desc { margin: 6px 0 0; max-width: 70ch; color: var(--texto-secundario); }
 
 /* Contenido */
 .pmain { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 16px; flex: 1; }

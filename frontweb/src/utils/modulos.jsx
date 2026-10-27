@@ -27,6 +27,21 @@ export const MODULOS = [
     icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /></>),
   },
   {
+    ruta: '/dashboard',
+    texto: 'Dashboard',
+    titulo: 'Dashboard de Rentas',
+    descripcion: 'Revisa las alertas activas por desvío de meta y apoya la toma de decisiones de la Gerencia de Rentas.',
+    seccion: 'gestion',
+    icono: icono(
+      <>
+        <rect x="3" y="3" width="7" height="9" rx="1" />
+        <rect x="14" y="3" width="7" height="5" rx="1" />
+        <rect x="14" y="12" width="7" height="9" rx="1" />
+        <rect x="3" y="16" width="7" height="5" rx="1" />
+      </>
+    ),
+  },
+  {
     ruta: '/predios',
     texto: 'Predios',
     titulo: 'Consulta de predios',

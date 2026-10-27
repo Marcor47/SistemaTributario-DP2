@@ -5,6 +5,20 @@ import './Inicio.css'
 
 const MODULOS = [
   {
+    titulo: 'Dashboard y alertas',
+    ruta: '/dashboard',
+    imagen: '/modulos/metas.jpg',
+    texto: 'Revisa las alertas activas cuando un indicador se desvía de su meta configurada.',
+    icono: (
+      <>
+        <rect x="3" y="3" width="7" height="9" rx="1" />
+        <rect x="14" y="3" width="7" height="5" rx="1" />
+        <rect x="14" y="12" width="7" height="9" rx="1" />
+        <rect x="3" y="16" width="7" height="5" rx="1" />
+      </>
+    ),
+  },
+  {
     titulo: 'Consulta de predios',
     ruta: '/predios',
     imagen: '/modulos/predios.jpg',
