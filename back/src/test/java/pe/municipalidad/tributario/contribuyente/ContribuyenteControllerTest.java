@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.contribuyente;
 
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -41,11 +42,47 @@ class ContribuyenteControllerTest {
     }
 
     @Test
+    void laFichaIncluyeLosImpuestosResumidosPorTributoYDetalladosPorPeriodo() throws Exception {
+        mockMvc.perform(get(RUTA).param("tipoDocumento", "DNI").param("numeroDocumento", "41028765"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.impuestos.fechaCorte").value("2026-10-19"))
+                .andExpect(jsonPath("$.impuestos.totalEmitido").value(2583.0))
+                .andExpect(jsonPath("$.impuestos.totalPagado").value(2583.0))
+                .andExpect(jsonPath("$.impuestos.totalDeuda").value(0.0))
+                .andExpect(jsonPath("$.impuestos.porTributo", hasSize(2)))
+                .andExpect(jsonPath("$.impuestos.porTributo[0].tributo").value("IMPUESTO_PREDIAL"))
+                .andExpect(jsonPath("$.impuestos.porTributo[0].emitido").value(1134.0))
+                .andExpect(jsonPath("$.impuestos.porTributo[1].tributo").value("ARBITRIOS"))
+                .andExpect(jsonPath("$.impuestos.porTributo[1].descripcion").value("Arbitrios Municipales"))
+                .andExpect(jsonPath("$.impuestos.porTributo[1].emitido").value(1449.0))
+                .andExpect(jsonPath("$.impuestos.cuotas", hasSize(12)))
+                .andExpect(jsonPath("$.impuestos.cuotas[0].periodo").value("2025-T1"))
+                .andExpect(jsonPath("$.impuestos.cuotas[0].tributo").value("IMPUESTO_PREDIAL"))
+                .andExpect(jsonPath("$.impuestos.cuotas[1].tributo").value("ARBITRIOS"))
+                .andExpect(jsonPath("$.impuestos.cuotas[1].emitido").value(230.0))
+                .andExpect(jsonPath("$.impuestos.cuotas[1].estado").value("PAGADA"));
+    }
+
+    @Test
+    void losImpuestosMuestranLaDeudaVencidaDelContribuyente() throws Exception {
+        mockMvc.perform(get(RUTA).param("tipoDocumento", "RUC").param("numeroDocumento", "20456781239"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.impuestos.totalDeuda").value(6907.68))
+                .andExpect(jsonPath("$.impuestos.porTributo[0].deuda").value(3032.64))
+                .andExpect(jsonPath("$.impuestos.porTributo[1].deuda").value(3875.04))
+                .andExpect(jsonPath("$.impuestos.cuotas[6].periodo").value("2025-T4"))
+                .andExpect(jsonPath("$.impuestos.cuotas[6].deuda").value(992.16))
+                .andExpect(jsonPath("$.impuestos.cuotas[6].estado").value("VENCIDA"));
+    }
+
+    @Test
     void consultaPorCarneDeExtranjeriaToleraMinusculasYEspacios() throws Exception {
         mockMvc.perform(get(RUTA).param("tipoDocumento", "CE").param("numeroDocumento", " 0012 34567 "))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.codigo").value("072405"))
-                .andExpect(jsonPath("$.estado").value("INACTIVO"));
+                .andExpect(jsonPath("$.estado").value("INACTIVO"))
+                .andExpect(jsonPath("$.impuestos.totalDeuda").value(0.0))
+                .andExpect(jsonPath("$.impuestos.cuotas", hasSize(0)));
     }
 
     @Test

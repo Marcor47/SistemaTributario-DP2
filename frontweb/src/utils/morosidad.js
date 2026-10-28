@@ -12,8 +12,7 @@ export function porcentaje(valor) {
 export function etiquetaTributo(clave) {
   return {
     PREDIAL: 'Impuesto Predial', IMPUESTO_PREDIAL: 'Impuesto Predial',
-    LIMPIEZA_PUBLICA: 'Limpieza Pública', PARQUES_JARDINES: 'Parques y Jardines',
-    SEGURIDAD_CIUDADANA: 'Seguridad Ciudadana',
+    ARBITRIOS: 'Arbitrios Municipales',
   }[clave] || clave
 }
 

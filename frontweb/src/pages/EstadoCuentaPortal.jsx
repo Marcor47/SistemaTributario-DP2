@@ -83,7 +83,7 @@ export default function EstadoCuentaPortal() {
               {hayFiltros && <button type="button" className="btn" onClick={() => setFiltros({ ...FILTROS_INICIALES, vista: filtros.vista })}>Limpiar filtros</button>}
             </form>
             <h2>{esPagos ? 'Pagos aplicados por periodo' : 'Estado de cuenta por trimestre'}</h2>
-            <p className="hint">Los cuatro conceptos municipales se presentan en un total por trimestre. Puedes ver los conceptos incluidos en cada fila; los importes corresponden a la fecha de corte. {esPagos && 'Los pagos aplicados no son un historial de recibos o transacciones.'}</p>
+            <p className="hint">El Impuesto Predial y los arbitrios municipales se presentan en un total por trimestre. Puedes ver los conceptos incluidos en cada fila; los importes corresponden a la fecha de corte. {esPagos && 'Los pagos aplicados no son un historial de recibos o transacciones.'}</p>
             <p className="consulta-conteo" role="status">{filtradas.length} {filtradas.length === 1 ? 'periodo encontrado' : 'periodos encontrados'}</p>
             {filtradas.length === 0 ? <p className="consulta-vacio">{hayFiltros ? 'No hay obligaciones que coincidan con los filtros seleccionados.' : 'No hay pagos aplicados en esta cuenta.'}</p> : (
               <div className="tabla-scroll" tabIndex={0} role="region" aria-label={esPagos ? 'Pagos aplicados por periodo' : 'Mi estado de cuenta por periodo'}>

@@ -74,7 +74,7 @@ class SamnetApiGatewayTest {
         EstadoCuenta estadoCuenta = samnet.obtenerEstadoCuenta("021390");
 
         assertThat(estadoCuenta.obtenerFechaCorte()).isEqualTo(LocalDate.of(2026, 10, 19));
-        assertThat(estadoCuenta.getObligaciones()).hasSize(24);
+        assertThat(estadoCuenta.getObligaciones()).hasSize(12);
         assertThat(estadoCuenta.getTotalDeuda()).isEqualByComparingTo("6907.68");
         assertThat(estadoCuenta.getPagos()).isNotEmpty();
         assertThat(estadoCuenta.getPagos()).allSatisfy(p -> assertThat(p.diferencia()).isZero());

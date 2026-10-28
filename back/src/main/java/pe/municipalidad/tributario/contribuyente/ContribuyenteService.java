@@ -6,7 +6,7 @@ import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 
-/* HU001: los datos del contribuyente se consultan en SAMNET mediante SamnetGateway (RNF-001). */
+/* HU001: los datos del contribuyente y sus impuestos se consultan en SAMNET mediante SamnetGateway (RNF-001). */
 @Service
 public class ContribuyenteService {
 
@@ -30,10 +30,17 @@ public class ContribuyenteService {
                 .filter(c -> c.getTipoDocumento() == tipoDocumento
                         && c.getNumeroDocumento().equals(numeroNormalizado))
                 .findFirst()
-                .map(ContribuyenteRespuesta::desde)
+                .map(this::conImpuestos)
                 .orElseThrow(() -> new RecursoNoEncontradoException("CONTRIBUYENTE_NO_ENCONTRADO",
                         "No existe un contribuyente registrado con " + tipoDocumento.name() + " "
                                 + numeroNormalizado + "."));
+    }
+
+    /* Los impuestos salen del mismo estado de cuenta de SAMNET (ps_ctacte) que usa HU004. */
+    private ContribuyenteRespuesta conImpuestos(Contribuyente contribuyente) {
+        ImpuestosRespuesta impuestos =
+                ImpuestosRespuesta.desde(samnet.obtenerEstadoCuenta(contribuyente.getCodigoContribuyente()));
+        return ContribuyenteRespuesta.desde(contribuyente, impuestos);
     }
 
     /* Usado por otros módulos que necesitan asegurar que el contribuyente existe antes de continuar. */

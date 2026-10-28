@@ -131,17 +131,17 @@ class CobranzaControllerTest {
     void listaLasObligacionesVencidasOrdenadasPorVencimientoConSuEtapa() throws Exception {
         mockMvc.perform(get("/api/contribuyentes/021390/obligaciones-vencidas"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(12)))
+                .andExpect(jsonPath("$", hasSize(6)))
                 .andExpect(jsonPath("$[0].periodo").value("2025-T4"))
-                .andExpect(jsonPath("$[0].tributo").value("IMPUESTO_PREDIAL"))
-                .andExpect(jsonPath("$[0].etapaActual").value("COACTIVA"))
-                .andExpect(jsonPath("$[0].etapaNombre").value("Exigible en vía coactiva"))
-                .andExpect(jsonPath("$[0].diasVencida").value(292))
-                .andExpect(jsonPath("$[1].tributo").value("LIMPIEZA_PUBLICA"))
-                .andExpect(jsonPath("$[1].codigoPredio").value("021390-01"))
-                .andExpect(jsonPath("$[1].etapaActual").value("ESPERA_LEGAL"))
+                .andExpect(jsonPath("$[0].tributo").value("ARBITRIOS"))
+                .andExpect(jsonPath("$[0].codigoPredio").value("021390-01"))
+                .andExpect(jsonPath("$[0].etapaActual").value("ESPERA_LEGAL"))
+                .andExpect(jsonPath("$[1].tributo").value("IMPUESTO_PREDIAL"))
+                .andExpect(jsonPath("$[1].etapaActual").value("COACTIVA"))
+                .andExpect(jsonPath("$[1].etapaNombre").value("Exigible en vía coactiva"))
+                .andExpect(jsonPath("$[1].diasVencida").value(292))
                 .andExpect(jsonPath("$[2].etapaActual").value("MORA_TEMPRANA"))
-                .andExpect(jsonPath("$[11].periodo").value("2026-T2"));
+                .andExpect(jsonPath("$[5].periodo").value("2026-T2"));
     }
 
     @Test
