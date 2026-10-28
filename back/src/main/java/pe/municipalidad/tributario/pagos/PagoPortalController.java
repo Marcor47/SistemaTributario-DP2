@@ -1,7 +1,6 @@
 package pe.municipalidad.tributario.pagos;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import java.net.URI;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +22,7 @@ public class PagoPortalController {
     }
 
     @PostMapping
-    public ResponseEntity<PagoRespuesta> iniciar(@Valid @RequestBody PagoSolicitud solicitud,
+    public ResponseEntity<PagoRespuesta> iniciar(@RequestBody(required = false) PagoSolicitud solicitud,
             HttpServletRequest request) {
         PagoRespuesta respuesta = servicio.iniciar(SesionContribuyente.codigoContribuyente(request), solicitud);
         return ResponseEntity.created(URI.create("/api/portal/pagos/" + respuesta.idTransaccion())).body(respuesta);

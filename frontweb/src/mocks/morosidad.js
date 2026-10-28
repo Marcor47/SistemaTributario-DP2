@@ -28,9 +28,7 @@ export const DATOS_DEMO = {
   umbral: UMBRAL_DESVIO,
   porTributo: [
     { valorAlcance: 'PREDIAL',             indice: 18.75, montoEmitido: 800_000, montoVencido: 150_000 },
-    { valorAlcance: 'LIMPIEZA_PUBLICA',    indice:  3.00, montoEmitido: 100_000, montoVencido:   3_000 },
-    { valorAlcance: 'PARQUES_JARDINES',    indice:  2.00, montoEmitido: 100_000, montoVencido:   2_000 },
-    { valorAlcance: 'SEGURIDAD_CIUDADANA', indice:  0.80, montoEmitido:  50_000, montoVencido:     400 },
+    { valorAlcance: 'ARBITRIOS',           indice:  2.16, montoEmitido: 250_000, montoVencido:   5_400 },
   ],
   porZona: [
     { valorAlcance: 'Zona Norte', indice: 25, montoEmitido: 400_000, montoVencido: 100_000 },
@@ -68,9 +66,7 @@ export function etiquetaTributo(clave) {
   return (
     {
       PREDIAL: 'Impuesto Predial',
-      LIMPIEZA_PUBLICA: 'Limpieza Pública',
-      PARQUES_JARDINES: 'Parques y Jardines',
-      SEGURIDAD_CIUDADANA: 'Seguridad Ciudadana',
+      ARBITRIOS: 'Arbitrios Municipales',
     }[clave] ?? clave
   )
 }

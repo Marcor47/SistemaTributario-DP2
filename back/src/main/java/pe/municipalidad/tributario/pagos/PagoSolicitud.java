@@ -1,8 +1,7 @@
 package pe.municipalidad.tributario.pagos;
 
-import jakarta.validation.constraints.NotEmpty;
-import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
-public record PagoSolicitud(@NotEmpty List<@NotNull Long> obligaciones) {
+/** La lista es opcional por compatibilidad; nunca determina el importe ni el alcance del pago. */
+public record PagoSolicitud(List<Long> obligaciones) {
 }

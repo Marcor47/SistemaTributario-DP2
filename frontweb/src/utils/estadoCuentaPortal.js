@@ -35,9 +35,7 @@ export function filtrarCuenta(filas, { anio = '', tributo = '', estado = '', tex
     && normalizar(`${fila.tributo} ${fila.periodo}`).includes(normalizar(texto)))
 }
 
-const CONCEPTOS_TRIMESTRALES = new Set([
-  'Impuesto Predial', 'Limpieza Pública', 'Parques y Jardines', 'Seguridad Ciudadana',
-])
+const CONCEPTOS_TRIMESTRALES = new Set(['Impuesto Predial', 'Arbitrios Municipales'])
 
 // Agrupa los conceptos del mismo trimestre y conserva los IDs originales para pagos.
 export function agruparCuentaPorPeriodo(filas) {
