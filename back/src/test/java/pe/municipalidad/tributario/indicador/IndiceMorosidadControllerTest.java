@@ -28,15 +28,15 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
  *   Zona  Tributo            Vence       Emitido  Insoluto  Estado     ¿Exigible?
  *   Z01   IMPUESTO_PREDIAL   2026-02-27    400       0      PAGADA     sí
  *   Z01   IMPUESTO_PREDIAL   2026-05-29    400     400      VENCIDA    sí
- *   Z01   LIMPIEZA_PUBLICA   2026-09-30     50      20      VENCIDA    sí (pago parcial de 30)
- *   Z02   LIMPIEZA_PUBLICA   2026-09-30     50       0      PAGADA     sí
- *   Z02   PARQUES_JARDINES   2026-10-19     30      30      PENDIENTE  no: vence el mismo día de corte
+ *   Z01   ARBITRIOS          2026-09-30     50      20      VENCIDA    sí (pago parcial de 30)
+ *   Z02   ARBITRIOS          2026-09-30     50       0      PAGADA     sí
+ *   Z02   ARBITRIOS          2026-10-19     30      30      PENDIENTE  no: vence el mismo día de corte
  *   Z02   IMPUESTO_PREDIAL   2026-11-30    400     400      PENDIENTE  no: aún no vence
- *   Z02   LIMPIEZA_PUBLICA   2025-12-31     50      50      VENCIDA    no: es de otro año
+ *   Z02   ARBITRIOS          2025-12-31     50      50      VENCIDA    no: es de otro año
  *
  *   Total             420 / 900 x 100 = 46,6667
  *   IMPUESTO_PREDIAL  400 / 800 x 100 = 50,0000
- *   LIMPIEZA_PUBLICA   20 / 100 x 100 = 20,0000
+ *   ARBITRIOS          20 / 100 x 100 = 20,0000
  *   Z01               420 / 850 x 100 = 49,4118
  *   Z02                 0 /  50 x 100 =  0,0000
  */
@@ -72,7 +72,7 @@ class IndiceMorosidadControllerTest {
                 .andExpect(jsonPath("$.porTributo", hasSize(2)))
                 .andExpect(jsonPath("$.porTributo[0].valorAlcance").value("IMPUESTO_PREDIAL"))
                 .andExpect(jsonPath("$.porTributo[0].indice").value(50.0))
-                .andExpect(jsonPath("$.porTributo[1].valorAlcance").value("LIMPIEZA_PUBLICA"))
+                .andExpect(jsonPath("$.porTributo[1].valorAlcance").value("ARBITRIOS"))
                 .andExpect(jsonPath("$.porTributo[1].indice").value(20.0))
                 .andExpect(jsonPath("$.porZona", hasSize(2)))
                 .andExpect(jsonPath("$.porZona[0].valorAlcance").value("Z01"))
@@ -102,7 +102,7 @@ class IndiceMorosidadControllerTest {
         LoteETL lote = loteConMuestraDeControl(true);
         calcular(lote);
         jdbc.update("UPDATE analitica.hecho_cobranza SET monto_insoluto = 0, estado_pago = 'PAGADA' "
-                + "WHERE id_lote = ? AND tributo = 'LIMPIEZA_PUBLICA'", lote.getIdLote());
+                + "WHERE id_lote = ? AND tributo = 'ARBITRIOS'", lote.getIdLote());
 
         calcular(lote)
                 .andExpect(status().isOk())
@@ -178,11 +178,11 @@ class IndiceMorosidadControllerTest {
 
         cuota(lote, zona1, "IMPUESTO_PREDIAL", 2026, 1, "2026-02-27", "400", "0", "PAGADA");
         cuota(lote, zona1, "IMPUESTO_PREDIAL", 2026, 2, "2026-05-29", "400", "400", "VENCIDA");
-        cuota(lote, zona1, "LIMPIEZA_PUBLICA", 2026, 9, "2026-09-30", "50", "20", "VENCIDA");
-        cuota(lote, zona2, "LIMPIEZA_PUBLICA", 2026, 9, "2026-09-30", "50", "0", "PAGADA");
-        cuota(lote, zona2, "PARQUES_JARDINES", 2026, 10, "2026-10-19", "30", "30", "PENDIENTE");
+        cuota(lote, zona1, "ARBITRIOS", 2026, 9, "2026-09-30", "50", "20", "VENCIDA");
+        cuota(lote, zona2, "ARBITRIOS", 2026, 9, "2026-09-30", "50", "0", "PAGADA");
+        cuota(lote, zona2, "ARBITRIOS", 2026, 10, "2026-10-19", "30", "30", "PENDIENTE");
         cuota(lote, zona2, "IMPUESTO_PREDIAL", 2026, 4, "2026-11-30", "400", "400", "PENDIENTE");
-        cuota(lote, zona2, "LIMPIEZA_PUBLICA", 2025, 12, "2025-12-31", "50", "50", "VENCIDA");
+        cuota(lote, zona2, "ARBITRIOS", 2025, 12, "2025-12-31", "50", "50", "VENCIDA");
         return lote;
     }
 

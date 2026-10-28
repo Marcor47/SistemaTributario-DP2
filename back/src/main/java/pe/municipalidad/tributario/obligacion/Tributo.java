@@ -1,11 +1,13 @@
 package pe.municipalidad.tributario.obligacion;
 
+/*
+ * Los arbitrios (limpieza pública, parques y jardines, seguridad ciudadana) se manejan como un solo tributo porque
+ * no se conoce la fórmula con que la Municipalidad los distribuye; mostrarlos separados sería inventar montos.
+ */
 public enum Tributo {
 
     IMPUESTO_PREDIAL("Impuesto Predial"),
-    LIMPIEZA_PUBLICA("Limpieza Pública"),
-    PARQUES_JARDINES("Parques y Jardines"),
-    SEGURIDAD_CIUDADANA("Seguridad Ciudadana");
+    ARBITRIOS("Arbitrios Municipales");
 
     private final String descripcion;
 
