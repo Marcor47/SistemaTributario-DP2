@@ -1,0 +1,25 @@
+.constancia { max-width: 960px; }
+.constancia-intro { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.constancia-etiqueta { margin: 0 0 8px; color: var(--marino); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.constancia-intro h2 { max-width: 22ch; font-size: clamp(22px, 3vw, 30px); }
+.constancia-pasos { display: flex; gap: 8px; flex-wrap: wrap; }
+.constancia-pasos span { padding: 7px 11px; border-radius: 999px; color: var(--marino-osc); background: var(--azul-suave); font-size: 13px; font-weight: 700; }
+.constancia .pcard > .btn, .constancia .pcard > .alert { margin-top: 18px; }
+.constancia-resumen { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.constancia-resumen div { min-width: 155px; display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--borde); border-radius: 10px; background: #f7fafd; padding: 12px 16px; }
+.constancia-resumen span { color: var(--texto-atenuado); font-size: 13px; }
+.constancia-resumen strong { color: var(--marino-osc); overflow-wrap: anywhere; }
+.constancia-recuperar { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+.constancia-recuperar label { font-weight: 700; color: var(--marino-osc); }
+.constancia-recuperar > div { display: flex; gap: 10px; flex-wrap: wrap; }
+.constancia-recuperar input { width: 200px; max-width: 100%; min-height: 46px; padding: 8px 12px; border: 2px solid var(--borde-fuerte); border-radius: 10px; font: inherit; }
+.constancia-recuperar input:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.constancia-archivo { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 20px 0; padding: 16px; border: 1px solid var(--borde); border-radius: 12px; }
+.constancia-archivo div { display: flex; flex-direction: column; min-width: 0; }
+.constancia-archivo span { color: var(--texto-atenuado); font-size: 12px; overflow-wrap: anywhere; }
+.constancia-vista { max-height: 330px; overflow: auto; padding: 18px; white-space: pre-wrap; overflow-wrap: anywhere; background: #f7fafd; border: 1px solid var(--borde); border-radius: 10px; font: 13px/1.6 ui-monospace, monospace; }
+.constancia-firma { display: flex; flex-direction: column; gap: 16px; margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--borde); }
+.constancia-firma h3 { margin: 0; font-size: 18px; color: var(--marino-osc); }
+.constancia-firma .fld { min-width: 0; }
+.constancia-firma .btn { align-self: flex-start; }
+@media (max-width: 600px) { .constancia-archivo .btn, .constancia-recuperar .btn { width: 100%; } .constancia-recuperar input { flex: 1; } }

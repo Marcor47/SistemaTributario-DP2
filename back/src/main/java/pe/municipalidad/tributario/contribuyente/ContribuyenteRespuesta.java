@@ -1,5 +1,6 @@
 package pe.municipalidad.tributario.contribuyente;
 
+/* HU001: datos del contribuyente junto con sus impuestos (revisión del Sprint 1). */
 public record ContribuyenteRespuesta(
         String codigo,
         String nombre,
@@ -7,16 +8,18 @@ public record ContribuyenteRespuesta(
         TipoDocumento tipoDocumento,
         String numeroDocumento,
         String domicilioFiscal,
-        EstadoContribuyente estado) {
+        EstadoContribuyente estado,
+        ImpuestosRespuesta impuestos) {
 
-    public static ContribuyenteRespuesta desde(Contribuyente contribuyente) {
+    public static ContribuyenteRespuesta desde(Contribuyente contribuyente, ImpuestosRespuesta impuestos) {
         return new ContribuyenteRespuesta(
-                contribuyente.getCodigo(),
-                contribuyente.getNombre(),
+                contribuyente.getCodigoContribuyente(),
+                contribuyente.getNombreRazonSocial(),
                 contribuyente.getTipoPersona(),
                 contribuyente.getTipoDocumento(),
                 contribuyente.getNumeroDocumento(),
-                contribuyente.getDomicilioFiscal(),
-                contribuyente.getEstado());
+                contribuyente.getDomicilioFiscal().direccion(),
+                contribuyente.getEstado(),
+                impuestos);
     }
 }

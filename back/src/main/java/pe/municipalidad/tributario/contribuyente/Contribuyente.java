@@ -1,55 +1,41 @@
 package pe.municipalidad.tributario.contribuyente;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-
-/* El código de contribuyente es la llave natural que asigna SAMNET; por eso no se usa un id generado. */
-@Entity
-@Table(name = "contribuyente", schema = "tributario")
+/*
+ * Persona natural o jurídica obligada al pago de tributos (RF-001, RF-048). No tiene persistencia propia:
+ * se obtiene de SAMNET mediante SamnetGateway, que hoy consulta los SP de la BD sintética.
+ */
 public class Contribuyente {
 
-    @Id
-    @Column(name = "codigo", length = 10)
-    private String codigo;
+    private final String codigoContribuyente;
+    private final TipoDocumento tipoDocumento;
+    private final String numeroDocumento;
+    private final String nombreRazonSocial;
+    private final String regimen;
+    private final TipoPersona tipoPersona;
+    private final String condicion;
+    private final String correo;
+    private final String telefonos;
+    private final EstadoContribuyente estado;
+    private final DomicilioFiscal domicilioFiscal;
 
-    @Column(name = "nombre", nullable = false, length = 200)
-    private String nombre;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_persona", nullable = false, length = 10)
-    private TipoPersona tipoPersona;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_documento", nullable = false, length = 5)
-    private TipoDocumento tipoDocumento;
-
-    @Column(name = "numero_documento", nullable = false, length = 12)
-    private String numeroDocumento;
-
-    @Column(name = "domicilio_fiscal", length = 250)
-    private String domicilioFiscal;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "estado", nullable = false, length = 10)
-    private EstadoContribuyente estado;
-
-    protected Contribuyente() {
+    public Contribuyente(String codigoContribuyente, TipoDocumento tipoDocumento, String numeroDocumento,
+            String nombreRazonSocial, String regimen, TipoPersona tipoPersona, String condicion, String correo,
+            String telefonos, EstadoContribuyente estado, DomicilioFiscal domicilioFiscal) {
+        this.codigoContribuyente = codigoContribuyente;
+        this.tipoDocumento = tipoDocumento;
+        this.numeroDocumento = numeroDocumento;
+        this.nombreRazonSocial = nombreRazonSocial;
+        this.regimen = regimen;
+        this.tipoPersona = tipoPersona;
+        this.condicion = condicion;
+        this.correo = correo;
+        this.telefonos = telefonos;
+        this.estado = estado;
+        this.domicilioFiscal = domicilioFiscal;
     }
 
-    public String getCodigo() {
-        return codigo;
-    }
-
-    public String getNombre() {
-        return nombre;
-    }
-
-    public TipoPersona getTipoPersona() {
-        return tipoPersona;
+    public String getCodigoContribuyente() {
+        return codigoContribuyente;
     }
 
     public TipoDocumento getTipoDocumento() {
@@ -60,11 +46,35 @@ public class Contribuyente {
         return numeroDocumento;
     }
 
-    public String getDomicilioFiscal() {
-        return domicilioFiscal;
+    public String getNombreRazonSocial() {
+        return nombreRazonSocial;
+    }
+
+    public String getRegimen() {
+        return regimen;
+    }
+
+    public TipoPersona getTipoPersona() {
+        return tipoPersona;
+    }
+
+    public String getCondicion() {
+        return condicion;
+    }
+
+    public String getCorreo() {
+        return correo;
+    }
+
+    public String getTelefonos() {
+        return telefonos;
     }
 
     public EstadoContribuyente getEstado() {
         return estado;
+    }
+
+    public DomicilioFiscal getDomicilioFiscal() {
+        return domicilioFiscal;
     }
 }

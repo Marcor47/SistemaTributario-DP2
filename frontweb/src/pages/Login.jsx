@@ -1,11 +1,14 @@
 import { useId, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { MotionConfig, motion } from 'framer-motion'
 import { CREDENCIALES_DEMO, MODO_DEMO, iniciarSesion } from '../services/authService.js'
 import './Login.css'
 
+const ACCESO_PORTAL_PRUEBA = { codigo: '021390', password: 'Portal021390!' }
+
 export default function Login() {
   const navegar = useNavigate()
+  const ubicacion = useLocation()
   const idCodigo = useId()
   const idClave = useId()
   const idError = useId()
@@ -14,6 +17,13 @@ export default function Login() {
   const [verClave, setVerClave] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+  const accesoPrueba = MODO_DEMO ? CREDENCIALES_DEMO : ACCESO_PORTAL_PRUEBA
+
+  function usarAccesoPrueba() {
+    setCodigo(accesoPrueba.codigo)
+    setClave(accesoPrueba.password)
+    setError('')
+  }
 
   async function enviar(e) {
     e.preventDefault()
@@ -26,7 +36,8 @@ export default function Login() {
     setEnviando(true)
     try {
       await iniciarSesion(codigo.trim(), clave)
-      navegar('/predios', { replace: true })
+      const destino = ubicacion.state?.from || '/estado-cuenta'
+      navegar(destino, { replace: true })
     } catch (err) {
       setError(err.message)
       setClave('')
@@ -68,7 +79,11 @@ export default function Login() {
             </Link>
 
             <h1>Iniciar sesión</h1>
-            <p className="lg-caja__sub">Ingresa con tu código de contribuyente para acceder al sistema.</p>
+            <p className="lg-caja__sub">
+              {ubicacion.state?.motivo === 'servicios-en-linea'
+                ? 'Inicia sesión con tus credenciales de contribuyente para acceder a Servicios en Línea.'
+                : 'Ingresa con tu código de contribuyente para acceder al sistema.'}
+            </p>
 
             <form onSubmit={enviar} noValidate>
               {error && (
@@ -137,11 +152,12 @@ export default function Login() {
               </button>
             </form>
 
-            {MODO_DEMO && (
-              <p className="lg-demo" role="note">
-                <strong>Modo demostración (sin servidor).</strong> Código: <code>{CREDENCIALES_DEMO.codigo}</code> · Contraseña:{' '}
-                <code>{CREDENCIALES_DEMO.password}</code>
-              </p>
+            {import.meta.env.DEV && (
+              <div className="lg-demo" role="note">
+                <strong>{MODO_DEMO ? 'Modo demostración (sin servidor)' : 'Acceso de prueba'}</strong>
+                <p className="lg-demo__datos">Código: <code>{accesoPrueba.codigo}</code><br />Contraseña: <code>{accesoPrueba.password}</code></p>
+                <button className="lg-demo__usar" type="button" onClick={usarAccesoPrueba} disabled={enviando}>Usar estos datos</button>
+              </div>
             )}
 
             <p className="lg-ayuda">

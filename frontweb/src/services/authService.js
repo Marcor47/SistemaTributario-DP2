@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
+const API = import.meta.env?.VITE_API_URL || 'http://localhost:8080/api'
 
 const MENSAJES = {
   400: 'Revisa los datos ingresados e intenta nuevamente.',
@@ -8,14 +8,43 @@ const MENSAJES = {
 }
 
 // Modo demo sin backend: solo en desarrollo y con VITE_AUTH_DEMO=true. No se incluye en el build de producción.
-export const MODO_DEMO = import.meta.env.DEV && import.meta.env.VITE_AUTH_DEMO === 'true'
+export const MODO_DEMO = Boolean(import.meta.env?.DEV && import.meta.env?.VITE_AUTH_DEMO === 'true')
 export const CREDENCIALES_DEMO = { codigo: 'DEMO-0001', password: 'demo1234' }
+
+// Clave de sessionStorage para registrar una sesión demo activa en el browser.
+const CLAVE_SESION_DEMO = 'sesion_demo'
+
+/**
+ * Comprueba si hay una sesión demo activa en el browser (sessionStorage).
+ * Devuelve false en Node.js (entorno de tests) donde sessionStorage no existe.
+ */
+export function esSesionDemo() {
+  if (typeof sessionStorage === 'undefined') return false
+  return Boolean(sessionStorage.getItem(CLAVE_SESION_DEMO))
+}
+
+/**
+ * Obtiene los datos de la sesión demo activa.
+ */
+export function obtenerSesionDemo() {
+  if (typeof sessionStorage === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(CLAVE_SESION_DEMO)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
 
 // El login crea una sesión por cookie, por eso se envían credenciales.
 export async function iniciarSesion(codigoContribuyente, password) {
   if (MODO_DEMO) {
     await new Promise((resolver) => setTimeout(resolver, 600))
     if (codigoContribuyente === CREDENCIALES_DEMO.codigo && password === CREDENCIALES_DEMO.password) {
+      // Registrar sesión demo para que portalCuentaService pueda ignorar el 401 del backend
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(CLAVE_SESION_DEMO, JSON.stringify({ codigo: codigoContribuyente }))
+      }
       return { codigoContribuyente }
     }
     throw Object.assign(new Error(MENSAJES[401]), { estado: 401 })
@@ -40,5 +69,17 @@ export async function iniciarSesion(codigoContribuyente, password) {
       { estado: respuesta.status },
     )
   }
-  return respuesta.json()
+  const sesion = await respuesta.json()
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CLAVE_SESION_DEMO)
+  return sesion
+}
+
+export async function cerrarSesion() {
+  // Limpiar sesión demo independientemente del modo
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.removeItem(CLAVE_SESION_DEMO)
+  }
+  if (MODO_DEMO) return
+  const respuesta = await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' })
+  if (!respuesta.ok) throw new Error('No se pudo cerrar la sesión. Intenta nuevamente.')
 }

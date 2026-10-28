@@ -4,9 +4,10 @@ import { fecha, moneda } from '../utils/formato.js'
 import LineaTiempoCobranza from './LineaTiempoCobranza.jsx'
 
 const CLASE_ETAPA = {
-  ORDINARIA: 'neutro',
+  MORA_TEMPRANA: 'neutro',
+  CAMPANA: 'aviso',
   VALOR_EMITIDO: 'aviso',
-  VALOR_NOTIFICADO: 'aviso',
+  ESPERA_LEGAL: 'aviso',
   COACTIVA: 'critico',
 }
 

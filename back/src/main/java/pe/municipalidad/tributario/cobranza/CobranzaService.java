@@ -4,38 +4,33 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
+import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.obligacion.EstadoObligacion;
 import pe.municipalidad.tributario.obligacion.Obligacion;
-import pe.municipalidad.tributario.obligacion.ObligacionRepository;
 
+/* HU013: la obligación y su historial de cobranza se consultan en SAMNET mediante SamnetGateway. */
 @Service
-@Transactional(readOnly = true)
 public class CobranzaService {
 
-    private final ObligacionRepository obligacionRepository;
-    private final SeguimientoCobranzaRepository seguimientoCobranzaRepository;
+    private final SamnetGateway samnet;
     private final ContribuyenteService contribuyenteService;
     private final Clock reloj;
 
-    public CobranzaService(ObligacionRepository obligacionRepository,
-            SeguimientoCobranzaRepository seguimientoCobranzaRepository,
-            ContribuyenteService contribuyenteService, Clock reloj) {
-        this.obligacionRepository = obligacionRepository;
-        this.seguimientoCobranzaRepository = seguimientoCobranzaRepository;
+    public CobranzaService(SamnetGateway samnet, ContribuyenteService contribuyenteService, Clock reloj) {
+        this.samnet = samnet;
         this.contribuyenteService = contribuyenteService;
         this.reloj = reloj;
     }
 
     public EtapaCobranzaRespuesta consultarEtapa(Long obligacionId) {
-        Obligacion obligacion = obligacionRepository.findWithContribuyenteById(obligacionId)
+        Obligacion obligacion = samnet.obtenerObligacion(obligacionId)
                 .orElseThrow(() -> new RecursoNoEncontradoException("OBLIGACION_NO_ENCONTRADA",
                         "No existe la obligación con id " + obligacionId + "."));
         LocalDate hoy = LocalDate.now(reloj);
@@ -48,12 +43,13 @@ public class CobranzaService {
                             + " etapa de cobranza.");
         }
 
+        Contribuyente contribuyente = contribuyenteService.obtenerPorCodigo(obligacion.getCodigoContribuyente());
         List<EtapaRespuesta> historial = armarHistorial(obligacion,
-                seguimientoCobranzaRepository.findByObligacionIdOrderByFechaInicioAscIdAsc(obligacionId));
+                samnet.obtenerSeguimientoCobranza(obligacionId));
         EtapaRespuesta etapaActual = historial.getLast();
 
         return new EtapaCobranzaRespuesta(
-                ObligacionResumen.desde(obligacion),
+                ObligacionResumen.desde(obligacion, contribuyente),
                 hoy,
                 obligacion.diasVencidaAl(hoy),
                 etapaActual,
@@ -65,24 +61,17 @@ public class CobranzaService {
         contribuyenteService.obtenerPorCodigo(contribuyenteCodigo);
         LocalDate hoy = LocalDate.now(reloj);
 
-        List<Obligacion> vencidas = obligacionRepository.buscarVencidas(contribuyenteCodigo, hoy);
-        if (vencidas.isEmpty()) {
-            return List.of();
-        }
-        Map<Long, List<SeguimientoCobranza>> seguimientosPorObligacion = seguimientoCobranzaRepository
-                .findByObligacionIdInOrderByFechaInicioAscIdAsc(vencidas.stream().map(Obligacion::getId).toList())
-                .stream()
-                .collect(Collectors.groupingBy(SeguimientoCobranza::getObligacionId));
-
-        return vencidas.stream()
+        return samnet.obtenerEstadoCuenta(contribuyenteCodigo).getObligaciones().stream()
+                .filter(obligacion -> obligacion.estaVencida(hoy))
+                .sorted(Comparator.comparing(Obligacion::getFechaVencimiento)
+                        .thenComparing(obligacion -> obligacion.getTributo().name()))
                 .map(obligacion -> {
-                    List<SeguimientoCobranza> seguimientos =
-                            seguimientosPorObligacion.getOrDefault(obligacion.getId(), List.of());
-                    EtapaCobranza etapaActual = seguimientos.isEmpty()
-                            ? EtapaCobranza.ORDINARIA
-                            : seguimientos.getLast().getEtapa();
+                    /* Sin etapas registradas en SAMNET, la deuda está en mora temprana desde su vencimiento. */
+                    EtapaCobranza etapaActual = obligacion.getEtapaCobranza() == null
+                            ? EtapaCobranza.MORA_TEMPRANA
+                            : obligacion.getEtapaCobranza();
                     return new ObligacionVencidaRespuesta(
-                            obligacion.getId(),
+                            obligacion.getIdObligacion(),
                             obligacion.getTributo(),
                             obligacion.getTributo().getDescripcion(),
                             obligacion.etiquetaPeriodo(),
@@ -97,24 +86,24 @@ public class CobranzaService {
     }
 
     /*
-     * Une la cobranza ordinaria implícita con las etapas registradas y calcula la
+     * Une la mora temprana implícita con las etapas registradas y calcula la
      * fecha de fin de cada tramo como la fecha de inicio del siguiente. Los
      * seguimientos llegan ordenados por fecha de inicio.
      */
     private List<EtapaRespuesta> armarHistorial(Obligacion obligacion, List<SeguimientoCobranza> seguimientos) {
         List<EtapaRespuesta> tramos = new ArrayList<>();
-        boolean ordinariaRegistrada = !seguimientos.isEmpty()
-                && seguimientos.getFirst().getEtapa() == EtapaCobranza.ORDINARIA;
-        if (!ordinariaRegistrada) {
-            EtapaCobranza ordinaria = EtapaCobranza.ORDINARIA;
-            tramos.add(new EtapaRespuesta(ordinaria, ordinaria.getNombre(), ordinaria.getDescripcion(),
+        boolean moraTempranaRegistrada = !seguimientos.isEmpty()
+                && seguimientos.getFirst().etapa() == EtapaCobranza.MORA_TEMPRANA;
+        if (!moraTempranaRegistrada) {
+            EtapaCobranza moraTemprana = EtapaCobranza.MORA_TEMPRANA;
+            tramos.add(new EtapaRespuesta(moraTemprana, moraTemprana.getNombre(), moraTemprana.getDescripcion(),
                     obligacion.getFechaVencimiento().plusDays(1), null, null, null, false));
         }
         for (SeguimientoCobranza seguimiento : seguimientos) {
-            EtapaCobranza etapa = seguimiento.getEtapa();
+            EtapaCobranza etapa = seguimiento.etapa();
             tramos.add(new EtapaRespuesta(etapa, etapa.getNombre(), etapa.getDescripcion(),
-                    seguimiento.getFechaInicio(), null, seguimiento.getDocumentoReferencia(),
-                    seguimiento.getObservacion(), true));
+                    seguimiento.fechaInicio(), null, seguimiento.documentoReferencia(),
+                    seguimiento.observacion(), true));
         }
 
         List<EtapaRespuesta> historial = new ArrayList<>(tramos.size());

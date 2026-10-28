@@ -1,7 +1,8 @@
 // Datos ficticios de demostración. En producción el estado de cuenta viene del
 // servicio de cuenta corriente de SAMNET a través de la capa de APIs municipal.
 
-export const TRIBUTOS = ['Impuesto Predial', 'Limpieza Pública', 'Parques y Jardines', 'Seguridad Ciudadana']
+// Los arbitrios van como un solo tributo: no se conoce la fórmula con que la Municipalidad los reparte.
+export const TRIBUTOS = ['Impuesto Predial', 'Arbitrios Municipales']
 export const PERIODOS = ['2025-T1', '2025-T2', '2025-T3', '2025-T4', '2026-T1', '2026-T2']
 
 // Fin de cada periodo (vencimiento) para distinguir «Vencida» de «Pendiente».
@@ -26,9 +27,7 @@ const PERFIL = {
 }
 const BASE = {
   'Impuesto Predial': 180,
-  'Limpieza Pública': 95,
-  'Parques y Jardines': 60,
-  'Seguridad Ciudadana': 75,
+  'Arbitrios Municipales': 230,
 }
 
 export function generarCuenta(codigo, fechaCorte) {

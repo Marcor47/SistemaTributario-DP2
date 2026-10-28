@@ -1,7 +1,38 @@
-import { Link, NavLink } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { MODULOS, icono } from '../utils/modulos.jsx'
+import { cerrarSesion } from '../services/authService.js'
 
-export default function MenuLateral() {
+/**
+ * Panel de navegación lateral.
+ *
+ * @param {object} props
+ * @param {'portal'|'gestion'|undefined} props.solo
+ *   - 'portal'  → muestra solo los módulos de Servicios en Línea del Contribuyente.
+ *   - 'gestion' → muestra solo los módulos de Gestión Municipal (funcionarios).
+ *   - undefined  → muestra ambas secciones (comportamiento original).
+ */
+export default function MenuLateral({ solo }) {
+  const navegar = useNavigate()
+  const [errorSalida, setErrorSalida] = useState('')
+
+  async function salir(evento) {
+    evento.preventDefault()
+    setErrorSalida('')
+    try {
+      await cerrarSesion()
+      navegar('/login', { replace: true })
+    } catch (err) {
+      setErrorSalida(err.message)
+    }
+  }
+
+  const modulosPortal  = MODULOS.filter((m) => m.seccion === 'portal')
+  const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal')
+
+  const mostrarPortal  = !solo || solo === 'portal'
+  const mostrarGestion = !solo || solo === 'gestion'
+
   return (
     <aside className="menu">
       <Link to="/" className="menu-marca" aria-label="Municipalidad de San Miguel, ir al inicio">
@@ -13,20 +44,41 @@ export default function MenuLateral() {
       </Link>
 
       <nav aria-label="Módulos del sistema">
-        <p className="menu-etiqueta">Módulos</p>
-        <div className="menu-nav">
-          {MODULOS.map((m) => (
-            <NavLink key={m.ruta} to={m.ruta} className="menu-enlace">
-              {m.icono}
-              <span>{m.texto}</span>
-            </NavLink>
-          ))}
-        </div>
+        {mostrarPortal && (
+          <>
+            <p className="menu-etiqueta">Servicios en Línea</p>
+            <div className="menu-nav">
+              {modulosPortal.map((m) => (
+                <NavLink key={m.ruta} to={m.ruta} className="menu-enlace">
+                  {m.icono}
+                  <span>{m.texto}</span>
+                </NavLink>
+              ))}
+            </div>
+          </>
+        )}
+
+        {mostrarGestion && (
+          <>
+            <p className="menu-etiqueta" style={{ marginTop: mostrarPortal ? '16px' : undefined }}>
+              Gestión Municipal
+            </p>
+            <div className="menu-nav">
+              {modulosGestion.map((m) => (
+                <NavLink key={m.ruta} to={m.ruta} className="menu-enlace">
+                  {m.icono}
+                  <span>{m.texto}</span>
+                </NavLink>
+              ))}
+            </div>
+          </>
+        )}
       </nav>
 
       <div className="menu-pie">
         <p className="menu-demo" role="note">Datos ficticios de demostración</p>
-        <Link to="/" className="menu-salir">
+        {errorSalida && <p role="alert">{errorSalida}</p>}
+        <Link to="/login" className="menu-salir" onClick={salir}>
           {icono(<><path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
           Salir
         </Link>

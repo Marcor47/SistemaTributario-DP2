@@ -2,6 +2,7 @@ package pe.municipalidad.tributario.cobranza;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.obligacion.Obligacion;
 import pe.municipalidad.tributario.obligacion.Tributo;
 
@@ -18,11 +19,11 @@ public record ObligacionResumen(
         BigDecimal montoPagado,
         BigDecimal saldo) {
 
-    public static ObligacionResumen desde(Obligacion obligacion) {
+    public static ObligacionResumen desde(Obligacion obligacion, Contribuyente contribuyente) {
         return new ObligacionResumen(
-                obligacion.getId(),
-                obligacion.getContribuyente().getCodigo(),
-                obligacion.getContribuyente().getNombre(),
+                obligacion.getIdObligacion(),
+                contribuyente.getCodigoContribuyente(),
+                contribuyente.getNombreRazonSocial(),
                 obligacion.getTributo(),
                 obligacion.getTributo().getDescripcion(),
                 obligacion.etiquetaPeriodo(),

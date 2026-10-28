@@ -2,18 +2,18 @@ package pe.municipalidad.tributario.contribuyente;
 
 import java.util.Locale;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
+import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 
+/* HU001: los datos del contribuyente y sus impuestos se consultan en SAMNET mediante SamnetGateway (RNF-001). */
 @Service
-@Transactional(readOnly = true)
 public class ContribuyenteService {
 
-    private final ContribuyenteRepository contribuyenteRepository;
+    private final SamnetGateway samnet;
 
-    public ContribuyenteService(ContribuyenteRepository contribuyenteRepository) {
-        this.contribuyenteRepository = contribuyenteRepository;
+    public ContribuyenteService(SamnetGateway samnet) {
+        this.samnet = samnet;
     }
 
     public ContribuyenteRespuesta consultarPorDocumento(TipoDocumento tipoDocumento, String numeroDocumento) {
@@ -25,16 +25,29 @@ public class ContribuyenteService {
                     "El " + tipoDocumento.name() + " debe tener " + tipoDocumento.getFormatoEsperado() + ".");
         }
 
-        return contribuyenteRepository.findByTipoDocumentoAndNumeroDocumento(tipoDocumento, numeroNormalizado)
-                .map(ContribuyenteRespuesta::desde)
+        /* El SP busca por código o documento; se descartan coincidencias de otro tipo de documento. */
+        return samnet.buscarContribuyente(numeroNormalizado).stream()
+                .filter(c -> c.getTipoDocumento() == tipoDocumento
+                        && c.getNumeroDocumento().equals(numeroNormalizado))
+                .findFirst()
+                .map(this::conImpuestos)
                 .orElseThrow(() -> new RecursoNoEncontradoException("CONTRIBUYENTE_NO_ENCONTRADO",
                         "No existe un contribuyente registrado con " + tipoDocumento.name() + " "
                                 + numeroNormalizado + "."));
     }
 
+    /* Los impuestos salen del mismo estado de cuenta de SAMNET (ps_ctacte) que usa HU004. */
+    private ContribuyenteRespuesta conImpuestos(Contribuyente contribuyente) {
+        ImpuestosRespuesta impuestos =
+                ImpuestosRespuesta.desde(samnet.obtenerEstadoCuenta(contribuyente.getCodigoContribuyente()));
+        return ContribuyenteRespuesta.desde(contribuyente, impuestos);
+    }
+
     /* Usado por otros módulos que necesitan asegurar que el contribuyente existe antes de continuar. */
     public Contribuyente obtenerPorCodigo(String codigo) {
-        return contribuyenteRepository.findById(codigo)
+        return samnet.buscarContribuyente(codigo).stream()
+                .filter(c -> c.getCodigoContribuyente().equals(codigo))
+                .findFirst()
                 .orElseThrow(() -> new RecursoNoEncontradoException("CONTRIBUYENTE_NO_ENCONTRADO",
                         "No existe un contribuyente con código " + codigo + "."));
     }

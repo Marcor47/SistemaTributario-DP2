@@ -1,5 +1,7 @@
 package pe.municipalidad.tributario.indicador;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -29,5 +31,11 @@ public record MetaIndicadorSolicitud(
         BigDecimal valorMeta,
 
         @Size(max = 250, message = "admite hasta 250 caracteres")
-        String observacion) {
+        String observacion,
+
+        /* Opcional: si no se envía, se usa el parámetro UMBRAL_DESVIO (10 % por defecto). */
+        @DecimalMin(value = "0", message = "no puede ser negativo")
+        @DecimalMax(value = "100", message = "no puede superar 100")
+        @Digits(integer = 3, fraction = 2, message = "admite hasta 3 enteros y 2 decimales")
+        BigDecimal umbralDesvio) {
 }

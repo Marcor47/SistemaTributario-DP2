@@ -1,5 +1,7 @@
 # otros
 .env
+back/storage/predios/*
+!back/storage/predios/.gitkeep
 *.log
 .DS_Store
 Thumbs.db

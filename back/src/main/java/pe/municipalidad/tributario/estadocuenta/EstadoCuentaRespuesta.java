@@ -13,4 +13,8 @@ public record EstadoCuentaRespuesta(
         LocalDate fechaCorte,
         boolean desactualizado,
         List<EstadoCuentaFilaRespuesta> filas) {
+
+    public boolean esUltimaCopia() {
+        return desactualizado;
+    }
 }

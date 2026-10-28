@@ -53,7 +53,7 @@ test('HU010: el servicio devuelve la ficha correcta y valida contribuyente y añ
   const ficha = await obtenerRegularidad('033218', 2025)
   assert.equal(ficha.contribuyente.doc, '09215430')
   assert.equal(ficha.anio, 2025)
-  assert.equal(ficha.emitidas, 16)
+  assert.equal(ficha.emitidas, 8)
   await assert.rejects(obtenerRegularidad('inexistente'), /No se encontró/)
   await assert.rejects(obtenerRegularidad('033218', 2030), /año solicitado/)
 })
