@@ -29,12 +29,9 @@ test('HU008 RF-009: los datos demo tienen índice total, por tributo y por zona'
   assert.ok(DATOS_DEMO.porZona.length > 0, 'Debe haber desglose por zona')
 })
 
-test('HU008 RF-009: los datos demo incluyen los cuatro tributos reglamentarios', () => {
+test('HU008 RF-009: los datos demo incluyen el Impuesto Predial y los arbitrios como un solo tributo', () => {
   const tributos = DATOS_DEMO.porTributo.map((f) => f.valorAlcance)
-  assert.ok(tributos.includes('PREDIAL'), 'Falta PREDIAL')
-  assert.ok(tributos.includes('LIMPIEZA_PUBLICA'), 'Falta LIMPIEZA_PUBLICA')
-  assert.ok(tributos.includes('PARQUES_JARDINES'), 'Falta PARQUES_JARDINES')
-  assert.ok(tributos.includes('SEGURIDAD_CIUDADANA'), 'Falta SEGURIDAD_CIUDADANA')
+  assert.deepEqual(tributos, ['PREDIAL', 'ARBITRIOS'])
 })
 
 test('HU008 RF-010: la meta de demostración está configurada correctamente', () => {
@@ -62,9 +59,7 @@ test('HU008 RF-052: tieneAlertaTotal devuelve false cuando la alerta está inact
 
 test('HU008: etiquetaTributo devuelve el nombre legible de cada tributo', () => {
   assert.equal(etiquetaTributo('PREDIAL'), 'Impuesto Predial')
-  assert.equal(etiquetaTributo('LIMPIEZA_PUBLICA'), 'Limpieza Pública')
-  assert.equal(etiquetaTributo('PARQUES_JARDINES'), 'Parques y Jardines')
-  assert.equal(etiquetaTributo('SEGURIDAD_CIUDADANA'), 'Seguridad Ciudadana')
+  assert.equal(etiquetaTributo('ARBITRIOS'), 'Arbitrios Municipales')
 })
 
 test('HU008: etiquetaTributo devuelve la clave original para claves desconocidas', () => {

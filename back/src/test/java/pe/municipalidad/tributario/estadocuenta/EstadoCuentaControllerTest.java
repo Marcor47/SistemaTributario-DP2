@@ -37,10 +37,11 @@ class EstadoCuentaControllerTest {
                 .andExpect(jsonPath("$.contribuyente.tipoDoc").value("RUC"))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
                 .andExpect(jsonPath("$.desactualizado").value(false))
-                .andExpect(jsonPath("$.filas", hasSize(24)))
-                .andExpect(jsonPath("$.filas[0].tributo").value("Impuesto Predial"))
+                .andExpect(jsonPath("$.filas", hasSize(12)))
+                .andExpect(jsonPath("$.filas[0].tributo").value("Arbitrios Municipales"))
                 .andExpect(jsonPath("$.filas[0].periodo").value("2025-T1"))
-                .andExpect(jsonPath("$.filas[0].estado").value("Pagada"));
+                .andExpect(jsonPath("$.filas[0].estado").value("Pagada"))
+                .andExpect(jsonPath("$.filas[1].tributo").value("Impuesto Predial"));
     }
 
     @Test
@@ -62,7 +63,7 @@ class EstadoCuentaControllerTest {
                 .andExpect(jsonPath("$.desactualizado").value(true))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
                 .andExpect(jsonPath("$.contribuyente.codigo").value("014502"))
-                .andExpect(jsonPath("$.filas", hasSize(24)));
+                .andExpect(jsonPath("$.filas", hasSize(12)));
     }
 
     @Test

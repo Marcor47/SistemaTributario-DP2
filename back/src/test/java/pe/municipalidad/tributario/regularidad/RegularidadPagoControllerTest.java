@@ -28,8 +28,8 @@ class RegularidadPagoControllerTest {
                 .andExpect(jsonPath("$.codigoContribuyente").value("014502"))
                 .andExpect(jsonPath("$.nombreContribuyente").value("GARCÍA TORRES, MARÍA ELENA"))
                 .andExpect(jsonPath("$.anio").value(2025))
-                .andExpect(jsonPath("$.totalCuotasEmitidas").value(16))
-                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(16))
+                .andExpect(jsonPath("$.totalCuotasEmitidas").value(8))
+                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(8))
                 .andExpect(jsonPath("$.cuotasPendientesOVencidas").value(0))
                 .andExpect(jsonPath("$.porcentajeRegularidad").value(100.00))
                 .andExpect(jsonPath("$.segmentoSugerido").value("PUNTUAL"));
@@ -42,9 +42,9 @@ class RegularidadPagoControllerTest {
                 .andExpect(jsonPath("$.codigoContribuyente").value("021390"))
                 .andExpect(jsonPath("$.nombreContribuyente").value("INVERSIONES COSTA AZUL S.A.C."))
                 .andExpect(jsonPath("$.anio").value(2025))
-                .andExpect(jsonPath("$.totalCuotasEmitidas").value(16))
-                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(12))
-                .andExpect(jsonPath("$.cuotasPendientesOVencidas").value(4))
+                .andExpect(jsonPath("$.totalCuotasEmitidas").value(8))
+                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(6))
+                .andExpect(jsonPath("$.cuotasPendientesOVencidas").value(2))
                 .andExpect(jsonPath("$.porcentajeRegularidad").value(75.00))
                 .andExpect(jsonPath("$.segmentoSugerido").value("REGULAR"));
     }
@@ -56,8 +56,8 @@ class RegularidadPagoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.codigoContribuyente").value("014502"))
                 .andExpect(jsonPath("$.anio").value(2026))
-                .andExpect(jsonPath("$.totalCuotasEmitidas").value(8))
-                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(8))
+                .andExpect(jsonPath("$.totalCuotasEmitidas").value(4))
+                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(4))
                 .andExpect(jsonPath("$.porcentajeRegularidad").value(100.00));
     }
 
