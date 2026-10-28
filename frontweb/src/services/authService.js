@@ -69,7 +69,9 @@ export async function iniciarSesion(codigoContribuyente, password) {
       { estado: respuesta.status },
     )
   }
-  return respuesta.json()
+  const sesion = await respuesta.json()
+  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CLAVE_SESION_DEMO)
+  return sesion
 }
 
 export async function cerrarSesion() {

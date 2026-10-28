@@ -49,7 +49,8 @@ class PortalContribuyenteTest {
     @Test
     void loginConPostgresYCuentaPropia() throws Exception {
         jdbc.update("INSERT INTO samnet.credencial_web (contribuyente_codigo, clave_hash) "
-                + "VALUES ('021390', public.crypt('clave-segura', public.gen_salt('bf', 4)))");
+                + "VALUES ('021390', public.crypt('clave-segura', public.gen_salt('bf', 4))) "
+                + "ON CONFLICT (contribuyente_codigo) DO UPDATE SET clave_hash = EXCLUDED.clave_hash, habilitada = TRUE");
         mvc.perform(get("/api/portal/estado-cuenta")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"codigoContribuyente\":\"20456781239\",\"password\":\"incorrecta\"}"))

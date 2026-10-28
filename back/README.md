@@ -104,12 +104,33 @@ SAMNET, solo cambia `SamnetApiGateway`.
 
 Los demás servicios externos tienen implementación simulada con el mismo contrato (`NiubizSimuladoGateway`,
 `FirmadorSimuladoGateway`, `CorreoSimuladoGateway`). La autenticación del contribuyente usa
-`samnet.ps_login`. Para probarla en local, crea una credencial (solo se guarda el hash bcrypt):
+`samnet.ps_login`.
 
-```sql
-INSERT INTO samnet.credencial_web (contribuyente_codigo, clave_hash)
-VALUES ('014502', public.crypt('<clave-local>', public.gen_salt('bf', 12)));
-```
+### Accesos del portal con datos ficticios
+
+Flyway aplica `db/datos-prueba/R__datos_prueba_07_credenciales_portal.sql` en el
+siguiente arranque y en bases nuevas, junto con los demás datos ficticios.
+El archivo crea accesos para estos seis contribuyentes activos y guarda únicamente
+el hash bcrypt de cada clave en `samnet.credencial_web`:
+
+| Código | DNI o RUC | Contraseña de desarrollo |
+| --- | --- | --- |
+| `014502` | `41028765` | `Portal014502!` |
+| `021390` | `20456781239` | `Portal021390!` |
+| `033218` | `09215430` | `Portal033218!` |
+| `045067` | `20512309876` | `Portal045067!` |
+| `058934` | `45871203` | `Portal058934!` |
+| `061177` | `45871777` | `Portal061177!` |
+
+Puedes ingresar con el código o el documento. El contribuyente `072405` está
+inactivo y no recibe acceso. El archivo solo reconoce los códigos y documentos
+ficticios indicados: no crea claves para otros contribuyentes. Si ya existe una
+credencial, conserva su clave y su estado de habilitación; reiniciar no reinicia
+contraseñas. Tampoco registra pagos ni modifica obligaciones o beneficios.
+
+En `frontweb` utiliza `VITE_AUTH_DEMO=false` y el backend con su perfil normal.
+Las claves publicadas aquí son solo para los datos sintéticos de desarrollo;
+excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno real.
 
 Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
 `tributario.integracion.autenticacion-simulada.documento` y `.clave`.
