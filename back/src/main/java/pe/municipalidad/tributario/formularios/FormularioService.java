@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
-@Profile("local")
+@Profile("demo")
 public class FormularioService {
     public record Resumen(String codigo, String nombre, int version, java.time.Instant fechaPublicacion) {
         static Resumen from(FormularioVersion f) {

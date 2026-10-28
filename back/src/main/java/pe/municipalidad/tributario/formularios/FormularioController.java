@@ -20,7 +20,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/formularios")
-@Profile("local")
+@Profile("demo")
 public class FormularioController {
     private final FormularioService service;
     private final DemoInternalAccess access;

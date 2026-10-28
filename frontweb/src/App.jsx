@@ -1,6 +1,5 @@
 import { BrowserRouter, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import MenuLateral from './components/MenuLateral.jsx'
-import RutaProtegida from './components/RutaProtegida.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Login from './pages/Login.jsx'
@@ -41,7 +40,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Inicio />} />
         <Route path="/login" element={<Login />} />
-        <Route element={<RutaProtegida><LayoutInterno /></RutaProtegida>}>
+        <Route element={<LayoutInterno />}>
           <Route path="/predios" element={<ConsultaPredio />} />
           <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
           <Route path="/metas" element={<ConfiguracionMetas />} />

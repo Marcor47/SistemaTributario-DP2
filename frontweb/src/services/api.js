@@ -1,17 +1,12 @@
-import { obtenerCabecerasCsrf } from './authService.js'
-
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 
 // Contrato único de error del backend: { codigo, mensaje, detalles }.
 export async function pedir(ruta, opciones = {}) {
   let respuesta
   try {
-    const metodo = (opciones.method || 'GET').toUpperCase()
-    const csrf = ['GET', 'HEAD', 'OPTIONS'].includes(metodo) ? {} : await obtenerCabecerasCsrf()
     respuesta = await fetch(`${API}${ruta}`, {
+      headers: { 'Content-Type': 'application/json' },
       ...opciones,
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json', ...csrf, ...opciones.headers },
     })
   } catch {
     throw Object.assign(
@@ -22,7 +17,7 @@ export async function pedir(ruta, opciones = {}) {
 
   let cuerpo
   try {
-    cuerpo = respuesta.status === 204 ? null : await respuesta.json()
+    cuerpo = await respuesta.json()
   } catch {
     cuerpo = null
   }

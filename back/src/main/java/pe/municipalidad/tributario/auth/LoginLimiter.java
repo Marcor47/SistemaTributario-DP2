@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("local")
+@Profile("demo")
 public class LoginLimiter {
     private static final Duration WINDOW = Duration.ofMinutes(15);
     private static final int LIMIT = 5;

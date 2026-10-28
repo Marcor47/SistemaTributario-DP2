@@ -9,13 +9,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 @Component
-@Profile("local")
+@Profile("demo")
 public class DemoInternalAccess {
     private final String readKey;
     private final String adminKey;
 
-    public DemoInternalAccess(@Value("${tributario.local.internal-read-key:}") String readKey,
-            @Value("${tributario.local.internal-admin-key:}") String adminKey) {
+    public DemoInternalAccess(@Value("${tributario.demo.internal-read-key:}") String readKey,
+            @Value("${tributario.demo.internal-admin-key:}") String adminKey) {
         this.readKey = readKey;
         this.adminKey = adminKey;
     }

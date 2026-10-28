@@ -1,23 +1,7 @@
-import { useState } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { cerrarSesion } from '../services/authService.js'
+import { Link, NavLink } from 'react-router-dom'
 import { MODULOS, icono } from '../utils/modulos.jsx'
 
 export default function MenuLateral() {
-  const navegar = useNavigate()
-  const [saliendo, setSaliendo] = useState(false)
-
-  async function salir() {
-    if (saliendo) return
-    setSaliendo(true)
-    try {
-      await cerrarSesion()
-      navegar('/login', { replace: true })
-    } finally {
-      setSaliendo(false)
-    }
-  }
-
   return (
     <aside className="menu">
       <Link to="/" className="menu-marca" aria-label="Municipalidad de San Miguel, ir al inicio">
@@ -42,10 +26,10 @@ export default function MenuLateral() {
 
       <div className="menu-pie">
         <p className="menu-demo" role="note">Datos ficticios de demostración</p>
-        <button type="button" className="menu-salir" onClick={salir} disabled={saliendo}>
+        <Link to="/" className="menu-salir">
           {icono(<><path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
-          {saliendo ? 'Saliendo…' : 'Salir'}
-        </button>
+          Salir
+        </Link>
       </div>
     </aside>
   )
