@@ -51,6 +51,8 @@ function LayoutPortal() {
 function LayoutGestion() {
   const { pathname } = useLocation()
   const modulo = MODULOS.filter((m) => m.seccion !== 'portal').find((m) => pathname.startsWith(m.ruta))
+  const esDashboard = pathname.startsWith('/dashboard')
+  const esMetas = pathname.startsWith('/metas')
   return (
     <div className="app">
       <MenuLateral solo="gestion" />
@@ -62,7 +64,7 @@ function LayoutGestion() {
             <p className="pagina-cab__desc">{modulo.descripcion}</p>
           </header>
         )}
-        <main className="pmain">
+        <main className={`pmain${esDashboard ? ' pmain--dashboard' : ''}${esMetas ? ' pmain--metas' : ''}`}>
           <Outlet />
         </main>
         <footer className="pie">

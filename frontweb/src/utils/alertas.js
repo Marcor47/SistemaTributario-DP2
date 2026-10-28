@@ -2,6 +2,39 @@ import { etiquetaTributo } from './morosidad.js'
 
 /* HU039: funciones de presentación de las alertas de desvío de meta. */
 
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+export function etiquetaPeriodo(periodo) {
+  if (!periodo) return '—'
+  const mensual = /^(\d{4})-(\d{2})$/.exec(periodo)
+  if (mensual) {
+    const [, anio, mes] = mensual
+    return `${MESES[Number(mes) - 1] || mes} ${anio}`
+  }
+  const trimestral = /^(\d{4})-T([1-4])$/.exec(periodo)
+  if (trimestral) return `Trimestre ${trimestral[2]} de ${trimestral[1]}`
+  return periodo
+}
+
+export function esPeriodoActual(periodo, hoy = new Date()) {
+  if (!periodo) return false
+  const anio = hoy.getFullYear()
+  if (/^\d{4}-\d{2}$/.test(periodo)) {
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0')
+    return periodo === `${anio}-${mes}`
+  }
+  if (/^\d{4}-T[1-4]$/.test(periodo)) {
+    const trimestre = Math.floor(hoy.getMonth() / 3) + 1
+    return periodo === `${anio}-T${trimestre}`
+  }
+  if (/^\d{4}$/.test(periodo)) return periodo === String(anio)
+  return false
+}
+
+export function filtrarAlertasDelPeriodo(alertas, hoy = new Date()) {
+  return (Array.isArray(alertas) ? alertas : []).filter((alerta) => esPeriodoActual(alerta.periodo, hoy))
+}
+
 export function formatearPorcentaje(valor) {
   if (valor === null || valor === undefined || valor === '') return '—'
   const numero = Number(valor)
@@ -69,4 +102,12 @@ export function resumirAlertas(alertas) {
     indicadores: indicadores.size,
     ultimaCorte: fechas.at(-1) || null,
   }
+}
+
+export function indexarAlertasPorMeta(alertas) {
+  const mapa = new Map()
+  for (const alerta of Array.isArray(alertas) ? alertas : []) {
+    if (alerta?.idMeta != null && !mapa.has(alerta.idMeta)) mapa.set(alerta.idMeta, alerta)
+  }
+  return mapa
 }

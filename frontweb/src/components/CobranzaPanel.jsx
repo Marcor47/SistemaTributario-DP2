@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { listarObligacionesVencidas, obtenerEtapaCobranza } from '../services/cobranzaService.js'
-import { fecha, moneda } from '../utils/formato.js'
-import LineaTiempoCobranza from './LineaTiempoCobranza.jsx'
+import { fecha } from '../utils/formato.js'
+import DetalleCobranza from './DetalleCobranza.jsx'
+import EtiquetaDeudaVencida from './EtiquetaDeudaVencida.jsx'
+import './Cobranza.css'
 
 const CLASE_ETAPA = {
   MORA_TEMPRANA: 'neutro',
@@ -96,7 +98,7 @@ export default function CobranzaPanel({ contribuyente }) {
         <button className="btn volver" type="button" onClick={volverAlListado}>← Volver a obligaciones</button>
         {ocupadoDetalle && <p className="hint mensaje-carga" role="status">Consultando etapa de cobranza…</p>}
         {errorDetalle && <div className="alert" role="alert">{errorDetalle}</div>}
-        {!ocupadoDetalle && !errorDetalle && detalle && <LineaTiempoCobranza detalle={detalle} />}
+        {!ocupadoDetalle && !errorDetalle && detalle && <DetalleCobranza detalle={detalle} />}
       </>
     )
   }
@@ -125,7 +127,7 @@ export default function CobranzaPanel({ contribuyente }) {
   return (
     <section className="pcard" aria-label="Obligaciones vencidas">
       <h2>Obligaciones vencidas</h2>
-      <p className="hint">Elige una obligación para consultar su etapa actual y su línea de tiempo de cobranza.</p>
+      <p className="hint">Elige una obligación para consultar sus etapas de cobranza.</p>
       <div className="tabla-scroll" role="region" aria-label="Obligaciones vencidas del contribuyente" tabIndex={0}>
         <table className="tabla">
           <thead>
@@ -134,8 +136,7 @@ export default function CobranzaPanel({ contribuyente }) {
               <th scope="col">Periodo</th>
               <th scope="col">Predio</th>
               <th scope="col">Vencimiento</th>
-              <th scope="col" className="num">Saldo</th>
-              <th scope="col" className="num">Días vencida</th>
+              <th scope="col">Deuda vencida</th>
               <th scope="col">Etapa</th>
               <th scope="col"><span className="sr-only">Acción</span></th>
             </tr>
@@ -147,8 +148,7 @@ export default function CobranzaPanel({ contribuyente }) {
                 <td>{obligacion.periodo}</td>
                 <td>{obligacion.codigoPredio ?? '—'}</td>
                 <td>{fecha(obligacion.fechaVencimiento)}</td>
-                <td className="num">{moneda(obligacion.saldo)}</td>
-                <td className="num">{obligacion.diasVencida}</td>
+                <td><EtiquetaDeudaVencida saldo={obligacion.saldo} diasVencida={obligacion.diasVencida} /></td>
                 <td><Etapa etapa={obligacion.etapaActual} nombre={obligacion.etapaNombre} /></td>
                 <td>
                   <button className="btn btn-compacto" type="button" onClick={() => verEtapa(obligacion)}>

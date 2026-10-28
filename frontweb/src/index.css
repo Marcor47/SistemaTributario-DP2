@@ -77,6 +77,7 @@ body {
 
 /* Contenido */
 .pmain { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 16px; flex: 1; }
+.pmain--metas { max-width: none; }
 .pcard {
   background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio);
   padding: 22px 26px; margin-bottom: 20px; box-shadow: var(--sombra);
@@ -220,8 +221,68 @@ body {
 /* Configuración de metas */
 .metas-cabecera { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .metas-filtros .metas-anio { flex: 0 1 180px; min-width: 150px; }
-.tabla-metas { min-width: 920px; }
+.tabla-scroll .tabla-metas {
+  width: max-content;
+  min-width: 100%;
+}
 .tabla-metas td { vertical-align: middle; }
+.tabla-metas th,
+.tabla-metas td { white-space: nowrap; }
+.tabla-metas tr td { transition: background-color 0.8s ease, box-shadow 0.8s ease; }
+.tabla-metas tr.fila-meta-destacada td { background-color: var(--advertencia-fondo); }
+.tabla-metas tr.fila-meta-destacada:hover td { background-color: var(--advertencia-fondo); }
+.tabla-metas tr.fila-meta-destacada td:first-child { box-shadow: inset 4px 0 0 var(--cian); }
+
+.meta-indicador { display: flex; align-items: center; gap: 8px; }
+.boton-alerta-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--critico);
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+.boton-alerta-meta:hover { background: var(--critico-fondo); }
+.boton-alerta-meta:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.boton-alerta-meta svg { width: 20px; height: 20px; }
+
+.fila-detalle-alerta td {
+  padding: 0 14px 14px;
+  background: var(--critico-fondo);
+  white-space: normal;
+}
+.detalle-alerta-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid #F0C8C4;
+  border-radius: 12px;
+  background: var(--superficie);
+}
+.detalle-alerta-meta__cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.detalle-alerta-meta__cab strong { color: var(--critico); font-size: 16px; }
+.detalle-alerta-meta__cab .hint { margin-top: 2px; }
+.detalle-alerta-meta__explicacion { margin: 0; color: var(--texto-secundario); font-size: 14.5px; }
+.detalle-alerta-meta__acciones { display: flex; justify-content: flex-end; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* El resaltado solo cambia color; se conserva para que el cambio sea perceptible. */
+  .tabla-metas tr td { transition-duration: 0.8s !important; }
+}
 .acciones-fila-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .formulario-meta { margin-top: 16px; }
 .formulario-meta .fld { min-width: 0; }
@@ -357,56 +418,6 @@ body {
   color: var(--texto-atenuado);
   background: var(--fondo);
 }
-.linea-tiempo {
-  position: relative;
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-}
-.linea-tiempo::before {
-  content: '';
-  position: absolute;
-  left: 7px;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  background: var(--borde);
-}
-.linea-tiempo li {
-  position: relative;
-  display: flex;
-  gap: 14px;
-  padding-bottom: 20px;
-}
-.linea-tiempo li:last-child { padding-bottom: 0; }
-.linea-tiempo-marca {
-  position: relative;
-  z-index: 1;
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
-  margin-top: 4px;
-  border: 2px solid var(--borde);
-  border-radius: 50%;
-  background: var(--superficie);
-}
-.linea-tiempo li.actual .linea-tiempo-marca {
-  border-color: var(--azul);
-  background: var(--azul);
-  box-shadow: 0 0 0 4px var(--azul-suave);
-}
-.linea-tiempo-contenido {
-  flex: 1;
-  min-width: 0;
-}
-.linea-tiempo-titulo {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.linea-tiempo-contenido p { margin: 4px 0; }
 input::placeholder {
   color: #8c939d;
   font-style: italic;

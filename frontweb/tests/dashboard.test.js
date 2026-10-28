@@ -3,11 +3,15 @@ import test from 'node:test'
 import { listarAlertasDesvio } from '../src/services/alertaDesvioService.js'
 import {
   etiquetaAlcance,
+  etiquetaPeriodo,
   etiquetaSentido,
+  esPeriodoActual,
   explicarDesvio,
+  filtrarAlertasDelPeriodo,
   formatearDesvio,
   formatearPorcentaje,
   formatearValorIndicador,
+  indexarAlertasPorMeta,
   resumirAlertas,
 } from '../src/utils/alertas.js'
 import { fechaHora } from '../src/utils/formato.js'
@@ -50,7 +54,7 @@ test('HU039: consulta las alertas activas con y sin filtro de indicador', async 
   })
 
   await listarAlertasDesvio()
-  await listarAlertasDesvio('INDICE_MOROSIDAD')
+  await listarAlertasDesvio({ indicadorCodigo: 'INDICE_MOROSIDAD' })
 
   assert.equal(new URL(urls[0]).search, '')
   assert.equal(new URL(urls[1]).searchParams.get('indicadorCodigo'), 'INDICE_MOROSIDAD')
@@ -59,6 +63,44 @@ test('HU039: consulta las alertas activas con y sin filtro de indicador', async 
 test('HU039: una lista vacía es un estado válido del servicio', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => new Response(JSON.stringify([])))
   assert.deepEqual(await listarAlertasDesvio(), [])
+})
+
+test('HU039: solo considera alertas del periodo vigente', () => {
+  const hoy = new Date(2026, 9, 27)
+
+  assert.equal(esPeriodoActual('2026-10', hoy), true)
+  assert.equal(esPeriodoActual('2026-09', hoy), false)
+  assert.equal(esPeriodoActual('2026-T4', hoy), true)
+  assert.equal(esPeriodoActual('2026-T3', hoy), false)
+  assert.equal(esPeriodoActual('2026', hoy), true)
+  assert.equal(esPeriodoActual('2025', hoy), false)
+
+  const vigentes = filtrarAlertasDelPeriodo([
+    ALERTA_MOROSIDAD,
+    { ...ALERTA_RECAUDACION, periodo: '2026-09' },
+    { ...ALERTA_RECAUDACION, idAlerta: 3, periodo: '2025-10' },
+  ], hoy)
+
+  assert.deepEqual(vigentes.map((alerta) => alerta.idAlerta), [1])
+})
+
+test('HU039: presenta el periodo de forma legible', () => {
+  assert.equal(etiquetaPeriodo('2026-10'), 'Octubre 2026')
+  assert.equal(etiquetaPeriodo('2026-T4'), 'Trimestre 4 de 2026')
+  assert.equal(etiquetaPeriodo('2026'), '2026')
+  assert.equal(etiquetaPeriodo(null), '—')
+})
+
+test('HU039: indexa las alertas por meta para marcarlas en la tabla', () => {
+  const mapa = indexarAlertasPorMeta([
+    { ...ALERTA_MOROSIDAD, idMeta: 5 },
+    { ...ALERTA_RECAUDACION, idMeta: 2 },
+    { ...ALERTA_RECAUDACION, idAlerta: 99, idMeta: null },
+  ])
+  assert.equal(mapa.size, 2)
+  assert.equal(mapa.get(5).idAlerta, 1)
+  assert.equal(mapa.get(2).idAlerta, 2)
+  assert.equal(indexarAlertasPorMeta(null).size, 0)
 })
 
 test('HU039: presenta el desvío con signo y el umbral con dos decimales', () => {
