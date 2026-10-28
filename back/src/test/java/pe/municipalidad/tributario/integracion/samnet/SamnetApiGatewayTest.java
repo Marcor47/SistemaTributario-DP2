@@ -122,7 +122,8 @@ class SamnetApiGatewayTest {
     @Test
     @Sql(statements = """
             INSERT INTO samnet.credencial_web (contribuyente_codigo, clave_hash)
-            VALUES ('014502', public.crypt('clave-de-prueba', public.gen_salt('bf', 4)));
+            VALUES ('014502', public.crypt('clave-de-prueba', public.gen_salt('bf', 4)))
+            ON CONFLICT (contribuyente_codigo) DO UPDATE SET clave_hash = EXCLUDED.clave_hash, habilitada = TRUE;
             """)
     void autenticaConElServicioMunicipalSinExponerLaClave() {
         assertThat(autenticacion.autenticar("41028765", "clave-de-prueba"))

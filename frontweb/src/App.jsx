@@ -10,6 +10,7 @@ import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
+import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
 
 /**
  * Layout exclusivo para el Portal del Ciudadano (Servicios en Línea).
@@ -79,6 +80,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Inicio />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
+        <Route path="/pagos/:id" element={<PasarelaSimulada />} />
 
         {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
         <Route element={<LayoutPortal />}>
