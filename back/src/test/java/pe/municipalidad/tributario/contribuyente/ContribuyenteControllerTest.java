@@ -42,37 +42,30 @@ class ContribuyenteControllerTest {
     }
 
     @Test
-    void laFichaIncluyeLosImpuestosResumidosPorTributoYDetalladosPorPeriodo() throws Exception {
+    void laFichaIncluyeLosPrediosDelContribuyente() throws Exception {
         mockMvc.perform(get(RUTA).param("tipoDocumento", "DNI").param("numeroDocumento", "41028765"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.impuestos.fechaCorte").value("2026-10-19"))
-                .andExpect(jsonPath("$.impuestos.totalEmitido").value(2583.0))
-                .andExpect(jsonPath("$.impuestos.totalPagado").value(2583.0))
-                .andExpect(jsonPath("$.impuestos.totalDeuda").value(0.0))
-                .andExpect(jsonPath("$.impuestos.porTributo", hasSize(2)))
-                .andExpect(jsonPath("$.impuestos.porTributo[0].tributo").value("IMPUESTO_PREDIAL"))
-                .andExpect(jsonPath("$.impuestos.porTributo[0].emitido").value(1134.0))
-                .andExpect(jsonPath("$.impuestos.porTributo[1].tributo").value("ARBITRIOS"))
-                .andExpect(jsonPath("$.impuestos.porTributo[1].descripcion").value("Arbitrios Municipales"))
-                .andExpect(jsonPath("$.impuestos.porTributo[1].emitido").value(1449.0))
-                .andExpect(jsonPath("$.impuestos.cuotas", hasSize(12)))
-                .andExpect(jsonPath("$.impuestos.cuotas[0].periodo").value("2025-T1"))
-                .andExpect(jsonPath("$.impuestos.cuotas[0].tributo").value("IMPUESTO_PREDIAL"))
-                .andExpect(jsonPath("$.impuestos.cuotas[1].tributo").value("ARBITRIOS"))
-                .andExpect(jsonPath("$.impuestos.cuotas[1].emitido").value(230.0))
-                .andExpect(jsonPath("$.impuestos.cuotas[1].estado").value("PAGADA"));
+                .andExpect(jsonPath("$.predios", hasSize(1)))
+                .andExpect(jsonPath("$.predios[0].codigoPredio").value("014502-01"))
+                .andExpect(jsonPath("$.predios[0].numeroCatastral").value("150136-001-014"))
+                .andExpect(jsonPath("$.predios[0].ubicacion").value("Av. La Marina 1450, San Miguel"))
+                .andExpect(jsonPath("$.predios[0].usoPredio").value("Vivienda"))
+                .andExpect(jsonPath("$.predios[0].tipoPredio").value("URBANO"))
+                .andExpect(jsonPath("$.predios[0].areaTerreno").value(160.0))
+                .andExpect(jsonPath("$.predios[0].fechaAdquisicion").value("2012-05-14"))
+                .andExpect(jsonPath("$.predios[0].condicionPropiedad").value("PROPIETARIO"))
+                .andExpect(jsonPath("$.predios[0].porcentajePropiedad").value(100.0))
+                .andExpect(jsonPath("$.impuestos").doesNotExist());
     }
 
     @Test
-    void losImpuestosMuestranLaDeudaVencidaDelContribuyente() throws Exception {
-        mockMvc.perform(get(RUTA).param("tipoDocumento", "RUC").param("numeroDocumento", "20456781239"))
+    void enCopropiedadCadaTitularVeSuPorcentaje() throws Exception {
+        mockMvc.perform(get(RUTA).param("tipoDocumento", "DNI").param("numeroDocumento", "45871777"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.impuestos.totalDeuda").value(6907.68))
-                .andExpect(jsonPath("$.impuestos.porTributo[0].deuda").value(3032.64))
-                .andExpect(jsonPath("$.impuestos.porTributo[1].deuda").value(3875.04))
-                .andExpect(jsonPath("$.impuestos.cuotas[6].periodo").value("2025-T4"))
-                .andExpect(jsonPath("$.impuestos.cuotas[6].deuda").value(992.16))
-                .andExpect(jsonPath("$.impuestos.cuotas[6].estado").value("VENCIDA"));
+                .andExpect(jsonPath("$.predios", hasSize(1)))
+                .andExpect(jsonPath("$.predios[0].codigoPredio").value("058934-01"))
+                .andExpect(jsonPath("$.predios[0].condicionPropiedad").value("COPROPIETARIO"))
+                .andExpect(jsonPath("$.predios[0].porcentajePropiedad").value(50.0));
     }
 
     @Test
@@ -81,8 +74,7 @@ class ContribuyenteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.codigo").value("072405"))
                 .andExpect(jsonPath("$.estado").value("INACTIVO"))
-                .andExpect(jsonPath("$.impuestos.totalDeuda").value(0.0))
-                .andExpect(jsonPath("$.impuestos.cuotas", hasSize(0)));
+                .andExpect(jsonPath("$.predios", hasSize(0)));
     }
 
     @Test

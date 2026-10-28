@@ -1,66 +1,67 @@
-import { useState } from 'react'
-import { iniciarPagoPortal, confirmarPagoPortal } from '../services/portalCuentaService.js'
-import { agruparCuentaPorPeriodo } from '../utils/estadoCuentaPortal.js'
-import { moneda } from '../utils/formato.js'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { iniciarPagoPortal } from '../services/portalCuentaService.js'
+import { mensajeErrorPago, rutaPasarelaSimulada } from '../utils/pagosPortal.js'
+import '../pages/PagosPortal.css'
 
-// Conserva el acceso al pago existente sin alterar los saldos de la consulta localmente.
-export default function PagoCuentaPortal({ cuenta, onPagado }) {
-  const [seleccion, setSeleccion] = useState([])
+export default function PagoCuentaPortal({ cuenta, onActualizar }) {
+  const navegar = useNavigate()
   const [procesando, setProcesando] = useState(false)
-  const [error, setError] = useState('')
-  const pendientes = agruparCuentaPorPeriodo(cuenta.filas).filter((grupo) => grupo.deuda > 0)
-  const elegidos = pendientes.filter((grupo) => seleccion.includes(grupo.id))
-  const total = elegidos.reduce((suma, grupo) => suma + grupo.deuda, 0)
+  const [error, setError] = useState(null)
+  const enCurso = useRef(false)
+  const activo = useRef(true)
+  const hayDeuda = cuenta.filas.some((fila) => fila.deuda > 0)
+  const aviso = error ? mensajeErrorPago(error) : null
 
-  function alternar(id) {
-    setSeleccion((actual) => actual.includes(id) ? actual.filter((valor) => valor !== id) : [...actual, id])
-    setError('')
-  }
+  useEffect(() => {
+    activo.current = true
+    return () => { activo.current = false }
+  }, [])
 
-  async function pagar(evento) {
-    evento.preventDefault()
-    if (!seleccion.length || procesando) return
-    if (!window.confirm(`¿Continuar con el pago de ${seleccion.length} periodo(s) por ${moneda(total)}?`)) return
+  async function revisarPago() {
+    if (enCurso.current) return
+    enCurso.current = true
     setProcesando(true)
-    setError('')
+    setError(null)
     try {
-      const orden = await iniciarPagoPortal(elegidos.flatMap((grupo) => grupo.idsPendientes.map(Number)))
-      const confirmacion = await confirmarPagoPortal(orden.idTransaccion)
-      if (confirmacion.estado !== 'CONFIRMADA') throw new Error('El pago aún no está confirmado. Actualiza tu cuenta para revisar su estado.')
-      onPagado({ ...confirmacion, dePrueba: Boolean(orden.dePrueba || confirmacion.dePrueba) })
+      const orden = await iniciarPagoPortal()
+      if (activo.current) navegar(rutaPasarelaSimulada(orden))
     } catch (fallo) {
-      setError(fallo.message || 'No se pudo confirmar el pago. Actualiza tu cuenta antes de volver a intentarlo.')
+      if (activo.current) setError(fallo)
     } finally {
-      setProcesando(false)
+      enCurso.current = false
+      if (activo.current) setProcesando(false)
     }
   }
 
-  if (!pendientes.length) return null
+  if (!hayDeuda) return null
   return (
-    <details className="pcard consulta-metodologia">
-      <summary>Pagos en línea</summary>
-      {cuenta.esDemo || cuenta.desactualizado
-        ? <p className="hint">Para realizar un pago, consulta una cuenta actualizada con tu sesión de contribuyente. Esta vista es de {cuenta.esDemo ? 'demostración' : 'la última copia disponible'}.</p>
-        : <form onSubmit={pagar}>
-          <p>Selecciona los periodos que deseas pagar. Se incluirán sus obligaciones pendientes.</p>
-          <fieldset className="consulta-pagos" disabled={procesando}>
-            <legend className="sr-only">Periodos pendientes de pago</legend>
-            {pendientes.map((grupo) => (
-              <label key={grupo.id}>
-                <input type="checkbox" checked={seleccion.includes(grupo.id)} onChange={() => alternar(grupo.id)} />
-                <span>{grupo.titulo} · {grupo.periodo}</span>
-                <strong>{moneda(grupo.deuda)}</strong>
-              </label>
-            ))}
-          </fieldset>
-          {error && <p className="alert" role="alert">{error}</p>}
-          <div className="consulta-cabecera">
-            <p>Total seleccionado: <strong>{moneda(total)}</strong></p>
-            <button type="submit" className="btn primary" disabled={!seleccion.length || procesando}>
-              {procesando ? 'Procesando pago…' : 'Continuar con el pago'}
-            </button>
-          </div>
-        </form>}
-    </details>
+    <section className="pcard pago-total" aria-labelledby="pago-total-titulo" aria-busy={procesando}>
+      <h2 id="pago-total-titulo">Pagar saldo completo</h2>
+      <p>El pago virtual incluye todas tus obligaciones pendientes. Los filtros de esta cuenta no limitan el pago.</p>
+      {cuenta.desactualizado ? (
+        <p className="hint">Consulta una cuenta actualizada antes de pagar. La última copia disponible no permite crear órdenes de pago.</p>
+      ) : (
+        <>
+          <p className="hint">Al continuar, revisaremos el total y los beneficios vigentes antes de abrir la pasarela.</p>
+          {aviso && (
+            <div className="alert pago-error" role="alert">
+              <strong>{aviso.titulo}</strong><p>{aviso.texto}</p>
+              {aviso.accion === 'sesion' && <Link className="btn" to="/login" state={{ from: '/estado-cuenta', motivo: 'servicios-en-linea' }}>Iniciar sesión</Link>}
+              {aviso.accion === 'cuenta' && <button className="btn" type="button" onClick={onActualizar}>Actualizar cuenta</button>}
+            </div>
+          )}
+          {(!aviso || aviso.accion === 'reintentar') && (
+            <div className="pago-acciones">
+              <span className="hint">Todavía no se confirma ningún pago.</span>
+              <button className="btn primary" type="button" onClick={revisarPago} disabled={procesando}>
+                {procesando ? 'Revisando saldo y beneficios…' : 'Revisar pago total'}
+              </button>
+            </div>
+          )}
+          {procesando && <p className="sr-only" role="status">Calculando el importe del pago en el servidor.</p>}
+        </>
+      )}
+    </section>
   )
 }

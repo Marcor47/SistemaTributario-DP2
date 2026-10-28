@@ -4,6 +4,8 @@ import { MotionConfig, motion } from 'framer-motion'
 import { CREDENCIALES_DEMO, MODO_DEMO, iniciarSesion } from '../services/authService.js'
 import './Login.css'
 
+const ACCESO_PORTAL_PRUEBA = { codigo: '021390', password: 'Portal021390!' }
+
 export default function Login() {
   const navegar = useNavigate()
   const ubicacion = useLocation()
@@ -15,6 +17,13 @@ export default function Login() {
   const [verClave, setVerClave] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+  const accesoPrueba = MODO_DEMO ? CREDENCIALES_DEMO : ACCESO_PORTAL_PRUEBA
+
+  function usarAccesoPrueba() {
+    setCodigo(accesoPrueba.codigo)
+    setClave(accesoPrueba.password)
+    setError('')
+  }
 
   async function enviar(e) {
     e.preventDefault()
@@ -143,11 +152,12 @@ export default function Login() {
               </button>
             </form>
 
-            {MODO_DEMO && (
-              <p className="lg-demo" role="note">
-                <strong>Modo demostración (sin servidor).</strong> Código: <code>{CREDENCIALES_DEMO.codigo}</code> · Contraseña:{' '}
-                <code>{CREDENCIALES_DEMO.password}</code>
-              </p>
+            {import.meta.env.DEV && (
+              <div className="lg-demo" role="note">
+                <strong>{MODO_DEMO ? 'Modo demostración (sin servidor)' : 'Acceso de prueba'}</strong>
+                <p className="lg-demo__datos">Código: <code>{accesoPrueba.codigo}</code><br />Contraseña: <code>{accesoPrueba.password}</code></p>
+                <button className="lg-demo__usar" type="button" onClick={usarAccesoPrueba} disabled={enviando}>Usar estos datos</button>
+              </div>
             )}
 
             <p className="lg-ayuda">

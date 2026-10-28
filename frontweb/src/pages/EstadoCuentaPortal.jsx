@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import PagoCuentaPortal from '../components/PagoCuentaPortal.jsx'
+import AvisoPagoCuenta from '../components/AvisoPagoCuenta.jsx'
 import { obtenerEstadoCuentaPortal } from '../services/portalCuentaService.js'
 import { agruparCuentaPorPeriodo, filtrarPeriodos, resumirCuenta } from '../utils/estadoCuentaPortal.js'
 import { fecha, moneda } from '../utils/formato.js'
@@ -14,7 +15,7 @@ export default function EstadoCuentaPortal() {
   const [revision, setRevision] = useState(0)
   const [resultado, setResultado] = useState({ cargando: true, cuenta: null, error: null })
   const [filtros, setFiltros] = useState(FILTROS_INICIALES)
-  const [pagoConfirmado, setPagoConfirmado] = useState(null)
+  const pagoId = new URLSearchParams(ubicacion.search).get('pago')
 
   useEffect(() => {
     const controlador = new AbortController()
@@ -56,9 +57,8 @@ export default function EstadoCuentaPortal() {
       <div className="consulta-cabecera consulta-herramientas"><p className="hint">Consulta las obligaciones vinculadas a tu sesión.</p><button type="button" className="btn" onClick={recargar} disabled={cargando}>{cargando ? 'Actualizando…' : 'Actualizar cuenta'}</button></div>
       {cargando && <div className="pcard consulta-vacio" role="status">Consultando tu estado de cuenta…</div>}
       {error && <div className="alert" role="alert"><strong>No se pudo consultar tu cuenta.</strong><p>{error.message}</p><button type="button" className="btn" onClick={recargar}>Reintentar</button></div>}
-      {pagoConfirmado && <div className="confirmacion" role="status"><strong>{pagoConfirmado.dePrueba ? 'Pago de prueba confirmado.' : 'Pago confirmado.'}</strong> Operación #{pagoConfirmado.idTransaccion}. {pagoConfirmado.dePrueba && 'La operación es de demostración.'}</div>}
+      {!cargando && cuenta && pagoId && <AvisoPagoCuenta key={`${pagoId}-${revision}`} idTransaccion={pagoId} />}
       {!cargando && cuenta && <>
-        {cuenta.esDemo && <div className="info" role="note"><strong>Sesión de demostración.</strong> Los datos de esta cuenta son ficticios.</div>}
         <section className="pcard" aria-labelledby="cuenta-titular">
           <div className="consulta-cabecera"><div><p className="hint">Titular de la cuenta</p><h2 id="cuenta-titular">{cuenta.contribuyente.nombre}</h2></div><span className="consulta-corte">Fecha de corte: <strong>{fecha(cuenta.fechaCorte)}</strong></span></div>
           <div className="pfields"><div className="pf"><span className="pl">Código de contribuyente</span><strong className="pv">{cuenta.contribuyente.codigo}</strong></div><div className="pf"><span className="pl">{cuenta.contribuyente.tipoDoc || 'Documento'}</span><strong className="pv">{cuenta.contribuyente.doc || 'No disponible'}</strong></div></div>
@@ -95,7 +95,7 @@ export default function EstadoCuentaPortal() {
               </div>
             )}
           </section>
-          <PagoCuentaPortal cuenta={cuenta} onPagado={(pago) => { setPagoConfirmado(pago); recargar() }} />
+          <PagoCuentaPortal cuenta={cuenta} onActualizar={recargar} />
         </>}
       </>}
     </div>

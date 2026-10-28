@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import BarraBusqueda from '../components/BarraBusqueda.jsx'
+import DeclaracionJuradaPanel from '../components/DeclaracionJuradaPanel.jsx'
 import { buscarPredios } from '../services/predioService.js'
 import { fecha, moneda } from '../utils/formato.js'
+import './ConsultaPredio.css'
+
+const PESTANAS = [
+  { id: 'resumen', nombre: 'Resumen' },
+  { id: 'declaracion', nombre: 'Declaración jurada' },
+]
 
 function Campo({ etiqueta, valor }) {
   return (
@@ -12,15 +19,9 @@ function Campo({ etiqueta, valor }) {
   )
 }
 
-function DetallePredio({ predio, onVolver }) {
+function ResumenPredio({ predio }) {
   return (
     <>
-      {onVolver && (
-        <button className="btn" type="button" onClick={onVolver}>
-          ← Volver a los resultados
-        </button>
-      )}
-
       <section className="pcard" aria-label="Características del predio">
         <h2>Predio {predio.codPredio}</h2>
         <p className="hint">{predio.ubicacion}</p>
@@ -45,6 +46,7 @@ function DetallePredio({ predio, onVolver }) {
 
       <section className="pcard" aria-label="Contribuyentes asociados">
         <h2>Contribuyente(s) asociado(s)</h2>
+        <div className="tabla-scroll" role="region" aria-label="Tabla de contribuyentes asociados" tabIndex={0}>
         <table className="tabla">
           <thead>
             <tr>
@@ -65,8 +67,57 @@ function DetallePredio({ predio, onVolver }) {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </>
+  )
+}
+
+function DetallePredio({ predio, onVolver }) {
+  const [vista, setVista] = useState('resumen')
+  const botones = useRef([])
+
+  function navegarPestanas(evento, indice) {
+    let siguiente
+    if (evento.key === 'ArrowRight') siguiente = (indice + 1) % PESTANAS.length
+    else if (evento.key === 'ArrowLeft') siguiente = (indice + PESTANAS.length - 1) % PESTANAS.length
+    else if (evento.key === 'Home') siguiente = 0
+    else if (evento.key === 'End') siguiente = PESTANAS.length - 1
+    else return
+    evento.preventDefault()
+    setVista(PESTANAS[siguiente].id)
+    botones.current[siguiente].focus()
+  }
+
+  return (
+    <div className="predio-detalle">
+      {onVolver && <button className="btn volver" type="button" onClick={onVolver}>← Volver a los resultados</button>}
+      <div className="pestanas-predio" role="tablist" aria-label="Información del predio">
+        {PESTANAS.map((pestana, indice) => (
+          <button
+            key={pestana.id}
+            ref={(elemento) => { botones.current[indice] = elemento }}
+            id={`predio-pestana-${pestana.id}`}
+            className={`btn${vista === pestana.id ? ' primary' : ''}`}
+            type="button"
+            role="tab"
+            aria-selected={vista === pestana.id}
+            aria-controls={`predio-panel-${pestana.id}`}
+            tabIndex={vista === pestana.id ? 0 : -1}
+            onClick={() => setVista(pestana.id)}
+            onKeyDown={(evento) => navegarPestanas(evento, indice)}
+          >
+            {pestana.nombre}
+          </button>
+        ))}
+      </div>
+      <div id="predio-panel-resumen" role="tabpanel" aria-labelledby="predio-pestana-resumen" hidden={vista !== 'resumen'} tabIndex={0}>
+        <ResumenPredio predio={predio} />
+      </div>
+      <div id="predio-panel-declaracion" role="tabpanel" aria-labelledby="predio-pestana-declaracion" hidden={vista !== 'declaracion'} tabIndex={0}>
+        {vista === 'declaracion' && <DeclaracionJuradaPanel key={predio.codPredio} codigoPredio={predio.codPredio} />}
+      </div>
+    </div>
   )
 }
 
@@ -123,7 +174,7 @@ export default function ConsultaPredio() {
       )}
 
       {!ocupado && detalle && (
-        <DetallePredio predio={detalle} onVolver={seleccionado ? () => setSeleccionado(null) : null} />
+        <DetallePredio key={detalle.codPredio} predio={detalle} onVolver={seleccionado ? () => setSeleccionado(null) : null} />
       )}
 
       {!ocupado && resultados?.length > 1 && !seleccionado && (
