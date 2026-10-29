@@ -257,3 +257,58 @@ LANGUAGE sql STABLE AS $$
     WHERE p.fecha_pago <= p_fecha_corte
     ORDER BY p.fecha_pago, p.id_pago;
 $$;
+
+-- HU006 (RF-024, RF-050, RF-051): cartera por contribuyente y tributo para los reportes de morosos, PRICOS y
+-- buenos pagadores. La deuda vencida suma todos los años; lo emitido, lo pagado y la puntualidad, solo p_anio.
+-- Una cuota exigible se pagó a tiempo si quedó cancelada y su último pago es del día de vencimiento o anterior
+-- (si no hay pago, la canceló un beneficio). zonas: zonas de los predios del contribuyente, separadas por coma.
+-- etapas_cobranza: etapas actuales de sus cuotas vencidas impagas, separadas por coma.
+CREATE OR REPLACE FUNCTION samnet.ps_reportecartera(p_fecha_corte DATE, p_anio INTEGER)
+RETURNS TABLE (
+    contribuyente_codigo VARCHAR, nombre VARCHAR, tipo_persona VARCHAR, tipo_documento VARCHAR,
+    numero_documento VARCHAR, domicilio_fiscal VARCHAR, zonas VARCHAR, tributo VARCHAR, emitido_anio NUMERIC,
+    pagado_anio NUMERIC, cuotas_exigibles_anio INTEGER, cuotas_a_tiempo_anio INTEGER, deuda_vencida NUMERIC,
+    cuotas_vencidas INTEGER, vencimiento_mas_antiguo DATE, etapas_cobranza VARCHAR)
+LANGUAGE sql STABLE AS $$
+    WITH cuotas AS (
+        SELECT o.contribuyente_codigo, o.tributo, o.anio, o.fecha_vencimiento, o.monto_emitido, o.monto_pagado,
+               o.insoluto, o.etapa_cobranza,
+               o.fecha_vencimiento < p_fecha_corte AS vencida,
+               (SELECT max(pg.fecha_pago)
+                FROM samnet.pago_obligacion po
+                JOIN samnet.pago pg ON pg.id_pago = po.id_pago
+                WHERE po.id_obligacion = o.id_obligacion) AS ultimo_pago
+        FROM samnet.fn_obligaciones(NULL, NULL) o
+        WHERE o.anio = p_anio OR o.fecha_vencimiento < p_fecha_corte
+    ),
+    zonas_contribuyente AS (
+        SELECT z.codigo, string_agg(DISTINCT z.zona, ',' ORDER BY z.zona) AS zonas
+        FROM (
+            SELECT t.contribuyente_codigo AS codigo, p.zona
+            FROM samnet.predio_titular t
+            JOIN samnet.predio p ON p.codigo_predio = t.codigo_predio
+            UNION
+            SELECT o.contribuyente_codigo, p.zona
+            FROM samnet.obligacion o
+            JOIN samnet.predio p ON p.codigo_predio = o.codigo_predio
+        ) z
+        GROUP BY z.codigo
+    )
+    SELECT c.codigo, c.nombre, c.tipo_persona, c.tipo_documento, c.numero_documento, c.domicilio_fiscal,
+           z.zonas, q.tributo,
+           coalesce(sum(q.monto_emitido) FILTER (WHERE q.anio = p_anio), 0),
+           coalesce(sum(q.monto_pagado) FILTER (WHERE q.anio = p_anio), 0),
+           (count(*) FILTER (WHERE q.anio = p_anio AND q.vencida))::INTEGER,
+           (count(*) FILTER (WHERE q.anio = p_anio AND q.vencida AND q.insoluto <= 0
+                             AND coalesce(q.ultimo_pago, q.fecha_vencimiento) <= q.fecha_vencimiento))::INTEGER,
+           coalesce(sum(q.insoluto) FILTER (WHERE q.vencida AND q.insoluto > 0), 0),
+           (count(*) FILTER (WHERE q.vencida AND q.insoluto > 0))::INTEGER,
+           min(q.fecha_vencimiento) FILTER (WHERE q.vencida AND q.insoluto > 0),
+           string_agg(DISTINCT q.etapa_cobranza, ',') FILTER (WHERE q.vencida AND q.insoluto > 0)
+    FROM cuotas q
+    JOIN samnet.contribuyente c ON c.codigo = q.contribuyente_codigo
+    LEFT JOIN zonas_contribuyente z ON z.codigo = c.codigo
+    GROUP BY c.codigo, c.nombre, c.tipo_persona, c.tipo_documento, c.numero_documento, c.domicilio_fiscal,
+             z.zonas, q.tributo
+    ORDER BY c.codigo, q.tributo;
+$$;

@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,7 @@ import pe.municipalidad.tributario.contribuyente.TipoDocumento;
 import pe.municipalidad.tributario.contribuyente.TipoPersona;
 import pe.municipalidad.tributario.gestiontributaria.BeneficioTributario;
 import pe.municipalidad.tributario.gestiontributaria.CanalPago;
+import pe.municipalidad.tributario.gestiontributaria.CarteraTributo;
 import pe.municipalidad.tributario.gestiontributaria.DeclaracionJurada;
 import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
 import pe.municipalidad.tributario.gestiontributaria.Pago;
@@ -195,6 +197,29 @@ public class SamnetApiGateway implements SamnetGateway {
     }
 
     @Override
+    public List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anio) {
+        return invocar(() -> jdbc.query("SELECT * FROM samnet.ps_reportecartera(?, ?)",
+                (rs, i) -> new CarteraTributo(
+                        rs.getString("contribuyente_codigo"),
+                        rs.getString("nombre"),
+                        TipoPersona.valueOf(rs.getString("tipo_persona")),
+                        TipoDocumento.valueOf(rs.getString("tipo_documento")),
+                        rs.getString("numero_documento"),
+                        rs.getString("domicilio_fiscal"),
+                        lista(rs.getString("zonas")),
+                        Tributo.valueOf(rs.getString("tributo")),
+                        rs.getBigDecimal("emitido_anio"),
+                        rs.getBigDecimal("pagado_anio"),
+                        rs.getInt("cuotas_exigibles_anio"),
+                        rs.getInt("cuotas_a_tiempo_anio"),
+                        rs.getBigDecimal("deuda_vencida"),
+                        rs.getInt("cuotas_vencidas"),
+                        fecha(rs, "vencimiento_mas_antiguo"),
+                        etapaMasAvanzada(rs.getString("etapas_cobranza"))),
+                Date.valueOf(fechaCorte), anio));
+    }
+
+    @Override
     public List<Map<String, Object>> extraerParaETL(String procedimiento, LocalDate fechaCorte) {
         Boolean recibeFecha = PROCEDIMIENTOS_ETL.get(procedimiento);
         if (recibeFecha == null) {
@@ -279,6 +304,16 @@ public class SamnetApiGateway implements SamnetGateway {
     private static LocalDate fecha(ResultSet rs, String columna) throws SQLException {
         Date valor = rs.getDate(columna);
         return valor == null ? null : valor.toLocalDate();
+    }
+
+    /* El SP entrega listas separadas por coma; null es una lista vacía. */
+    private static List<String> lista(String valores) {
+        return valores == null ? List.of() : List.of(valores.split(","));
+    }
+
+    /* El orden del enum es el orden en que avanza la cobranza. */
+    private static EtapaCobranza etapaMasAvanzada(String etapas) {
+        return lista(etapas).stream().map(EtapaCobranza::valueOf).max(Comparator.naturalOrder()).orElse(null);
     }
 
     private static LocalDate aFecha(Object valor) {

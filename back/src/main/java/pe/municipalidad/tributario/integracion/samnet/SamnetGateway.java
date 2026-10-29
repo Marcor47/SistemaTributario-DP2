@@ -7,6 +7,7 @@ import java.util.Optional;
 import pe.municipalidad.tributario.cobranza.SeguimientoCobranza;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.gestiontributaria.BeneficioTributario;
+import pe.municipalidad.tributario.gestiontributaria.CarteraTributo;
 import pe.municipalidad.tributario.gestiontributaria.DeclaracionJurada;
 import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
 import pe.municipalidad.tributario.gestiontributaria.Pago;
@@ -54,6 +55,9 @@ public interface SamnetGateway {
 
     /* RF-048, RF-056: registra o edita el predio y su titular; devuelve el código predial. */
     String registrarPredio(Predio predio, String codigoContribuyente);
+
+    /* RF-024, RF-050, RF-051: cartera por contribuyente y tributo para los reportes del catálogo (HU006). */
+    List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anio);
 
     /* RF-038: extracción de un SP de Rentas para el ETL. */
     List<Map<String, Object>> extraerParaETL(String procedimiento, LocalDate fechaCorte);
