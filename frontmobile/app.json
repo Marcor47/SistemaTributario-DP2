@@ -2,6 +2,7 @@
   "expo": {
     "name": "frontmobile",
     "slug": "frontmobile",
+    "scheme": "samnet",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -21,7 +22,18 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-status-bar"
+      "expo-status-bar",
+      "expo-router",
+      "expo-font",
+      "expo-image",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "La app accede a tus fotos para adjuntar los documentos de tus trámites.",
+          "cameraPermission": "La app usa la cámara para fotografiar los documentos de tus trámites.",
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }
