@@ -14,13 +14,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /*
  * HU013: consultar la etapa de cobranza de una obligación vencida.
  * Usa los datos ficticios de R__datos_prueba_03 y la fecha fija 2026-10-19.
  */
-@PruebaIntegracion
+@PruebaInterna
 @Transactional
 class CobranzaControllerTest {
 

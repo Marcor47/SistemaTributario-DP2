@@ -1,0 +1,9 @@
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/datos-prueba
+
+server:
+  servlet:
+    session:
+      cookie:
+        secure: false

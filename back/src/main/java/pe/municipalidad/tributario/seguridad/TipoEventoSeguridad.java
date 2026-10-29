@@ -4,6 +4,9 @@ package pe.municipalidad.tributario.seguridad;
 public enum TipoEventoSeguridad {
     LOGIN_OK,
     LOGIN_FALLIDO,
+    LOGOUT,
+    CAMBIO_CLAVE,
+    CREACION_USUARIO,
     CAMBIO_ROL,
     ACCESO_DENEGADO,
     ACCESO_DATO_PERSONAL

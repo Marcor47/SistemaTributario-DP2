@@ -18,9 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.gestiontributaria.DeclaracionJurada;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.integracion.samnet.SamnetNoDisponibleException;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
-@PruebaIntegracion
+@PruebaInterna
 @Transactional
 class DeclaracionJuradaControllerTest {
 

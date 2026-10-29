@@ -17,29 +17,25 @@ import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.context.annotation.Import;
 import pe.municipalidad.tributario.soporte.PostgresEmbebidoConfig;
 import org.springframework.web.server.ResponseStatusException;
 import pe.municipalidad.tributario.auth.AuthController;
 import pe.municipalidad.tributario.auth.DemoMunicipalAuthClient;
 import pe.municipalidad.tributario.auth.LoginLimiter;
-import pe.municipalidad.tributario.common.DemoInternalAccess;
 import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 import pe.municipalidad.tributario.formularios.FormularioService;
 import pe.municipalidad.tributario.predios.PredioGateway;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 @SpringBootTest
-@ActiveProfiles("demo")
+@ActiveProfiles("local")
 @AutoConfigureMockMvc
 @Import(PostgresEmbebidoConfig.class)
-@TestPropertySource(properties = {
-        "tributario.demo.internal-read-key=lectura-test",
-        "tributario.demo.internal-admin-key=admin-test",
-        "tributario.demo.citizen-code=CIUDADANO",
-        "tributario.demo.citizen-password=secreto-de-prueba"})
 class FeatureTests {
     @Autowired MockMvc mvc;
     @Autowired PredioGateway predios;
@@ -112,53 +108,46 @@ class FeatureTests {
     }
 
     @Test
-    void accesoInternoDistingueLecturaYPublicacion() {
-        DemoInternalAccess access = new DemoInternalAccess("lectura-test", "admin-test");
-        assertDoesNotThrow(() -> access.requireRead("lectura-test"));
-        assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ResponseStatusException.class,
-                () -> access.requireAdmin("lectura-test")).getStatusCode());
-        assertDoesNotThrow(() -> access.requireAdmin("admin-test"));
-    }
-
-    @Test
-    void contratosHttpRequierenClaveYPermitenConsultaPublicacionYDescarga() throws Exception {
+    void contratosHttpRequierenPermisoYPermitenConsultaPublicacionYDescarga() throws Exception {
         mvc.perform(get("/api/predios").param("consulta", "DEM-001"))
                 .andExpect(status().isUnauthorized());
         mvc.perform(get("/api/predios").param("consulta", "DEM-001")
-                .header("X-Demo-Internal-Key", "lectura-test"))
+                .with(user("analista").authorities(new SimpleGrantedAuthority("PREDIOS:CONSULTAR"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].codPredio").value("DEM-001"));
         mvc.perform(get("/api/predios").param("consulta", "ninguno")
-                .header("X-Demo-Internal-Key", "lectura-test"))
+                .with(user("analista").authorities(new SimpleGrantedAuthority("PREDIOS:CONSULTAR"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
 
         MockMultipartFile archivo = new MockMultipartFile("archivo", "oficial.pdf", "application/pdf",
                 "%PDF-1.4\ncontenido".getBytes(StandardCharsets.US_ASCII));
         mvc.perform(multipart("/api/formularios").file(archivo).param("codigo", "FORM_HTTP")
-                .param("nombre", "Formulario HTTP").header("X-Demo-Internal-Key", "lectura-test"))
-                .andExpect(status().isUnauthorized());
+                .param("nombre", "Formulario HTTP").with(csrf())
+                .with(user("lector").authorities(new SimpleGrantedAuthority("FORMULARIOS:CONSULTAR"))))
+                .andExpect(status().isForbidden());
         mvc.perform(multipart("/api/formularios").file(archivo).param("codigo", "FORM_HTTP")
-                .param("nombre", "Formulario HTTP").header("X-Demo-Internal-Key", "admin-test"))
+                .param("nombre", "Formulario HTTP").with(csrf())
+                .with(user("admin").authorities(new SimpleGrantedAuthority("FORMULARIOS:PUBLICAR"))))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.version").value(1));
         mvc.perform(get("/api/formularios/FORM_HTTP/descarga")
-                .header("X-Demo-Internal-Key", "lectura-test"))
+                .with(user("lector").authorities(new SimpleGrantedAuthority("FORMULARIOS:CONSULTAR"))))
                 .andExpect(status().isOk()).andExpect(content().contentType(MediaType.APPLICATION_PDF));
     }
 
     @Test
     void loginHttpCreaSesionPropiaSinDevolverPassword() throws Exception {
         mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"codigoContribuyente\":\"CIUDADANO\",\"password\":\"incorrecta\"}"))
+                .content("{\"codigoContribuyente\":\"014502\",\"password\":\"incorrecta\"}"))
                 .andExpect(status().isUnauthorized());
         var result = mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"codigoContribuyente\":\"CIUDADANO\",\"password\":\"secreto-de-prueba\"}"))
+                .content("{\"codigoContribuyente\":\"014502\",\"password\":\"Portal014502!\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.codigoContribuyente").value("CIUDADANO"))
+                .andExpect(jsonPath("$.codigoContribuyente").value("014502"))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("secreto-de-prueba"))))
+                        org.hamcrest.Matchers.containsString("Portal014502!"))))
                 .andReturn();
         MockHttpSession session = (MockHttpSession) result.getRequest().getSession(false);
         assertNotNull(session);
         mvc.perform(get("/api/auth/me").session(session))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.codigoContribuyente").value("CIUDADANO"));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.codigoContribuyente").value("014502"));
     }
 }

@@ -88,9 +88,9 @@ class ArbitrioPredioControllerTest {
     }
 
     @Test
-    void elAdministradorTambienPuedeConsultar() throws Exception {
+    void elAdministradorNoAccedeAModulosTributarios() throws Exception {
         mvc.perform(get("/api/predios/033218-01/arbitrios").session(sesion(NombreRol.ADMINISTRADOR)))
-                .andExpect(status().isOk());
+                .andExpect(status().isForbidden());
     }
 
     @Test

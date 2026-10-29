@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.etl.LoteETL;
 import pe.municipalidad.tributario.etl.LoteETLRepository;
 import pe.municipalidad.tributario.etl.TipoEjecucion;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /*
  * HU008: índice de morosidad. Muestra de control calculada a mano, con fecha de corte 2026-10-19:
@@ -40,7 +41,7 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
  *   Z01               420 / 850 x 100 = 49,4118
  *   Z02                 0 /  50 x 100 =  0,0000
  */
-@PruebaIntegracion
+@PruebaInterna
 @Transactional
 class IndiceMorosidadControllerTest {
 
@@ -151,7 +152,8 @@ class IndiceMorosidadControllerTest {
 
     @Test
     void loteInexistenteOPeriodoInvalido() throws Exception {
-        mockMvc.perform(post(RUTA_CALCULOS).contentType(MediaType.APPLICATION_JSON).content("{\"idLote\": 999999}"))
+        mockMvc.perform(post(RUTA_CALCULOS).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idLote\": 999999}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("LOTE_NO_ENCONTRADO"));
 
@@ -205,7 +207,7 @@ class IndiceMorosidadControllerTest {
     }
 
     private ResultActions calcular(LoteETL lote) throws Exception {
-        return mockMvc.perform(post(RUTA_CALCULOS).contentType(MediaType.APPLICATION_JSON)
+        return mockMvc.perform(post(RUTA_CALCULOS).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"idLote\": " + lote.getIdLote() + "}"));
     }
 
