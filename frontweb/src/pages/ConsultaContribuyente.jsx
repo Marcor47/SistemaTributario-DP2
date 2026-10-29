@@ -100,23 +100,6 @@ export default function ConsultaContribuyente() {
 
   return (
     <>
-      <section className="pcard ficha-cabecera">
-        <div>
-          <h2>Ficha del contribuyente</h2>
-          <p className="hint">Busca por tipo y número de documento para consultar su ficha, predios, estado de cuenta y cobranza.</p>
-          {contribuyente && (
-            <p className="hint">
-              Consulta actual: <strong>{ficha?.nombre ?? contribuyente.nombre}</strong> · Código {contribuyente.codigo}
-              {' · '}{contribuyente.tipoDoc} {contribuyente.doc}
-            </p>
-          )}
-        </div>
-        {contribuyente && ficha && (
-          <span className={`estado ${ficha.estado === 'ACTIVO' ? 'ok' : 'critico'}`}>
-            <span aria-hidden="true">{ficha.estado === 'ACTIVO' ? '✓' : '!'}</span> {ficha.estado}
-          </span>
-        )}
-      </section>
       <EstadoCuenta
         onSeleccionarContribuyente={seleccionarContribuyente}
         renderDetalle={(detalleCuenta) => (

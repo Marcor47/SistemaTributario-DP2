@@ -138,12 +138,6 @@ function ResultadoArbitrios({ datos }) {
         <p className="hint arb-fecha">Fecha de corte: {fecha(fechaCorte)}</p>
       </div>
 
-      <div className="info arb-aviso">
-        <strong>Los arbitrios se registran como un solo tributo (ARBITRIOS).</strong>{' '}
-        La Municipalidad todavía no ha entregado la fórmula que reparte limpieza pública, parques y
-        jardines, y seguridad ciudadana; por eso no se muestran tres montos separados.
-      </div>
-
       <div className="pfields arb-predio">
         <Campo etiqueta="Código predial" valor={predio.codigoPredio} />
         <Campo etiqueta="Ubicación" valor={predio.ubicacion} />
