@@ -9,6 +9,7 @@ import {
   useFonts,
 } from '@expo-google-fonts/atkinson-hyperlegible'
 import { SesionProvider, useSesion } from '../context/SesionContext'
+import { PagosProvider } from '../context/PagosContext'
 import { colores } from '../theme/tokens'
 
 export default function RootLayout() {
@@ -29,16 +30,20 @@ function Navegacion() {
   if (sesion.estado === 'cargando') return <Bienvenida />
   const autenticado = Boolean(sesion.usuario)
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colores.fondo } }}>
-      <Stack.Protected guard={!autenticado} redirectTo="/">
-        <Stack.Screen name="login" />
-      </Stack.Protected>
-      <Stack.Protected guard={autenticado} redirectTo="/login">
-        <Stack.Screen name="index" />
-        <Stack.Screen name="solicitud-predio/index" />
-        <Stack.Screen name="solicitud-predio/enviada" options={{ gestureEnabled: false }} />
-      </Stack.Protected>
-    </Stack>
+    <PagosProvider key={sesion.usuario?.codigoContribuyente ?? 'sin-sesion'}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colores.fondo } }}>
+        <Stack.Protected guard={!autenticado} redirectTo="/">
+          <Stack.Screen name="login" />
+        </Stack.Protected>
+        <Stack.Protected guard={autenticado} redirectTo="/login">
+          <Stack.Screen name="index" />
+          <Stack.Screen name="estado-cuenta" />
+          <Stack.Screen name="pagos/[id]" />
+          <Stack.Screen name="solicitud-predio/index" />
+          <Stack.Screen name="solicitud-predio/enviada" options={{ gestureEnabled: false }} />
+        </Stack.Protected>
+      </Stack>
+    </PagosProvider>
   )
 }
 

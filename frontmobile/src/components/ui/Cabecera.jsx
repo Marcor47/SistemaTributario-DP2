@@ -5,7 +5,7 @@ import Icono from './Icono'
 import { colores, fuentes, radios, tamanos } from '../../theme/tokens'
 
 /** Cabecera institucional (degradado del menú lateral de la web) que respeta la barra de estado. */
-export default function Cabecera({ titulo, subtitulo, onVolver, izquierda, derecha, children }) {
+export default function Cabecera({ titulo, subtitulo, onVolver, volverDeshabilitado = false, izquierda, derecha, children }) {
   const { top } = useSafeAreaInsets()
   return (
     <LinearGradient
@@ -18,9 +18,11 @@ export default function Cabecera({ titulo, subtitulo, onVolver, izquierda, derec
         {onVolver ? (
           <Pressable
             onPress={onVolver}
+            disabled={volverDeshabilitado}
             accessibilityRole="button"
             accessibilityLabel="Volver"
-            style={({ pressed }) => [estilos.icono, pressed && estilos.presionado]}
+            accessibilityState={{ disabled: volverDeshabilitado }}
+            style={({ pressed }) => [estilos.icono, pressed && estilos.presionado, volverDeshabilitado && estilos.deshabilitado]}
           >
             <Icono nombre="flecha-izquierda" color={colores.blanco} />
           </Pressable>
@@ -56,6 +58,7 @@ const estilos = StyleSheet.create({
     width: tamanos.toque, height: tamanos.toque, borderRadius: radios.md, alignItems: 'center', justifyContent: 'center',
   },
   presionado: { backgroundColor: 'rgba(255,255,255,0.16)' },
+  deshabilitado: { opacity: 0.5 },
   textos: { flex: 1 },
   titulo: { fontFamily: fuentes.negrita, fontSize: 20, lineHeight: 26, color: colores.blanco },
   subtitulo: { fontFamily: fuentes.regular, fontSize: 14, lineHeight: 20, color: '#E1ECF8' },

@@ -1,9 +1,25 @@
 import { Platform } from 'react-native'
+import Constants from 'expo-constants'
 
-// En el emulador de Android, "localhost" es el propio emulador; 10.0.2.2 apunta a la PC.
-// En un teléfono físico define EXPO_PUBLIC_API_URL con la IP de la PC (ver .env.example).
-const API_POR_DEFECTO = Platform.OS === 'android' ? 'http://10.0.2.2:8080/api' : 'http://localhost:8080/api'
-export const API = process.env.EXPO_PUBLIC_API_URL || API_POR_DEFECTO
+function apiPorDefecto() {
+  const respaldo = Platform.OS === 'android' ? 'http://10.0.2.2:8080/api' : 'http://localhost:8080/api'
+  if (Platform.OS === 'web' || !__DEV__) return respaldo
+  // En Expo Go por LAN, el servidor de Expo y el backend están en la misma PC.
+  // Solo se detectan direcciones privadas: un túnel de Expo no publica el puerto del backend.
+  const hostUri = Constants.expoConfig?.hostUri
+  if (hostUri) {
+    try {
+      const host = new URL(`http://${hostUri}`).hostname
+      if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) {
+        return `http://${host}:8080/api`
+      }
+    } catch { /* Sin dirección LAN válida, se usan los valores del simulador. */ }
+  }
+  return respaldo
+}
+
+// Una URL explícita siempre tiene prioridad (servidor remoto, puerto distinto o túnel independiente).
+export const API = (process.env.EXPO_PUBLIC_API_URL?.trim() || apiPorDefecto()).replace(/\/+$/, '')
 
 const SIN_CONEXION = 'No se pudo conectar con el servicio. Verifica tu conexión e intenta nuevamente.'
 

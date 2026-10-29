@@ -1,11 +1,19 @@
+import { Platform } from 'react-native'
 import Svg, { Circle, Path, Rect } from 'react-native-svg'
 import { colores, tamanos } from '../../theme/tokens'
+
+const ACCESIBILIDAD_ICONO = Platform.OS === 'web'
+  ? { 'aria-hidden': true, focusable: false }
+  : { accessible: false, importantForAccessibility: 'no-hide-descendants' }
 
 // Íconos de trazo (estilo Lucide, trazo 2) dibujados en SVG, igual que los íconos en línea de la web.
 // Cada figura es un path (string), un círculo { c: [cx, cy, r] } o un rectángulo { r: [x, y, w, h, rx] }.
 const FIGURAS = {
   'flecha-izquierda': ['M19 12H5', 'M12 19l-7-7 7-7'],
   'chevron-derecha': ['m9 18 6-6-6-6'],
+  'chevron-abajo': ['m6 9 6 6 6-6'],
+  'chevron-arriba': ['m18 15-6-6-6 6'],
+  tarjeta: [{ r: [2, 4, 20, 16, 2] }, 'M2 10h20', 'M6 15h3'],
   ojo: ['M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z', { c: [12, 12, 3] }],
   'ojo-tachado': ['M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z', { c: [12, 12, 3] }, 'M4 4l16 16'],
   alerta: [{ c: [12, 12, 9] }, 'M12 7.5v5.5', 'M12 16.5v.1'],
@@ -51,8 +59,7 @@ export default function Icono({ nombre, tamano = tamanos.icono, color = colores.
       strokeWidth={trazo}
       strokeLinecap="round"
       strokeLinejoin="round"
-      accessible={false}
-      importantForAccessibility="no-hide-descendants"
+      {...ACCESIBILIDAD_ICONO}
     >
       {figuras.map((f, i) => {
         if (typeof f === 'string') return <Path key={i} d={f} />

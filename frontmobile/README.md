@@ -12,10 +12,21 @@ npx expo start          # a: emulador Android · i: simulador iOS · w: navegado
 npx expo lint
 ```
 
-El backend debe estar levantado (`back/`). La URL se toma de `EXPO_PUBLIC_API_URL`; sin ella se usa
-`http://10.0.2.2:8080/api` en el emulador de Android y `http://localhost:8080/api` en iOS y web.
-En un celular físico copia `.env.example` a `.env.local` y pon la IP de tu PC. Para probar en el
-navegador agrega `http://localhost:8081` a `CORS_ORIGINS` del backend.
+El backend debe estar levantado (`back/`). `EXPO_PUBLIC_API_URL`, si está definida, tiene prioridad.
+En Expo Go por LAN, la app detecta la IP privada de la PC desde `Constants.expoConfig.hostUri` y usa
+`http://<IP-de-la-PC>:8080/api`. El teléfono y la PC deben estar en la misma red Wi-Fi. En web se usa
+`http://localhost:8080/api`; sin una dirección LAN detectada, Android usa `10.0.2.2` para el emulador
+e iOS usa `localhost` para el simulador. Para otro servidor o puerto, configura la URL en `.env.local`
+usando `.env.example` como referencia. El túnel de Expo solo publica Metro, no el backend.
+
+El perfil `local` del
+backend permite por defecto `http://localhost:5173` (portal web) y `http://localhost:8081` (Expo web).
+Si defines `CORS_ORIGINS`, incluye ambos orígenes separados por coma. Reinicia el backend tras
+cambiar esta configuración.
+
+Si el teléfono muestra un error de conexión, abre `http://<IP-de-la-PC>:8080/api/health` en su navegador.
+Debe responder `{"servicio":"tributario-back","estado":"ok"}`. Si no responde, revisa que el backend esté
+encendido y que la red permita acceder al puerto 8080. Tras cambiar la URL, haz **Reload** en Expo Go.
 
 ## Estructura
 
@@ -55,3 +66,26 @@ Al enviar se muestra el número de solicitud, su estado (**En revisión**) y los
 
 El backend necesita `PREDIO_FILES_KEY` (32 bytes aleatorios en Base64) para guardar los adjuntos;
 sin ella el envío falla. Contrato completo en `back/README.md`.
+
+## Estado de cuenta y pago de obligaciones (HU022)
+
+Desde el inicio, **Estado de cuenta y pagos** abre `/estado-cuenta`. Consulta
+`GET /api/portal/estado-cuenta` con la cookie del contribuyente y presenta el titular, la fecha de corte,
+el saldo completo, los pagos aplicados y los periodos con sus conceptos desplegables. Los filtros por
+año, saldo o pagos solo cambian la vista. Al volver a esta pantalla se actualiza la cuenta desde el backend.
+
+**Pagar obligaciones** crea una orden mediante `POST /api/portal/pagos` con `{}`. El servidor determina
+todas las obligaciones pendientes y calcula base, descuentos e importe final. `/pagos/[id]` consulta
+esa misma orden y muestra la pasarela simulada; no solicita datos de tarjeta ni abre una URL externa.
+**Confirmar pago** llama a `POST /api/portal/pagos/{id}/confirmacion`. La autorización es simulada,
+pero el backend sí registra el pago y actualiza los saldos de PostgreSQL. La app solo muestra éxito
+cuando la API devuelve `CONFIRMADA` y su comprobante.
+
+El resultado abre un modal con el importe y comprobante. Desde la cuenta se puede volver al último
+comprobante de la sesión y consultar los periodos con pagos. La última operación se mantiene en memoria
+durante la sesión, se elimina al salir o cambiar de contribuyente y siempre se consulta en el servidor al
+abrirla. Si se pierde una confirmación, se consulta la misma orden; no se crea ni confirma otra automáticamente.
+
+Una copia desactualizada no habilita el pago. Los errores de beneficios indeterminados o de cobertura del
+100 % derivan a ventanilla. Un cambio de saldo requiere volver a la cuenta y generar una cotización nueva.
+El contrato completo y las limitaciones del simulador están en `back/HU022_API.md`.

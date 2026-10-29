@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import CobranzaPanel from '../components/CobranzaPanel.jsx'
 import FichaDatos from '../components/FichaDatos.jsx'
+import PagosBeneficiosPanel from '../components/PagosBeneficiosPanel.jsx'
 import { obtenerContribuyentePorDocumento } from '../services/contribuyenteService.js'
 import EstadoCuenta from './EstadoCuenta.jsx'
 import RegularidadPago from './RegularidadPago.jsx'
@@ -9,6 +10,7 @@ import RegularidadPago from './RegularidadPago.jsx'
 const PESTANAS = [
   { id: 'ficha', nombre: 'Ficha' },
   { id: 'cuenta', nombre: 'Estado de cuenta' },
+  { id: 'pagos', nombre: 'Pagos y beneficios' },
   { id: 'cobranza', nombre: 'Cobranza' },
   { id: 'regularidad', nombre: 'Regularidad de pago' },
 ]
@@ -101,6 +103,8 @@ export default function ConsultaContribuyente() {
   return (
     <>
       <EstadoCuenta
+        permitirCodigo
+        mostrarSimulacion={vista !== 'pagos'}
         onSeleccionarContribuyente={seleccionarContribuyente}
         renderDetalle={(detalleCuenta) => (
           <>
@@ -137,12 +141,18 @@ export default function ConsultaContribuyente() {
               {detalleCuenta}
             </div>
 
+            <div id="panel-pagos" role="tabpanel" aria-labelledby="pestana-pagos" hidden={vista !== 'pagos'} tabIndex={0}>
+              {vista === 'pagos' && contribuyente && (
+                <PagosBeneficiosPanel key={contribuyente.codigo} contribuyente={contribuyente} />
+              )}
+            </div>
+
             <div id="panel-cobranza" role="tabpanel" aria-labelledby="pestana-cobranza" hidden={vista !== 'cobranza'} tabIndex={0}>
-              {contribuyente && <CobranzaPanel key={contribuyente.codigo} contribuyente={contribuyente} />}
+              {vista === 'cobranza' && contribuyente && <CobranzaPanel key={contribuyente.codigo} contribuyente={contribuyente} />}
             </div>
 
             <div id="panel-regularidad" role="tabpanel" aria-labelledby="pestana-regularidad" hidden={vista !== 'regularidad'} tabIndex={0}>
-              {contribuyente && (
+              {vista === 'regularidad' && contribuyente && (
                 <RegularidadPago key={contribuyente.codigo} contribuyente={contribuyente} />
               )}
             </div>
