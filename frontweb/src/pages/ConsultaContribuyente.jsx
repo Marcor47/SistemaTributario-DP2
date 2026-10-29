@@ -103,7 +103,7 @@ export default function ConsultaContribuyente() {
       <section className="pcard ficha-cabecera">
         <div>
           <h2>Ficha del contribuyente</h2>
-          <p className="hint">Busca por tipo y número de documento para consultar su ficha, estado de cuenta y cobranza.</p>
+          <p className="hint">Busca por tipo y número de documento para consultar su ficha, predios, estado de cuenta y cobranza.</p>
           {contribuyente && (
             <p className="hint">
               Consulta actual: <strong>{ficha?.nombre ?? contribuyente.nombre}</strong> · Código {contribuyente.codigo}

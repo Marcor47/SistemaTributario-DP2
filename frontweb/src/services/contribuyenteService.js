@@ -2,6 +2,10 @@ import { pedir } from './api.js'
 import { MODO_DEMO } from './authService.js'
 import { CONTRIBUYENTES } from '../mocks/predios.js'
 
+// TEMPORAL: desactiva el fallback de mocks para la API de contribuyentes.
+// Cambiar a true para volver a usar los datos ficticios cuando la API no esté disponible.
+const USAR_MOCKS_CONTRIBUYENTES = false
+
 // HU001/HU004: coincidencias por documento para el selector de la pantalla.
 // El backend busca de forma parcial; se filtra por tipo y número para no mezclar
 // coincidencias de códigos o nombres que contengan el mismo texto.
@@ -10,13 +14,13 @@ export async function buscarCoincidencias(tipoDocumento, numeroDocumento) {
   if (!numero) return []
 
   try {
-    const encontrados = await pedir(`/estado-cuenta/contribuyentes?q=${encodeURIComponent(numero)}`)
+    const encontrados = await pedir(`/contribuyentes/buscar?q=${encodeURIComponent(numero)}`)
     return encontrados
       .filter((c) => c.tipoDoc === tipoDocumento && String(c.doc).toUpperCase().includes(numero))
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
   } catch (err) {
     // Fallback demo: si el backend no tiene sesión o no está disponible, buscar en datos ficticios
-    if (MODO_DEMO || err.estado === 401 || err.codigo === 'SIN_CONEXION') {
+    if (USAR_MOCKS_CONTRIBUYENTES && (MODO_DEMO || err.estado === 401 || err.codigo === 'SIN_CONEXION')) {
       return CONTRIBUYENTES
         .filter((c) => c.tipoDoc === tipoDocumento && String(c.doc).toUpperCase().includes(numero))
         .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
@@ -32,7 +36,7 @@ export async function obtenerContribuyentePorDocumento(tipoDocumento, numeroDocu
     return await pedir(`/contribuyentes?${parametros.toString()}`)
   } catch (err) {
     // Fallback demo: buscar en el padrón ficticio
-    if (MODO_DEMO || err.estado === 401 || err.codigo === 'SIN_CONEXION') {
+    if (USAR_MOCKS_CONTRIBUYENTES && (MODO_DEMO || err.estado === 401 || err.codigo === 'SIN_CONEXION')) {
       const numero = String(numeroDocumento ?? '').toUpperCase()
       const encontrado = CONTRIBUYENTES.find(
         (c) => c.tipoDoc === tipoDocumento && String(c.doc).toUpperCase() === numero,
