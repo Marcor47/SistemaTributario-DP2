@@ -13,8 +13,16 @@ export function normalizarCuenta(datos) {
       throw new Error('No se pudieron interpretar los importes de la cuenta. Actualiza la consulta.')
     }
     return {
-      ...fila, id: String(fila.id), emitido: Number(fila.emitido), pagado: Number(fila.pagado),
-      deuda: Number(fila.deuda), estado: ESTADOS[String(fila.estado).toUpperCase()],
+      ...fila,
+      id: String(fila.id),
+      emitido: Number(fila.emitido),
+      pagado: Number(fila.pagado),
+      deuda: Number(fila.deuda),
+      descuento: fila.descuento != null ? Number(fila.descuento) : 0,
+      porcentajeDescuento: fila.porcentajeDescuento != null ? Number(fila.porcentajeDescuento) : 0,
+      fechaVencimiento: fila.fechaVencimiento || null,
+      etapaCobranza: fila.etapaCobranza || null,
+      estado: ESTADOS[String(fila.estado).toUpperCase()],
       anio: /^\d{4}/.exec(fila.periodo || '')?.[0] || '',
     }
   })
@@ -27,8 +35,9 @@ export function resumirCuenta(filas) {
     emitido: total.emitido + Math.round(fila.emitido * 100),
     pagado: total.pagado + Math.round(fila.pagado * 100),
     deuda: total.deuda + Math.round(fila.deuda * 100),
+    descuento: total.descuento + Math.round((fila.descuento || 0) * 100),
     vencido: total.vencido + (fila.estado === 'Vencida' ? Math.round(fila.deuda * 100) : 0),
-  }), { emitido: 0, pagado: 0, deuda: 0, vencido: 0 })
+  }), { emitido: 0, pagado: 0, deuda: 0, descuento: 0, vencido: 0 })
   return Object.fromEntries(Object.entries(centimos).map(([campo, valor]) => [campo, valor / 100]))
 }
 
@@ -45,8 +54,12 @@ export function agruparPeriodos(filas) {
   }
   return Array.from(grupos.values(), (grupo) => {
     const totales = resumirCuenta(grupo.conceptos)
+    const vencimientos = [...new Set(grupo.conceptos.map((f) => f.fechaVencimiento).filter(Boolean))]
+    const etapas = [...new Set(grupo.conceptos.map((f) => f.etapaCobranza).filter(Boolean))]
     return {
       ...grupo, ...totales,
+      fechaVencimiento: vencimientos.length === 1 ? vencimientos[0] : (vencimientos.length > 1 ? 'Varios' : null),
+      etapaCobranza: etapas.join(', ') || null,
       estado: totales.deuda === 0 ? 'Pagada' : totales.vencido > 0 ? 'Vencida' : 'Pendiente',
     }
   }).sort((a, b) => String(b.periodo).localeCompare(String(a.periodo)))
