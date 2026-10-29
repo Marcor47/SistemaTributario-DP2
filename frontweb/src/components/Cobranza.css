@@ -1,0 +1,43 @@
+/* HU013: cobranza del contribuyente. */
+.etiqueta-deuda-vencida {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid #F0C8C4;
+  background: var(--critico-fondo);
+  color: var(--critico);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.detalle-cobranza__deuda { margin: 12px 0 4px; }
+
+.pestanas-cobranza {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 18px;
+}
+.pestanas-cobranza .btn { gap: 8px; }
+.pestanas-cobranza .btn .estado {
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.detalle-cobranza__etapa h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--marino-osc);
+}
+.detalle-cobranza__etapa > p {
+  max-width: 85ch;
+  margin: 0 0 4px;
+}
+.detalle-cobranza__etapa:focus-visible {
+  outline: 3px solid var(--cian);
+  outline-offset: 2px;
+}

@@ -9,15 +9,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import pe.municipalidad.tributario.auth.SesionContribuyente;
 import pe.municipalidad.tributario.gestiontributaria.DeclaracionJurada;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.integracion.samnet.SamnetNoDisponibleException;
+import pe.municipalidad.tributario.seguridad.ClaveInternaService;
+import pe.municipalidad.tributario.seguridad.NombreRol;
+import pe.municipalidad.tributario.seguridad.RolRepository;
+import pe.municipalidad.tributario.seguridad.SesionInterna;
+import pe.municipalidad.tributario.seguridad.Usuario;
+import pe.municipalidad.tributario.seguridad.UsuarioRepository;
+import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 @PruebaInterna
@@ -28,13 +38,19 @@ class DeclaracionJuradaControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    private UsuarioRepository usuarios;
+    @Autowired
+    private RolRepository roles;
+    @Autowired
+    private ClaveInternaService claves;
 
     @MockitoSpyBean
     private SamnetGateway samnet;
 
     @Test
     void devuelveLaIdentificacionDelPredioLaVigenteYSuHistorial() throws Exception {
-        mockMvc.perform(get(RUTA, "014502-01"))
+        mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.predio.codigoPredio").value("014502-01"))
                 .andExpect(jsonPath("$.predio.numeroCatastral").value("150136-001-014"))
@@ -58,7 +74,7 @@ class DeclaracionJuradaControllerTest {
 
     @Test
     void predioSinDeclaracionesDevuelveVigenteNuloYAdvertencia() throws Exception {
-        mockMvc.perform(get(RUTA, "099001-01"))
+        mockMvc.perform(get(RUTA, "099001-01").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.predio.codigoPredio").value("099001-01"))
                 .andExpect(jsonPath("$.predio.numeroCatastral").value("150136-009-001"))
@@ -75,7 +91,7 @@ class DeclaracionJuradaControllerTest {
                 new BigDecimal("150000.00"), "INSCRIPCION", "COMPRA-VENTA", "PROPIETARIO", "PROCESADA", false);
         doReturn(List.of(historica)).when(samnet).obtenerDeclaracionJurada("014502-01");
 
-        mockMvc.perform(get(RUTA, "014502-01"))
+        mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.declaracionVigente").value(nullValue()))
                 .andExpect(jsonPath("$.historial", hasSize(1)))
@@ -92,28 +108,28 @@ class DeclaracionJuradaControllerTest {
                 new BigDecimal("170000.00"), "ACTUALIZACION", "AMPLIACION", "PROPIETARIO", "PROCESADA", true);
         doReturn(List.of(primera, segunda)).when(samnet).obtenerDeclaracionJurada("014502-01");
 
-        mockMvc.perform(get(RUTA, "014502-01"))
+        mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("DECLARACION_VIGENTE_AMBIGUA"));
     }
 
     @Test
     void predioInexistenteDevuelve404() throws Exception {
-        mockMvc.perform(get(RUTA, "999999-99"))
+        mockMvc.perform(get(RUTA, "999999-99").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("PREDIO_NO_ENCONTRADO"));
     }
 
     @Test
     void codigoEnBlancoDevuelve400() throws Exception {
-        mockMvc.perform(get(RUTA, " "))
+        mockMvc.perform(get(RUTA, " ").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("CODIGO_PREDIO_INVALIDO"));
     }
 
     @Test
     void codigoDemasiadoLargoDevuelve400() throws Exception {
-        mockMvc.perform(get(RUTA, "1234567890123"))
+        mockMvc.perform(get(RUTA, "1234567890123").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("CODIGO_PREDIO_INVALIDO"));
     }
@@ -122,8 +138,48 @@ class DeclaracionJuradaControllerTest {
     void samnetNoDisponibleDevuelve503() throws Exception {
         doThrow(new SamnetNoDisponibleException(null)).when(samnet).obtenerDeclaracionJurada("014502-01");
 
-        mockMvc.perform(get(RUTA, "014502-01"))
+        mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.codigo").value("SAMNET_NO_DISPONIBLE"));
+    }
+
+    @Test
+    void sinSesionInternaDevuelve401() throws Exception {
+        mockMvc.perform(get(RUTA, "014502-01"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("SESION_REQUERIDA"));
+    }
+
+    @Test
+    void conUnRolSinPermisoDevuelve403() throws Exception {
+        mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.VENTANILLA)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("ACCESO_DENEGADO"));
+    }
+
+    @Test
+    void elAdministradorNoAccedeAModulosTributarios() throws Exception {
+        mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.ADMINISTRADOR)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("ACCESO_DENEGADO"));
+    }
+
+    @Test
+    void unContribuyenteNoPuedeConsultarLaDeclaracionJurada() throws Exception {
+        MockHttpSession contribuyente = new MockHttpSession();
+        contribuyente.setAttribute(SesionContribuyente.ATRIBUTO_CODIGO_CONTRIBUYENTE, "014502");
+
+        mockMvc.perform(get(RUTA, "014502-01").session(contribuyente))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.codigo").value("SESION_REQUERIDA"));
+    }
+
+    private MockHttpSession sesion(NombreRol rol) {
+        String nombre = "usuario_" + rol.name().toLowerCase();
+        Usuario usuario = usuarios.save(new Usuario(nombre, "Usuario " + rol, nombre + "@example.org",
+                claves.hashear("clave-segura"), roles.findByNombre(rol).orElseThrow(), LocalDateTime.now()));
+        MockHttpSession sesion = new MockHttpSession();
+        sesion.setAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO, usuario.getIdUsuario());
+        return sesion;
     }
 }

@@ -302,7 +302,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
       <form className="filters-separados" onSubmit={buscar} role="search">
         <div className="filters-header">
           <h3>Buscar contribuyente</h3>
-          <p className="hint">Ingresa el tipo y el número de documento. Puedes buscar con una parte del número.</p>
+          <p className="hint">Busca por tipo y número de documento para consultar su ficha, predios, estado de cuenta y cobranza.</p>
         </div>
         <div className="filters-fields">
           <div className="fld fld-tipo-doc">

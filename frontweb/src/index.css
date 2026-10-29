@@ -71,12 +71,13 @@ body {
   padding: 28px clamp(16px, 3vw, 40px) 24px; background: #fff; border-bottom: 1px solid var(--borde);
   background-image: radial-gradient(circle at 100% 0%, rgba(25, 195, 243, 0.14) 0, rgba(25, 195, 243, 0) 40%);
 }
-.pagina-cab__ruta { margin: 0 0 6px; font-size: 14px; color: var(--texto-atenuado); }
+.pagina-cab__ruta { margin: 0 0 4px; font-size: 14px; color: var(--texto-atenuado); }
 .pagina-cab h1 { margin: 0; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; color: var(--marino-osc); }
-.pagina-cab p.pagina-cab__desc { margin: 8px 0 0; max-width: 70ch; color: var(--texto-secundario); }
+.pagina-cab p.pagina-cab__desc { margin: 6px 0 0; max-width: 70ch; color: var(--texto-secundario); }
 
 /* Contenido */
 .pmain { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 16px; flex: 1; }
+.pmain--metas { max-width: none; }
 .pcard {
   background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio);
   padding: 22px 26px; margin-bottom: 20px; box-shadow: var(--sombra);
@@ -144,6 +145,30 @@ body {
   border-top: 2px solid var(--marino); border-right: 2px solid var(--marino); transform: translateY(-50%) rotate(45deg);
 }
 .presrow:hover { background: var(--azul-suave); border-color: var(--cian); box-shadow: 0 6px 16px rgba(23, 64, 107, 0.1); }
+
+/* Predios de la ficha del contribuyente */
+.predios-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px;
+  margin: 16px 0 0; padding: 0; list-style: none;
+}
+.predio-card {
+  height: 100%; padding: 16px 18px; background: #F7FAFD;
+  border: 1px solid #E3ECF5; border-radius: 12px;
+}
+.predio-card__cab {
+  display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px 12px;
+  padding-bottom: 12px; border-bottom: 1px solid #E3ECF5;
+}
+.predio-card__cab h3 { margin: 0; font-size: 16px; line-height: 1.3; color: var(--marino-osc); }
+.predio-card__cab .hint { margin-top: 3px; }
+.predio-card__datos {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px 16px;
+  margin: 12px 0 0;
+}
+.predio-card__datos div { display: flex; flex-direction: column; gap: 1px; }
+.predio-card__datos dt { font-size: 12.5px; font-weight: 700; color: var(--texto-atenuado); }
+.predio-card__datos dd { margin: 0; font-size: 14.5px; font-weight: 600; color: var(--marino-osc); overflow-wrap: anywhere; }
+
 .tabla { width: 100%; border-collapse: collapse; margin-top: 12px; }
 .tabla th, .tabla td { text-align: left; padding: 12px 14px; border-bottom: 1px solid #E3ECF5; }
 .tabla thead th { font-size: 13px; font-weight: 700; color: var(--marino-osc); background: #F1F5FA; border-bottom: 2px solid var(--borde); white-space: nowrap; }
@@ -220,8 +245,68 @@ body {
 /* Configuración de metas */
 .metas-cabecera { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .metas-filtros .metas-anio { flex: 0 1 180px; min-width: 150px; }
-.tabla-metas { min-width: 920px; }
+.tabla-scroll .tabla-metas {
+  width: max-content;
+  min-width: 100%;
+}
 .tabla-metas td { vertical-align: middle; }
+.tabla-metas th,
+.tabla-metas td { white-space: nowrap; }
+.tabla-metas tr td { transition: background-color 0.8s ease, box-shadow 0.8s ease; }
+.tabla-metas tr.fila-meta-destacada td { background-color: var(--advertencia-fondo); }
+.tabla-metas tr.fila-meta-destacada:hover td { background-color: var(--advertencia-fondo); }
+.tabla-metas tr.fila-meta-destacada td:first-child { box-shadow: inset 4px 0 0 var(--cian); }
+
+.meta-indicador { display: flex; align-items: center; gap: 8px; }
+.boton-alerta-meta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--critico);
+  cursor: pointer;
+  transition: background-color 0.18s ease;
+}
+.boton-alerta-meta:hover { background: var(--critico-fondo); }
+.boton-alerta-meta:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.boton-alerta-meta svg { width: 20px; height: 20px; }
+
+.fila-detalle-alerta td {
+  padding: 0 14px 14px;
+  background: var(--critico-fondo);
+  white-space: normal;
+}
+.detalle-alerta-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid #F0C8C4;
+  border-radius: 12px;
+  background: var(--superficie);
+}
+.detalle-alerta-meta__cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.detalle-alerta-meta__cab strong { color: var(--critico); font-size: 16px; }
+.detalle-alerta-meta__cab .hint { margin-top: 2px; }
+.detalle-alerta-meta__explicacion { margin: 0; color: var(--texto-secundario); font-size: 14.5px; }
+.detalle-alerta-meta__acciones { display: flex; justify-content: flex-end; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* El resaltado solo cambia color; se conserva para que el cambio sea perceptible. */
+  .tabla-metas tr td { transition-duration: 0.8s !important; }
+}
 .acciones-fila-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .formulario-meta { margin-top: 16px; }
 .formulario-meta .fld { min-width: 0; }
@@ -358,56 +443,6 @@ body {
   color: var(--texto-atenuado);
   background: var(--fondo);
 }
-.linea-tiempo {
-  position: relative;
-  list-style: none;
-  margin: 16px 0 0;
-  padding: 0;
-}
-.linea-tiempo::before {
-  content: '';
-  position: absolute;
-  left: 7px;
-  top: 8px;
-  bottom: 8px;
-  width: 2px;
-  background: var(--borde);
-}
-.linea-tiempo li {
-  position: relative;
-  display: flex;
-  gap: 14px;
-  padding-bottom: 20px;
-}
-.linea-tiempo li:last-child { padding-bottom: 0; }
-.linea-tiempo-marca {
-  position: relative;
-  z-index: 1;
-  flex: 0 0 16px;
-  width: 16px;
-  height: 16px;
-  margin-top: 4px;
-  border: 2px solid var(--borde);
-  border-radius: 50%;
-  background: var(--superficie);
-}
-.linea-tiempo li.actual .linea-tiempo-marca {
-  border-color: var(--azul);
-  background: var(--azul);
-  box-shadow: 0 0 0 4px var(--azul-suave);
-}
-.linea-tiempo-contenido {
-  flex: 1;
-  min-width: 0;
-}
-.linea-tiempo-titulo {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-.linea-tiempo-contenido p { margin: 4px 0; }
 input::placeholder {
   color: #8c939d;
   font-style: italic;

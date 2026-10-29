@@ -8,7 +8,8 @@ WITH accesos (nombre_usuario, nombre_completo, correo, clave, rol) AS (
         ('gestor.local', 'Gestora de Reclamos de Pruebas', 'gestor.local@example.org',
          'GestorLocalSM#2026', 'GESTOR_RECLAMOS'),
         ('responsable.local', 'Responsable de Rentas de Pruebas', 'responsable.local@example.org',
-         'ResponsableSM#2026', 'GERENCIA')
+         'ResponsableSM#2026', 'GERENCIA'),
+        ('gerencia', 'Gerencia de Rentas de Pruebas', 'gerencia.local@example.org', 'gerencia123', 'GERENCIA')
 ),
 nuevos AS (
     INSERT INTO seguridad.usuario (nombre_usuario, nombre_completo, correo, clave_hash, activo, fecha_creacion)

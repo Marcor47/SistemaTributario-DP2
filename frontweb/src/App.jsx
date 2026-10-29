@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'rea
 import MenuLateral from './components/MenuLateral.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
+import Dashboard from './pages/Dashboard.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { RutaContribuyente } from './components/RutaProtegida.jsx'
@@ -65,6 +66,8 @@ function LayoutPortal() {
 function LayoutGestion() {
   const { pathname } = useLocation()
   const modulo = moduloDeRuta(pathname, 'gestion')
+  const esDashboard = pathname.startsWith('/dashboard')
+  const esMetas = pathname.startsWith('/metas')
   return (
     <div className="app">
       <MenuLateral solo="gestion" />
@@ -76,7 +79,7 @@ function LayoutGestion() {
             <p className="pagina-cab__desc">{modulo.descripcion}</p>
           </header>
         )}
-        <main className="pmain">
+        <main className={`pmain${esDashboard ? ' pmain--dashboard' : ''}${esMetas ? ' pmain--metas' : ''}`}>
           <Outlet />
         </main>
         <footer className="pie">
@@ -115,6 +118,7 @@ export default function App() {
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
         <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
+          <Route path="/dashboard" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
