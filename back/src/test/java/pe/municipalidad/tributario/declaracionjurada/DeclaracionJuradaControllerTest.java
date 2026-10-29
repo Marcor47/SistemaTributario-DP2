@@ -28,8 +28,9 @@ import pe.municipalidad.tributario.seguridad.SesionInterna;
 import pe.municipalidad.tributario.seguridad.Usuario;
 import pe.municipalidad.tributario.seguridad.UsuarioRepository;
 import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
-@PruebaIntegracion
+@PruebaInterna
 @Transactional
 class DeclaracionJuradaControllerTest {
 

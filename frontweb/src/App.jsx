@@ -4,19 +4,23 @@ import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Login from './pages/Login.jsx'
-import LoginInterno from './pages/LoginInterno.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
-import { RutaContribuyente, RutaInterna } from './components/RutaProtegida.jsx'
+import { RutaContribuyente } from './components/RutaProtegida.jsx'
 import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
-import UsuariosRoles from './pages/UsuariosRoles.jsx'
 import Reclamos from './pages/Reclamos.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
+import LoginInterno from './pages/LoginInterno.jsx'
+import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
+import GestionUsuarios from './pages/GestionUsuarios.jsx'
+import SinAcceso from './pages/SinAcceso.jsx'
+import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
+import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
 
 /**
  * Layout exclusivo para el Portal del Ciudadano (Servicios en Línea).
@@ -86,12 +90,15 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<Inicio />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/interno/login" element={<LoginInterno />} />
-          <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
-          <Route path="/pagos/:id" element={<PasarelaSimulada />} />
+        <SesionInternaProvider>
+          <Routes>
+            <Route path="/" element={<Inicio />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/gestion/login" element={<LoginInterno />} />
+            <Route path="/interno/login" element={<Navigate to="/gestion/login" replace />} />
+            <Route path="/gestion/cambiar-clave" element={<RutaInternaProtegida permitirCambioClave><CambiarClaveInterna /></RutaInternaProtegida>} />
+            <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
+            <Route path="/pagos/:id" element={<PasarelaSimulada />} />
 
           {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
           <Route element={<RutaContribuyente />}>
@@ -104,17 +111,20 @@ export default function App() {
           </Route>
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
-        <Route element={<LayoutGestion />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/predios" element={<ConsultaPredio />} />
-          <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
-          <Route path="/metas" element={<ConfiguracionMetas />} />
-          <Route path="/formularios" element={<Formularios />} />
-          <Route path="/morosidad" element={<IndiceMorosidad />} />
-          <Route path="/usuarios" element={<UsuariosRoles />} />
+        <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
+          <Route path="/dashboard" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
+          <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
+          <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
+          <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
+          <Route path="/contribuyentes" element={<RutaInternaProtegida permiso="CONTRIBUYENTES:CONSULTAR"><ConsultaContribuyente /></RutaInternaProtegida>} />
+          <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
+          <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
+          <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
           <Route path="/reclamos" element={<Reclamos />} />
+          <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>
-        </Routes>
+          </Routes>
+        </SesionInternaProvider>
       </AuthProvider>
     </BrowserRouter>
   )

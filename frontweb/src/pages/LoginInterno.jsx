@@ -1,15 +1,16 @@
 import { useId, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { iniciarSesionInterno } from '../services/authInternoService.js'
-import { useAuth } from '../context/AuthContext.jsx'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { iniciarSesionInterna } from '../services/authInternaService.js'
+import { useSesionInterna } from '../context/sesionInterna.js'
 import LoginLayout, { AlertaLogin, BotonEnviar, CampoClave } from '../components/LoginLayout.jsx'
+import { rutaInicialGestion } from '../utils/modulos.jsx'
 
-const ACCESO_INTERNO_PRUEBA = { usuario: 'admin', password: 'admin123' }
+const ACCESO_INTERNO_PRUEBA = { usuario: 'admin.local', password: 'AdminLocalSM#2026' }
 
 export default function LoginInterno() {
   const navegar = useNavigate()
   const ubicacion = useLocation()
-  const { establecerSesion } = useAuth()
+  const { sesion, setSesion, cargando } = useSesionInterna()
   const idUsuario = useId()
   const idClave = useId()
   const idError = useId()
@@ -17,6 +18,8 @@ export default function LoginInterno() {
   const [clave, setClave] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+
+  if (!cargando && sesion) return <Navigate to={sesion.cambioClavePendiente ? '/gestion/cambiar-clave' : rutaInicialGestion(sesion)} replace />
 
   async function enviar(e) {
     e.preventDefault()
@@ -28,11 +31,11 @@ export default function LoginInterno() {
     setError('')
     setEnviando(true)
     try {
-      const sesion = await iniciarSesionInterno(usuario.trim(), clave)
-      establecerSesion({ tipo: 'interno', usuario: sesion })
-      navegar(ubicacion.state?.from || '/predios', { replace: true })
+      const nuevaSesion = await iniciarSesionInterna(usuario.trim(), clave)
+      setSesion(nuevaSesion)
+      navegar(nuevaSesion.cambioClavePendiente ? '/gestion/cambiar-clave' : ubicacion.state?.from || rutaInicialGestion(nuevaSesion), { replace: true })
     } catch (err) {
-      setError(err.message)
+      setError(err.estado === 429 ? 'Se alcanzó el límite de intentos. Espera 15 minutos.' : 'El usuario o la contraseña no son correctos.')
       setClave('')
     } finally {
       setEnviando(false)
@@ -47,17 +50,17 @@ export default function LoginInterno() {
 
   return (
     <LoginLayout
-      titulo="Acceso personal municipal"
-      lateralTitulo="Sistema de Gestión Tributaria."
-      lateralTexto="Acceso restringido a funcionarios y personal autorizado de la Municipalidad de San Miguel."
+      titulo="Acceso institucional"
+      lateralTitulo="Gestión tributaria para el personal municipal."
+      lateralTexto="Accede a las funciones autorizadas según el rol asignado a tu cuenta institucional."
     >
-      <p className="lg-caja__sub">Ingresa con tu usuario institucional para acceder a la gestión municipal.</p>
+      <p className="lg-caja__sub">Ingresa con la cuenta asignada por el Administrador del Sistema.</p>
 
       <form onSubmit={enviar} noValidate>
         <AlertaLogin id={idError} mensaje={error} />
 
         <div className="lg-campo">
-          <label htmlFor={idUsuario}>Usuario</label>
+          <label htmlFor={idUsuario}>Usuario institucional</label>
           <input
             id={idUsuario}
             type="text"

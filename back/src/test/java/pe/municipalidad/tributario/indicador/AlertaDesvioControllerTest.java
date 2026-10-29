@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -23,14 +24,14 @@ import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.etl.LoteETL;
 import pe.municipalidad.tributario.etl.LoteETLRepository;
 import pe.municipalidad.tributario.etl.TipoEjecucion;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /*
  * HU039: alerta de desvío de meta. Los datos de prueba dejan, con la carga del 2026-10-18, dos alertas activas
  * de octubre de 2026: índice de morosidad 14,80 % frente a la meta de 12,50 % (+18,40 %) y recaudación sobre
  * la emisión 72 % frente a 85 % (-15,29 %). Cada test crea sus propias cargas y se revierte al terminar.
  */
-@PruebaIntegracion
+@PruebaInterna
 @Transactional
 class AlertaDesvioControllerTest {
 
@@ -180,7 +181,7 @@ class AlertaDesvioControllerTest {
         LoteETL lote = cargaPublicada(LocalDate.of(2026, 10, 19), Map.of());
         valor(lote, MONTO_RECAUDADO, NOVIEMBRE, new BigDecimal("850000.0000"));
 
-        mockMvc.perform(post("/api/metas").contentType(MediaType.APPLICATION_JSON).content("""
+        mockMvc.perform(post("/api/metas").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("""
                         {"indicadorCodigo": "MONTO_RECAUDADO", "anio": 2026, "numeroPeriodo": 11,
                          "valorMeta": 1000000}
                         """))
@@ -195,7 +196,7 @@ class AlertaDesvioControllerTest {
 
     @Test
     void umbralFueraDeRangoDevuelve400() throws Exception {
-        mockMvc.perform(post("/api/metas").contentType(MediaType.APPLICATION_JSON).content("""
+        mockMvc.perform(post("/api/metas").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("""
                         {"indicadorCodigo": "MONTO_RECAUDADO", "anio": 2026, "numeroPeriodo": 12,
                          "valorMeta": 1000000, "umbralDesvio": 150}
                         """))
@@ -205,7 +206,7 @@ class AlertaDesvioControllerTest {
 
     @Test
     void eliminarUnaMetaConAlertaTambienRetiraSuAlerta() throws Exception {
-        mockMvc.perform(delete("/api/metas/" + idMetaDeMorosidadDeOctubre()))
+        mockMvc.perform(delete("/api/metas/" + idMetaDeMorosidadDeOctubre()).with(csrf()))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get(RUTA_ALERTAS).param("indicadorCodigo", MOROSIDAD))
@@ -224,12 +225,12 @@ class AlertaDesvioControllerTest {
 
     @Test
     void loteInexistenteDevuelve404YSinLoteDevuelve400() throws Exception {
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idLote\": 999999}"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.codigo").value("LOTE_NO_ENCONTRADO"));
 
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.detalles[0]").value("idLote: es obligatorio"));
     }
@@ -249,12 +250,13 @@ class AlertaDesvioControllerTest {
     }
 
     private ResultActions evaluar(LoteETL lote) throws Exception {
-        return mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON)
+        return mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"idLote\": " + lote.getIdLote() + "}"));
     }
 
     private ResultActions actualizarMeta(long idMeta, String cuerpo) throws Exception {
-        return mockMvc.perform(put("/api/metas/" + idMeta).contentType(MediaType.APPLICATION_JSON).content(cuerpo));
+        return mockMvc.perform(put("/api/metas/" + idMeta).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(cuerpo));
     }
 
     private long idMetaDeMorosidadDeOctubre() throws Exception {

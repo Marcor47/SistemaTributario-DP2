@@ -25,7 +25,7 @@ public class UsuarioAdminController {
     }
 
     @PostMapping("/usuarios")
-    public ResponseEntity<UsuarioRespuesta> crear(@Valid @RequestBody CrearUsuarioSolicitud solicitud,
+    public ResponseEntity<UsuarioCreadoRespuesta> crear(@Valid @RequestBody CrearUsuarioSolicitud solicitud,
             HttpServletRequest request) {
         String admin = sesion.administrador(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(servicio.crearUsuario(solicitud, admin,

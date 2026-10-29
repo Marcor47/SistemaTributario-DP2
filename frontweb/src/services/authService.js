@@ -11,8 +11,8 @@ const MENSAJES = {
 export const MODO_DEMO = Boolean(import.meta.env?.DEV && import.meta.env?.VITE_AUTH_DEMO === 'true')
 export const CREDENCIALES_DEMO = { codigo: 'DEMO-0001', password: 'demo1234' }
 
-// Clave de sessionStorage para registrar una sesión demo activa en el browser.
-const CLAVE_SESION_DEMO = 'sesion_demo'
+// Referencia visual de la sesión del portal. La autorización real siempre la valida el backend con la cookie.
+const CLAVE_SESION_PORTAL = 'sesion_portal'
 
 /**
  * Comprueba si hay una sesión demo activa en el browser (sessionStorage).
@@ -20,7 +20,7 @@ const CLAVE_SESION_DEMO = 'sesion_demo'
  */
 export function esSesionDemo() {
   if (typeof sessionStorage === 'undefined') return false
-  return Boolean(sessionStorage.getItem(CLAVE_SESION_DEMO))
+  return Boolean(sessionStorage.getItem(CLAVE_SESION_PORTAL))
 }
 
 /**
@@ -29,7 +29,7 @@ export function esSesionDemo() {
 export function obtenerSesionDemo() {
   if (typeof sessionStorage === 'undefined') return null
   try {
-    const raw = sessionStorage.getItem(CLAVE_SESION_DEMO)
+    const raw = sessionStorage.getItem(CLAVE_SESION_PORTAL)
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
@@ -43,7 +43,7 @@ export async function iniciarSesion(codigoContribuyente, password) {
     if (codigoContribuyente === CREDENCIALES_DEMO.codigo && password === CREDENCIALES_DEMO.password) {
       // Registrar sesión demo para que portalCuentaService pueda ignorar el 401 del backend
       if (typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem(CLAVE_SESION_DEMO, JSON.stringify({ codigo: codigoContribuyente }))
+        sessionStorage.setItem(CLAVE_SESION_PORTAL, JSON.stringify({ codigo: codigoContribuyente }))
       }
       return { codigoContribuyente }
     }
@@ -70,14 +70,34 @@ export async function iniciarSesion(codigoContribuyente, password) {
     )
   }
   const sesion = await respuesta.json()
-  if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CLAVE_SESION_DEMO)
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(CLAVE_SESION_PORTAL, JSON.stringify({ codigo: sesion.codigoContribuyente }))
+  }
+  return sesion
+}
+
+export async function obtenerSesionContribuyente() {
+  if (MODO_DEMO) {
+    const sesion = obtenerSesionDemo()
+    if (sesion) return { codigoContribuyente: sesion.codigo }
+    throw Object.assign(new Error('La sesión no está activa.'), { estado: 401 })
+  }
+  const respuesta = await fetch(`${API}/auth/me`, { credentials: 'include' })
+  if (!respuesta.ok) {
+    if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem(CLAVE_SESION_PORTAL)
+    throw Object.assign(new Error('La sesión no está activa.'), { estado: respuesta.status })
+  }
+  const sesion = await respuesta.json()
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem(CLAVE_SESION_PORTAL, JSON.stringify({ codigo: sesion.codigoContribuyente }))
+  }
   return sesion
 }
 
 export async function cerrarSesion() {
   // Limpiar sesión demo independientemente del modo
   if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.removeItem(CLAVE_SESION_DEMO)
+    sessionStorage.removeItem(CLAVE_SESION_PORTAL)
   }
   if (MODO_DEMO) return
   const respuesta = await fetch(`${API}/auth/logout`, { method: 'POST', credentials: 'include' })

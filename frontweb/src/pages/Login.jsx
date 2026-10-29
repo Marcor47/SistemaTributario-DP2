@@ -92,7 +92,7 @@ export default function Login() {
       <p className="lg-ayuda">
         ¿Problemas para ingresar? Acércate a la Gerencia de Rentas de la Municipalidad de San Miguel.
         <br />
-        <Link to="/interno/login">Acceso personal municipal</Link>
+        <Link to="/gestion/login">Ingresar como funcionario</Link>
       </p>
     </LoginLayout>
   )
