@@ -23,7 +23,7 @@ public class UsuarioAdminService {
 
     private static final Set<NombreRol> ROLES_ASIGNABLES = Set.of(NombreRol.ADMINISTRADOR, NombreRol.GERENCIA,
             NombreRol.ANALISTA_RENTAS, NombreRol.RESPONSABLE_DATOS, NombreRol.VENTANILLA,
-            NombreRol.TERMINALISTA);
+            NombreRol.TERMINALISTA, NombreRol.GESTOR_RECLAMOS);
 
     public UsuarioAdminService(UsuarioRepository usuarios, RolRepository roles,
             RegistroAuditoriaRepository auditorias, EventoSeguridadRepository eventos,

@@ -154,14 +154,14 @@ class DeclaracionJuradaControllerTest {
     void conUnRolSinPermisoDevuelve403() throws Exception {
         mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.VENTANILLA)))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.codigo").value("ERROR_HTTP"));
+                .andExpect(jsonPath("$.codigo").value("ACCESO_DENEGADO"));
     }
 
     @Test
-    void elAdministradorTambienPuedeConsultar() throws Exception {
+    void elAdministradorNoAccedeAModulosTributarios() throws Exception {
         mockMvc.perform(get(RUTA, "014502-01").session(sesion(NombreRol.ADMINISTRADOR)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.predio.codigoPredio").value("014502-01"));
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("ACCESO_DENEGADO"));
     }
 
     @Test

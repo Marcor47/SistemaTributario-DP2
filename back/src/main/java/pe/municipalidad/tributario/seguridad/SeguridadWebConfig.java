@@ -38,8 +38,11 @@ public class SeguridadWebConfig {
                             && !ruta.equals("/api/constancias");
                 }))
                 .authorizeHttpRequests(reglas -> reglas
+                        .requestMatchers("/api/reclamos/gestion/**", "/api/reclamos/catalogos/**")
+                                .hasAuthority("RECLAMOS:GESTIONAR")
+                        .requestMatchers("/api/reclamos/asignados/**").hasAuthority("RECLAMOS:ATENDER")
                         .requestMatchers("/api/health", "/api/auth/**", "/api/portal/**", "/api/constancias/**",
-                                "/api/estado-cuenta/**").permitAll()
+                                "/api/estado-cuenta/**", "/api/reclamos/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/admin/usuarios").hasAuthority("USUARIOS:CREAR")
                         .requestMatchers(HttpMethod.GET, "/api/admin/usuarios").hasAuthority("USUARIOS:LISTAR")
                         .requestMatchers(HttpMethod.GET, "/api/admin/roles").hasAuthority("ROLES:LISTAR")
