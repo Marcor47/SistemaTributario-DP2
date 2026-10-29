@@ -11,6 +11,12 @@ import { colores, fuentes, radios, sombra, texto } from '../theme/tokens'
 // Servicios del contribuyente. Cada historia agrega aquí su acceso.
 const SERVICIOS = [
   {
+    ruta: '/estado-cuenta',
+    icono: 'tarjeta',
+    titulo: 'Estado de cuenta y pagos',
+    descripcion: 'Consulta tus obligaciones y paga todo tu saldo pendiente.',
+  },
+  {
     ruta: '/solicitud-predio',
     icono: 'documento-mas',
     titulo: 'Registro o traspaso de predio',
@@ -43,8 +49,8 @@ export default function Inicio() {
         derecha={<BotonCabecera icono="salir" etiqueta="Cerrar sesión" onPress={cerrarSesion} />}
       />
       <ScrollView contentContainerStyle={[estilos.contenido, { paddingBottom: bottom + 24 }]}>
-        <Text style={texto.subtitulo} accessibilityRole="header">Trámites en línea</Text>
-        <Text style={[texto.secundario, estilos.desc]}>Elige el trámite que deseas realizar.</Text>
+        <Text style={texto.subtitulo} accessibilityRole="header">Servicios en línea</Text>
+        <Text style={[texto.secundario, estilos.desc]}>Elige el servicio que deseas utilizar.</Text>
         <View style={estilos.lista}>
           {SERVICIOS.map((s) => (
             <Pressable

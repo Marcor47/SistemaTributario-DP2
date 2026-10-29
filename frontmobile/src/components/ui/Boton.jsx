@@ -52,8 +52,8 @@ const estilos = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   grande: { minHeight: 54 },
-  contenido: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  texto: { fontFamily: fuentes.negrita, fontSize: 16, lineHeight: 22 },
+  contenido: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, maxWidth: '100%' },
+  texto: { fontFamily: fuentes.negrita, fontSize: 16, lineHeight: 22, flexShrink: 1, textAlign: 'center' },
   textoGrande: { fontSize: 18, lineHeight: 24 },
   deshabilitado: { opacity: 0.5 },
 })

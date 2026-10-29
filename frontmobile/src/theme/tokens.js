@@ -28,6 +28,7 @@ export const colores = {
   advertenciaAcento: '#D9892B',
   infoBorde: '#BFE6F5',
   blanco: '#FFFFFF',
+  sombraModal: 'rgba(15, 23, 42, 0.55)',
 }
 
 export const fuentes = {
