@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.ConflictoException;
@@ -37,18 +38,20 @@ public class PagoPortalService {
     private final SamnetGateway samnet;
     private final NiubizGateway pasarela;
     private final Clock reloj;
+    private final JdbcTemplate jdbc;
 
     public PagoPortalService(TransaccionPagoRepository transacciones, ContribuyenteService contribuyentes,
-            SamnetGateway samnet, NiubizGateway pasarela, Clock reloj) {
+            SamnetGateway samnet, NiubizGateway pasarela, Clock reloj, JdbcTemplate jdbc) {
         this.transacciones = transacciones;
         this.contribuyentes = contribuyentes;
         this.samnet = samnet;
         this.pasarela = pasarela;
         this.reloj = reloj;
+        this.jdbc = jdbc;
     }
 
     @Transactional
-    public PagoRespuesta iniciar(String codigo, PagoSolicitud solicitud) {
+    public PagoRespuesta iniciar(String codigo, PagoSolicitud solicitud, String clientIp) {
         List<DetallePago> detalles = cotizar(codigo);
         Set<Long> todos = detalles.stream().map(DetallePago::getIdObligacion).collect(Collectors.toSet());
         if (solicitud != null && solicitud.obligaciones() != null) {
@@ -59,13 +62,14 @@ public class PagoPortalService {
                         "El pago virtual debe cubrir todas las obligaciones pendientes. Consulte su cuenta.");
             }
         }
-        String documento = contribuyentes.obtenerPorCodigo(codigo).getNumeroDocumento();
+        var contribuyente = contribuyentes.obtenerPorCodigo(codigo);
+        String documento = contribuyente.getNumeroDocumento();
         TransaccionPago transaccion = TransaccionPago.deObligaciones(documento, detalles, LocalDateTime.now(reloj));
         transacciones.saveAndFlush(transaccion);
         NiubizGateway.OrdenPago orden = pasarela.crearOrdenPago(transaccion.getMontoTotal(),
-                "OBLIGACIONES-" + transaccion.getIdTransaccion());
+                "OBLIGACIONES-" + transaccion.getIdTransaccion(), contribuyente, clientIp);
         transaccion.iniciar(orden.idOrden());
-        return PagoRespuesta.desde(transaccion, orden.urlPasarela());
+        return PagoRespuesta.desde(transaccion, orden.urlPasarela(), orden.checkout());
     }
 
     @Transactional(readOnly = true)
@@ -74,7 +78,7 @@ public class PagoPortalService {
     }
 
     @Transactional
-    public PagoRespuesta confirmar(String codigo, Long id) {
+    public PagoRespuesta confirmar(String codigo, Long id, String transactionToken) {
         TransaccionPago transaccion = transacciones.bloquearPorId(id)
                 .filter(t -> t.getDocumentoContribuyente().equals(documento(codigo)))
                 .orElseThrow(() -> new RecursoNoEncontradoException("PAGO_NO_ENCONTRADO", "No existe ese pago."));
@@ -84,12 +88,8 @@ public class PagoPortalService {
         if (transaccion.getEstado() != EstadoTransaccion.INICIADA) {
             throw new ReglaNegocioException("PAGO_CERRADO", "Este pago ya no puede confirmarse.");
         }
-        NiubizGateway.EstadoPagoPasarela estado = pasarela.consultarEstadoPago(transaccion.getIdOrdenPasarela());
-        if (!transaccion.getIdOrdenPasarela().equals(estado.idOrden()) || !estado.autorizado()
-                || estado.montoAutorizado() == null
-                || estado.montoAutorizado().compareTo(transaccion.getMontoTotal()) != 0) {
-            throw new ReglaNegocioException("PAGO_NO_AUTORIZADO", "La pasarela aún no autorizó el pago.");
-        }
+        // Serializa pagos del mismo contribuyente antes de autorizar externamente.
+        jdbc.query("SELECT pg_advisory_xact_lock(hashtext(?))", ps -> ps.setString(1, codigo), rs -> {});
         List<DetallePago> actuales;
         try {
             actuales = cotizar(codigo);
@@ -101,6 +101,13 @@ public class PagoPortalService {
                 .collect(Collectors.toMap(DetallePago::getIdObligacion, Function.identity()));
         if (original.isEmpty() || originalesCambiaron(original, actuales)) {
             throw saldoCambio();
+        }
+        NiubizGateway.EstadoPagoPasarela estado = pasarela.autorizar(transaccion.getIdOrdenPasarela(),
+                transaccion.getMontoTotal(), transactionToken);
+        if (!transaccion.getIdOrdenPasarela().equals(estado.idOrden()) || !estado.autorizado()
+                || estado.montoAutorizado() == null
+                || estado.montoAutorizado().compareTo(transaccion.getMontoTotal()) != 0) {
+            throw new ReglaNegocioException("PAGO_NO_AUTORIZADO", "La pasarela aún no autorizó el pago.");
         }
         try {
             samnet.registrarPagoEnLinea(codigo, id, LocalDate.now(reloj));

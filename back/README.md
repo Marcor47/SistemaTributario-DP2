@@ -17,7 +17,7 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 | `GET /api/estado-cuenta/{codigo}` y `/contribuyentes?q=...` | Rutas anteriores: ahora requieren sesión y solo devuelven la cuenta propia. |
 | `POST /api/portal/pagos` | Crear una orden por toda la deuda pendiente con body `{}`. Una lista `obligaciones` opcional solo se acepta si coincide con el conjunto completo. |
 | `GET /api/portal/pagos/{id}` | Consultar el estado del pago propio. |
-| `POST /api/portal/pagos/{id}/confirmacion` | Consultar la pasarela servidor a servidor y registrar el pago autorizado en PostgreSQL. Repetirlo no crea otro pago. |
+| `POST /api/portal/pagos/{id}/confirmacion` | En sandbox, autorizar con el `transactionToken` del checkout servidor a servidor y registrar solo el pago autorizado en PostgreSQL. Repetir una orden ya confirmada no crea otro pago. |
 | `GET /api/portal/solicitudes-predio/requisitos?tipoTramite=REGISTRO&tipoPredio=URBANO` | Consultar los documentos requeridos. |
 | `POST /api/portal/solicitudes-predio` | Enviar formulario multipart con `tipoTramite`, `tipoPredio`, `codigoPredio` opcional, `requisitoIds` y `archivos` en el mismo orden. |
 | `GET /api/portal/solicitudes-predio`, `GET /api/portal/solicitudes-predio/{id}` | Consultar solicitudes propias. |
