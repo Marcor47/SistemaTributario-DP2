@@ -13,6 +13,7 @@ import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Reclamos from './pages/Reclamos.jsx'
 import GestionReclamos from './pages/GestionReclamos.jsx'
+import Reportes from './pages/Reportes.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
@@ -126,6 +127,7 @@ export default function App() {
           <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
           <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
+          <Route path="/reportes" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Reportes /></RutaInternaProtegida>} />
           <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />
           <Route path="/gestion/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:GESTIONAR"><GestionReclamos modo="gestion" /></RutaInternaProtegida>} />
           <Route path="/reclamos/asignados" element={<RutaInternaProtegida permiso="RECLAMOS:ATENDER"><GestionReclamos modo="asignados" /></RutaInternaProtegida>} />

@@ -6,7 +6,8 @@ fecha de corte de hoy. Cada generación queda registrada (RF-059) y se aplican l
 
 ## Acceso
 
-Solo usuarios internos con rol `GERENCIA`, `ANALISTA_RENTAS` o `ADMINISTRADOR`. Se usa la sesión interna:
+Solo usuarios internos con rol `GERENCIA` o `ANALISTA_RENTAS`. El Administrador del Sistema conserva únicamente
+las funciones de administración de usuarios. Se usa la sesión interna:
 
 1. `POST /api/auth/interno/login` con `{"nombreUsuario": "...", "clave": "..."}` devuelve `200` y deja la
    cookie de sesión (el front debe enviar `credentials: 'include'`). En desarrollo: `analista` / `analista123`.

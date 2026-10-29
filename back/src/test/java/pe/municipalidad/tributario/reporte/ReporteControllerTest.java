@@ -236,6 +236,8 @@ class ReporteControllerTest {
     void conUnRolSinPermisoDevuelve403() throws Exception {
         mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.VENTANILLA)))
                 .andExpect(status().isForbidden());
+        mvc.perform(get("/api/reportes").session(sesion(NombreRol.ADMINISTRADOR)))
+                .andExpect(status().isForbidden());
     }
 
     @Test

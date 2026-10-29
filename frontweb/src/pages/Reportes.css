@@ -1,0 +1,39 @@
+.reportes { min-width: 0; }
+.reporte-catalogo h2, .reporte-resultados h2, .reporte-filtros h2 { margin-bottom: 6px; }
+.reporte-opciones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 20px; }
+.reporte-opcion { min-height: 132px; padding: 18px; text-align: left; border: 2px solid var(--borde); border-radius: 12px; background: var(--superficie); color: var(--texto); cursor: pointer; font: inherit; transition: border-color .18s, box-shadow .18s, transform .18s; }
+.reporte-opcion strong, .reporte-opcion span { display: block; }
+.reporte-opcion strong { color: var(--marino-osc); font-size: 18px; margin-bottom: 8px; }
+.reporte-opcion span { color: var(--texto-atenuado); line-height: 1.5; }
+.reporte-opcion:hover { border-color: var(--cian); transform: translateY(-2px); }
+.reporte-opcion.seleccionada { border-color: var(--marino); box-shadow: 0 0 0 3px rgba(25, 195, 243, .22); background: var(--azul-suave); }
+.reporte-opcion:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.reporte-filtros { align-items: flex-start; }
+.reporte-filtros-titulo { flex: 0 0 100%; }
+.reporte-filtros .fld { min-width: 180px; }
+.reporte-filtros > .btn { align-self: flex-end; }
+.reporte-estado { padding: 32px 24px; text-align: center; }
+.reporte-estado p { color: var(--texto-atenuado); margin-bottom: 0; }
+.reporte-resultados { display: grid; gap: 18px; }
+.reporte-resultados-cab { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.reporte-vistas { display: flex; gap: 8px; }
+.reporte-vistas .btn[aria-pressed="true"] { background: var(--marino); border-color: var(--marino); color: #fff; }
+.reporte-resumen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.reporte-resumen .pcard { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 18px; }
+.reporte-resumen strong { color: var(--marino-osc); font-size: clamp(20px, 2vw, 28px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.reporte-aplicados { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.reporte-aplicados span { padding: 5px 10px; border-radius: 999px; background: var(--azul-suave); color: var(--marino-osc); font-size: 14px; }
+.reporte-tabla { min-width: 980px; margin-top: 0; background: var(--superficie); }
+.reporte-tabla th[scope="row"] { min-width: 220px; }
+.reporte-secundario { display: block; color: var(--texto-atenuado); font-size: 13px; font-weight: 400; margin-top: 3px; }
+.reporte-barras { display: grid; gap: 22px; padding: 24px; margin: 0; list-style-position: inside; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie); box-shadow: var(--sombra); }
+.reporte-barras li::marker { color: var(--texto-atenuado); }
+.reporte-barra-etiqueta { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 9px; }
+.reporte-barra-etiqueta span, .reporte-barra-etiqueta small { display: block; }
+.reporte-barra-etiqueta small { color: var(--texto-atenuado); margin-top: 3px; }
+.reporte-barra-etiqueta > strong { white-space: nowrap; color: var(--marino-osc); font-variant-numeric: tabular-nums; }
+.reporte-barra { height: 16px; margin-left: 22px; overflow: hidden; border-radius: 8px; background: var(--fondo); }
+.reporte-barra span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--marino), var(--cian)); }
+@media (max-width: 1100px) { .reporte-opciones { grid-template-columns: 1fr; } .reporte-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .reporte-catalogo, .reporte-barras { padding: 18px 16px; } .reporte-filtros .fld { min-width: 100%; } .reporte-filtros > .btn, .reporte-vistas { width: 100%; } .reporte-vistas .btn { flex: 1; } .reporte-resumen { grid-template-columns: 1fr; } .reporte-barra-etiqueta { align-items: flex-start; } }
+@media (prefers-reduced-motion: reduce) { .reporte-opcion { transition: none; } .reporte-opcion:hover { transform: none; } }

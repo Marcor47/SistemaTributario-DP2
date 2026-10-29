@@ -123,6 +123,15 @@ export const MODULOS = [
     icono: icono(<><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></>),
   },
   {
+    ruta: '/reportes',
+    texto: 'Reportes',
+    titulo: 'Reportes tributarios',
+    descripcion: 'Genera reportes de morosos, principales contribuyentes y buenos pagadores con la información disponible a la fecha de corte.',
+    seccion: 'gestion',
+    permiso: 'REPORTES:CONSULTAR',
+    icono: icono(<><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /><path d="M4 6l6-3 6 6 5-4" /></>),
+  },
+  {
     ruta: '/morosidad',
     texto: 'Morosidad',
     titulo: 'Índice de Morosidad',

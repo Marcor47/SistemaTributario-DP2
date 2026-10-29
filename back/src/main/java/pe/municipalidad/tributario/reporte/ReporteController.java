@@ -21,8 +21,7 @@ import pe.municipalidad.tributario.seguridad.SesionInterna;
 @RequestMapping("/api/reportes")
 public class ReporteController {
 
-    private static final NombreRol[] ROLES_REPORTES =
-            {NombreRol.GERENCIA, NombreRol.ANALISTA_RENTAS, NombreRol.ADMINISTRADOR};
+    private static final NombreRol[] ROLES_REPORTES = {NombreRol.GERENCIA, NombreRol.ANALISTA_RENTAS};
 
     private final ReporteService servicio;
     private final SesionInterna sesion;
