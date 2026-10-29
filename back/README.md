@@ -40,6 +40,20 @@ $bytes = New-Object byte[] 32
 $env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
 ```
 
+En Windows PowerShell 5.1 el método `Fill` no existe; usa esta variante:
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
+```
+
+`$env:` solo dura en esa terminal. Para conservarla en tu usuario de Windows (abre una terminal nueva después):
+
+```powershell
+[Environment]::SetEnvironmentVariable('PREDIO_FILES_KEY', $env:PREDIO_FILES_KEY, 'User')
+```
+
 Conserva la misma clave para poder leer los archivos ya guardados. No la subas al repositorio.
 Los requisitos de `db/datos-prueba` son provisionales y deben validarse antes de un despliegue
 municipal.
