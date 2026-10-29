@@ -72,7 +72,7 @@ export const MODULOS = [
     ruta: '/contribuyentes',
     texto: 'Contribuyentes',
     titulo: 'Consulta de contribuyentes',
-    descripcion: 'Busca por documento o nombre y revisa la ficha, el estado de cuenta y la regularidad de pago.',
+    descripcion: 'Busca por código o documento y revisa la ficha, el estado de cuenta, los pagos y beneficios del contribuyente.',
     seccion: 'gestion',
     permiso: 'CONTRIBUYENTES:CONSULTAR',
     icono: icono(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></>),
