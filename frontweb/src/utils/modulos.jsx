@@ -72,6 +72,23 @@ export const MODULOS = [
     icono: icono(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>),
   },
   {
+    ruta: '/usuarios',
+    texto: 'Usuarios y roles',
+    titulo: 'Usuarios internos y roles',
+    descripcion: 'Cambia el rol de los usuarios internos; cada cambio queda registrado para auditoría.',
+    seccion: 'gestion',
+    permiso: 'ROLES:CAMBIAR',
+    icono: icono(<><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.6 3.1-6 7-6s7 2.4 7 6" /><path d="M17 5l4 2v4c0 2.4-1.7 4-4 5-2.3-1-4-2.6-4-5V7z" /></>),
+  },
+  {
+    ruta: '/reclamos',
+    texto: 'Reclamos',
+    titulo: 'Reclamos',
+    descripcion: 'Registra un reclamo por un incidente laboral y consulta su estado, derivaciones y respuesta.',
+    seccion: 'gestion',
+    icono: icono(<><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M12 15.5v.01" /></>),
+  },
+  {
     ruta: '/morosidad',
     texto: 'Morosidad',
     titulo: 'Índice de Morosidad',

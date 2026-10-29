@@ -8,6 +8,8 @@ import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
+import UsuariosRoles from './pages/UsuariosRoles.jsx'
+import Reclamos from './pages/Reclamos.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
@@ -103,11 +105,13 @@ export default function App() {
         {/* Rutas de funcionarios (Gestión Municipal) */}
         <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><AdministracionUsuarios /></RutaInternaProtegida>} />
+          <Route path="/usuarios" element={<RutaInternaProtegida permiso="ROLES:CAMBIAR"><UsuariosRoles /></RutaInternaProtegida>} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
           <Route path="/contribuyentes" element={<RutaInternaProtegida permiso="CONTRIBUYENTES:CONSULTAR"><ConsultaContribuyente /></RutaInternaProtegida>} />
           <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
           <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
+          <Route path="/reclamos" element={<Reclamos />} />
           <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>
         </Routes>

@@ -1,0 +1,13 @@
+.formulario-reclamo .fld { min-width: 0; }
+.formulario-reclamo input, .formulario-reclamo select, .formulario-reclamo textarea { width: 100%; }
+.resumen-errores { margin: 12px 0; }
+.resumen-errores h3 { margin: 0 0 6px; font-size: 16px; }
+.resumen-errores ul { margin: 0; padding-left: 20px; }
+.resumen-errores a { color: var(--critico); font-weight: 600; }
+.resumen-errores:focus { outline: 3px solid var(--marino); outline-offset: 2px; }
+.filtro-estado { flex: none; min-width: 200px; }
+.tabla-reclamos { min-width: 720px; }
+.tabla-reclamos td { vertical-align: top; }
+.reclamo-detalle { display: block; margin-top: 2px; font-size: 13.5px; color: var(--texto-atenuado); }
+#detalle-reclamo h3 { margin: 18px 0 8px; font-size: 16px; color: var(--marino-osc); }
+.derivaciones { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
