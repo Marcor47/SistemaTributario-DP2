@@ -8,6 +8,8 @@ import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
+import UsuariosRoles from './pages/UsuariosRoles.jsx'
+import Reclamos from './pages/Reclamos.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
@@ -98,6 +100,8 @@ export default function App() {
           <Route path="/metas" element={<ConfiguracionMetas />} />
           <Route path="/formularios" element={<Formularios />} />
           <Route path="/morosidad" element={<IndiceMorosidad />} />
+          <Route path="/usuarios" element={<UsuariosRoles />} />
+          <Route path="/reclamos" element={<Reclamos />} />
         </Route>
       </Routes>
     </BrowserRouter>
