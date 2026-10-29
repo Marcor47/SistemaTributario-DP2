@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import ArbitriosPanel from '../components/ArbitriosPanel.jsx'
 import BarraBusqueda from '../components/BarraBusqueda.jsx'
 import DeclaracionJuradaPanel from '../components/DeclaracionJuradaPanel.jsx'
 import { buscarPredios } from '../services/predioService.js'
@@ -8,6 +9,7 @@ import './ConsultaPredio.css'
 const PESTANAS = [
   { id: 'resumen', nombre: 'Resumen' },
   { id: 'declaracion', nombre: 'Declaración jurada' },
+  { id: 'arbitrios', nombre: 'Arbitrios' },
 ]
 
 function Campo({ etiqueta, valor }) {
@@ -116,6 +118,9 @@ function DetallePredio({ predio, onVolver }) {
       </div>
       <div id="predio-panel-declaracion" role="tabpanel" aria-labelledby="predio-pestana-declaracion" hidden={vista !== 'declaracion'} tabIndex={0}>
         {vista === 'declaracion' && <DeclaracionJuradaPanel key={predio.codPredio} codigoPredio={predio.codPredio} />}
+      </div>
+      <div id="predio-panel-arbitrios" role="tabpanel" aria-labelledby="predio-pestana-arbitrios" hidden={vista !== 'arbitrios'} tabIndex={0}>
+        {vista === 'arbitrios' && <ArbitriosPanel key={predio.codPredio} codigoPredio={predio.codPredio} />}
       </div>
     </div>
   )

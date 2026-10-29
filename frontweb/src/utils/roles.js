@@ -12,3 +12,10 @@ export const ETIQUETAS_ROL = {
 export function etiquetaRol(rol) {
   return ETIQUETAS_ROL[rol] ?? (rol || 'Sin rol')
 }
+
+// Consultas internas de predios (HU003 y HU005): solo estos roles pueden ver la información.
+export const ROLES_CONSULTA_PREDIO = ['ANALISTA_RENTAS', 'ADMINISTRADOR']
+
+export function tieneRolInterno(sesion, roles = ROLES_CONSULTA_PREDIO) {
+  return sesion?.tipo === 'interno' && roles.some((rol) => sesion.usuario?.roles?.includes(rol))
+}

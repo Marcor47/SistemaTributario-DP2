@@ -4,7 +4,8 @@
 WITH accesos (nombre_usuario, nombre_completo, correo, clave, rol) AS (
     VALUES
         ('admin', 'Administrador de Pruebas', 'admin@example.org', 'admin123', 'ADMINISTRADOR'),
-        ('analista', 'Analista de Rentas de Pruebas', 'analista@example.org', 'analista123', 'ANALISTA_RENTAS')
+        ('analista', 'Analista de Rentas de Pruebas', 'analista@example.org', 'analista123', 'ANALISTA_RENTAS'),
+        ('gerencia', 'Gerencia de Rentas de Pruebas', 'gerencia@example.org', 'gerencia123', 'GERENCIA')
 ),
 nuevos AS (
     INSERT INTO seguridad.usuario (nombre_usuario, nombre_completo, correo, clave_hash, activo, fecha_creacion)

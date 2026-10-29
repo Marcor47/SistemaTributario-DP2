@@ -1,0 +1,7 @@
+/* Acceso interno compartido por las consultas de predios. */
+.acceso-interno__aviso { margin-top: 16px; }
+.acceso-interno__btn { margin-top: 16px; }
+
+@media (max-width: 600px) {
+  .acceso-interno { padding: 20px 16px; }
+}

@@ -17,3 +17,12 @@ export function fecha(iso) {
   const [a, m, d] = iso.split('-')
   return `${d}/${m}/${a}`
 }
+
+export function fechaHora(iso) {
+  if (!iso) return '—'
+  const [parteFecha, parteHora = ''] = String(iso).replace(' ', 'T').split('T')
+  const [a, m, d] = parteFecha.split('-')
+  if (!a || !m || !d) return '—'
+  const hora = parteHora.slice(0, 5)
+  return hora ? `${d}/${m}/${a} ${hora}` : `${d}/${m}/${a}`
+}
