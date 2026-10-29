@@ -11,6 +11,7 @@ import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Reclamos from './pages/Reclamos.jsx'
+import GestionReclamos from './pages/GestionReclamos.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
@@ -21,6 +22,10 @@ import SinAcceso from './pages/SinAcceso.jsx'
 import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
 import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
 
+const moduloDeRuta = (pathname, seccion) => MODULOS
+  .filter((modulo) => modulo.seccion === seccion && pathname.startsWith(modulo.ruta))
+  .sort((a, b) => b.ruta.length - a.ruta.length)[0]
+
 /**
  * Layout exclusivo para el Portal del Ciudadano (Servicios en Línea).
  * Solo muestra los módulos de la sección 'portal' en el menú lateral.
@@ -28,7 +33,7 @@ import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
  */
 function LayoutPortal() {
   const { pathname } = useLocation()
-  const modulo = MODULOS.filter((m) => m.seccion === 'portal').find((m) => pathname.startsWith(m.ruta))
+  const modulo = moduloDeRuta(pathname, 'portal')
   return (
     <div className="app">
       <MenuLateral solo="portal" />
@@ -59,7 +64,7 @@ function LayoutPortal() {
  */
 function LayoutGestion() {
   const { pathname } = useLocation()
-  const modulo = MODULOS.filter((m) => m.seccion !== 'portal').find((m) => pathname.startsWith(m.ruta))
+  const modulo = moduloDeRuta(pathname, 'gestion')
   return (
     <div className="app">
       <MenuLateral solo="gestion" />
@@ -104,6 +109,7 @@ export default function App() {
               <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
               <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
               <Route path="/constancias" element={<Constancia />} />
+              <Route path="/portal/reclamos" element={<Reclamos reclamante="CONTRIBUYENTE" />} />
             </Route>
           </Route>
 
@@ -116,7 +122,9 @@ export default function App() {
           <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
           <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
-          <Route path="/reclamos" element={<Reclamos />} />
+          <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />
+          <Route path="/gestion/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:GESTIONAR"><GestionReclamos modo="gestion" /></RutaInternaProtegida>} />
+          <Route path="/reclamos/asignados" element={<RutaInternaProtegida permiso="RECLAMOS:ATENDER"><GestionReclamos modo="asignados" /></RutaInternaProtegida>} />
           <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>
           </Routes>
