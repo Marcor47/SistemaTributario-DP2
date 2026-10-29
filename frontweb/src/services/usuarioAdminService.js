@@ -1,22 +1,22 @@
-import { pedir } from './api.js'
 import { MODO_DEMO } from './authService.js'
+import { cambiarRolInterno, crearUsuarioInterno, listarRolesInternos, listarUsuariosInternos } from './authInternaService.js'
 import { ROLES_DEMO, USUARIOS_DEMO } from '../mocks/usuarios.js'
 
-// HU035 / RF-047: cambio de rol de usuarios internos. Los endpoints /api/admin exigen sesión de Administrador;
-// sin sesión o sin backend se usan datos ficticios, igual que en el resto de servicios.
+// HU034/HU035: los endpoints administrativos exigen sesión y permisos; solo el modo demo o la falta de conexión
+// habilitan datos ficticios.
 let usuariosDemo = USUARIOS_DEMO.map((usuario) => ({ ...usuario }))
 
 const esperar = () => new Promise((resolve) => setTimeout(resolve, 250))
-const usarDatosDemo = (err) => MODO_DEMO || err.estado === 401 || err.codigo === 'SIN_CONEXION'
+const usarDatosDemo = (err) => MODO_DEMO || err.codigo === 'SIN_CONEXION'
 
 export function reiniciarUsuariosDemo() {
   usuariosDemo = USUARIOS_DEMO.map((usuario) => ({ ...usuario }))
 }
 
 // Devuelve { usuarios, roles, demo }; demo indica que los datos son ficticios y no se guardan en el servidor.
-export async function cargarUsuariosYRoles() {
+export async function cargarUsuariosYRoles(cargarRoles = true) {
   try {
-    const [usuarios, roles] = await Promise.all([pedir('/admin/usuarios'), pedir('/admin/roles')])
+    const [usuarios, roles] = await Promise.all([listarUsuariosInternos(), cargarRoles ? listarRolesInternos() : []])
     return { usuarios, roles, demo: false }
   } catch (err) {
     if (!usarDatosDemo(err)) throw err
@@ -24,6 +24,8 @@ export async function cargarUsuariosYRoles() {
     return { usuarios: usuariosDemo.map((usuario) => ({ ...usuario })), roles: ROLES_DEMO, demo: true }
   }
 }
+
+export const crearUsuario = (datos) => crearUsuarioInterno(datos)
 
 // Registro del cambio con usuario, fecha y valor anterior (criterio de aceptación de HU035).
 export function construirRegistroCambio(usuario, rolNuevo, motivo, ahora = new Date()) {
@@ -52,10 +54,7 @@ export async function cambiarRol(usuario, rolNuevo, motivo, demo) {
     usuariosDemo = usuariosDemo.map((u) => (u.idUsuario === usuario.idUsuario ? { ...u, rol: rolNuevo } : u))
     actualizado = usuariosDemo.find((u) => u.idUsuario === usuario.idUsuario)
   } else {
-    actualizado = await pedir(`/admin/usuarios/${usuario.idUsuario}/rol`, {
-      method: 'PUT',
-      body: JSON.stringify({ nuevoRol: rolNuevo, motivo: (motivo ?? '').trim() || null }),
-    })
+    actualizado = await cambiarRolInterno(usuario.idUsuario, rolNuevo, motivo)
   }
   return { usuario: actualizado, registro: construirRegistroCambio(usuario, rolNuevo, motivo) }
 }

@@ -1,5 +1,17 @@
 const API = import.meta.env?.VITE_API_URL || 'http://localhost:8080/api'
 let csrfActual = null
+export const EVENTO_SESION_INTERNA_EXPIRADA = 'sesion-interna-expirada'
+
+function sinConexion() {
+  return Object.assign(new Error('No se pudo conectar con el servicio. Verifica que el backend esté disponible.'), {
+    estado: 0, codigo: 'SIN_CONEXION', detalles: [],
+  })
+}
+
+function notificarSesionExpirada() {
+  csrfActual = null
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_SESION_INTERNA_EXPIRADA))
+}
 
 async function errorDe(respuesta) {
   let datos = null
@@ -12,7 +24,8 @@ async function errorDe(respuesta) {
 
 async function csrf() {
   if (csrfActual) return csrfActual
-  const respuesta = await fetch(`${API}/auth/interno/csrf`, { credentials: 'include' })
+  let respuesta
+  try { respuesta = await fetch(`${API}/auth/interno/csrf`, { credentials: 'include' }) } catch { throw sinConexion() }
   if (!respuesta.ok) throw await errorDe(respuesta)
   csrfActual = await respuesta.json()
   return csrfActual
@@ -24,8 +37,12 @@ async function solicitar(ruta, opciones = {}, protegido = false) {
     const token = await csrf()
     headers.set(token.headerName, token.token)
   }
-  const respuesta = await fetch(`${API}${ruta}`, { ...opciones, headers, credentials: 'include' })
-  if (!respuesta.ok) throw await errorDe(respuesta)
+  let respuesta
+  try { respuesta = await fetch(`${API}${ruta}`, { ...opciones, headers, credentials: 'include' }) } catch { throw sinConexion() }
+  if (!respuesta.ok) {
+    if (respuesta.status === 401) notificarSesionExpirada()
+    throw await errorDe(respuesta)
+  }
   if (respuesta.status === 204) return null
   return respuesta.json()
 }
@@ -53,6 +70,13 @@ export function cambiarClaveInterna(claveActual, claveNueva) {
 
 export const listarUsuariosInternos = () => solicitar('/admin/usuarios')
 export const listarRolesInternos = () => solicitar('/admin/roles')
+
+export function cambiarRolInterno(idUsuario, nuevoRol, motivo) {
+  return solicitar(`/admin/usuarios/${idUsuario}/rol`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nuevoRol, motivo: (motivo ?? '').trim() || null }),
+  }, true)
+}
 
 export function crearUsuarioInterno(datos) {
   return solicitar('/admin/usuarios', {

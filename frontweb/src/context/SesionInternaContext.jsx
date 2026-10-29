@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { cerrarSesionInterna, obtenerSesionInterna } from '../services/authInternaService.js'
+import {
+  cerrarSesionInterna,
+  EVENTO_SESION_INTERNA_EXPIRADA,
+  obtenerSesionInterna,
+} from '../services/authInternaService.js'
 import { SesionInternaContext } from './sesionInterna.js'
 
 export function SesionInternaProvider({ children }) {
@@ -17,6 +21,12 @@ export function SesionInternaProvider({ children }) {
       .catch(() => { if (activo) setSesion(null) })
       .finally(() => { if (activo) setCargando(false) })
     return () => { activo = false }
+  }, [])
+
+  useEffect(() => {
+    const expirar = () => { setSesion(null); setCargando(false) }
+    window.addEventListener(EVENTO_SESION_INTERNA_EXPIRADA, expirar)
+    return () => window.removeEventListener(EVENTO_SESION_INTERNA_EXPIRADA, expirar)
   }, [])
 
   const salir = useCallback(async () => {
