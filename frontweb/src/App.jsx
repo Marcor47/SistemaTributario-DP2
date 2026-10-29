@@ -3,6 +3,8 @@ import MenuLateral from './components/MenuLateral.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Login from './pages/Login.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
+import { RutaContribuyente } from './components/RutaProtegida.jsx'
 import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
@@ -84,22 +86,26 @@ function LayoutGestion() {
 export default function App() {
   return (
     <BrowserRouter>
-      <SesionInternaProvider>
-        <Routes>
-        <Route path="/" element={<Inicio />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/gestion/login" element={<LoginInterno />} />
-        <Route path="/gestion/cambiar-clave" element={<RutaInternaProtegida permitirCambioClave><CambiarClaveInterna /></RutaInternaProtegida>} />
-        <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
-        <Route path="/pagos/:id" element={<PasarelaSimulada />} />
+      <AuthProvider>
+        <SesionInternaProvider>
+          <Routes>
+            <Route path="/" element={<Inicio />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/gestion/login" element={<LoginInterno />} />
+            <Route path="/interno/login" element={<Navigate to="/gestion/login" replace />} />
+            <Route path="/gestion/cambiar-clave" element={<RutaInternaProtegida permitirCambioClave><CambiarClaveInterna /></RutaInternaProtegida>} />
+            <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
+            <Route path="/pagos/:id" element={<PasarelaSimulada />} />
 
-        {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
-        <Route element={<LayoutPortal />}>
-          <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
-          <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
-          <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
-          <Route path="/constancias" element={<Constancia />} />
-        </Route>
+          {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
+          <Route element={<RutaContribuyente />}>
+            <Route element={<LayoutPortal />}>
+              <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
+              <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
+              <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
+              <Route path="/constancias" element={<Constancia />} />
+            </Route>
+          </Route>
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
         <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
@@ -113,8 +119,9 @@ export default function App() {
           <Route path="/reclamos" element={<Reclamos />} />
           <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>
-        </Routes>
-      </SesionInternaProvider>
+          </Routes>
+        </SesionInternaProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }

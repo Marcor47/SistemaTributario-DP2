@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -149,7 +150,8 @@ public class AuthInternaController {
         Set<String> permisos = Arrays.stream(rol.getPermisos().split(","))
                 .map(String::trim).filter(valor -> !valor.isBlank()).collect(Collectors.toUnmodifiableSet());
         return new SesionInternaRespuesta(usuario.getIdUsuario(), usuario.getNombreUsuario(),
-                usuario.getNombreCompleto(), rol.getNombre(), permisos, usuario.isCambioClavePendiente());
+                usuario.getNombreCompleto(), rol.getNombre(), List.of(rol.getNombre().name()), permisos,
+                usuario.isCambioClavePendiente());
     }
 
     private void registrarEvento(TipoEventoSeguridad tipo, String usuario, HttpServletRequest request,

@@ -141,9 +141,20 @@ class UsuarioAdminControllerTest {
     void loginInternoHabilitaSesionAdministrador() throws Exception {
         var resultado = mvc.perform(post("/api/auth/interno/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nombreUsuario\":\"admin_hu034\",\"clave\":\"clave-segura\"}"))
-                .andExpect(status().isOk()).andReturn();
-        mvc.perform(get("/api/admin/roles").session((MockHttpSession) resultado.getRequest().getSession(false)))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreUsuario").value("admin_hu034"))
+                .andExpect(jsonPath("$.roles[0]").value("ADMINISTRADOR"))
+                .andReturn();
+        MockHttpSession sesion = (MockHttpSession) resultado.getRequest().getSession(false);
+        mvc.perform(get("/api/admin/roles").session(sesion)).andExpect(status().isOk());
+        mvc.perform(get("/api/auth/interno/me").session(sesion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombreUsuario").value("admin_hu034"));
+    }
+
+    @Test
+    void meSinSesionInternaRetorna401() throws Exception {
+        mvc.perform(get("/api/auth/interno/me")).andExpect(status().isUnauthorized());
     }
 
     @Test
