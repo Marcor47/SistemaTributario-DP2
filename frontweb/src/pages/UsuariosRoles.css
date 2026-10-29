@@ -1,0 +1,7 @@
+.tabla-usuarios td { vertical-align: middle; }
+.tabla-usuarios td:first-child { min-width: 260px; }
+.tabla-historial-roles { min-width: 760px; }
+.usuario-detalle { display: block; margin-top: 2px; font-size: 13.5px; color: var(--texto-atenuado); }
+.formulario-rol .fld { min-width: 0; }
+.formulario-rol select, .formulario-rol textarea { width: 100%; }
+.formulario-rol + .alert { margin-top: 12px; }

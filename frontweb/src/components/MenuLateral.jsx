@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { MODULOS, icono } from '../utils/modulos.jsx'
 import { cerrarSesion } from '../services/authService.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 /**
  * Panel de navegación lateral.
@@ -14,14 +15,17 @@ import { cerrarSesion } from '../services/authService.js'
  */
 export default function MenuLateral({ solo }) {
   const navegar = useNavigate()
+  const { limpiarSesion } = useAuth()
   const [errorSalida, setErrorSalida] = useState('')
+  const rutaLogin = solo === 'gestion' ? '/interno/login' : '/login'
 
   async function salir(evento) {
     evento.preventDefault()
     setErrorSalida('')
     try {
       await cerrarSesion()
-      navegar('/login', { replace: true })
+      limpiarSesion()
+      navegar(rutaLogin, { replace: true })
     } catch (err) {
       setErrorSalida(err.message)
     }
@@ -78,7 +82,7 @@ export default function MenuLateral({ solo }) {
       <div className="menu-pie">
         <p className="menu-demo" role="note">Datos ficticios de demostración</p>
         {errorSalida && <p role="alert">{errorSalida}</p>}
-        <Link to="/login" className="menu-salir" onClick={salir}>
+        <Link to={rutaLogin} className="menu-salir" onClick={salir}>
           {icono(<><path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
           Salir
         </Link>

@@ -312,6 +312,7 @@ body {
 .formulario-meta .fld { min-width: 0; }
 .formulario-meta input, .formulario-meta select, .formulario-meta textarea { width: 100%; }
 .fld-error input, .fld-error select, .fld-error textarea { border-color: var(--critico); }
+.error-campo { color: var(--critico); font-size: 14px; font-weight: 600; }
 .ficha-indicador { margin-top: 4px; }
 .ficha-indicador p { margin: 6px 0 0; line-height: 1.5; }
 .notificacion-temporal { margin: 16px 0 0; animation: desvanecer-notificacion 5s ease forwards; }
