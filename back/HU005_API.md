@@ -131,6 +131,7 @@ Todos con el formato `{ "codigo", "mensaje", "detalles" }`.
 | `058934-01` | Copropiedad: 2 titulares, 12 cuotas. |
 | `XXX` | Predio inexistente (404). |
 
-Usuario interno de prueba (solo desarrollo local): `admin` / `admin123`, rol `ADMINISTRADOR`. Todavía no hay
-pantalla de login interno en `frontweb`; hasta que exista, el front debe llamar primero a
-`/api/auth/interno/login`.
+Usuarios internos de prueba (solo desarrollo local, semilla `R__datos_prueba_08_usuarios_internos.sql`):
+`admin` / `admin123` (rol `ADMINISTRADOR`) y `analista` / `analista123` (rol `ANALISTA_RENTAS`). En `frontweb` se
+ingresa por `/interno/login`. `POST /api/auth/interno/login` devuelve `{nombreUsuario, nombreCompleto, roles}` y
+`GET /api/auth/interno/me` devuelve lo mismo para la sesión vigente (401 sin sesión).

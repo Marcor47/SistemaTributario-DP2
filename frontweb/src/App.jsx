@@ -3,6 +3,9 @@ import MenuLateral from './components/MenuLateral.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Login from './pages/Login.jsx'
+import LoginInterno from './pages/LoginInterno.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
+import { RutaContribuyente, RutaInterna } from './components/RutaProtegida.jsx'
 import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
@@ -77,29 +80,36 @@ function LayoutGestion() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Inicio />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
-        <Route path="/pagos/:id" element={<PasarelaSimulada />} />
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Inicio />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/interno/login" element={<LoginInterno />} />
+          <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
+          <Route path="/pagos/:id" element={<PasarelaSimulada />} />
 
-        {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
-        <Route element={<LayoutPortal />}>
-          <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
-          <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
-          <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
-          <Route path="/constancias" element={<Constancia />} />
-        </Route>
+          {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
+          <Route element={<RutaContribuyente />}>
+            <Route element={<LayoutPortal />}>
+              <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
+              <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
+              <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
+              <Route path="/constancias" element={<Constancia />} />
+            </Route>
+          </Route>
 
-        {/* Rutas de funcionarios (Gestión Municipal) */}
-        <Route element={<LayoutGestion />}>
-          <Route path="/predios" element={<ConsultaPredio />} />
-          <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
-          <Route path="/metas" element={<ConfiguracionMetas />} />
-          <Route path="/formularios" element={<Formularios />} />
-          <Route path="/morosidad" element={<IndiceMorosidad />} />
-        </Route>
-      </Routes>
+          {/* Rutas de funcionarios (Gestión Municipal) */}
+          <Route element={<RutaInterna />}>
+            <Route element={<LayoutGestion />}>
+              <Route path="/predios" element={<ConsultaPredio />} />
+              <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
+              <Route path="/metas" element={<ConfiguracionMetas />} />
+              <Route path="/formularios" element={<Formularios />} />
+              <Route path="/morosidad" element={<IndiceMorosidad />} />
+            </Route>
+          </Route>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
