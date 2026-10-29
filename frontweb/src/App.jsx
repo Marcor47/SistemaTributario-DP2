@@ -11,6 +11,12 @@ import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
+import LoginInterno from './pages/LoginInterno.jsx'
+import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
+import AdministracionUsuarios from './pages/AdministracionUsuarios.jsx'
+import SinAcceso from './pages/SinAcceso.jsx'
+import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
+import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
 
 /**
  * Layout exclusivo para el Portal del Ciudadano (Servicios en Línea).
@@ -77,9 +83,12 @@ function LayoutGestion() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <SesionInternaProvider>
+        <Routes>
         <Route path="/" element={<Inicio />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/gestion/login" element={<LoginInterno />} />
+        <Route path="/gestion/cambiar-clave" element={<RutaInternaProtegida permitirCambioClave><CambiarClaveInterna /></RutaInternaProtegida>} />
         <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
         <Route path="/pagos/:id" element={<PasarelaSimulada />} />
 
@@ -92,14 +101,17 @@ export default function App() {
         </Route>
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
-        <Route element={<LayoutGestion />}>
-          <Route path="/predios" element={<ConsultaPredio />} />
-          <Route path="/contribuyentes" element={<ConsultaContribuyente />} />
-          <Route path="/metas" element={<ConfiguracionMetas />} />
-          <Route path="/formularios" element={<Formularios />} />
-          <Route path="/morosidad" element={<IndiceMorosidad />} />
+        <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
+          <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><AdministracionUsuarios /></RutaInternaProtegida>} />
+          <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
+          <Route path="/contribuyentes" element={<RutaInternaProtegida permiso="CONTRIBUYENTES:CONSULTAR"><ConsultaContribuyente /></RutaInternaProtegida>} />
+          <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
+          <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
+          <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
+          <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>
-      </Routes>
+        </Routes>
+      </SesionInternaProvider>
     </BrowserRouter>
   )
 }

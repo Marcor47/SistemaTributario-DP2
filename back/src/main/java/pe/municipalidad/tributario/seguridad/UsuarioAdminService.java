@@ -3,10 +3,13 @@ package pe.municipalidad.tributario.seguridad;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
+import pe.municipalidad.tributario.common.ConflictoException;
 
 @Service
 public class UsuarioAdminService {
@@ -15,34 +18,47 @@ public class UsuarioAdminService {
     private final RegistroAuditoriaRepository auditorias;
     private final EventoSeguridadRepository eventos;
     private final ClaveInternaService claves;
+    private final PasswordTemporalService passwordsTemporales;
     private final Clock reloj;
+
+    private static final Set<NombreRol> ROLES_ASIGNABLES = Set.of(NombreRol.ADMINISTRADOR, NombreRol.GERENCIA,
+            NombreRol.ANALISTA_RENTAS, NombreRol.RESPONSABLE_DATOS, NombreRol.VENTANILLA,
+            NombreRol.TERMINALISTA);
 
     public UsuarioAdminService(UsuarioRepository usuarios, RolRepository roles,
             RegistroAuditoriaRepository auditorias, EventoSeguridadRepository eventos,
-            ClaveInternaService claves, Clock reloj) {
+            ClaveInternaService claves, PasswordTemporalService passwordsTemporales, Clock reloj) {
         this.usuarios = usuarios;
         this.roles = roles;
         this.auditorias = auditorias;
         this.eventos = eventos;
         this.claves = claves;
+        this.passwordsTemporales = passwordsTemporales;
         this.reloj = reloj;
     }
 
     @Transactional
-    public UsuarioRespuesta crearUsuario(CrearUsuarioSolicitud solicitud, String adminUsuario, String ipOrigen) {
+    public UsuarioCreadoRespuesta crearUsuario(CrearUsuarioSolicitud solicitud, String adminUsuario,
+            String ipOrigen) {
         Usuario admin = administrador(adminUsuario);
-        if (usuarios.findByNombreUsuario(solicitud.nombreUsuario()).isPresent()) {
-            throw new ReglaNegocioException("USUARIO_DUPLICADO", "El nombre de usuario ya existe.");
+        String nombreUsuario = solicitud.nombreUsuario().trim().toLowerCase(Locale.ROOT);
+        String correo = solicitud.correo().trim().toLowerCase(Locale.ROOT);
+        if (usuarios.findByNombreUsuarioIgnoreCase(nombreUsuario).isPresent()) {
+            throw new ConflictoException("USUARIO_DUPLICADO", "El nombre de usuario ya existe.");
+        }
+        if (usuarios.existsByCorreoIgnoreCase(correo)) {
+            throw new ConflictoException("CORREO_DUPLICADO", "El correo ya está registrado.");
         }
         Rol rol = buscarRol(solicitud.rol());
+        String passwordTemporal = passwordsTemporales.generar();
         LocalDateTime ahora = LocalDateTime.now(reloj);
-        Usuario usuario = usuarios.save(new Usuario(solicitud.nombreUsuario(), solicitud.nombreCompleto(),
-                solicitud.correo(), claves.hashear(solicitud.claveInicial()), rol, ahora));
+        Usuario usuario = usuarios.save(new Usuario(nombreUsuario, solicitud.nombreCompleto().trim(), correo,
+                claves.hashear(passwordTemporal), rol, ahora, true));
         auditorias.save(new RegistroAuditoria(admin, usuario, "CREAR_USUARIO", "Usuario", null,
                 rol.getNombre().name(), ahora));
-        eventos.save(new EventoSeguridad(TipoEventoSeguridad.CAMBIO_ROL, adminUsuario, ipOrigen,
+        eventos.save(new EventoSeguridad(TipoEventoSeguridad.CREACION_USUARIO, adminUsuario, ipOrigen,
                 "Creación de usuario " + usuario.getNombreUsuario() + " con rol " + rol.getNombre().name(), ahora));
-        return respuesta(usuario);
+        return new UsuarioCreadoRespuesta(respuesta(usuario), passwordTemporal);
     }
 
     @Transactional
@@ -78,11 +94,15 @@ public class UsuarioAdminService {
 
     @Transactional(readOnly = true)
     public List<RolRespuesta> listarRoles() {
-        return roles.findAll().stream().map(rol -> new RolRespuesta(rol.getIdRol(), rol.getNombre(),
+        return roles.findAll().stream().filter(rol -> ROLES_ASIGNABLES.contains(rol.getNombre()))
+                .map(rol -> new RolRespuesta(rol.getIdRol(), rol.getNombre(),
                 rol.getDescripcion(), rol.getPermisos())).toList();
     }
 
     private Rol buscarRol(NombreRol nombre) {
+        if (!ROLES_ASIGNABLES.contains(nombre)) {
+            throw new ReglaNegocioException("ROL_NO_ASIGNABLE", "El rol no se puede asignar en esta operación.");
+        }
         return roles.findByNombre(nombre).orElseThrow(() ->
                 new RecursoNoEncontradoException("ROL_NO_ENCONTRADO", "El rol no existe."));
     }
@@ -99,6 +119,7 @@ public class UsuarioAdminService {
     private UsuarioRespuesta respuesta(Usuario usuario) {
         NombreRol nombre = usuario.getRoles().stream().map(Rol::getNombre).findFirst().orElse(null);
         return new UsuarioRespuesta(usuario.getIdUsuario(), usuario.getNombreUsuario(), usuario.getNombreCompleto(),
-                usuario.getCorreo(), nombre, usuario.isActivo(), usuario.getFechaCreacion());
+                usuario.getCorreo(), nombre, usuario.isActivo(), usuario.isCambioClavePendiente(),
+                usuario.getFechaCreacion());
     }
 }

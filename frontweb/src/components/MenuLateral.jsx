@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { MODULOS, icono } from '../utils/modulos.jsx'
 import { cerrarSesion } from '../services/authService.js'
+import { useSesionInterna } from '../context/sesionInterna.js'
 
 /**
  * Panel de navegación lateral.
@@ -14,21 +15,28 @@ import { cerrarSesion } from '../services/authService.js'
  */
 export default function MenuLateral({ solo }) {
   const navegar = useNavigate()
+  const { sesion, salir: salirInterno } = useSesionInterna()
   const [errorSalida, setErrorSalida] = useState('')
 
   async function salir(evento) {
     evento.preventDefault()
     setErrorSalida('')
     try {
-      await cerrarSesion()
-      navegar('/login', { replace: true })
+      if (solo === 'gestion') {
+        await salirInterno()
+        navegar('/gestion/login', { replace: true })
+      } else {
+        await cerrarSesion()
+        navegar('/login', { replace: true })
+      }
     } catch (err) {
       setErrorSalida(err.message)
     }
   }
 
   const modulosPortal  = MODULOS.filter((m) => m.seccion === 'portal')
-  const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal')
+  const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal'
+    && (!m.permiso || sesion?.permisos?.includes(m.permiso)))
 
   const mostrarPortal  = !solo || solo === 'portal'
   const mostrarGestion = !solo || solo === 'gestion'
@@ -78,7 +86,8 @@ export default function MenuLateral({ solo }) {
       <div className="menu-pie">
         <p className="menu-demo" role="note">Datos ficticios de demostración</p>
         {errorSalida && <p role="alert">{errorSalida}</p>}
-        <Link to="/login" className="menu-salir" onClick={salir}>
+        {solo === 'gestion' && sesion && <p className="menu-demo" role="status">{sesion.nombreCompleto}</p>}
+        <Link to={solo === 'gestion' ? '/gestion/login' : '/login'} className="menu-salir" onClick={salir}>
           {icono(<><path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
           Salir
         </Link>

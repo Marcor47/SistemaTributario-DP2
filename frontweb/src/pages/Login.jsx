@@ -160,6 +160,11 @@ export default function Login() {
               </div>
             )}
 
+            <div className="lg-alternar">
+              <span>¿Trabajas en la Municipalidad?</span>
+              <Link to="/gestion/login">Ingresar como funcionario</Link>
+            </div>
+
             <p className="lg-ayuda">
               ¿Problemas para ingresar? Acércate a la Gerencia de Rentas de la Municipalidad de San Miguel.
             </p>

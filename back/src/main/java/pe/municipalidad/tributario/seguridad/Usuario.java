@@ -44,6 +44,12 @@ public class Usuario {
     @Column(name = "fecha_creacion", nullable = false)
     private LocalDateTime fechaCreacion;
 
+    @Column(name = "cambio_clave_pendiente", nullable = false)
+    private boolean cambioClavePendiente;
+
+    @Column(name = "fecha_cambio_clave")
+    private LocalDateTime fechaCambioClave;
+
     /* Usuario * tiene 1..* Rol */
     @ManyToMany
     @JoinTable(name = "usuario_rol", schema = "seguridad",
@@ -56,17 +62,26 @@ public class Usuario {
 
     public Usuario(String nombreUsuario, String nombreCompleto, String correo, String claveHash, Rol rolInicial,
             LocalDateTime fechaCreacion) {
+        this(nombreUsuario, nombreCompleto, correo, claveHash, rolInicial, fechaCreacion, false);
+    }
+
+    public Usuario(String nombreUsuario, String nombreCompleto, String correo, String claveHash, Rol rolInicial,
+            LocalDateTime fechaCreacion, boolean cambioClavePendiente) {
         this.nombreUsuario = nombreUsuario;
         this.nombreCompleto = nombreCompleto;
         this.correo = correo;
         this.claveHash = claveHash;
         this.activo = true;
         this.fechaCreacion = fechaCreacion;
+        this.cambioClavePendiente = cambioClavePendiente;
+        this.fechaCambioClave = cambioClavePendiente ? null : fechaCreacion;
         this.roles.add(rolInicial);
     }
 
-    public void cambiarClave(String nuevoHash) {
+    public void cambiarClave(String nuevoHash, LocalDateTime fechaCambio) {
         this.claveHash = nuevoHash;
+        this.cambioClavePendiente = false;
+        this.fechaCambioClave = fechaCambio;
     }
 
     public void asignarRol(Rol rol) {
@@ -112,6 +127,14 @@ public class Usuario {
 
     public LocalDateTime getFechaCreacion() {
         return fechaCreacion;
+    }
+
+    public boolean isCambioClavePendiente() {
+        return cambioClavePendiente;
+    }
+
+    public LocalDateTime getFechaCambioClave() {
+        return fechaCambioClave;
     }
 
     public Set<Rol> getRoles() {

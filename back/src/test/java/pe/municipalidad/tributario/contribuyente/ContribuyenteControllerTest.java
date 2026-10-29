@@ -9,10 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /* HU001: consultar contribuyente por documento. */
-@PruebaIntegracion
+@PruebaInterna
 class ContribuyenteControllerTest {
 
     private static final String RUTA = "/api/contribuyentes";

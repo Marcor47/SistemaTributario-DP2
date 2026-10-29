@@ -1,0 +1,42 @@
+.gi-acceso { min-height: 100vh; display: grid; place-items: center; padding: 32px 16px; background: radial-gradient(circle at 15% 10%, rgba(25, 195, 243, 0.16), transparent 35%), var(--fondo); }
+.gi-login { width: min(100%, 480px); padding: 32px; border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie); box-shadow: var(--sombra); }
+.gi-login > img { width: 150px; height: auto; margin-bottom: 20px; }
+.gi-login h1 { margin: 4px 0 8px; color: var(--marino-osc); font-size: clamp(28px, 5vw, 36px); }
+.gi-login > p { color: var(--texto-secundario); }
+.gi-login form { display: grid; gap: 16px; margin-top: 24px; }
+.gi-etiqueta { margin: 0; color: var(--marino); font-size: 14px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.gi-volver { display: inline-block; margin-bottom: 22px; color: var(--marino-osc); font-weight: 700; }
+.gi-ancho { width: 100%; }
+.gi-ayuda { margin: 18px 0 0; font-size: 14px; }
+.gi-mensaje { margin: 16px 0; padding: 12px 14px; border-radius: 10px; }
+.gi-mensaje--error { color: var(--critico); background: var(--critico-fondo); border: 1px solid #EAB1AC; }
+.gi-clave { position: relative; width: 100%; }
+.gi-clave input { display: block; width: 100%; padding-right: 56px; }
+.gi-clave__ojo { position: absolute; top: 50%; right: 4px; width: 44px; height: 44px; display: grid; place-items: center; transform: translateY(-50%); border: 0; border-radius: 8px; background: transparent; color: var(--texto-secundario); cursor: pointer; }
+.gi-clave__ojo:hover { background: var(--fondo); color: var(--marino-osc); }
+.gi-clave__ojo:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.gi-confirmacion { text-align: center; }
+.gi-confirmacion:focus { outline: none; }
+.gi-confirmacion > svg { margin-bottom: 16px; color: var(--exito); }
+.gi-confirmacion > p:not(.gi-etiqueta) { margin: 12px 0 24px; color: var(--texto-secundario); }
+.gi-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 22px; }
+.gi-form-accion { display: flex; align-items: flex-end; }
+.gi-error-campo { margin: 0; color: var(--critico); font-size: 14px; }
+.gi-temporal { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; margin: 20px 0; padding: 18px 52px 18px 18px; border: 1px solid #9ADBB8; border-left: 5px solid var(--exito); border-radius: 12px; background: var(--exito-fondo); color: var(--exito); }
+.gi-temporal p { margin: 4px 0 0; }
+.gi-temporal code { padding: 8px 10px; border-radius: 8px; background: #fff; color: var(--texto); font-size: 16px; }
+.gi-cerrar { position: absolute; top: 8px; right: 8px; width: 44px; height: 44px; border: 0; background: transparent; color: var(--texto); font-size: 26px; cursor: pointer; border-radius: 8px; }
+.gi-cerrar:hover { background: rgba(0, 0, 0, 0.06); }
+.gi-cerrar:focus-visible, .gi-volver:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.tabla-scroll { overflow-x: auto; margin-top: 16px; }
+
+@media (max-width: 760px) {
+  .gi-login { padding: 24px 20px; }
+  .gi-form-grid { grid-template-columns: 1fr; }
+  .gi-temporal { grid-template-columns: 1fr; align-items: start; }
+  .gi-temporal .btn { justify-self: start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gi-login *, .gi-temporal * { scroll-behavior: auto; transition-duration: 0.01ms !important; }
+}

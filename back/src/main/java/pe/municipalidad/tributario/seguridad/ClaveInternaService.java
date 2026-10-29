@@ -1,23 +1,22 @@
 package pe.municipalidad.tributario.seguridad;
 
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-/** pgcrypto usa bcrypt con sal aleatoria; la misma función verifica hashes almacenados. */
+/** Protege las contraseñas internas con BCrypt de coste 12. */
 @Service
 public class ClaveInternaService {
-    private final JdbcTemplate jdbc;
+    private final PasswordEncoder encoder;
 
-    public ClaveInternaService(JdbcTemplate jdbc) {
-        this.jdbc = jdbc;
+    public ClaveInternaService(PasswordEncoder encoder) {
+        this.encoder = encoder;
     }
 
     public String hashear(String clave) {
-        return jdbc.queryForObject("SELECT public.crypt(?, public.gen_salt('bf', 12))", String.class, clave);
+        return encoder.encode(clave);
     }
 
     public boolean verificar(String clave, String hash) {
-        return Boolean.TRUE.equals(jdbc.queryForObject("SELECT public.crypt(?, ?) = ?", Boolean.class,
-                clave, hash, hash));
+        return encoder.matches(clave, hash);
     }
 }
