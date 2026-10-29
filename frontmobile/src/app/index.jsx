@@ -22,6 +22,12 @@ const SERVICIOS = [
     titulo: 'Registro o traspaso de predio',
     descripcion: 'Envía tu solicitud y adjunta los documentos desde tu celular.',
   },
+  {
+    ruta: '/constancia',
+    icono: 'documento',
+    titulo: 'Constancia de No Adeudo',
+    descripcion: 'Solicita y firma tu constancia desde el celular.',
+  },
 ]
 
 export default function Inicio() {

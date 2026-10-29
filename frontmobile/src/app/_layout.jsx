@@ -41,6 +41,7 @@ function Navegacion() {
           <Stack.Screen name="pagos/[id]" />
           <Stack.Screen name="solicitud-predio/index" />
           <Stack.Screen name="solicitud-predio/enviada" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="constancia/index" />
         </Stack.Protected>
       </Stack>
     </PagosProvider>
