@@ -93,6 +93,14 @@
 .lg-demo__usar:hover:not(:disabled) { background: #FFE8B8; }
 .lg-demo__usar:focus-visible { outline: 3px solid var(--sm-cian); outline-offset: 3px; }
 .lg-demo__usar:disabled { opacity: 0.6; cursor: default; }
+.lg-alternar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px;
+  margin-top: 24px; padding: 14px 16px; border: 1px solid var(--sm-borde); border-radius: 10px;
+  background: #F4F8FC; color: var(--sm-texto-sec); font-size: 15px;
+}
+.lg-alternar a { color: var(--sm-marino-osc); font-weight: 700; text-underline-offset: 3px; }
+.lg-alternar a:hover { color: var(--sm-marino); }
+.lg-alternar a:focus-visible { outline: 3px solid var(--sm-cian); outline-offset: 3px; border-radius: 3px; }
 .lg-ayuda { margin: 28px 0 0; padding-top: 20px; border-top: 1px solid #E1E8F0; font-size: 15px; color: var(--sm-texto-sec); }
 
 @media (max-width: 900px) {

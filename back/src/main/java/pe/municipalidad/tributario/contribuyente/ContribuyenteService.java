@@ -46,6 +46,16 @@ public class ContribuyenteService {
         return ContribuyenteRespuesta.desde(contribuyente, predios);
     }
 
+    /* HU001: coincidencias por código, nombre o documento para el buscador interno de la ficha. */
+    public List<ContribuyenteCoincidenciaRespuesta> buscar(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return List.of();
+        }
+        return samnet.buscarContribuyentes(texto.trim()).stream()
+                .map(ContribuyenteCoincidenciaRespuesta::desde)
+                .toList();
+    }
+
     /* Usado por otros módulos que necesitan asegurar que el contribuyente existe antes de continuar. */
     public Contribuyente obtenerPorCodigo(String codigo) {
         return samnet.buscarContribuyente(codigo).stream()

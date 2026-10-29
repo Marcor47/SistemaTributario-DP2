@@ -1,9 +1,24 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MotionConfig, motion } from 'framer-motion'
-import { esSesionDemo } from '../services/authService.js'
+import { esSesionDemo, obtenerSesionContribuyente } from '../services/authService.js'
 import './Inicio.css'
 
 const MODULOS = [
+  {
+    titulo: 'Dashboard y alertas',
+    ruta: '/dashboard',
+    imagen: '/modulos/metas.jpg',
+    texto: 'Revisa las alertas activas cuando un indicador se desvía de su meta configurada.',
+    icono: (
+      <>
+        <rect x="3" y="3" width="7" height="9" rx="1" />
+        <rect x="14" y="3" width="7" height="5" rx="1" />
+        <rect x="14" y="12" width="7" height="9" rx="1" />
+        <rect x="3" y="16" width="7" height="5" rx="1" />
+      </>
+    ),
+  },
   {
     titulo: 'Consulta de predios',
     ruta: '/predios',
@@ -95,7 +110,27 @@ const aparece = {
 }
 
 export default function Inicio() {
-  const tieneSesion = esSesionDemo()
+  const [tieneSesion, setTieneSesion] = useState(esSesionDemo)
+  const [selectorAbierto, setSelectorAbierto] = useState(false)
+
+  useEffect(() => {
+    let activo = true
+    obtenerSesionContribuyente()
+      .then(() => { if (activo) setTieneSesion(true) })
+      .catch(() => { if (activo) setTieneSesion(false) })
+    return () => { activo = false }
+  }, [])
+
+  function volverAlInicio(evento) {
+    evento.preventDefault()
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`)
+    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }
+
+  function accesoContribuyente(clase, contenido) {
+    if (tieneSesion) return <Link to="/estado-cuenta" className={clase}>{contenido}</Link>
+    return <button type="button" className={clase} aria-haspopup="dialog" onClick={() => setSelectorAbierto(true)}>{contenido}</button>
+  }
 
   return (
     <MotionConfig reducedMotion="user">
@@ -103,24 +138,16 @@ export default function Inicio() {
         <a className="in-skip" href="#modulos">Saltar al contenido</a>
 
         <header className="in-top">
-          <Link to="/" className="in-top__logo" aria-label="Municipalidad de San Miguel, inicio">
+          <Link to="/" className="in-top__logo" aria-label="Municipalidad de San Miguel, volver al inicio" onClick={volverAlInicio}>
             <img src="/logo-san-miguel.png" alt="Municipalidad San Miguel" width="178" height="74" />
           </Link>
           <nav className="in-top__nav" aria-label="Secciones">
             <a href="#modulos">Módulos</a>
             <a href="#como-funciona">Cómo funciona</a>
           </nav>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <Link
-              to={tieneSesion ? '/estado-cuenta' : '/login'}
-              state={tieneSesion ? undefined : { from: '/estado-cuenta', motivo: 'servicios-en-linea' }}
-              className="in-btn in-btn--cian"
-            >
-              Servicios en Línea
-            </Link>
-            <Link to={tieneSesion ? '/estado-cuenta' : '/login'} className="in-btn in-btn--primario">
-              {tieneSesion ? 'Mi Cuenta' : 'Ingresar'}
-            </Link>
+          <div className="in-top__acciones">
+            {accesoContribuyente('in-btn in-btn--cian', tieneSesion ? 'Mi cuenta' : 'Servicios en Línea')}
+            <button type="button" className="in-btn in-btn--primario" aria-haspopup="dialog" onClick={() => setSelectorAbierto(true)}>Ingresar</button>
           </div>
         </header>
 
@@ -150,16 +177,12 @@ export default function Inicio() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.2 }}
               >
-                <Link
-                  to={tieneSesion ? '/estado-cuenta' : '/login'}
-                  state={tieneSesion ? undefined : { from: '/estado-cuenta', motivo: 'servicios-en-linea' }}
-                  className="in-btn in-btn--cian in-btn--grande"
-                >
+                {accesoContribuyente('in-btn in-btn--cian in-btn--grande', <>
                   {tieneSesion ? 'Ir a mi Estado de Cuenta' : 'Ingresar al sistema'}
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
-                </Link>
+                </>)}
                 <a href="#modulos" className="in-btn in-btn--contorno in-btn--grande">Conocer los módulos</a>
               </motion.div>
               <motion.ul
@@ -263,8 +286,10 @@ export default function Inicio() {
           <section className="in-cta">
             <motion.div {...aparece}>
               <h2>¿Listo para comenzar?</h2>
-              <p>Ingresa con tu cuenta institucional para acceder al sistema.</p>
-              <Link to="/login" className="in-btn in-btn--claro in-btn--grande">Ingresar al sistema</Link>
+              <p>Accede a los servicios tributarios de la Municipalidad de San Miguel.</p>
+              <div className="in-cta__acciones">
+                {accesoContribuyente('in-btn in-btn--claro in-btn--grande', tieneSesion ? 'Ir a mi cuenta' : 'Ingresar al sistema')}
+              </div>
             </motion.div>
           </section>
         </main>
@@ -276,7 +301,57 @@ export default function Inicio() {
             ficticios.
           </p>
         </footer>
+        <SelectorAcceso abierto={selectorAbierto} onCerrar={() => setSelectorAbierto(false)} />
       </div>
     </MotionConfig>
+  )
+}
+
+function SelectorAcceso({ abierto, onCerrar }) {
+  const dialogo = useRef(null)
+
+  function cerrar() {
+    if (dialogo.current?.open) dialogo.current.close()
+    else onCerrar()
+  }
+
+  useEffect(() => {
+    const elemento = dialogo.current
+    if (!elemento) return
+    if (abierto && !elemento.open) elemento.showModal()
+    if (!abierto && elemento.open) elemento.close()
+  }, [abierto])
+
+  if (!abierto) return null
+
+  return (
+    <dialog ref={dialogo} className="in-selector" aria-labelledby="selector-titulo" aria-describedby="selector-descripcion" onCancel={(evento) => { evento.preventDefault(); cerrar() }} onClose={onCerrar}>
+      <button type="button" className="in-selector__cerrar" onClick={cerrar} aria-label="Cerrar selección de acceso">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+      <div className="in-selector__cabecera">
+        <p>Acceso al sistema tributario</p>
+        <h2 id="selector-titulo">¿Cómo deseas ingresar?</h2>
+        <span id="selector-descripcion">Selecciona el tipo de cuenta que te corresponde.</span>
+      </div>
+      <div className="in-selector__opciones">
+        <Link to="/login" className="in-selector__tarjeta">
+          <span className="in-selector__icono" aria-hidden="true">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
+          </span>
+          <strong>Contribuyente</strong>
+          <span>Consulta tu estado de cuenta, pagos, obligaciones y constancias.</span>
+          <small>Ingresar a Servicios en Línea <span aria-hidden="true">→</span></small>
+        </Link>
+        <Link to="/gestion/login" className="in-selector__tarjeta">
+          <span className="in-selector__icono" aria-hidden="true">
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V4h8v3M8 12h8M8 16h5" /></svg>
+          </span>
+          <strong>Funcionario municipal</strong>
+          <span>Accede a los módulos internos habilitados según tu rol.</span>
+          <small>Ingresar a Gestión Municipal <span aria-hidden="true">→</span></small>
+        </Link>
+      </div>
+    </dialog>
   )
 }

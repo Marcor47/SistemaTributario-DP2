@@ -1,4 +1,6 @@
 spring:
+  autoconfigure:
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   servlet:
     multipart:
       max-file-size: 10MB
@@ -14,8 +16,7 @@ spring:
       ddl-auto: validate
     open-in-view: false
   flyway:
-    # db/datos-prueba solo tiene datos ficticios para desarrollo; se quita al pasar a un entorno real
-    locations: classpath:db/migration,classpath:db/datos-prueba
+    locations: classpath:db/migration
 
 server:
   port: 8080
@@ -27,6 +28,14 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
 
 tributario:
+  seguridad:
+    cors-origins: ${CORS_ORIGINS:http://localhost:5173}
+    administrador-inicial:
+      habilitado: ${INITIAL_ADMIN_ENABLED:false}
+      usuario: ${INITIAL_ADMIN_USERNAME:}
+      nombre: ${INITIAL_ADMIN_FULL_NAME:}
+      correo: ${INITIAL_ADMIN_EMAIL:}
+      clave: ${INITIAL_ADMIN_PASSWORD:}
   archivos:
     predios: ${PREDIO_FILES_DIR:./storage/predios}
     clave: ${PREDIO_FILES_KEY:}

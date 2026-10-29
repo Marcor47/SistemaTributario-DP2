@@ -50,11 +50,16 @@ puede perderse al reiniciar el backend porque la pasarela conserva órdenes en m
 
 ## Declaración jurada del predio (HU003)
 
-En `/predios`, busca y selecciona un predio. Las minipestañas **Resumen** y
-**Declaración jurada** conservan el mismo predio seleccionado. La segunda consulta
+En `/predios`, busca y selecciona un predio. Las minipestañas **Resumen**,
+**Declaración jurada** y **Arbitrios** conservan el mismo predio seleccionado. La segunda consulta
 `GET /api/predios/{codigoPredio}/declaracion-jurada` mediante `VITE_API_URL`
 (por defecto `http://localhost:8080/api`). Requiere el backend disponible, incluso
 si otras pantallas están en modo demostración; no sustituye errores por una DJ ficticia.
+
+La pestaña **Declaración jurada** exige sesión interna con rol `ANALISTA_RENTAS` o
+`ADMINISTRADOR`, igual que **Arbitrios** (`back/HU005_API.md`): sin sesión o sin rol muestra
+el aviso con enlace a `/interno/login`; una sesión vencida (401) pide reingresar. Inicia sesión
+en `/interno/login` con `admin` / `admin123` (seed de desarrollo).
 
 La pantalla muestra la DJ vigente y su autoavalúo, el historial no vigente, la fecha
 de consulta y las advertencias de SAMNET. La vigencia la resuelve la API y no se
@@ -64,6 +69,30 @@ descarta la consulta anterior. Un importe ausente se muestra como no disponible.
 Para probar la integración, usa `014502-01` (vigente 2024 e histórica 2012) o
 `021390-01` (solo vigente). La búsqueda y el resumen de HU002 siguen usando los
 datos de demostración existentes; conectarlos a su API queda fuera de HU003.
+
+## Arbitrios de un predio (HU005)
+
+En `/predios`, la pestaña **Arbitrios** consulta al abrirse
+`GET /api/predios/{codigoPredio}/arbitrios`. Es una consulta exclusiva del personal
+municipal con sesión interna y rol `ANALISTA_RENTAS` o `ADMINISTRADOR`; sin sesión o
+sin rol, la pestaña lo indica y enlaza a `/interno/login`. Al volver del login hay
+que buscar el predio nuevamente.
+
+La pantalla muestra la fecha de corte, los titulares, el resumen (emitido, pagado,
+descontado y saldo) y las cuotas por titular con su estado. La API maneja los
+arbitrios como un solo tributo (`ARBITRIOS`): no se muestran tres montos ni se
+inventa el reparto de limpieza pública, parques y jardines, y seguridad ciudadana.
+Con copropiedad, las cuotas se agrupan por `codigoContribuyente`. Un predio sin
+arbitrios devuelve `cuotas: []` y se muestra como estado vacío; los errores de SAMNET,
+404 y de conexión permiten reintentar. Una sesión interna vencida (401) pide
+reingresar.
+
+Para probar, inicia sesión en `/interno/login` con `admin` / `admin123` (usuario de
+desarrollo creado por `R__datos_prueba_08_usuarios_internos.sql`) y usa `014502-01`
+(todas pagadas), `021390-01` (3 pagadas y 3 vencidas), `045067-01` o `058934-01`
+(copropiedad, 12 cuotas). La búsqueda de predios sigue usando los datos de
+demostración de HU002, así que solo esos códigos se pueden seleccionar en la pantalla;
+el `404` de un predio inexistente se comprueba llamando directamente a la API.
 
 ## Morosidad (HU008) y mi estado de cuenta (HU014)
 

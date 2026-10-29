@@ -11,3 +11,24 @@
 .reclamo-detalle { display: block; margin-top: 2px; font-size: 13.5px; color: var(--texto-atenuado); }
 #detalle-reclamo h3 { margin: 18px 0 8px; font-size: 16px; color: var(--marino-osc); }
 .derivaciones { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 10px; }
+.cancelacion-reclamo { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--borde); }
+.cancelacion-reclamo .alert { margin: 0; }
+.cancelacion-reclamo .alert p { margin-top: 0; }
+.tabla-gestion-reclamos { min-width: 940px; }
+.tabla-gestion-reclamos td { vertical-align: top; }
+.detalle-gestion-reclamo:focus { outline: none; }
+.datos-reclamo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.datos-reclamo div { padding: 14px; border: 1px solid var(--borde); border-radius: 10px; background: var(--fondo); }
+.datos-reclamo dt { color: var(--texto-atenuado); font-size: 13px; font-weight: 700; }
+.datos-reclamo dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.historial-gestion-reclamo { margin: 22px 0; }
+.historial-gestion-reclamo h3, .formulario-gestion-reclamo h3 { color: var(--marino-osc); }
+.formulario-gestion-reclamo { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--borde); }
+.formulario-gestion-reclamo h3, .formulario-gestion-reclamo .campo-completo, .formulario-gestion-reclamo > .btn { grid-column: 1 / -1; }
+.formulario-gestion-reclamo select, .formulario-gestion-reclamo textarea { width: 100%; }
+.formulario-gestion-reclamo > .btn { justify-self: start; }
+
+@media (max-width: 700px) {
+  .datos-reclamo, .formulario-gestion-reclamo { grid-template-columns: 1fr; }
+  .formulario-gestion-reclamo > .btn { width: 100%; }
+}

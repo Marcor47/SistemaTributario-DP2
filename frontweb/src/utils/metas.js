@@ -30,6 +30,15 @@ export function formatoValorMeta(valor, unidad) {
   return numero.toLocaleString('es-PE', { maximumFractionDigits: 2 })
 }
 
+export function enlaceMeta(alerta) {
+  const parametros = new URLSearchParams()
+  if (alerta?.idMeta != null) parametros.set('metaId', alerta.idMeta)
+  if (alerta?.indicadorCodigo) parametros.set('indicadorCodigo', alerta.indicadorCodigo)
+  if (alerta?.anio != null) parametros.set('anio', alerta.anio)
+  const consulta = parametros.toString()
+  return consulta ? `/metas?${consulta}` : '/metas'
+}
+
 export function validarMeta({ indicador, anio, numeroPeriodo, valorMeta, observacion }) {
   const errores = {}
   const valor = Number(valorMeta)

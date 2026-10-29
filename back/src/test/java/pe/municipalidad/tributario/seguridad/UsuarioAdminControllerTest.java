@@ -4,10 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDateTime;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,19 +42,24 @@ class UsuarioAdminControllerTest {
 
     @Test
     void creaUsuarioConHashYRegistrosVinculados() throws Exception {
-        mvc.perform(post("/api/admin/usuarios").session(sesionAdmin()).contentType(MediaType.APPLICATION_JSON)
+        String respuesta = mvc.perform(post("/api/admin/usuarios").session(sesionAdmin()).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"nombreUsuario":"operador_hu034","nombreCompleto":"Operador de rentas",
-                         "correo":"operador-hu034@example.org","claveInicial":"clave-operador",
-                         "rol":"VENTANILLA"}
+                         "correo":"operador-hu034@example.org","rol":"VENTANILLA"}
                         """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.rol").value("VENTANILLA"));
+                .andExpect(jsonPath("$.usuario.rol").value("VENTANILLA"))
+                .andExpect(jsonPath("$.usuario.cambioClavePendiente").value(true))
+                .andExpect(jsonPath("$.passwordTemporal").isNotEmpty()).andReturn().getResponse()
+                .getContentAsString();
 
         Usuario objetivo = usuarios.findByNombreUsuario("operador_hu034").orElseThrow();
+        String passwordTemporal = valorJson(respuesta, "passwordTemporal");
         entityManager.flush();
-        assertThat(objetivo.getClaveHash()).isNotEqualTo("clave-operador");
-        assertThat(claves.verificar("clave-operador", objetivo.getClaveHash())).isTrue();
+        assertThat(objetivo.getClaveHash()).isNotEqualTo(passwordTemporal).startsWith("$2");
+        assertThat(claves.verificar(passwordTemporal, objetivo.getClaveHash())).isTrue();
+        assertThat(objetivo.isCambioClavePendiente()).isTrue();
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM seguridad.usuario_rol WHERE id_usuario = ?
                 """, Integer.class, objetivo.getIdUsuario())).isEqualTo(1);
@@ -62,7 +70,7 @@ class UsuarioAdminControllerTest {
                 """, Integer.class, admin.getIdUsuario(), objetivo.getIdUsuario())).isEqualTo(1);
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM seguridad.evento_seguridad
-                WHERE usuario = 'admin_hu034' AND tipo_evento = 'CAMBIO_ROL'
+                WHERE usuario = 'admin_hu034' AND tipo_evento = 'CREACION_USUARIO'
                   AND detalle LIKE '%operador_hu034%' AND ip_origen = '127.0.0.1'
                 """, Integer.class)).isEqualTo(1);
     }
@@ -71,7 +79,7 @@ class UsuarioAdminControllerTest {
     void cambiaRolYRegistraAnteriorNuevoActorYObjetivo() throws Exception {
         Usuario objetivo = usuarios.save(new Usuario("analista_hu035", "Analista", "analista-hu035@example.org",
                 claves.hashear("clave"), rol(NombreRol.ANALISTA_RENTAS), LocalDateTime.now()));
-        mvc.perform(put("/api/admin/usuarios/{id}/rol", objetivo.getIdUsuario()).session(sesionAdmin())
+        mvc.perform(put("/api/admin/usuarios/{id}/rol", objetivo.getIdUsuario()).session(sesionAdmin()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{" + "\"nuevoRol\":\"RESPONSABLE_DATOS\",\"motivo\":\"Traslado\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.rol").value("RESPONSABLE_DATOS"));
@@ -89,7 +97,7 @@ class UsuarioAdminControllerTest {
                 WHERE usuario = 'admin_hu034' AND tipo_evento = 'CAMBIO_ROL'
                   AND detalle LIKE '%analista_hu035%' AND detalle LIKE '%Traslado%'
                 """, Integer.class)).isEqualTo(1);
-        mvc.perform(put("/api/admin/usuarios/{id}/rol", objetivo.getIdUsuario()).session(sesionAdmin())
+        mvc.perform(put("/api/admin/usuarios/{id}/rol", objetivo.getIdUsuario()).session(sesionAdmin()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"nuevoRol\":\"RESPONSABLE_DATOS\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("ROL_IDENTICO"));
@@ -97,30 +105,30 @@ class UsuarioAdminControllerTest {
 
     @Test
     void validaUsuarioRolYDuplicados() throws Exception {
-        mvc.perform(put("/api/admin/usuarios/999999/rol").session(sesionAdmin())
+        mvc.perform(put("/api/admin/usuarios/999999/rol").session(sesionAdmin()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"nuevoRol\":\"GERENCIA\"}"))
                 .andExpect(status().isNotFound());
-        mvc.perform(post("/api/admin/usuarios").session(sesionAdmin()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/admin/usuarios").session(sesionAdmin()).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"nombreUsuario":"otro_hu034","nombreCompleto":"Otro",
-                         "correo":"otro-hu034@example.org","claveInicial":"clave",
-                         "rol":"NO_EXISTE"}
+                         "correo":"otro-hu034@example.org","rol":"NO_EXISTE"}
                         """))
                 .andExpect(status().isBadRequest());
-        mvc.perform(post("/api/admin/usuarios").session(sesionAdmin()).contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/admin/usuarios").session(sesionAdmin()).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"nombreUsuario":"admin_hu034","nombreCompleto":"Otro",
-                         "correo":"otro-hu034@example.org","claveInicial":"clave",
-                         "rol":"GERENCIA"}
+                         "correo":"otro-hu034@example.org","rol":"GERENCIA"}
                         """))
-                .andExpect(status().isUnprocessableContent())
+                .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("USUARIO_DUPLICADO"));
     }
 
     @Test
     void rechazaSesionAusenteYUsuarioSinRolAdmin() throws Exception {
         mvc.perform(get("/api/admin/usuarios").header("X-Usuario", "admin_hu034"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
         Usuario operador = usuarios.save(new Usuario("ventanilla_hu034", "Ventanilla",
                 "ventanilla-hu034@example.org", claves.hashear("clave"), rol(NombreRol.VENTANILLA),
                 LocalDateTime.now()));
@@ -149,6 +157,17 @@ class UsuarioAdminControllerTest {
         mvc.perform(get("/api/auth/interno/me")).andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void exigeCsrfEnOperacionesAdministrativas() throws Exception {
+        mvc.perform(post("/api/admin/usuarios").session(sesionAdmin()).contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"nombreUsuario":"sin_csrf","nombreCompleto":"Sin CSRF",
+                         "correo":"sin-csrf@example.org","rol":"VENTANILLA"}
+                        """))
+                .andExpect(status().isForbidden());
+        assertThat(usuarios.findByNombreUsuario("sin_csrf")).isEmpty();
+    }
+
     private Rol rol(NombreRol nombre) {
         return roles.findByNombre(nombre).orElseThrow();
     }
@@ -157,5 +176,11 @@ class UsuarioAdminControllerTest {
         MockHttpSession sesion = new MockHttpSession();
         sesion.setAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO, admin.getIdUsuario());
         return sesion;
+    }
+
+    private String valorJson(String json, String campo) {
+        Matcher matcher = Pattern.compile("\\\"" + campo + "\\\":\\\"([^\\\"]+)\\\"").matcher(json);
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
     }
 }
