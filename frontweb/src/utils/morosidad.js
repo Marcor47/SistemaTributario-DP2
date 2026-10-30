@@ -6,7 +6,7 @@ export function numeroOpcional(valor) {
 
 export function porcentaje(valor) {
   const numero = numeroOpcional(valor)
-  return numero === null ? 'No disponible' : `${numero.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} %`
+  return numero === null ? 'No disponible' : `${numero.toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`
 }
 
 export function etiquetaTributo(clave) {
