@@ -55,6 +55,9 @@ $env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
 ```
 
 Conserva la misma clave para poder leer los archivos ya guardados. No la subas al repositorio.
+En el perfil `local` también puedes guardar `tributario.archivos.clave=<clave Base64>` en
+`back/storage/predios/local-secrets.properties`. Spring lo carga al arrancar desde `back/`;
+el archivo está ignorado por Git y debe conservarse junto con los adjuntos cifrados.
 Los requisitos de `db/datos-prueba` son provisionales y deben validarse antes de un despliegue
 municipal.
 

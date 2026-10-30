@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:file:./storage/predios/local-secrets.properties
   flyway:
     locations: classpath:db/migration,classpath:db/datos-prueba
 
