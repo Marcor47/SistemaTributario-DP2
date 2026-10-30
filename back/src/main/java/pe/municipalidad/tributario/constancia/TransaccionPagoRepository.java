@@ -11,6 +11,8 @@ public interface TransaccionPagoRepository extends JpaRepository<TransaccionPago
 
     Optional<TransaccionPago> findByIdOrdenPasarela(String idOrdenPasarela);
 
+    Optional<TransaccionPago> findBySolicitudConstancia_IdSolicitud(Long idSolicitud);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select t from TransaccionPago t where t.idTransaccion = :id")
     Optional<TransaccionPago> bloquearPorId(@Param("id") Long id);
