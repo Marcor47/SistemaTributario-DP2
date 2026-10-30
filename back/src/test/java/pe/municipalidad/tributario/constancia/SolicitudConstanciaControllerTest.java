@@ -35,7 +35,7 @@ class SolicitudConstanciaControllerTest {
     private static final String RUTA = "/api/constancias";
     private static final String CONTRIBUYENTE = "014502";
     private static final String DOCUMENTO_CONTRIBUYENTE = "41028765";
-    private static final String OTRO_CONTRIBUYENTE = "021390";
+    private static final String OTRO_CONTRIBUYENTE = "033218";
     private static final String FIRMA_BASE64 =
             Base64.getEncoder().encodeToString("firma-pkcs7-de-prueba".getBytes(StandardCharsets.UTF_8));
 
@@ -67,6 +67,31 @@ class SolicitudConstanciaControllerTest {
     }
 
     @Test
+    void muestraDeudaYBloqueaInicioCuandoHaySaldoPendiente() throws Exception {
+        mockMvc.perform(get(RUTA + "/deuda").session(sesion("021390")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.puedeSolicitar").value(false))
+                .andExpect(jsonPath("$.obligaciones[0].deuda").isNumber());
+        mockMvc.perform(post(RUTA).session(sesion("021390")))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("DEUDA_PENDIENTE"));
+    }
+
+    @Test
+    void listaSoloLasSolicitudesDelContribuyenteParaRetomarElTramite() throws Exception {
+        long propia = iniciarSolicitud(CONTRIBUYENTE);
+        iniciarSolicitud(OTRO_CONTRIBUYENTE);
+
+        mockMvc.perform(get(RUTA).session(sesion(CONTRIBUYENTE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].idSolicitud").value(propia))
+                .andExpect(jsonPath("$[0].estado").value("INICIADA"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+        mockMvc.perform(get(RUTA))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void noSeAbreOtraSolicitudMientrasHayaUnaEnCurso() throws Exception {
         long id = iniciarSolicitud(CONTRIBUYENTE);
 
@@ -74,6 +99,20 @@ class SolicitudConstanciaControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.codigo").value("SOLICITUD_EN_CURSO"))
                 .andExpect(jsonPath("$.mensaje", containsString(String.valueOf(id))));
+    }
+
+    @Test
+    void conFirmadorSimuladoPuedeCrearOtraSolicitudDespuesDeFirmar() throws Exception {
+        long primera = iniciarSolicitud(CONTRIBUYENTE);
+        firmar(CONTRIBUYENTE, primera, cuerpoFirma(FIRMA_BASE64, "CERTIFICADO DE PRUEBA"))
+                .andExpect(status().isOk());
+
+        long segunda = iniciarSolicitud(CONTRIBUYENTE);
+        assertThat(segunda).isNotEqualTo(primera);
+        mockMvc.perform(get(RUTA + "/" + primera).session(sesion(CONTRIBUYENTE)))
+                .andExpect(jsonPath("$.estado").value("FIRMADA"));
+        mockMvc.perform(get(RUTA + "/" + segunda).session(sesion(CONTRIBUYENTE)))
+                .andExpect(jsonPath("$.estado").value("INICIADA"));
     }
 
     @Test
@@ -85,6 +124,10 @@ class SolicitudConstanciaControllerTest {
                 .andExpect(jsonPath("$.idSolicitud").value(id))
                 .andExpect(jsonPath("$.nombreArchivo").value("solicitud-constancia-" + id + ".txt"))
                 .andExpect(jsonPath("$.documentoDePrueba").value(true))
+                .andExpect(jsonPath("$.datosContribuyente.codigo").value(CONTRIBUYENTE))
+                .andExpect(jsonPath("$.datosContribuyente.nombre").value("GARCÍA TORRES, MARÍA ELENA"))
+                .andExpect(jsonPath("$.datosContribuyente.tipoDocumento").value("DNI"))
+                .andExpect(jsonPath("$.datosContribuyente.numeroDocumento").value(DOCUMENTO_CONTRIBUYENTE))
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
 
         String contenidoBase64 = JsonPath.read(respuesta, "$.contenidoBase64");
@@ -111,6 +154,8 @@ class SolicitudConstanciaControllerTest {
 
         mockMvc.perform(get(RUTA + "/" + id).session(sesion(CONTRIBUYENTE)))
                 .andExpect(jsonPath("$.estado").value("FIRMADA"));
+        mockMvc.perform(get(RUTA).session(sesion(CONTRIBUYENTE)))
+                .andExpect(jsonPath("$[0].firmaContribuyente.hashDocumento").value(hashDocumento));
         Integer firmas = jdbc.queryForObject("""
                 SELECT count(*) FROM operativo.firma_digital
                 WHERE id_solicitud = ? AND tipo_firmante = 'CONTRIBUYENTE' AND valida
