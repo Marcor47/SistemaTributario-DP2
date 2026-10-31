@@ -22,11 +22,16 @@ SELECT 'REC-' || o.contribuyente_codigo || '-' || o.anio || '-' || o.numero_cuot
 FROM samnet.obligacion o
 WHERE o.monto_pagado > 0
 GROUP BY o.contribuyente_codigo, o.anio, o.numero_cuota
-ON CONFLICT (id_pago) DO NOTHING;
+ON CONFLICT (id_pago) DO UPDATE SET
+    fecha_pago = EXCLUDED.fecha_pago,
+    canal = EXCLUDED.canal,
+    monto_pagado = EXCLUDED.monto_pagado,
+    monto_correspondiente = EXCLUDED.monto_correspondiente;
 
 INSERT INTO samnet.pago_obligacion (id_pago, id_obligacion, monto_aplicado)
 SELECT 'REC-' || o.contribuyente_codigo || '-' || o.anio || '-' || o.numero_cuota, o.id, o.monto_pagado
 FROM samnet.obligacion o
 JOIN samnet.pago p ON p.id_pago = 'REC-' || o.contribuyente_codigo || '-' || o.anio || '-' || o.numero_cuota
 WHERE o.monto_pagado > 0
-ON CONFLICT (id_pago, id_obligacion) DO NOTHING;
+ON CONFLICT (id_pago, id_obligacion) DO UPDATE SET
+    monto_aplicado = EXCLUDED.monto_aplicado;

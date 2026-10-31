@@ -67,10 +67,11 @@ test('HU005: traduce los estados de la API sin inventar otros', () => {
 
 test('HU005: solo Analista de Rentas o Administrador consultan un predio', () => {
   assert.deepEqual(ROLES_CONSULTA_PREDIO, ['ANALISTA_RENTAS', 'ADMINISTRADOR'])
-  assert.equal(tieneRolInterno({ tipo: 'interno', usuario: { roles: ['ADMINISTRADOR'] } }), true)
-  assert.equal(tieneRolInterno({ tipo: 'interno', usuario: { roles: ['ANALISTA_RENTAS'] } }), true)
-  assert.equal(tieneRolInterno({ tipo: 'interno', usuario: { roles: ['VENTANILLA'] } }), false)
-  assert.equal(tieneRolInterno({ tipo: 'contribuyente', usuario: { roles: [] } }), false)
+  assert.equal(tieneRolInterno({ roles: ['ADMINISTRADOR'] }), true)
+  assert.equal(tieneRolInterno({ roles: ['ANALISTA_RENTAS'] }), true)
+  assert.equal(tieneRolInterno({ roles: ['VENTANILLA'] }), false)
+  assert.equal(tieneRolInterno({ roles: [] }), false)
+  assert.equal(tieneRolInterno({}), false)
   assert.equal(tieneRolInterno(null), false)
 })
 

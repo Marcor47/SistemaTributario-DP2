@@ -37,11 +37,11 @@ class EstadoCuentaControllerTest {
                 .andExpect(jsonPath("$.contribuyente.tipoDoc").value("RUC"))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
                 .andExpect(jsonPath("$.desactualizado").value(false))
-                .andExpect(jsonPath("$.filas", hasSize(12)))
+                .andExpect(jsonPath("$.filas", hasSize(48)))
                 .andExpect(jsonPath("$.filas[0].tributo").value("Arbitrios Municipales"))
                 .andExpect(jsonPath("$.filas[0].periodo").value("2025-T1"))
                 .andExpect(jsonPath("$.filas[0].estado").value("Pagada"))
-                .andExpect(jsonPath("$.filas[1].tributo").value("Impuesto Predial"));
+                .andExpect(jsonPath("$.filas[5].tributo").value("Impuesto Predial"));
     }
 
     @Test

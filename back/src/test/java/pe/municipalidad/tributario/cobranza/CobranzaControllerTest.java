@@ -131,7 +131,7 @@ class CobranzaControllerTest {
     void listaLasObligacionesVencidasOrdenadasPorVencimientoConSuEtapa() throws Exception {
         mockMvc.perform(get("/api/contribuyentes/021390/obligaciones-vencidas"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(6)))
+                .andExpect(jsonPath("$", hasSize(26)))
                 .andExpect(jsonPath("$[0].periodo").value("2025-T4"))
                 .andExpect(jsonPath("$[0].tributo").value("ARBITRIOS"))
                 .andExpect(jsonPath("$[0].codigoPredio").value("021390-01"))
@@ -141,7 +141,7 @@ class CobranzaControllerTest {
                 .andExpect(jsonPath("$[1].etapaNombre").value("Exigible en vía coactiva"))
                 .andExpect(jsonPath("$[1].diasVencida").value(292))
                 .andExpect(jsonPath("$[2].etapaActual").value("MORA_TEMPRANA"))
-                .andExpect(jsonPath("$[5].periodo").value("2026-T2"));
+                .andExpect(jsonPath("$[25].periodo").value("2026-T2"));
     }
 
     @Test

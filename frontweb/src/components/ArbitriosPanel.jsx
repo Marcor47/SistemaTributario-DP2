@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
+import { useSesionInterna } from '../context/sesionInterna.js'
 import { AccesoDenegado, AccesoRestringido, VerificandoAcceso } from './AccesoInterno.jsx'
 import { obtenerArbitriosPredio } from '../services/arbitriosService.js'
 import { agruparCuotasPorTitular, estadoArbitrio, etiquetaCondicion } from '../utils/arbitrios.js'
@@ -193,12 +193,11 @@ function ResultadoArbitrios({ datos }) {
 }
 
 export default function ArbitriosPanel({ codigoPredio }) {
-  const { sesion, limpiarSesion } = useAuth()
+  const { sesion, cargando, setSesion } = useSesionInterna()
   const [intento, setIntento] = useState(0)
   const [expirada, setExpirada] = useState(false)
   const [consulta, setConsulta] = useState({ datos: null, error: null, ocupado: true })
 
-  const esInterno = sesion.tipo === 'interno'
   const tieneRol = tieneRolInterno(sesion, ROLES_CONSULTA_PREDIO)
 
   useEffect(() => {
@@ -216,7 +215,7 @@ export default function ArbitriosPanel({ codigoPredio }) {
         if (error.estado === 401) {
           // La sesión interna dura 15 minutos; se limpia el contexto y se pide reingresar.
           setExpirada(true)
-          limpiarSesion()
+          setSesion(null)
           setConsulta({ datos: null, error: null, ocupado: false })
           return
         }
@@ -227,18 +226,18 @@ export default function ArbitriosPanel({ codigoPredio }) {
       activo = false
       controlador.abort()
     }
-  }, [codigoPredio, intento, tieneRol, limpiarSesion])
+  }, [codigoPredio, intento, tieneRol, setSesion])
 
   function recargar() {
     setConsulta({ datos: null, error: null, ocupado: true })
     setIntento((valor) => valor + 1)
   }
 
-  if (sesion.estado === 'cargando') {
+  if (cargando) {
     return <VerificandoAcceso mensaje="Verificando el acceso a los arbitrios…" />
   }
 
-  if (!esInterno) {
+  if (!sesion) {
     return (
       <AccesoRestringido
         titulo={`Arbitrios del predio ${codigoPredio}`}
@@ -253,7 +252,7 @@ export default function ArbitriosPanel({ codigoPredio }) {
     return (
       <AccesoDenegado
         titulo="Acceso denegado"
-        usuario={sesion.usuario}
+        usuario={sesion}
         descripcion={`Los arbitrios del predio ${codigoPredio} solo los consulta el personal autorizado.`}
         rolesPermitidos={ROLES_CONSULTA_PREDIO}
       />
