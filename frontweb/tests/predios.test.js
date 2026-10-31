@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { TAMANIOS_PAGINA, filtrarPredios, paginarPredios } from '../src/utils/predios.js'
+import {
+  FILTROS_PREDIOS_INICIALES,
+  TAMANIOS_PAGINA,
+  filtrarPredios,
+  opcionesDePredios,
+  paginarPredios,
+} from '../src/utils/predios.js'
 
 const PREDIOS = Array.from({ length: 11 }, (_, indice) => ({
   codigoPredio: `021390-${String(indice + 1).padStart(2, '0')}`,
   ubicacion: indice === 1 ? 'Av. Universitaria 3850, San Miguel' : `Calle Los Álamos ${indice + 1}, San Miguel`,
+  tipoPredio: indice < 2 ? 'URBANO' : indice < 4 ? 'RUSTICO' : 'OTRO',
+  usoPredio: indice % 2 === 0 ? 'Comercio' : 'Vivienda',
+  condicionPropiedad: indice < 3 ? 'PROPIETARIO' : indice < 6 ? 'COPROPIETARIO' : 'POSESIONARIO',
 }))
 
 test('HU001: el filtro busca por código de predio sin distinguir mayúsculas', () => {
@@ -20,6 +29,47 @@ test('HU001: el filtro busca por dirección ignorando tildes y mayúsculas', () 
 test('HU001: una búsqueda vacía devuelve todos los predios', () => {
   assert.equal(filtrarPredios(PREDIOS, '').length, 11)
   assert.equal(filtrarPredios(PREDIOS, '   ').length, 11)
+})
+
+test('HU001: las opciones de filtro son únicas y tienen etiquetas legibles', () => {
+  const opciones = opcionesDePredios(PREDIOS)
+
+  assert.deepEqual(opciones.tipos.map((opcion) => opcion.valor), ['OTRO', 'RUSTICO', 'URBANO'])
+  assert.deepEqual(opciones.tipos.map((opcion) => opcion.etiqueta), ['Otro', 'Rústico', 'Urbano'])
+  assert.deepEqual(opciones.usos.map((opcion) => opcion.valor), ['Comercio', 'Vivienda'])
+  assert.deepEqual(
+    opciones.condiciones.map((opcion) => opcion.valor),
+    ['COPROPIETARIO', 'POSESIONARIO', 'PROPIETARIO'],
+  )
+})
+
+test('HU001: filtra por tipo, uso y condición de propiedad', () => {
+  assert.deepEqual(
+    filtrarPredios(PREDIOS, '', { tipo: 'URBANO' }).map((p) => p.codigoPredio),
+    ['021390-01', '021390-02'],
+  )
+  assert.deepEqual(
+    filtrarPredios(PREDIOS, '', { uso: 'Comercio' }).map((p) => p.codigoPredio),
+    ['021390-01', '021390-03', '021390-05', '021390-07', '021390-09', '021390-11'],
+  )
+  assert.deepEqual(
+    filtrarPredios(PREDIOS, '', { condicion: 'PROPIETARIO' }).map((p) => p.codigoPredio),
+    ['021390-01', '021390-02', '021390-03'],
+  )
+})
+
+test('HU001: los filtros se combinan entre sí y con la búsqueda', () => {
+  assert.deepEqual(
+    filtrarPredios(PREDIOS, '', { tipo: 'URBANO', uso: 'Comercio', condicion: 'PROPIETARIO' })
+      .map((p) => p.codigoPredio),
+    ['021390-01'],
+  )
+  assert.deepEqual(
+    filtrarPredios(PREDIOS, 'UNIVERSITARIA', { tipo: 'URBANO' }).map((p) => p.codigoPredio),
+    ['021390-02'],
+  )
+  assert.deepEqual(filtrarPredios(PREDIOS, 'UNIVERSITARIA', { tipo: 'RUSTICO' }), [])
+  assert.equal(filtrarPredios(PREDIOS, '', FILTROS_PREDIOS_INICIALES).length, 11)
 })
 
 test('HU001: la paginación por defecto muestra 5 predios y calcula las páginas', () => {

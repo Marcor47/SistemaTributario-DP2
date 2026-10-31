@@ -1,4 +1,21 @@
 /* HU013: cobranza del contribuyente. */
+.cobranza-filtros {
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px;
+  margin: 16px 0 4px;
+}
+.cobranza-filtros .fld { flex: 1 1 170px; min-width: 150px; }
+.cobranza-filtros .fld.cobranza-tamano { flex: 0 0 150px; min-width: 150px; }
+.cobranza-limpiar { flex: 0 0 auto; }
+
+.cobranza-paginacion {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 12px; margin-top: 14px;
+}
+.cobranza-conteo { margin: 0; color: var(--texto-atenuado); font-size: 14px; }
+.cobranza-paginacion__controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cobranza-pagina { font-size: 14px; color: var(--texto-atenuado); white-space: nowrap; }
+.cobranza-vacio { padding: 24px 16px; margin: 12px 0 0; text-align: center; color: var(--texto-atenuado); }
+
 .etiqueta-deuda-vencida {
   display: inline-flex;
   align-items: center;
@@ -40,4 +57,9 @@
 .detalle-cobranza__etapa:focus-visible {
   outline: 3px solid var(--cian);
   outline-offset: 2px;
+}
+
+@media (max-width: 600px) {
+  .cobranza-filtros .fld, .cobranza-filtros .fld.cobranza-tamano { flex-basis: 100%; min-width: 0; }
+  .cobranza-paginacion__controles { justify-content: space-between; }
 }

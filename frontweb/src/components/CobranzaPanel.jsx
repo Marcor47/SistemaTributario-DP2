@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { listarObligacionesVencidas, obtenerEtapaCobranza } from '../services/cobranzaService.js'
 import { fecha } from '../utils/formato.js'
+import { FILTROS_COBRANZA_INICIALES, filtrarObligaciones, opcionesDeCobranza } from '../utils/cobranza.js'
+import { TAMANIOS_PAGINA, paginar } from '../utils/paginacion.js'
 import DetalleCobranza from './DetalleCobranza.jsx'
 import EtiquetaDeudaVencida from './EtiquetaDeudaVencida.jsx'
 import './Cobranza.css'
@@ -25,8 +27,16 @@ export default function CobranzaPanel({ contribuyente }) {
   const [detalle, setDetalle] = useState(null)
   const [ocupadoDetalle, setOcupadoDetalle] = useState(false)
   const [errorDetalle, setErrorDetalle] = useState('')
+  const [filtros, setFiltros] = useState(FILTROS_COBRANZA_INICIALES)
+  const [porPagina, setPorPagina] = useState(TAMANIOS_PAGINA[0])
+  const [pagina, setPagina] = useState(1)
   const solicitudListado = useRef(0)
   const solicitudDetalle = useRef(0)
+
+  const opciones = useMemo(() => opcionesDeCobranza(obligaciones ?? []), [obligaciones])
+  const filtradas = useMemo(() => filtrarObligaciones(obligaciones ?? [], filtros), [obligaciones, filtros])
+  const { visibles, paginaActual, totalPaginas, inicio, fin } = paginar(filtradas, pagina, porPagina)
+  const hayFiltros = Object.values(filtros).some(Boolean)
 
   useEffect(() => {
     let activo = true
@@ -54,6 +64,8 @@ export default function CobranzaPanel({ contribuyente }) {
     setSeleccionada(null)
     setDetalle(null)
     setErrorDetalle('')
+    setFiltros(FILTROS_COBRANZA_INICIALES)
+    setPagina(1)
     try {
       const resultado = await listarObligacionesVencidas(contribuyente.codigo)
       if (actual === solicitudListado.current) setObligaciones(resultado)
@@ -92,6 +104,26 @@ export default function CobranzaPanel({ contribuyente }) {
     setOcupadoDetalle(false)
   }
 
+  function cambiarFiltro(evento) {
+    const { name, value } = evento.target
+    setFiltros((actuales) => ({ ...actuales, [name]: value }))
+    setPagina(1)
+  }
+
+  function limpiarFiltros() {
+    setFiltros(FILTROS_COBRANZA_INICIALES)
+    setPagina(1)
+  }
+
+  function cambiarPorPagina(evento) {
+    setPorPagina(Number(evento.target.value))
+    setPagina(1)
+  }
+
+  function cambiarPagina(nueva) {
+    setPagina(nueva)
+  }
+
   if (seleccionada) {
     return (
       <>
@@ -127,39 +159,117 @@ export default function CobranzaPanel({ contribuyente }) {
   return (
     <section className="pcard" aria-label="Obligaciones vencidas">
       <h2>Obligaciones vencidas</h2>
-      <p className="hint">Elige una obligación para consultar sus etapas de cobranza.</p>
-      <div className="tabla-scroll" role="region" aria-label="Obligaciones vencidas del contribuyente" tabIndex={0}>
-        <table className="tabla">
-          <thead>
-            <tr>
-              <th scope="col">Tributo</th>
-              <th scope="col">Periodo</th>
-              <th scope="col">Predio</th>
-              <th scope="col">Vencimiento</th>
-              <th scope="col">Deuda vencida</th>
-              <th scope="col">Etapa</th>
-              <th scope="col"><span className="sr-only">Acción</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {obligaciones.map((obligacion) => (
-              <tr key={obligacion.id}>
-                <td>{obligacion.tributoDescripcion}</td>
-                <td>{obligacion.periodo}</td>
-                <td>{obligacion.codigoPredio ?? '—'}</td>
-                <td>{fecha(obligacion.fechaVencimiento)}</td>
-                <td><EtiquetaDeudaVencida saldo={obligacion.saldo} diasVencida={obligacion.diasVencida} /></td>
-                <td><Etapa etapa={obligacion.etapaActual} nombre={obligacion.etapaNombre} /></td>
-                <td>
-                  <button className="btn btn-compacto" type="button" onClick={() => verEtapa(obligacion)}>
-                    Ver etapa
-                  </button>
-                </td>
-              </tr>
+      <p className="hint">Filtra las obligaciones y elige una para consultar sus etapas de cobranza.</p>
+
+      <div className="cobranza-filtros" role="group" aria-label="Filtros y paginación de obligaciones vencidas">
+        <div className="fld">
+          <label htmlFor="cobranza-periodo">Periodo</label>
+          <select id="cobranza-periodo" name="periodo" value={filtros.periodo} onChange={cambiarFiltro}>
+            <option value="">Todos los periodos</option>
+            {opciones.periodos.map((periodo) => (
+              <option key={periodo} value={periodo}>{periodo}</option>
             ))}
-          </tbody>
-        </table>
+          </select>
+        </div>
+        <div className="fld">
+          <label htmlFor="cobranza-etapa">Etapa</label>
+          <select id="cobranza-etapa" name="etapa" value={filtros.etapa} onChange={cambiarFiltro}>
+            <option value="">Todas las etapas</option>
+            {opciones.etapas.map((etapa) => (
+              <option key={etapa.valor} value={etapa.valor}>{etapa.etiqueta}</option>
+            ))}
+          </select>
+        </div>
+        <div className="fld">
+          <label htmlFor="cobranza-tributo">Tributo</label>
+          <select id="cobranza-tributo" name="tributo" value={filtros.tributo} onChange={cambiarFiltro}>
+            <option value="">Todos los tributos</option>
+            {opciones.tributos.map((tributo) => (
+              <option key={tributo} value={tributo}>{tributo}</option>
+            ))}
+          </select>
+        </div>
+        <div className="fld cobranza-tamano">
+          <label htmlFor="cobranza-por-pagina">Filas por página</label>
+          <select id="cobranza-por-pagina" value={porPagina} onChange={cambiarPorPagina}>
+            {TAMANIOS_PAGINA.map((tamano) => (
+              <option key={tamano} value={tamano}>{tamano}</option>
+            ))}
+          </select>
+        </div>
+        {hayFiltros && (
+          <button className="btn cobranza-limpiar" type="button" onClick={limpiarFiltros}>
+            Limpiar filtros
+          </button>
+        )}
       </div>
+
+      {filtradas.length === 0 ? (
+        <p className="cobranza-vacio" role="status">
+          No hay obligaciones que coincidan con los filtros seleccionados.
+        </p>
+      ) : (
+        <>
+          <div className="tabla-scroll" role="region" aria-label="Obligaciones vencidas del contribuyente" tabIndex={0}>
+            <table className="tabla">
+              <caption className="sr-only">Obligaciones vencidas del contribuyente</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Tributo</th>
+                  <th scope="col">Periodo</th>
+                  <th scope="col">Predio</th>
+                  <th scope="col">Vencimiento</th>
+                  <th scope="col">Deuda vencida</th>
+                  <th scope="col">Etapa</th>
+                  <th scope="col"><span className="sr-only">Acción</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibles.map((obligacion) => (
+                  <tr key={obligacion.id}>
+                    <td>{obligacion.tributoDescripcion}</td>
+                    <td>{obligacion.periodo}</td>
+                    <td>{obligacion.codigoPredio ?? '—'}</td>
+                    <td>{fecha(obligacion.fechaVencimiento)}</td>
+                    <td><EtiquetaDeudaVencida saldo={obligacion.saldo} diasVencida={obligacion.diasVencida} /></td>
+                    <td><Etapa etapa={obligacion.etapaActual} nombre={obligacion.etapaNombre} /></td>
+                    <td>
+                      <button className="btn btn-compacto" type="button" onClick={() => verEtapa(obligacion)}>
+                        Ver etapa
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="cobranza-paginacion">
+            <p className="cobranza-conteo" role="status">
+              Mostrando {inicio + 1}–{fin} de {filtradas.length} {filtradas.length === 1 ? 'obligación' : 'obligaciones'}
+            </p>
+            <div className="cobranza-paginacion__controles">
+              <button
+                className="btn"
+                type="button"
+                onClick={() => cambiarPagina(paginaActual - 1)}
+                disabled={paginaActual <= 1}
+              >
+                Anterior
+              </button>
+              <span className="cobranza-pagina">Página {paginaActual} de {totalPaginas}</span>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => cambiarPagina(paginaActual + 1)}
+                disabled={paginaActual >= totalPaginas}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </section>
   )
 }

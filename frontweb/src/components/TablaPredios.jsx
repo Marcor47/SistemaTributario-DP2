@@ -1,19 +1,15 @@
 import { Fragment, useMemo, useState } from 'react'
 import { fecha } from '../utils/formato.js'
-import { TAMANIOS_PAGINA, filtrarPredios, paginarPredios } from '../utils/predios.js'
+import {
+  CONDICION_PROPIEDAD,
+  FILTROS_PREDIOS_INICIALES,
+  TAMANIOS_PAGINA,
+  TIPO_PREDIO,
+  filtrarPredios,
+  opcionesDePredios,
+  paginarPredios,
+} from '../utils/predios.js'
 import './TablaPredios.css'
-
-const TIPO_PREDIO = {
-  URBANO: 'Urbano',
-  RUSTICO: 'Rústico',
-  OTRO: 'Otro',
-}
-
-const CONDICION_PROPIEDAD = {
-  PROPIETARIO: 'Propietario',
-  COPROPIETARIO: 'Copropietario',
-  POSESIONARIO: 'Posesionario',
-}
 
 function texto(valor) {
   return valor === '' || valor == null ? '—' : valor
@@ -36,12 +32,18 @@ function DatoDetalle({ etiqueta, valor }) {
 
 export default function TablaPredios({ predios = [] }) {
   const [busqueda, setBusqueda] = useState('')
+  const [filtros, setFiltros] = useState(FILTROS_PREDIOS_INICIALES)
   const [porPagina, setPorPagina] = useState(TAMANIOS_PAGINA[0])
   const [pagina, setPagina] = useState(1)
   const [abierto, setAbierto] = useState(null)
 
-  const filtrados = useMemo(() => filtrarPredios(predios, busqueda), [predios, busqueda])
+  const opciones = useMemo(() => opcionesDePredios(predios), [predios])
+  const filtrados = useMemo(
+    () => filtrarPredios(predios, busqueda, filtros),
+    [predios, busqueda, filtros],
+  )
   const { visibles, paginaActual, totalPaginas, inicio, fin } = paginarPredios(filtrados, pagina, porPagina)
+  const hayFiltros = Object.values(filtros).some(Boolean)
 
   function cambiarBusqueda(evento) {
     setBusqueda(evento.target.value)
@@ -51,6 +53,19 @@ export default function TablaPredios({ predios = [] }) {
 
   function limpiarBusqueda() {
     setBusqueda('')
+    setPagina(1)
+    setAbierto(null)
+  }
+
+  function cambiarFiltro(evento) {
+    const { name, value } = evento.target
+    setFiltros((actuales) => ({ ...actuales, [name]: value }))
+    setPagina(1)
+    setAbierto(null)
+  }
+
+  function limpiarFiltros() {
+    setFiltros(FILTROS_PREDIOS_INICIALES)
     setPagina(1)
     setAbierto(null)
   }
@@ -101,9 +116,44 @@ export default function TablaPredios({ predios = [] }) {
         </div>
       </div>
 
+      <div className="predios-filtros" role="group" aria-label="Filtros de predios">
+        <div className="fld">
+          <label htmlFor="predio-tipo">Tipo</label>
+          <select id="predio-tipo" name="tipo" value={filtros.tipo} onChange={cambiarFiltro}>
+            <option value="">Todos los tipos</option>
+            {opciones.tipos.map((tipo) => (
+              <option key={tipo.valor} value={tipo.valor}>{tipo.etiqueta}</option>
+            ))}
+          </select>
+        </div>
+        <div className="fld">
+          <label htmlFor="predio-uso">Uso</label>
+          <select id="predio-uso" name="uso" value={filtros.uso} onChange={cambiarFiltro}>
+            <option value="">Todos los usos</option>
+            {opciones.usos.map((uso) => (
+              <option key={uso.valor} value={uso.valor}>{uso.etiqueta}</option>
+            ))}
+          </select>
+        </div>
+        <div className="fld">
+          <label htmlFor="predio-condicion">Condición de propiedad</label>
+          <select id="predio-condicion" name="condicion" value={filtros.condicion} onChange={cambiarFiltro}>
+            <option value="">Todas las condiciones</option>
+            {opciones.condiciones.map((condicion) => (
+              <option key={condicion.valor} value={condicion.valor}>{condicion.etiqueta}</option>
+            ))}
+          </select>
+        </div>
+        {hayFiltros && (
+          <button className="btn predios-limpiar-filtros" type="button" onClick={limpiarFiltros}>
+            Limpiar filtros
+          </button>
+        )}
+      </div>
+
       {filtrados.length === 0 ? (
         <p className="predios-vacio" role="status">
-          No hay predios que coincidan con la búsqueda.
+          No hay predios que coincidan con la búsqueda o los filtros seleccionados.
         </p>
       ) : (
         <>
@@ -115,6 +165,7 @@ export default function TablaPredios({ predios = [] }) {
                   <th scope="col">Código</th>
                   <th scope="col">Dirección</th>
                   <th scope="col">Tipo</th>
+                  <th scope="col">Uso</th>
                 </tr>
               </thead>
               <tbody>
@@ -142,13 +193,13 @@ export default function TablaPredios({ predios = [] }) {
                         </th>
                         <td>{texto(predio.ubicacion)}</td>
                         <td>{texto(TIPO_PREDIO[predio.tipoPredio] ?? predio.tipoPredio)}</td>
+                        <td>{texto(predio.usoPredio)}</td>
                       </tr>
                       {expandido && (
                         <tr className="fila-predio__detalle" id={detalleId}>
-                          <td colSpan={3}>
+                          <td colSpan={4}>
                             <dl className="predio-detalle-datos">
                               <DatoDetalle etiqueta="Número catastral" valor={predio.numeroCatastral} />
-                              <DatoDetalle etiqueta="Uso" valor={predio.usoPredio} />
                               <DatoDetalle etiqueta="Área del terreno" valor={medida(predio.areaTerreno, 'm²')} />
                               <DatoDetalle etiqueta="Fecha de adquisición" valor={fecha(predio.fechaAdquisicion)} />
                               <DatoDetalle

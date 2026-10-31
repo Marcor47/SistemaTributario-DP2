@@ -9,7 +9,15 @@
 .predios-limpiar { flex: 0 0 auto; min-height: 46px; padding: 8px 14px; font-size: 14px; }
 .fld.predios-tamano { flex: 0 0 160px; min-width: 160px; }
 
+.predios-filtros {
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px;
+  margin: 12px 0 4px;
+}
+.predios-filtros .fld { flex: 1 1 180px; min-width: 160px; }
+.predios-limpiar-filtros { flex: 0 0 auto; }
+
 .tabla-predios { min-width: 560px; margin-top: 8px; }
+.tabla-scroll .tabla-predios { min-width: 760px; }
 .tabla-predios th, .tabla-predios td { vertical-align: middle; }
 .tabla-predios tbody tr.fila-predio {
   cursor: pointer;
@@ -68,6 +76,8 @@
 @media (max-width: 600px) {
   .predios-herramientas { align-items: stretch; }
   .predios-buscador, .fld.predios-buscador, .fld.predios-tamano { flex-basis: 100%; min-width: 0; }
+  .predios-filtros { align-items: stretch; }
+  .predios-filtros .fld { flex-basis: 100%; min-width: 0; }
   .predios-paginacion { align-items: stretch; }
   .predios-paginacion__controles { justify-content: space-between; }
 }
