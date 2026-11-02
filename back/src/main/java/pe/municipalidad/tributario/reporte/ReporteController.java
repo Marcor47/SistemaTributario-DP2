@@ -27,9 +27,10 @@ import pe.municipalidad.tributario.seguridad.NombreRol;
 import pe.municipalidad.tributario.seguridad.SesionInterna;
 
 /*
- * HU006 y HU007: controlador de reportes de Seguimiento institucional para la Gerencia de Rentas.
+ * HU006, HU007 y HU018: controlador de reportes de Seguimiento institucional para la Gerencia de Rentas.
  * HU006: catálogo y generación de reportes sin soporte de TI (back/HU006_API.md).
  * HU007: guardar, gestionar y exportar vistas personalizadas a Excel o PDF (back/HU007_API.md).
+ * HU018: reporte de contribuyentes morosos por zona y periodo (RF-024 adaptado).
  */
 @RestController
 @RequestMapping("/api/reportes")
@@ -57,13 +58,31 @@ public class ReporteController {
             @PathVariable TipoReporte tipo,
             @RequestParam(required = false) @Min(value = 2000, message = "debe ser 2000 o posterior")
             @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anio,
+            @RequestParam(required = false) Integer periodo,
             @RequestParam(required = false) @Size(max = 20, message = "es demasiado largo") String zona,
             @RequestParam(required = false) Tributo tributo,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
             BigDecimal montoMinimo,
             HttpServletRequest request) {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
-        return servicio.generar(tipo, new FiltrosReporte(anio, zona, tributo, montoMinimo), usuario);
+        return servicio.generar(tipo, new FiltrosReporte(anio, zona, tributo, montoMinimo, periodo), usuario);
+    }
+
+    /* ===== HU018: Reporte de morosos por zona y periodo (RF-024) ===== */
+
+    @GetMapping("/morosos-zona")
+    public ReporteRespuesta<?> morososPorZona(
+            @RequestParam(required = false) Integer periodo,
+            @RequestParam(required = false) @Min(value = 2000, message = "debe ser 2000 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anio,
+            @RequestParam(required = false) @Size(max = 20, message = "es demasiado largo") String zona,
+            @RequestParam(required = false) Tributo tributo,
+            @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
+            BigDecimal montoMinimo,
+            HttpServletRequest request) {
+        String usuario = sesion.conRol(request, ROLES_REPORTES);
+        Integer periodoEfectivo = periodo != null ? periodo : anio;
+        return servicio.generarMorososPorZona(new FiltrosReporte(periodoEfectivo, zona, tributo, montoMinimo, periodoEfectivo), usuario);
     }
 
     /* ===== HU007: Vistas personalizadas de reporte ===== */
@@ -136,6 +155,7 @@ public class ReporteController {
             @RequestParam FormatoExportacion formato,
             @RequestParam(required = false) @Min(value = 2000, message = "debe ser 2000 o posterior")
             @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anio,
+            @RequestParam(required = false) Integer periodo,
             @RequestParam(required = false) @Size(max = 20, message = "es demasiado largo") String zona,
             @RequestParam(required = false) Tributo tributo,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
@@ -144,7 +164,30 @@ public class ReporteController {
             HttpServletRequest request) {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
         ExportacionReporte exportacion = servicio.exportar(tipo,
-                new FiltrosReporte(anio, zona, tributo, montoMinimo), formato, columnas, usuario);
+                new FiltrosReporte(anio, zona, tributo, montoMinimo, periodo), formato, columnas, usuario);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportacion.nombreArchivo() + "\"")
+                .contentType(MediaType.parseMediaType(exportacion.mediaType()))
+                .body(exportacion.contenido());
+    }
+
+    @GetMapping("/morosos-zona/exportar")
+    public ResponseEntity<byte[]> exportarMorososPorZona(
+            @RequestParam FormatoExportacion formato,
+            @RequestParam(required = false) Integer periodo,
+            @RequestParam(required = false) @Min(value = 2000, message = "debe ser 2000 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anio,
+            @RequestParam(required = false) @Size(max = 20, message = "es demasiado largo") String zona,
+            @RequestParam(required = false) Tributo tributo,
+            @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
+            BigDecimal montoMinimo,
+            @RequestParam(required = false) List<String> columnas,
+            HttpServletRequest request) {
+        String usuario = sesion.conRol(request, ROLES_REPORTES);
+        Integer periodoEfectivo = periodo != null ? periodo : anio;
+        ExportacionReporte exportacion = servicio.exportarMorososPorZona(
+                new FiltrosReporte(periodoEfectivo, zona, tributo, montoMinimo, periodoEfectivo),
+                formato, columnas, usuario);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportacion.nombreArchivo() + "\"")
                 .contentType(MediaType.parseMediaType(exportacion.mediaType()))

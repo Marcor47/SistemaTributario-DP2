@@ -45,6 +45,11 @@ export default function MenuLateral({ solo }) {
   const mostrarPortal  = !solo || solo === 'portal'
   const mostrarGestion = !solo || solo === 'gestion'
 
+  // Nombre del usuario activo (solo disponible en sesión de gestión interna)
+  const nombreUsuario = solo === 'gestion' && sesion?.nombreCompleto
+    ? sesion.nombreCompleto
+    : null
+
   return (
     <aside className="menu">
       <Link to="/" className="menu-marca" aria-label="Municipalidad de San Miguel, ir al inicio">
@@ -54,6 +59,18 @@ export default function MenuLateral({ solo }) {
           <strong>San Miguel</strong>
         </div>
       </Link>
+
+      {nombreUsuario && (
+        <div className="menu-perfil" role="status" aria-label={`Usuario activo: ${nombreUsuario}`}>
+          <div className="menu-perfil-avatar" aria-hidden="true">
+            {nombreUsuario.charAt(0).toUpperCase()}
+          </div>
+          <div className="menu-perfil-info">
+            <span className="menu-perfil-etiqueta">Usuario activo</span>
+            <strong className="menu-perfil-nombre">{nombreUsuario}</strong>
+          </div>
+        </div>
+      )}
 
       <nav aria-label="Módulos del sistema">
         {mostrarPortal && (
@@ -90,7 +107,6 @@ export default function MenuLateral({ solo }) {
       <div className="menu-pie">
         <p className="menu-demo" role="note">Datos ficticios de demostración</p>
         {errorSalida && <p role="alert">{errorSalida}</p>}
-        {solo === 'gestion' && sesion && <p className="menu-demo" role="status">{sesion.nombreCompleto}</p>}
         <Link to={rutaLogin} className="menu-salir" onClick={salir}>
           {icono(<><path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
           Salir
