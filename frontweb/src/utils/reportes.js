@@ -1,4 +1,4 @@
-const FILTROS_VALIDOS = new Set(['anio', 'zona', 'tributo', 'montoMinimo'])
+const FILTROS_VALIDOS = new Set(['anio', 'periodo', 'zona', 'tributo', 'montoMinimo'])
 
 export const TRIBUTOS = [
   { valor: 'IMPUESTO_PREDIAL', etiqueta: 'Impuesto Predial' },
@@ -21,6 +21,10 @@ export function validarFiltros(reporte, filtros) {
     const anio = Number(filtros.anio)
     if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) errores.anio = 'Ingresa un año entre 2000 y 2100.'
   }
+  if (permitidos.has('periodo') && filtros.periodo) {
+    const periodo = Number(filtros.periodo)
+    if (!Number.isInteger(periodo) || periodo < 2000 || periodo > 2100) errores.periodo = 'Ingresa un periodo entre 2000 y 2100.'
+  }
   if (permitidos.has('zona') && filtros.zona?.trim().length > 20) errores.zona = 'La zona no puede superar 20 caracteres.'
   if (permitidos.has('tributo') && filtros.tributo && !TRIBUTOS.some(({ valor }) => valor === filtros.tributo)) errores.tributo = 'Selecciona un tributo válido.'
   if (permitidos.has('montoMinimo') && filtros.montoMinimo !== '') {
@@ -33,7 +37,7 @@ export function validarFiltros(reporte, filtros) {
 export function parametrosReporte(reporte, filtros) {
   const parametros = new URLSearchParams()
   const permitidos = new Set(filtrosDisponibles(reporte))
-  for (const clave of ['anio', 'zona', 'tributo', 'montoMinimo']) {
+  for (const clave of ['anio', 'periodo', 'zona', 'tributo', 'montoMinimo']) {
     const valor = filtros[clave]
     if (permitidos.has(clave) && valor !== '' && valor != null) parametros.set(clave, String(valor).trim())
   }

@@ -57,7 +57,7 @@ class ReporteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].tipo", contains("MOROSOS", "PRICOS", "BUENOS_PAGADORES")))
                 .andExpect(jsonPath("$[0].titulo").value("Reporte de morosos"))
-                .andExpect(jsonPath("$[0].filtros", contains("zona", "tributo", "montoMinimo")))
+                .andExpect(jsonPath("$[0].filtros", contains("periodo", "zona", "tributo", "montoMinimo")))
                 .andExpect(jsonPath("$[1].filtros", contains("anio", "zona", "tributo", "montoMinimo")));
     }
 

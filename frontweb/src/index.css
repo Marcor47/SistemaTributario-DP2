@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap');
 
 :root {
   --marino: #35497D;
@@ -36,7 +36,7 @@ body {
   background: var(--fondo);
 }
 
-/* Estructura de la aplicación */
+/* Estructura de la aplicaciÃ³n */
 .app { min-height: 100vh; display: grid; grid-template-columns: 264px minmax(0, 1fr); }
 .menu {
   position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 28px;
@@ -57,6 +57,20 @@ body {
 .menu-enlace svg { flex: none; opacity: 0.9; }
 .menu-enlace:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
 .menu-enlace.active { background: rgba(255, 255, 255, 0.16); color: #fff; border-left-color: var(--cian); }
+.menu-perfil {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.menu-perfil-avatar {
+  flex: none; width: 38px; height: 38px; border-radius: 50%;
+  background: var(--cian, #00C8E0); color: var(--marino-osc, #0B2545);
+  display: grid; place-items: center; font-size: 16px; font-weight: 800;
+}
+.menu-perfil-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.menu-perfil-etiqueta { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.7; }
+.menu-perfil-nombre { font-size: 13.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menu-pie { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
 .menu-demo { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); font-size: 13px; line-height: 1.4; }
 .menu-salir {
@@ -86,7 +100,7 @@ body {
 .hint { color: var(--texto-atenuado); font-size: 14.5px; margin: 0; }
 .pie { max-width: 1240px; margin: 0 auto; padding: 16px clamp(16px, 3vw, 40px) 28px; font-size: 14px; color: var(--texto-atenuado); width: 100%; }
 
-/* Búsqueda */
+/* BÃºsqueda */
 .filters {
   display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px;
   background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio);
@@ -190,7 +204,7 @@ body {
 .estado.aviso { color: var(--advertencia); background: var(--advertencia-fondo); }
 .demo-opcion { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--texto-atenuado); margin-bottom: 16px; }
 
-/* Regularidad de pago y catálogo de formularios */
+/* Regularidad de pago y catÃ¡logo de formularios */
 .fld select, .fld textarea {
   padding: 8px 10px; border: 1px solid var(--borde); border-radius: 6px;
   font: inherit; color: var(--texto); background: var(--superficie);
@@ -242,7 +256,7 @@ body {
 .campo-completo { grid-column: 1 / -1; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 
-/* Configuración de metas */
+/* ConfiguraciÃ³n de metas */
 .metas-cabecera { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .metas-filtros .metas-anio { flex: 0 1 180px; min-width: 150px; }
 .tabla-scroll .tabla-metas {
@@ -327,7 +341,7 @@ body {
   .notificacion-temporal { animation: none; }
 }
 
-/* Búsqueda separada (Estado de Cuenta) */
+/* BÃºsqueda separada (Estado de Cuenta) */
 .filters-separados {
   background: var(--superficie);
   border: 1px solid var(--borde);
@@ -461,12 +475,12 @@ input::placeholder {
   .metas-filtros .btn, .formulario-meta .btn, .tabla-metas .btn { min-height: 44px; }
 }
 
-/* Menú en pantallas pequeñas */
+/* MenÃº en pantallas pequeÃ±as */
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
   .menu { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; }
   .menu-nav { flex-direction: row; flex-wrap: wrap; order: 3; width: 100%; }
-  .menu-etiqueta, .menu-demo { display: none; }
+  .menu-etiqueta, .menu-demo, .menu-perfil { display: none; }
   .menu-pie { margin-top: 0; margin-left: auto; }
   .menu-enlace { border-left: 0; border-bottom: 3px solid transparent; padding: 8px 12px; min-height: 44px; }
   .menu-enlace.active { border-bottom-color: var(--cian); }
@@ -474,7 +488,7 @@ input::placeholder {
 }
 @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01ms !important; } }
 
-/* ─── HU008: Índice de Morosidad ────────────────────────────── */
+/* â”€â”€â”€ HU008: Ãndice de Morosidad â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .morosidad-filtros { margin-bottom: 20px; }
 .morosidad-filtros .fld { max-width: 220px; flex: 0 1 220px; }
 

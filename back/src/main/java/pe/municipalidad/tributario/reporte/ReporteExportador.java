@@ -45,9 +45,10 @@ public class ReporteExportador {
     public static final String MEDIA_TYPE_PDF = "application/pdf";
 
     private static final Map<TipoReporte, Set<String>> COLUMNAS_VALIDAS = Map.of(
-            TipoReporte.MOROSOS, Set.of("codigo", "nombre", "tipoDocumento", "numeroDocumento",
-                    "domicilioFiscal", "zonas", "deudaVencida", "cuotasVencidas",
-                    "vencimientoMasAntiguo", "diasVencido", "etapaCobranza", "nombreEtapa", "deudaPorTributo"),
+            TipoReporte.MOROSOS, Set.of("codigo", "nombre", "razonSocial", "regimen", "tipoDocumento", "numeroDocumento",
+                    "condicion", "tipoPersona", "correo", "telefonos", "domicilioFiscal", "via", "numero", "departamento", "interior", "manzana", "lote", "distrito",
+                    "zonas", "deudaVencida", "deudaSinBeneficio", "cuotasVencidas",
+                    "vencimientoMasAntiguo", "diasVencido", "etapaCobranza", "nombreEtapa", "deudaPorTributo", "detalleDeuda"),
             TipoReporte.PRICOS, Set.of("codigo", "nombre", "tipoPersona", "tipoDocumento",
                     "numeroDocumento", "domicilioFiscal", "zonas", "emitidoAnio", "pagadoAnio",
                     "porcentajePagado", "deudaVencida"),
@@ -56,7 +57,7 @@ public class ReporteExportador {
     );
 
     public static final Map<TipoReporte, List<String>> COLUMNAS_DEFECTO = Map.of(
-            TipoReporte.MOROSOS, List.of("codigo", "nombre", "tipoDocumento", "numeroDocumento",
+            TipoReporte.MOROSOS, List.of("codigo", "razonSocial", "regimen", "tipoDocumento", "numeroDocumento", "condicion", "tipoPersona", "correo", "telefonos",
                     "zonas", "deudaVencida", "cuotasVencidas", "vencimientoMasAntiguo", "diasVencido", "nombreEtapa"),
             TipoReporte.PRICOS, List.of("codigo", "nombre", "tipoPersona", "tipoDocumento",
                     "numeroDocumento", "zonas", "emitidoAnio", "pagadoAnio", "porcentajePagado", "deudaVencida"),
@@ -398,7 +399,10 @@ public class ReporteExportador {
 
     private static float pesoColumna(String columna) {
         return switch (columna) {
-            case "nombre" -> 2.5f;
+            case "nombre", "razonSocial" -> 2.5f;
+            case "regimen", "distrito", "via" -> 1.4f;
+            case "deudaSinBeneficio" -> 1.2f;
+            case "numero", "interior", "manzana", "lote" -> 0.8f;
             case "domicilioFiscal" -> 2.2f;
             case "deudaPorTributo" -> 2.0f;
             case "codigo", "tipoDocumento", "zonas" -> 0.9f;
@@ -419,10 +423,23 @@ public class ReporteExportador {
     public static String etiquetaColumna(String columna) {
         return switch (columna) {
             case "codigo" -> "Código";
+            case "razonSocial" -> "Razón Social";
+            case "regimen" -> "Régimen";
+            case "deudaSinBeneficio" -> "Deuda Sin Beneficio (S/)";
+            case "via" -> "Vía";
+            case "numero" -> "Número";
+            case "distrito" -> "Distrito";
+            case "departamento" -> "Departamento";
+            case "interior" -> "Interior";
+            case "manzana" -> "Manzana";
+            case "lote" -> "Lote";
             case "nombre" -> "Contribuyente";
             case "tipoPersona" -> "Tipo Persona";
             case "tipoDocumento" -> "Tipo Doc.";
             case "numeroDocumento" -> "N° Documento";
+            case "condicion" -> "Condición";
+            case "correo" -> "Correo electrónico";
+            case "telefonos" -> "Teléfonos";
             case "domicilioFiscal" -> "Domicilio Fiscal";
             case "zonas" -> "Zonas";
             case "deudaVencida" -> "Deuda Vencida (S/)";
@@ -447,7 +464,21 @@ public class ReporteExportador {
                 case "nombre" -> m.nombre();
                 case "tipoDocumento" -> m.tipoDocumento() != null ? m.tipoDocumento().name() : "";
                 case "numeroDocumento" -> m.numeroDocumento();
+                case "condicion" -> m.condicion();
+                case "tipoPersona" -> m.tipoPersona() != null ? m.tipoPersona().name() : "";
+                case "correo" -> m.correo();
+                case "telefonos" -> m.telefonos();
                 case "domicilioFiscal" -> m.domicilioFiscal();
+                case "razonSocial" -> m.razonSocial() != null ? m.razonSocial() : m.nombre();
+                case "regimen" -> m.regimen() != null ? m.regimen() : "";
+                case "deudaSinBeneficio" -> m.deudaSinBeneficio() != null ? m.deudaSinBeneficio() : m.deudaVencida();
+                case "via" -> m.domicilioFiscalDesglosado() != null && m.domicilioFiscalDesglosado().via() != null ? m.domicilioFiscalDesglosado().via() : "";
+                case "numero" -> m.domicilioFiscalDesglosado() != null && m.domicilioFiscalDesglosado().numero() != null ? m.domicilioFiscalDesglosado().numero() : "";
+                case "distrito" -> m.domicilioFiscalDesglosado() != null && m.domicilioFiscalDesglosado().distrito() != null ? m.domicilioFiscalDesglosado().distrito() : "";
+                case "departamento" -> m.domicilioFiscalDesglosado() != null && m.domicilioFiscalDesglosado().departamento() != null ? m.domicilioFiscalDesglosado().departamento() : "";
+                case "interior" -> m.domicilioFiscalDesglosado() != null && m.domicilioFiscalDesglosado().interior() != null ? m.domicilioFiscalDesglosado().interior() : "";
+                case "manzana" -> m.domicilioFiscalDesglosado() != null && m.domicilioFiscalDesglosado().manzana() != null ? m.domicilioFiscalDesglosado().manzana() : "";
+                case "lote" -> m.domicilioFiscalDesglosado() != null && m.domicilioFiscalDesglosado().lote() != null ? m.domicilioFiscalDesglosado().lote() : "";
                 case "zonas" -> m.zonas() != null ? String.join(", ", m.zonas()) : "";
                 case "deudaVencida" -> m.deudaVencida();
                 case "cuotasVencidas" -> m.cuotasVencidas();
@@ -460,6 +491,7 @@ public class ReporteExportador {
                                 .map(t -> t.tributo() + ": S/ " + t.monto())
                                 .collect(Collectors.joining("; "))
                         : "";
+                case "detalleDeuda" -> m.detalleDeuda();
                 default -> "";
             };
         } else if (fila instanceof FilaPrico p) {
