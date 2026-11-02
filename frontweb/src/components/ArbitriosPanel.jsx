@@ -1,8 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { AccesoDenegado, AccesoRestringido, VerificandoAcceso } from './AccesoInterno.jsx'
 import { obtenerArbitriosPredio } from '../services/arbitriosService.js'
-import { agruparCuotasPorTitular, estadoArbitrio, etiquetaCondicion } from '../utils/arbitrios.js'
+import {
+  FILTROS_ARBITRIOS_INICIALES,
+  agruparCuotasPorTitular,
+  estadoArbitrio,
+  etiquetaCondicion,
+  filtrarCuotas,
+  opcionesDeArbitrios,
+} from '../utils/arbitrios.js'
+import { TAMANIOS_PAGINA, paginar } from '../utils/paginacion.js'
 import { ROLES_CONSULTA_PREDIO, tieneRolInterno } from '../utils/roles.js'
 import { fecha, moneda } from '../utils/formato.js'
 import './AccesoInterno.css'
@@ -126,7 +134,35 @@ function GrupoCuotas({ grupo }) {
 
 function ResultadoArbitrios({ datos }) {
   const { predio, fechaCorte, resumen, cuotas } = datos
-  const grupos = agruparCuotasPorTitular(datos)
+  const [filtros, setFiltros] = useState(FILTROS_ARBITRIOS_INICIALES)
+  const [porPagina, setPorPagina] = useState(TAMANIOS_PAGINA[0])
+  const [pagina, setPagina] = useState(1)
+
+  const opciones = useMemo(() => opcionesDeArbitrios(cuotas), [cuotas])
+  const filtradas = useMemo(() => filtrarCuotas(cuotas, filtros), [cuotas, filtros])
+  const { visibles, paginaActual, totalPaginas, inicio, fin } = paginar(filtradas, pagina, porPagina)
+  const grupos = agruparCuotasPorTitular({ predio, cuotas: visibles })
+  const hayFiltros = Object.values(filtros).some(Boolean)
+
+  function cambiarFiltro(evento) {
+    const { name, value } = evento.target
+    setFiltros((actuales) => ({ ...actuales, [name]: value }))
+    setPagina(1)
+  }
+
+  function limpiarFiltros() {
+    setFiltros(FILTROS_ARBITRIOS_INICIALES)
+    setPagina(1)
+  }
+
+  function cambiarPorPagina(evento) {
+    setPorPagina(Number(evento.target.value))
+    setPagina(1)
+  }
+
+  function cambiarPagina(nueva) {
+    setPagina(nueva)
+  }
 
   return (
     <section className="pcard arb-ficha" aria-label={`Arbitrios del predio ${predio.codigoPredio}`}>
@@ -175,11 +211,82 @@ function ResultadoArbitrios({ datos }) {
               <span className="estado aviso">{conteo(resumen.cuotasPendientes, 'cuota pendiente', 'cuotas pendientes')}</span>
               <span className="estado critico">{conteo(resumen.cuotasVencidas, 'cuota vencida', 'cuotas vencidas')}</span>
             </div>
+            <p className="hint arb-resumen-nota">
+              Los totales corresponden a todas las cuotas del predio; los filtros de la lista no los modifican.
+            </p>
           </section>
 
           <section className="arb-seccion" aria-label="Cuotas de arbitrios">
             <h3>Cuotas</h3>
-            {grupos.map((grupo) => <GrupoCuotas key={grupo.codigoContribuyente} grupo={grupo} />)}
+
+            <div className="arb-filtros" role="group" aria-label="Filtros y paginación de cuotas">
+              <div className="fld">
+                <label htmlFor="arb-anio">Año</label>
+                <select id="arb-anio" name="anio" value={filtros.anio} onChange={cambiarFiltro}>
+                  <option value="">Todos los años</option>
+                  {opciones.anios.map((anio) => (
+                    <option key={anio} value={anio}>{anio}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="fld">
+                <label htmlFor="arb-estado">Estado</label>
+                <select id="arb-estado" name="estado" value={filtros.estado} onChange={cambiarFiltro}>
+                  <option value="">Todos los estados</option>
+                  {opciones.estados.map((estado) => (
+                    <option key={estado.valor} value={estado.valor}>{estado.etiqueta}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="fld arb-tamano">
+                <label htmlFor="arb-por-pagina">Filas por página</label>
+                <select id="arb-por-pagina" value={porPagina} onChange={cambiarPorPagina}>
+                  {TAMANIOS_PAGINA.map((tamano) => (
+                    <option key={tamano} value={tamano}>{tamano}</option>
+                  ))}
+                </select>
+              </div>
+              {hayFiltros && (
+                <button className="btn arb-limpiar" type="button" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+
+            {filtradas.length === 0 ? (
+              <p className="arb-cuotas-vacio" role="status">
+                No hay cuotas que coincidan con los filtros seleccionados.
+              </p>
+            ) : (
+              <>
+                {grupos.map((grupo) => <GrupoCuotas key={grupo.codigoContribuyente} grupo={grupo} />)}
+
+                <div className="arb-paginacion">
+                  <p className="arb-conteo-texto" role="status">
+                    Mostrando {inicio + 1}–{fin} de {filtradas.length} {filtradas.length === 1 ? 'cuota' : 'cuotas'}
+                  </p>
+                  <div className="arb-paginacion__controles">
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => cambiarPagina(paginaActual - 1)}
+                      disabled={paginaActual <= 1}
+                    >
+                      Anterior
+                    </button>
+                    <span className="arb-pagina">Página {paginaActual} de {totalPaginas}</span>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={() => cambiarPagina(paginaActual + 1)}
+                      disabled={paginaActual >= totalPaginas}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </section>
         </>
       )}
