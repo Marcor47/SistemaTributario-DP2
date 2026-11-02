@@ -149,6 +149,21 @@ excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno r
 Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
 `tributario.integracion.autenticacion-simulada.documento` y `.clave`.
 
+## Constancia de No Adeudo en local
+
+`GET /api/constancias/deuda` consulta la deuda del contribuyente autenticado y devuelve el total y
+las obligaciones pendientes. Crear o firmar una solicitud requiere una consulta actual con saldo cero.
+El perfil `local` habilita el recorrido simulado de S/ 10.00 con `POST /api/constancias/{id}/orden`,
+`GET /api/constancias/{id}/orden`, `POST /api/constancias/{id}/pago` y
+`POST /api/constancias/{id}/emitir`. Los pasos se controlan en el servidor y la deuda se consulta
+de nuevo antes de cada operación posterior a la firma. El pago se hace solo con la pasarela simulada.
+
+La emisión guarda el PDF y un registro de buzón en PostgreSQL. `GET /api/constancias/buzon` lista
+las constancias propias y `GET /api/constancias/buzon/{id}/descarga` descarga el PDF propio. El
+documento y las firmas son de prueba, sin validez legal; la revisión es automática con un actor
+técnico simulado, no una aprobación real de un operador municipal. La tarifa de prueba se configura
+en `tributario.constancia.demo.derecho` y la funcionalidad está deshabilitada fuera de `local`.
+
 ## Integraciones pendientes
 
 - Sustituir `DemoPredioGateway` por `SamnetGateway.buscarPredio` (SP `ps_predio`).

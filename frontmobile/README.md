@@ -89,3 +89,14 @@ abrirla. Si se pierde una confirmación, se consulta la misma orden; no se crea 
 Una copia desactualizada no habilita el pago. Los errores de beneficios indeterminados o de cobertura del
 100 % derivan a ventanilla. Un cambio de saldo requiere volver a la cuenta y generar una cotización nueva.
 El contrato completo y las limitaciones del simulador están en `back/HU022_API.md`.
+
+## Solicitud de Constancia de No Adeudo (HU015)
+
+La pantalla `/constancia` consulta la deuda y muestra las obligaciones pendientes. Sin deuda permite
+iniciar o recuperar una solicitud, revisar el documento y firmarla. La firma visual y el firmador del
+backend son simulados y no tienen validez legal.
+
+En el perfil `local`, el contribuyente puede generar una orden de S/ 10.00, confirmar el pago simulado
+y emitir una constancia de prueba. El PDF se guarda en PostgreSQL y se descarga desde el buzón del
+contribuyente. El proceso registra un actor técnico de prueba; no representa una revisión municipal real.
+Cada paso vuelve a consultar la deuda antes de continuar. En este recorrido no se hacen cargos reales.

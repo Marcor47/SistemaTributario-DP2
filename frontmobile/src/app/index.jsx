@@ -26,7 +26,7 @@ const SERVICIOS = [
     ruta: '/constancia',
     icono: 'documento',
     titulo: 'Constancia de No Adeudo',
-    descripcion: 'Solicita y firma tu constancia desde el celular.',
+    descripcion: 'Solicita una constancia y firma la solicitud desde tu celular.',
   },
 ]
 
