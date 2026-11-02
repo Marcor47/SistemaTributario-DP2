@@ -72,11 +72,24 @@ public class VistaReporte {
         this.fechaCreacion = fechaCreacion;
     }
 
-    public void actualizar(TipoGrafica tipoGrafica, String filtros, String columnasVisibles, String orden) {
-        this.tipoGrafica = tipoGrafica;
-        this.filtros = filtros;
-        this.columnasVisibles = columnasVisibles;
+    public void actualizar(String nombre, TipoGrafica tipoGrafica, String filtros, String columnasVisibles, String orden) {
+        if (nombre != null && !nombre.isBlank()) {
+            this.nombre = nombre;
+        }
+        if (tipoGrafica != null) {
+            this.tipoGrafica = tipoGrafica;
+        }
+        if (filtros != null) {
+            this.filtros = filtros;
+        }
+        if (columnasVisibles != null) {
+            this.columnasVisibles = columnasVisibles;
+        }
         this.orden = orden;
+    }
+
+    public void actualizar(TipoGrafica tipoGrafica, String filtros, String columnasVisibles, String orden) {
+        actualizar(null, tipoGrafica, filtros, columnasVisibles, orden);
     }
 
     public boolean perteneceA(Usuario otro) {
