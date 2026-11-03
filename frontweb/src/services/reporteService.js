@@ -23,6 +23,12 @@ export function generarMorososPorZona(filtros, { signal } = {}) {
   return pedir(`/reportes/morosos-zona${consulta}`, { signal }).catch(controlarSesion)
 }
 
+export function generarBuenosPagadoresPorZona(filtros, { signal } = {}) {
+  const parametros = parametrosReporte({ filtros: ['periodo', 'zona', 'tributo', 'montoMinimo'] }, filtros)
+  const consulta = parametros.size ? `?${parametros}` : ''
+  return pedir(`/reportes/buenos-pagadores-zona${consulta}`, { signal }).catch(controlarSesion)
+}
+
 export function listarVistas({ signal } = {}) {
   return pedir('/reportes/vistas', { signal }).catch(controlarSesion)
 }
