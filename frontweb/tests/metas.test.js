@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { formatoValorMeta, opcionesPeriodo, periodoSugerido, validarMeta } from '../src/utils/metas.js'
+import { enlaceMeta, formatoValorMeta, opcionesPeriodo, periodoSugerido, validarMeta } from '../src/utils/metas.js'
 
 test('HU009: genera los periodos según la periodicidad del indicador', () => {
   const mensual = opcionesPeriodo({ periodicidad: 'MENSUAL', periodosPorAnio: 12 }, 2026)
@@ -32,4 +32,13 @@ test('HU009: presenta el valor con la unidad correspondiente', () => {
   assert.match(formatoValorMeta(87.5, 'PORCENTAJE'), /^87[,.]5 %$/)
   assert.match(formatoValorMeta(1250000.5, 'SOLES'), /1[,.]250[,.]000[,.]50/)
   assert.equal(formatoValorMeta(1250, 'CANTIDAD').replace(/[,.]/g, ''), '1250')
+})
+
+test('HU039: genera el enlace a la meta relacionada con una alerta', () => {
+  assert.equal(
+    enlaceMeta({ idMeta: 5, indicadorCodigo: 'INDICE_MOROSIDAD', anio: 2026 }),
+    '/metas?metaId=5&indicadorCodigo=INDICE_MOROSIDAD&anio=2026',
+  )
+  assert.equal(enlaceMeta({ indicadorCodigo: 'INDICE_MOROSIDAD', anio: 2026 }), '/metas?indicadorCodigo=INDICE_MOROSIDAD&anio=2026')
+  assert.equal(enlaceMeta({}), '/metas')
 })

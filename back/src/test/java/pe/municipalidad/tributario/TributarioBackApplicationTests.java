@@ -1,12 +1,9 @@
 package pe.municipalidad.tributario;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
-import pe.municipalidad.tributario.soporte.PostgresEmbebidoConfig;
+import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
-@SpringBootTest
-@Import(PostgresEmbebidoConfig.class)
+@PruebaIntegracion
 class TributarioBackApplicationTests {
 
 	@Test

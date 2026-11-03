@@ -1,6 +1,8 @@
 package pe.municipalidad.tributario.contribuyente;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,5 +24,12 @@ public class ContribuyenteController {
             @RequestParam TipoDocumento tipoDocumento,
             @RequestParam @NotBlank(message = "es obligatorio") String numeroDocumento) {
         return contribuyenteService.consultarPorDocumento(tipoDocumento, numeroDocumento);
+    }
+
+    @GetMapping("/buscar")
+    public List<ContribuyenteCoincidenciaRespuesta> buscar(
+            @RequestParam @NotBlank(message = "es obligatorio")
+            @Size(max = 120, message = "debe tener como máximo 120 caracteres") String q) {
+        return contribuyenteService.buscar(q);
     }
 }

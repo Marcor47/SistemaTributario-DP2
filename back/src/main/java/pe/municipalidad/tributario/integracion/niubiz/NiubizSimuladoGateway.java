@@ -5,10 +5,12 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 
 /* Simula la confirmación del pago con el mismo contrato de NiubizGateway (RNF-015); no mueve dinero. */
 @Component
+@ConditionalOnProperty(name = "tributario.niubiz.mode", havingValue = "simulado", matchIfMissing = true)
 public class NiubizSimuladoGateway implements NiubizGateway {
 
     private final Map<String, BigDecimal> ordenes = new ConcurrentHashMap<>();

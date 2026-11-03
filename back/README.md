@@ -17,7 +17,7 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 | `GET /api/estado-cuenta/{codigo}` y `/contribuyentes?q=...` | Rutas anteriores: ahora requieren sesión y solo devuelven la cuenta propia. |
 | `POST /api/portal/pagos` | Crear una orden por toda la deuda pendiente con body `{}`. Una lista `obligaciones` opcional solo se acepta si coincide con el conjunto completo. |
 | `GET /api/portal/pagos/{id}` | Consultar el estado del pago propio. |
-| `POST /api/portal/pagos/{id}/confirmacion` | Consultar la pasarela servidor a servidor y registrar el pago autorizado en PostgreSQL. Repetirlo no crea otro pago. |
+| `POST /api/portal/pagos/{id}/confirmacion` | En sandbox, autorizar con el `transactionToken` del checkout servidor a servidor y registrar solo el pago autorizado en PostgreSQL. Repetir una orden ya confirmada no crea otro pago. |
 | `GET /api/portal/solicitudes-predio/requisitos?tipoTramite=REGISTRO&tipoPredio=URBANO` | Consultar los documentos requeridos. |
 | `POST /api/portal/solicitudes-predio` | Enviar formulario multipart con `tipoTramite`, `tipoPredio`, `codigoPredio` opcional, `requisitoIds` y `archivos` en el mismo orden. |
 | `GET /api/portal/solicitudes-predio`, `GET /api/portal/solicitudes-predio/{id}` | Consultar solicitudes propias. |
@@ -38,6 +38,20 @@ sin esa clave no se aceptan archivos. Genera una clave de desarrollo en PowerShe
 $bytes = New-Object byte[] 32
 [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
 $env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
+```
+
+En Windows PowerShell 5.1 el método `Fill` no existe; usa esta variante:
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
+```
+
+`$env:` solo dura en esa terminal. Para conservarla en tu usuario de Windows (abre una terminal nueva después):
+
+```powershell
+[Environment]::SetEnvironmentVariable('PREDIO_FILES_KEY', $env:PREDIO_FILES_KEY, 'User')
 ```
 
 Conserva la misma clave para poder leer los archivos ya guardados. No la subas al repositorio.
@@ -134,6 +148,21 @@ excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno r
 
 Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
 `tributario.integracion.autenticacion-simulada.documento` y `.clave`.
+
+## Constancia de No Adeudo en local
+
+`GET /api/constancias/deuda` consulta la deuda del contribuyente autenticado y devuelve el total y
+las obligaciones pendientes. Crear o firmar una solicitud requiere una consulta actual con saldo cero.
+El perfil `local` habilita el recorrido simulado de S/ 10.00 con `POST /api/constancias/{id}/orden`,
+`GET /api/constancias/{id}/orden`, `POST /api/constancias/{id}/pago` y
+`POST /api/constancias/{id}/emitir`. Los pasos se controlan en el servidor y la deuda se consulta
+de nuevo antes de cada operación posterior a la firma. El pago se hace solo con la pasarela simulada.
+
+La emisión guarda el PDF y un registro de buzón en PostgreSQL. `GET /api/constancias/buzon` lista
+las constancias propias y `GET /api/constancias/buzon/{id}/descarga` descarga el PDF propio. El
+documento y las firmas son de prueba, sin validez legal; la revisión es automática con un actor
+técnico simulado, no una aprobación real de un operador municipal. La tarifa de prueba se configura
+en `tributario.constancia.demo.derecho` y la funcionalidad está deshabilitada fuera de `local`.
 
 ## Integraciones pendientes
 

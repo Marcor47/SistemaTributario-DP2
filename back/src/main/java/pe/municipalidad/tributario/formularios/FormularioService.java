@@ -6,7 +6,6 @@ import java.util.zip.ZipInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Instant;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,7 +18,6 @@ import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 
 /* HU049: los formularios son plantillas del maestro (operativo.plantilla_documento y version_plantilla). */
 @Service
-@Profile("demo")
 public class FormularioService {
     public record Resumen(String codigo, String nombre, int version, java.time.Instant fechaPublicacion) {
         static Resumen from(VersionPlantilla v) {

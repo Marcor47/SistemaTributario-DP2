@@ -1,0 +1,35 @@
+/* HU005: detalle de arbitrios de un predio. */
+.arb-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.arb-cabecera h2 { margin-bottom: 0; }
+.arb-fecha { white-space: nowrap; }
+.arb-aviso { margin: 16px 0 0; }
+.arb-predio { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.arb-seccion { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--borde); }
+.arb-seccion h3 { margin: 0; font-size: 17px; color: var(--marino-osc); }
+.arb-resumen { align-items: start; gap: 12px 32px; margin: 14px 0 0; }
+.arb-resumen strong { font-size: 22px; }
+.arb-resumen .deuda strong { color: var(--critico); }
+.arb-conteo { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.arb-grupo { margin-top: 18px; }
+.arb-grupo__cab { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.arb-grupo__cab h4 { margin: 0; font-size: 16px; color: var(--marino-osc); }
+.arb-grupo__codigo { font-variant-numeric: tabular-nums; }
+.arb-grupo__condicion { font-size: 13px; color: var(--texto-atenuado); }
+.arb-tabla { min-width: 900px; }
+.arb-tabla td, .arb-tabla th { vertical-align: middle; }
+.arb-saldo { font-weight: 700; }
+.arb-vacio { margin-top: 14px; }
+.arb-vacio > .hint { margin-top: 8px; }
+.arb-nota { margin-top: 18px; font-size: 13px; }
+.arb-error p { margin: 8px 0 16px; }
+
+@media (max-width: 600px) {
+  .arb-predio { grid-template-columns: minmax(0, 1fr); }
+  .arb-cabecera { align-items: flex-start; }
+}

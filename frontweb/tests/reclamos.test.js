@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { listarMisReclamos, ordenarReclamos, registrarReclamo, reiniciarReclamosDemo } from '../src/services/reclamoService.js'
+import {
+  derivarReclamo,
+  listarMisReclamos,
+  listarReclamosAsignados,
+  listarReclamosGestion,
+  ordenarReclamos,
+  registrarReclamo,
+  reiniciarReclamosDemo,
+  responderReclamo,
+} from '../src/services/reclamoService.js'
 import { aFechaHoraLocal, estadoReclamo, tiposPara, validarReclamo } from '../src/utils/reclamos.js'
 
 const AHORA = new Date(2026, 9, 28, 15, 30)
@@ -54,9 +63,9 @@ test('HU050: aFechaHoraLocal da el formato del campo datetime-local', () => {
   assert.equal(aFechaHoraLocal(new Date(2026, 0, 5, 7, 4)), '2026-01-05T07:04')
 })
 
-test('HU050: sin servicio se listan reclamos ficticios con su estado y sus derivaciones', async () => {
+test('HU050: el modo demostración explícito lista reclamos ficticios con estado y derivaciones', async () => {
   reiniciarReclamosDemo()
-  const { reclamos, demo } = await listarMisReclamos()
+  const { reclamos, demo } = await listarMisReclamos(true)
   assert.equal(demo, true)
   assert.equal(reclamos.length, 2)
   assert.ok(reclamos.some((r) => r.estado === 'EN_REVISION' && r.derivaciones.length === 1))
@@ -71,7 +80,7 @@ test('HU050: registrar un reclamo en demostración lo deja ENVIADO con número y
   assert.equal(creado.fechaHoraIncidente, '2026-10-28T09:00:00')
   assert.equal(creado.fechaRegistro, '2026-10-28T15:30:00')
   assert.deepEqual(creado.derivaciones, [])
-  const { reclamos } = await listarMisReclamos()
+  const { reclamos } = await listarMisReclamos(true)
   assert.equal(reclamos.length, 3)
   reiniciarReclamosDemo()
 })
@@ -82,7 +91,7 @@ test('HU050: un reclamo inválido no se registra y devuelve los errores por camp
     () => registrarReclamo({ ...valido, comentario: '' }, true, 'TRABAJADOR', AHORA),
     (err) => err.codigo === 'RECLAMO_INVALIDO' && Boolean(err.errores.comentario),
   )
-  assert.equal((await listarMisReclamos()).reclamos.length, 2)
+  assert.equal((await listarMisReclamos(true)).reclamos.length, 2)
 })
 
 test('HU050: la lista se ordena con el reclamo más reciente primero', () => {
@@ -91,4 +100,43 @@ test('HU050: la lista se ordena con el reclamo más reciente primero', () => {
     { idReclamo: 2, fechaRegistro: '2026-10-14T11:05:00' },
   ])
   assert.deepEqual(orden.map((r) => r.idReclamo), [2, 1])
+})
+
+test('HU050: gestor y responsable reciben reclamos normalizados desde sus bandejas', async (t) => {
+  const original = globalThis.fetch
+  t.after(() => { globalThis.fetch = original })
+  const respuesta = [{ reclamo: { idReclamo: 10, numeroReclamo: 'REC-2026-000010', estado: 'EN_REVISION', derivaciones: [] }, reclamante: 'Trabajador Uno', idAreaActual: 2, areaActual: 'Rentas', idResponsableActual: 3, responsableActual: 'Responsable Uno' }]
+  const rutas = []
+  globalThis.fetch = async (url, opciones) => {
+    rutas.push([String(url), opciones])
+    return new Response(JSON.stringify(respuesta), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }
+  const gestion = await listarReclamosGestion()
+  const asignados = await listarReclamosAsignados()
+  assert.equal(gestion[0].numeroReclamo, 'REC-2026-000010')
+  assert.equal(asignados[0].responsableActual, 'Responsable Uno')
+  assert.ok(rutas[0][0].endsWith('/api/reclamos/gestion'))
+  assert.ok(rutas[1][0].endsWith('/api/reclamos/asignados'))
+  assert.equal(rutas[0][1].credentials, 'include')
+})
+
+test('HU050: derivar y responder envían CSRF y el cuerpo esperado', async (t) => {
+  const original = globalThis.fetch
+  t.after(() => { globalThis.fetch = original })
+  const llamadas = []
+  globalThis.fetch = async (url, opciones = {}) => {
+    llamadas.push([String(url), opciones])
+    if (String(url).endsWith('/auth/interno/csrf')) {
+      return new Response(JSON.stringify({ headerName: 'X-CSRF-TOKEN', token: 'token-hu050' }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }
+    const cuerpo = JSON.parse(opciones.body)
+    const estado = String(url).includes('/respuesta') ? 'APROBADO_CON_RESPUESTA' : 'EN_REVISION'
+    return new Response(JSON.stringify({ reclamo: { idReclamo: 10, numeroReclamo: 'REC-2026-000010', estado, derivaciones: [] }, reclamante: 'Trabajador Uno', ...cuerpo }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+  }
+  await derivarReclamo(10, { idArea: 2, idResponsable: 3, observacion: 'Revisar' })
+  await responderReclamo(10, 'Respuesta oficial')
+  const mutables = llamadas.filter(([url]) => !url.endsWith('/auth/interno/csrf'))
+  assert.equal(new Headers(mutables[0][1].headers).get('X-CSRF-TOKEN'), 'token-hu050')
+  assert.deepEqual(JSON.parse(mutables[0][1].body), { idArea: 2, idResponsable: 3, observacion: 'Revisar' })
+  assert.deepEqual(JSON.parse(mutables[1][1].body), { respuesta: 'Respuesta oficial' })
 })

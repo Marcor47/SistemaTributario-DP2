@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /*
  * HU026: aplicar reglas de calidad en la carga del ETL (RF-038, RF-041).
@@ -24,7 +25,7 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
  *    el lote, entonces se rechaza y no pasa a las tablas maestras.
  * 2. Dado un lote rechazado, cuando ocurre, entonces no afecta los datos ya publicados.
  */
-@PruebaIntegracion
+@PruebaInterna
 @Transactional
 class CalidadLoteControllerTest {
 
@@ -80,7 +81,7 @@ class CalidadLoteControllerTest {
                 }
                 """.formatted(lote.getIdLote());
 
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON).content(json))
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idLote").value(lote.getIdLote()))
                 .andExpect(jsonPath("$.estado").value("PUBLICADO"))
@@ -138,7 +139,7 @@ class CalidadLoteControllerTest {
                 }
                 """.formatted(lote.getIdLote());
 
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON).content(json))
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idLote").value(lote.getIdLote()))
                 .andExpect(jsonPath("$.estado").value("RECHAZADO"))
@@ -175,7 +176,7 @@ class CalidadLoteControllerTest {
                 }
                 """.formatted(nuevoLote.getIdLote());
 
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON).content(json))
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("RECHAZADO"));
 
@@ -188,7 +189,7 @@ class CalidadLoteControllerTest {
     @Test
     void rechazaEvaluacionDeLoteInexistenteOYaCerrado() throws Exception {
         // Inexistente -> 404
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"idLote\": 999999}"))
                 .andExpect(status().isNotFound());
 
@@ -197,7 +198,7 @@ class CalidadLoteControllerTest {
         lotePublicado.publicar(10, 10, LocalDateTime.now());
         lotes.saveAndFlush(lotePublicado);
 
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"idLote\": " + lotePublicado.getIdLote() + "}"))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.codigo").value("LOTE_YA_PROCESADO"));
@@ -219,7 +220,7 @@ class CalidadLoteControllerTest {
                 }
                 """.formatted(lote.getIdLote());
 
-        mockMvc.perform(post(RUTA_EVALUACIONES).contentType(MediaType.APPLICATION_JSON).content(json))
+        mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk());
 
         // Consultar por GET

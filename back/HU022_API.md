@@ -20,7 +20,7 @@ No se envía código de contribuyente en estas peticiones.
 | --- | --- | --- |
 | Crear orden | `POST /api/portal/pagos`, `Content-Type: application/json`, body `{}` | HTTP 201, cabecera `Location: /api/portal/pagos/{id}` |
 | Consultar | `GET /api/portal/pagos/{id}`, sin body | HTTP 200 |
-| Confirmar | `POST /api/portal/pagos/{id}/confirmacion`, sin body | HTTP 200 |
+| Confirmar | `POST /api/portal/pagos/{id}/confirmacion`; en sandbox body `{ "transactionToken": "..." }` | HTTP 200 |
 
 Por compatibilidad, el body de creación puede ser `{"obligaciones":[1,2,...]}`. Esa lista debe
 coincidir exactamente con **todas** las obligaciones pendientes de la cuenta; el servidor siempre
@@ -39,7 +39,8 @@ Respuesta ilustrativa de creación (los IDs y montos reales dependen de la cuent
   "obligaciones": ["101", "102"],
   "urlPasarela": "/pasarela-simulada/SIM-00000000-0000-0000-0000-000000000000",
   "comprobante": null,
-  "dePrueba": true
+  "dePrueba": true,
+  "checkout": null
 }
 ```
 
@@ -47,7 +48,8 @@ Al consultar, `urlPasarela` es `null`. Tras confirmar, `estado` es `CONFIRMADA` 
 es `WEB-{idTransaccion}`; la confirmación repetida devuelve la misma transacción sin otro cargo.
 El `montoBase` es el saldo antes de beneficios, `montoDescuento` no es dinero cobrado y
 `montoTotal` es el importe de la orden de pasarela. La base de datos conserva esos tres importes
-y el desglose por obligación. `dePrueba: true` identifica el simulador.
+y el desglose por obligación. `dePrueba: true` indica un entorno sin cobro de producción
+(simulador o sandbox).
 
 Errores de negocio usan `{ "codigo": "...", "mensaje": "...", "detalles": [] }`. Ejemplo:
 
@@ -69,6 +71,8 @@ Errores de negocio usan `{ "codigo": "...", "mensaje": "...", "detalles": [] }`.
 | 422 | `BENEFICIO_INDETERMINADO` | La fuente no asignó un beneficio verificable a cada obligación; acudir a ventanilla. |
 | 422 | `SIN_COBRO_VIRTUAL` | El beneficio cubre toda la deuda; no se crea un cobro de cero. Acudir a ventanilla para aplicar el beneficio. |
 | 422 | `PAGO_NO_AUTORIZADO` | La pasarela no autorizó la orden. |
+| 400 | `TOKEN_NIUBIZ_REQUERIDO` | Falta el token que devuelve el checkout en modo sandbox. |
+| 502 | `NIUBIZ_NO_DISPONIBLE` | Niubiz no respondió; conciliar la orden si ocurrió durante la autorización. |
 | 409 | `SALDO_CAMBIO` | Cambió la deuda o el beneficio; se requiere nueva cotización. |
 | 503 | `SAMNET_NO_DISPONIBLE` | No se pudo consultar la fuente; no se cobra con datos de copia. |
 
@@ -81,8 +85,9 @@ de usar este contrato: enviar `{}`, mostrar el total de la respuesta del servido
 
 1. Iniciar sesión. Consultar `GET /api/portal/estado-cuenta` para mostrar la deuda informativa.
 2. Crear la orden con `{}` y mostrar `montoBase`, `montoDescuento`, `montoTotal` y `dePrueba`.
-3. Abrir `urlPasarela` para la operación simulada. El retorno del navegador no confirma el pago.
-4. Llamar a la ruta de confirmación; el backend consulta la autorización servidor a servidor.
+3. En modo simulado, abrir `urlPasarela`. En sandbox, presentar el checkout de Niubiz con el objeto `checkout`.
+4. En sandbox, enviar el `transactionToken` devuelto por Niubiz a la ruta de confirmación.
+   El backend autoriza servidor a servidor; el retorno del navegador por sí solo no confirma el pago.
 5. Si hay `SALDO_CAMBIO`, consultar de nuevo la cuenta y crear una orden nueva. Si hay
    `BENEFICIO_INDETERMINADO` o `SIN_COBRO_VIRTUAL`, indicar que acuda a ventanilla.
 6. Consultar la orden por ID para recuperar su estado y comprobante.
@@ -96,12 +101,40 @@ el pago virtual. Las pruebas crean una asignación explícita de beneficio para 
 dinero registrado y saldo final. También cubren selección parcial, obligaciones ajenas y pagadas,
 cambio de deuda o beneficio, confirmación repetida y concurrente. No se usan tarjetas ni pagos reales.
 
+## Sandbox de Niubiz
+
+Para activar el proveedor, configure `NIUBIZ_MODE=sandbox`, `NIUBIZ_USERNAME`,
+`NIUBIZ_PASSWORD`, `NIUBIZ_MERCHANT_ID`, `NIUBIZ_CALLBACK_URL` y `NIUBIZ_TIMEOUT_URL`.
+Las dos URLs deben ser HTTPS y accesibles por el checkout. Las credenciales son exclusivas del
+backend. El contribuyente debe tener correo registrado; el backend obtiene su identidad de la
+sesión y usa la IP de la conexión. El comercio debe confirmar con Niubiz los MDD antifraude
+requeridos para su afiliación antes de la homologación.
+
+La creación devuelve `urlPasarela: null` y un objeto `checkout` con `sessionKey`,
+`merchantId`, `purchaseNumber`, `checkoutUrl`, `callbackUrl` y `timeoutUrl`.
+`checkoutUrl` apunta al script oficial del sandbox. El cliente debe presentar el formulario
+responsivo de Niubiz con esos datos y el importe `montoTotal`, recibir `transactionToken`
+en la URL de retorno y enviarlo a `/confirmacion` con la misma sesión autenticada. El backend
+vuelve a verificar la deuda, autoriza con Niubiz servidor a servidor y solo registra en SAMNET
+si la respuesta indica `Authorized`, código `000` o `010` e importe exacto. Nunca se aceptan
+datos de tarjeta en esta API. Si expira el token de checkout, se crea una orden nueva.
+
+El frontend móvil de pagos conserva su flujo actual hasta que su responsable conecte el
+checkout y envíe el token. En modo sandbox, su confirmación sin token se rechaza con
+HTTP 400 `TOKEN_NIUBIZ_REQUERIDO`; no se crea un pago por omitir la pasarela.
+Si Niubiz agota el tiempo de autorización, el resultado puede ser incierto: no se reintenta
+automáticamente y se debe conciliar la orden con Niubiz antes de repetirla. También se requiere
+conciliación si Niubiz autoriza pero la escritura local falla después. Faltan los procedimientos
+operativos de conciliación y extorno para producción.
+
+Referencia: [Botón de Pago Web de Niubiz](https://desarrolladores.niubiz.com.pe/docs/bot%C3%B3n-de-pago-1).
+
 ## Simulador y reglas pendientes
 
 `NiubizSimuladoGateway` autoriza órdenes de prueba, conserva su importe en memoria y devuelve
 una URL local. Una orden de prueba pendiente no se puede confirmar tras reiniciar el backend.
-No representa el sandbox real de Niubiz ni mueve dinero. La integración real de autorización, conciliación,
-reversos y webhooks queda pendiente.
+No representa el sandbox real de Niubiz ni mueve dinero. Es el modo por defecto para desarrollo
+y pruebas (`NIUBIZ_MODE=simulado`).
 
 La fuente municipal debe definir y proporcionar la **asignación explícita de cada beneficio a
 cada obligación** (`samnet.obligacion.id_beneficio` en la base sintética), junto con la tasa

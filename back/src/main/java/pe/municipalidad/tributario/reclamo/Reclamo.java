@@ -31,6 +31,7 @@ import pe.municipalidad.tributario.seguridad.Usuario;
 public class Reclamo {
 
     public static final int MAXIMO_CARACTERES_COMENTARIO = 2000;
+    public static final int MAXIMO_CARACTERES_RESPUESTA = 4000;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -155,8 +156,10 @@ public class Reclamo {
         if (estado != EstadoReclamo.EN_REVISION) {
             throw new ReglaNegocioException("RECLAMO_NO_EN_REVISION", "Solo se responde un reclamo en revisión.");
         }
-        if (textoRespuesta == null || textoRespuesta.isBlank()) {
-            throw new ReglaNegocioException("RESPUESTA_REQUERIDA", "La respuesta es obligatoria.");
+        if (textoRespuesta == null || textoRespuesta.isBlank()
+                || textoRespuesta.length() > MAXIMO_CARACTERES_RESPUESTA) {
+            throw new ReglaNegocioException("RESPUESTA_INVALIDA",
+                    "La respuesta es obligatoria y admite hasta " + MAXIMO_CARACTERES_RESPUESTA + " caracteres.");
         }
         this.respuesta = textoRespuesta;
         this.fechaRespuesta = ahora;

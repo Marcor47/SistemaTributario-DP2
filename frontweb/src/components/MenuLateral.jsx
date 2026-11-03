@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { MODULOS, icono } from '../utils/modulos.jsx'
 import { cerrarSesion } from '../services/authService.js'
+import { useSesionInterna } from '../context/sesionInterna.js'
+import { useAuth } from '../context/AuthContext.jsx'
 
 /**
  * Panel de navegación lateral.
@@ -14,24 +16,39 @@ import { cerrarSesion } from '../services/authService.js'
  */
 export default function MenuLateral({ solo }) {
   const navegar = useNavigate()
+  const { sesion, salir: salirInterno } = useSesionInterna()
+  const { limpiarSesion } = useAuth()
   const [errorSalida, setErrorSalida] = useState('')
+  const rutaLogin = solo === 'gestion' ? '/gestion/login' : '/login'
 
   async function salir(evento) {
     evento.preventDefault()
     setErrorSalida('')
     try {
-      await cerrarSesion()
-      navegar('/login', { replace: true })
+      if (solo === 'gestion') {
+        await salirInterno()
+        navegar('/gestion/login', { replace: true })
+      } else {
+        await cerrarSesion()
+        limpiarSesion()
+        navegar('/login', { replace: true })
+      }
     } catch (err) {
       setErrorSalida(err.message)
     }
   }
 
   const modulosPortal  = MODULOS.filter((m) => m.seccion === 'portal')
-  const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal')
+  const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal'
+    && (!m.permiso || sesion?.permisos?.includes(m.permiso)))
 
   const mostrarPortal  = !solo || solo === 'portal'
   const mostrarGestion = !solo || solo === 'gestion'
+
+  // Nombre del usuario activo (solo disponible en sesión de gestión interna)
+  const nombreUsuario = solo === 'gestion' && sesion?.nombreCompleto
+    ? sesion.nombreCompleto
+    : null
 
   return (
     <aside className="menu">
@@ -42,6 +59,18 @@ export default function MenuLateral({ solo }) {
           <strong>San Miguel</strong>
         </div>
       </Link>
+
+      {nombreUsuario && (
+        <div className="menu-perfil" role="status" aria-label={`Usuario activo: ${nombreUsuario}`}>
+          <div className="menu-perfil-avatar" aria-hidden="true">
+            {nombreUsuario.charAt(0).toUpperCase()}
+          </div>
+          <div className="menu-perfil-info">
+            <span className="menu-perfil-etiqueta">Usuario activo</span>
+            <strong className="menu-perfil-nombre">{nombreUsuario}</strong>
+          </div>
+        </div>
+      )}
 
       <nav aria-label="Módulos del sistema">
         {mostrarPortal && (
@@ -78,7 +107,7 @@ export default function MenuLateral({ solo }) {
       <div className="menu-pie">
         <p className="menu-demo" role="note">Datos ficticios de demostración</p>
         {errorSalida && <p role="alert">{errorSalida}</p>}
-        <Link to="/login" className="menu-salir" onClick={salir}>
+        <Link to={rutaLogin} className="menu-salir" onClick={salir}>
           {icono(<><path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
           Salir
         </Link>

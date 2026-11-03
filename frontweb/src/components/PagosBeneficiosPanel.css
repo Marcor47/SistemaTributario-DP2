@@ -1,0 +1,48 @@
+.pagos-beneficios__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagos-beneficios__titular { display: grid; gap: 2px; margin: 8px 0 0; }
+.pagos-beneficios__acciones { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.pagos-beneficios__acciones .corte { margin: 0; }
+
+.pagos-beneficios__cuenta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0 8px;
+  padding: 16px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--fondo);
+}
+
+.pagos-beneficios__cuenta dt { color: var(--texto-atenuado); font-size: 14px; }
+.pagos-beneficios__cuenta dd { margin: 4px 0 0; color: var(--marino-osc); font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.pagos-beneficios__deuda dd { color: var(--critico); }
+.pagos-beneficios__seccion { margin-top: 24px; }
+.pagos-beneficios__seccion h3 { margin: 0 0 6px; color: var(--marino-osc); font-size: 18px; }
+.pagos-beneficios .pagos-beneficios__tabla { min-width: 940px; }
+.pagos-beneficios__tabla th[scope="row"] { font-size: 14px; overflow-wrap: anywhere; }
+.pagos-beneficios__tabla td { vertical-align: top; }
+.pagos-beneficios__tabla .num, .pagos-beneficios__fecha { white-space: nowrap; }
+.pagos-beneficios__tabla tfoot td { border-top: 2px solid var(--borde); font-weight: 700; }
+.pagos-beneficios__diferencia { font-weight: 700; }
+.pagos-beneficios__beneficio { display: grid; gap: 4px; min-width: 150px; overflow-wrap: anywhere; }
+.pagos-beneficios__beneficio strong { font-size: 14px; }
+.pagos-beneficios__lista { display: grid; gap: 12px; list-style: none; margin: 12px 0 0; padding: 0; }
+.pagos-beneficios__lista li { display: grid; gap: 4px; padding-left: 12px; border-left: 3px solid var(--cian); }
+.pagos-beneficios__observaciones { margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--borde); }
+.pagos-beneficios__observaciones p { margin: 0; }
+.pagos-beneficios__observaciones p + p { margin-top: 6px; }
+
+@media (max-width: 640px) {
+  .pagos-beneficios { padding: 18px 16px; }
+  .pagos-beneficios__cuenta { grid-template-columns: 1fr; gap: 12px; }
+  .pagos-beneficios__cabecera, .pagos-beneficios__acciones { align-items: flex-start; }
+  .pagos-beneficios__acciones { width: 100%; justify-content: space-between; }
+}

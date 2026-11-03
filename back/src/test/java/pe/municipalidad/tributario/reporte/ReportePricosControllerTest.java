@@ -82,6 +82,8 @@ class ReportePricosControllerTest {
                 .andExpect(jsonPath("$.codigo").value("SESION_REQUERIDA"));
         mockMvc.perform(get(RUTA).session(sesion(NombreRol.TERMINALISTA)))
                 .andExpect(status().isForbidden());
+        mockMvc.perform(get(RUTA).session(sesion(NombreRol.ADMINISTRADOR)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -149,7 +151,7 @@ class ReportePricosControllerTest {
     void laFechaDeCorteEsLaDeLaUltimaCargaPublicada() throws Exception {
         cargaPublicada();
 
-        mockMvc.perform(get(RUTA).session(sesion(NombreRol.ADMINISTRADOR)))
+        mockMvc.perform(get(RUTA).session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"));
     }

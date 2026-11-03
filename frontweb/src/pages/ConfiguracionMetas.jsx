@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { listarAlertasDesvio } from '../services/alertaDesvioService.js'
 import { actualizarMeta, buscarMetas, eliminarMeta, listarIndicadores, registrarMeta } from '../services/metaService.js'
+import { etiquetaAlcance, etiquetaPeriodo, explicarDesvio, formatearDesvio, formatearPorcentaje, formatearValorIndicador, indexarAlertasPorMeta } from '../utils/alertas.js'
+import { fecha } from '../utils/formato.js'
 import { etiquetaUnidad, formatoValorMeta, opcionesPeriodo, periodoSugerido, validarMeta } from '../utils/metas.js'
 
 const ANIO_ACTUAL = new Date().getFullYear()
+const DURACION_RESALTADO_MS = 5000
+const DURACION_DESVANECIDO_MS = 800
 const FORMULARIO_INICIAL = { indicadorCodigo: '', anio: ANIO_ACTUAL, numeroPeriodo: 1, valorMeta: '', observacion: '' }
 
 function ErrorOperacion({ error }) {
@@ -26,10 +32,17 @@ function NotificacionTemporal({ notificacion }) {
 }
 
 export default function ConfiguracionMetas() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [metaDestacadaId, setMetaDestacadaId] = useState(() => Number(searchParams.get('metaId')) || null)
+  const anioSolicitado = Number(searchParams.get('anio'))
   const [indicadores, setIndicadores] = useState([])
   const [metas, setMetas] = useState([])
-  const [filtroIndicador, setFiltroIndicador] = useState('')
-  const [filtroAnio, setFiltroAnio] = useState(ANIO_ACTUAL)
+  const [alertasPorMeta, setAlertasPorMeta] = useState(() => new Map())
+  const [alertaAbiertaId, setAlertaAbiertaId] = useState(null)
+  const [filtroIndicador, setFiltroIndicador] = useState(searchParams.get('indicadorCodigo') || '')
+  const [filtroAnio, setFiltroAnio] = useState(
+    Number.isInteger(anioSolicitado) && anioSolicitado >= 2000 && anioSolicitado <= 2100 ? anioSolicitado : ANIO_ACTUAL,
+  )
   const [formulario, setFormulario] = useState(FORMULARIO_INICIAL)
   const [metaEditada, setMetaEditada] = useState(null)
   const [errores, setErrores] = useState({})
@@ -41,6 +54,10 @@ export default function ConfiguracionMetas() {
   const [guardando, setGuardando] = useState(false)
   const [eliminandoId, setEliminandoId] = useState(null)
   const formularioRef = useRef(null)
+  const filaDestacadaRef = useRef(null)
+  const desplazadaRef = useRef(false)
+  const temporizadorResaltadoRef = useRef(null)
+  const temporizadorUrlRef = useRef(null)
 
   const indicadorSeleccionado = useMemo(
     () => indicadores.find((indicador) => indicador.codigo === formulario.indicadorCodigo),
@@ -59,6 +76,14 @@ export default function ConfiguracionMetas() {
     const temporizador = window.setTimeout(() => setNotificacionLista(null), 5000)
     return () => window.clearTimeout(temporizador)
   }, [notificacionLista])
+
+  useEffect(() => {
+    let activo = true
+    listarAlertasDesvio()
+      .then((resultado) => { if (activo) setAlertasPorMeta(indexarAlertasPorMeta(resultado)) })
+      .catch(() => { if (activo) setAlertasPorMeta(new Map()) })
+    return () => { activo = false }
+  }, [])
 
   // El catálogo define la unidad y la periodicidad que utiliza el formulario.
   useEffect(() => {
@@ -83,6 +108,33 @@ export default function ConfiguracionMetas() {
     return () => { activo = false }
   }, [filtroAnio, filtroIndicador])
 
+  useEffect(() => {
+    if (!metaDestacadaId || cargandoMetas) return
+    const fila = filaDestacadaRef.current
+    if (fila && !desplazadaRef.current) {
+      desplazadaRef.current = true
+      const reducirMovimiento = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      fila.scrollIntoView({ behavior: reducirMovimiento ? 'auto' : 'smooth', block: 'center' })
+    }
+    if (temporizadorResaltadoRef.current) return
+
+    temporizadorResaltadoRef.current = window.setTimeout(() => {
+      setMetaDestacadaId(null)
+      temporizadorUrlRef.current = window.setTimeout(() => {
+        setSearchParams((actuales) => {
+          const siguientes = new URLSearchParams(actuales)
+          siguientes.delete('metaId')
+          return siguientes
+        }, { replace: true })
+      }, DURACION_DESVANECIDO_MS)
+    }, DURACION_RESALTADO_MS)
+  }, [metaDestacadaId, cargandoMetas, metas, setSearchParams])
+
+  useEffect(() => () => {
+    if (temporizadorResaltadoRef.current) window.clearTimeout(temporizadorResaltadoRef.current)
+    if (temporizadorUrlRef.current) window.clearTimeout(temporizadorUrlRef.current)
+  }, [])
+
   function cambiarCampo(evento) {
     const { name, value } = evento.target
     setFormulario((actual) => {
@@ -102,16 +154,29 @@ export default function ConfiguracionMetas() {
     setErrores({})
   }
 
+  async function recargarAlertas() {
+    try {
+      setAlertasPorMeta(indexarAlertasPorMeta(await listarAlertasDesvio()))
+    } catch {
+      setAlertasPorMeta(new Map())
+    }
+  }
+
   async function recargarMetas() {
     setCargandoMetas(true)
     try {
       setMetas(await buscarMetas(filtroIndicador, filtroAnio))
       setErrorCarga(null)
+      await recargarAlertas()
     } catch (error) {
       setErrorCarga(error)
     } finally {
       setCargandoMetas(false)
     }
+  }
+
+  function alternarAlerta(metaId) {
+    setAlertaAbiertaId((actual) => (actual === metaId ? null : metaId))
   }
 
   async function guardar(evento) {
@@ -155,6 +220,7 @@ export default function ConfiguracionMetas() {
     try {
       await eliminarMeta(meta.id)
       if (metaEditada?.id === meta.id) reiniciarFormulario()
+      if (alertaAbiertaId === meta.id) setAlertaAbiertaId(null)
       await recargarMetas()
       setNotificacionLista({ id: Date.now(), tipo: 'exito', mensaje: 'La meta se eliminó correctamente.' })
     } catch (error) {
@@ -177,14 +243,14 @@ export default function ConfiguracionMetas() {
       <section className="filters metas-filtros" aria-label="Filtros de metas">
         <div className="fld">
           <label htmlFor="filtro-indicador">Indicador</label>
-          <select id="filtro-indicador" value={filtroIndicador} onChange={(evento) => { setCargandoMetas(true); setFiltroIndicador(evento.target.value) }}>
+          <select id="filtro-indicador" value={filtroIndicador} onChange={(evento) => { setCargandoMetas(true); setAlertaAbiertaId(null); setFiltroIndicador(evento.target.value) }}>
             <option value="">Todos los indicadores</option>
             {indicadores.map((indicador) => <option key={indicador.codigo} value={indicador.codigo}>{indicador.nombre}</option>)}
           </select>
         </div>
         <div className="fld metas-anio">
           <label htmlFor="filtro-anio">Año</label>
-          <input id="filtro-anio" type="number" min="2000" max="2100" value={filtroAnio} onChange={(evento) => { setCargandoMetas(true); setFiltroAnio(evento.target.value) }} />
+          <input id="filtro-anio" type="number" min="2000" max="2100" value={filtroAnio} onChange={(evento) => { setCargandoMetas(true); setAlertaAbiertaId(null); setFiltroAnio(evento.target.value) }} />
         </div>
         <button className="btn" type="button" onClick={recargarMetas} disabled={cargandoMetas}>Actualizar lista</button>
       </section>
@@ -205,20 +271,80 @@ export default function ConfiguracionMetas() {
             <thead><tr><th scope="col">Indicador</th><th scope="col">Periodo</th><th scope="col">Alcance</th><th scope="col" className="num">Meta</th><th scope="col">Observación</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead>
             <tbody>
               {!cargandoMetas && metas.length === 0 && <tr><td colSpan="7">No hay metas registradas para los filtros seleccionados.</td></tr>}
-              {metas.map((meta) => (
-                <tr key={meta.id}>
-                  <td>{meta.indicadorNombre}</td><td>{meta.periodo}</td><td>Total municipal</td>
-                  <td className="num">{formatoValorMeta(meta.valorMeta, meta.unidadMedida)}</td>
-                  <td>{meta.observacion || '—'}</td>
-                  <td><span className={`estado ${meta.editable ? 'ok' : 'neutro'}`}>{meta.editable ? 'Vigente' : 'Periodo concluido'}</span></td>
-                  <td>
-                    <div className="acciones-fila-meta">
-                      <button className="btn btn-compacto" type="button" onClick={() => editar(meta)} disabled={!meta.editable || eliminandoId === meta.id} title={meta.editable ? 'Editar meta' : 'Los periodos concluidos no se pueden modificar'}>Editar</button>
-                      <button className="btn btn-compacto peligro" type="button" onClick={() => confirmarEliminacion(meta)} disabled={eliminandoId === meta.id}>{eliminandoId === meta.id ? 'Eliminando…' : 'Eliminar'}</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {metas.map((meta) => {
+                const destacada = meta.id === metaDestacadaId
+                const alerta = alertasPorMeta.get(meta.id)
+                const detalleAbierto = Boolean(alerta) && alertaAbiertaId === meta.id
+                const detalleId = `detalle-alerta-${meta.id}`
+                return (
+                  <Fragment key={meta.id}>
+                    <tr
+                      ref={destacada ? filaDestacadaRef : undefined}
+                      className={destacada ? 'fila-meta-destacada' : undefined}
+                    >
+                      <td>
+                        <div className="meta-indicador">
+                          <span>{meta.indicadorNombre}</span>
+                          {alerta && (
+                            <button
+                              className="boton-alerta-meta"
+                              type="button"
+                              aria-expanded={detalleAbierto}
+                              aria-controls={detalleId}
+                              title="Ver alerta de desvío"
+                              onClick={() => alternarAlerta(meta.id)}
+                            >
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
+                                <path d="M12 9v4M12 17h.01" />
+                              </svg>
+                              <span className="sr-only">Ver alerta de {meta.indicadorNombre}</span>
+                            </button>
+                          )}
+                          {destacada && <span className="sr-only"> Meta relacionada con la alerta.</span>}
+                        </div>
+                      </td>
+                      <td>{meta.periodo}</td>
+                      <td>Total municipal</td>
+                      <td className="num">{formatoValorMeta(meta.valorMeta, meta.unidadMedida)}</td>
+                      <td>{meta.observacion || '—'}</td>
+                      <td><span className={`estado ${meta.editable ? 'ok' : 'neutro'}`}>{meta.editable ? 'Vigente' : 'Periodo concluido'}</span></td>
+                      <td>
+                        <div className="acciones-fila-meta">
+                          <button className="btn btn-compacto" type="button" onClick={() => editar(meta)} disabled={!meta.editable || eliminandoId === meta.id} title={meta.editable ? 'Editar meta' : 'Los periodos concluidos no se pueden modificar'}>Editar</button>
+                          <button className="btn btn-compacto peligro" type="button" onClick={() => confirmarEliminacion(meta)} disabled={eliminandoId === meta.id}>{eliminandoId === meta.id ? 'Eliminando…' : 'Eliminar'}</button>
+                        </div>
+                      </td>
+                    </tr>
+                    {detalleAbierto && (
+                      <tr className="fila-detalle-alerta">
+                        <td colSpan={7}>
+                          <div id={detalleId} className="detalle-alerta-meta" role="region" aria-label={`Detalle de la alerta de ${meta.indicadorNombre}`}>
+                            <div className="detalle-alerta-meta__cab">
+                              <div>
+                                <strong>Alerta activa</strong>
+                                <p className="hint">{etiquetaPeriodo(alerta.periodo)} · {etiquetaAlcance(alerta.alcance, alerta.valorAlcance)}</p>
+                              </div>
+                              <button className="btn btn-compacto" type="button" onClick={() => setAlertaAbiertaId(null)}>Cerrar</button>
+                            </div>
+                            <div className="pfields">
+                              <div className="pf"><span className="pl">Valor observado</span><strong className="pv">{formatearValorIndicador(alerta.valorObservado, alerta.unidadMedida)}</strong></div>
+                              <div className="pf"><span className="pl">Meta</span><strong className="pv">{formatearValorIndicador(alerta.valorMeta, alerta.unidadMedida)}</strong></div>
+                              <div className="pf"><span className="pl">Desvío</span><strong className="pv">{formatearDesvio(alerta.desvioPorcentual)}</strong></div>
+                              <div className="pf"><span className="pl">Umbral</span><strong className="pv">{formatearPorcentaje(alerta.umbralDesvio)}</strong></div>
+                              <div className="pf"><span className="pl">Fecha de corte</span><strong className="pv">{fecha(alerta.fechaCorte)}</strong></div>
+                            </div>
+                            <p className="detalle-alerta-meta__explicacion">{explicarDesvio(alerta)}</p>
+                            <div className="detalle-alerta-meta__acciones">
+                              <Link className="btn btn-compacto" to="/dashboard">Ver dashboard</Link>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         </div>

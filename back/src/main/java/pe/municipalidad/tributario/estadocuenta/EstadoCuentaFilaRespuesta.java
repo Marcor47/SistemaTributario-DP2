@@ -6,9 +6,8 @@ import pe.municipalidad.tributario.obligacion.EstadoObligacion;
 import pe.municipalidad.tributario.obligacion.Obligacion;
 
 /**
- * HU004 - fila del desglose de estado de cuenta (un tributo x un periodo).
- * La etiqueta del tributo usa la descripcion legible del enum (ej. "Impuesto Predial")
- * para que coincida con los literales que espera el front (TRIBUTOS en mocks/cuentas.js).
+ * HU014 / RF-018 - fila del desglose de estado de cuenta (un tributo x un periodo).
+ * Incluye fecha de vencimiento, beneficios/descuentos y etapa de cobranza inductiva.
  */
 public record EstadoCuentaFilaRespuesta(
         String id,
@@ -17,7 +16,11 @@ public record EstadoCuentaFilaRespuesta(
         BigDecimal emitido,
         BigDecimal pagado,
         BigDecimal deuda,
-        String estado) {
+        String estado,
+        LocalDate fechaVencimiento,
+        BigDecimal descuento,
+        BigDecimal porcentajeDescuento,
+        String etapaCobranza) {
 
     public static EstadoCuentaFilaRespuesta desde(Obligacion o, LocalDate fechaCorte) {
         EstadoObligacion estadoEnum = o.estadoAl(fechaCorte);
@@ -26,6 +29,7 @@ public record EstadoCuentaFilaRespuesta(
             case VENCIDA   -> "Vencida";
             case PENDIENTE -> "Pendiente";
         };
+        String etapa = o.getEtapaCobranza() == null ? null : o.getEtapaCobranza().getNombre();
         return new EstadoCuentaFilaRespuesta(
                 String.valueOf(o.getIdObligacion()),
                 o.getTributo().getDescripcion(),
@@ -33,6 +37,10 @@ public record EstadoCuentaFilaRespuesta(
                 o.getMontoEmitido(),
                 o.getMontoPagado(),
                 o.saldo(),
-                estadoTexto);
+                estadoTexto,
+                o.getFechaVencimiento(),
+                o.getMontoDescontado(),
+                o.getPorcentajeDescuento(),
+                etapa);
     }
 }

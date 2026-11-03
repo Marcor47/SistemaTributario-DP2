@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.constancia;
 
 import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
@@ -10,6 +11,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.EnumSet;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +21,10 @@ import pe.municipalidad.tributario.common.ConflictoException;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
+import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.estadocuenta.EstadoCuentaFilaRespuesta;
+import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway.ResultadoFirma;
 
@@ -40,24 +45,32 @@ public class SolicitudConstanciaService {
     private final SolicitudConstanciaRepository solicitudConstanciaRepository;
     private final ContribuyenteService contribuyenteService;
     private final FirmadorGateway firmador;
+    private final SamnetGateway samnet;
     private final Clock reloj;
 
     public SolicitudConstanciaService(SolicitudConstanciaRepository solicitudConstanciaRepository,
-            ContribuyenteService contribuyenteService, FirmadorGateway firmador, Clock reloj) {
+            ContribuyenteService contribuyenteService, FirmadorGateway firmador, SamnetGateway samnet, Clock reloj) {
         this.solicitudConstanciaRepository = solicitudConstanciaRepository;
         this.contribuyenteService = contribuyenteService;
         this.firmador = firmador;
+        this.samnet = samnet;
         this.reloj = reloj;
     }
 
     @Transactional
     public SolicitudConstanciaRespuesta iniciarSolicitud(String codigoContribuyente) {
+        exigirSinDeuda(codigoContribuyente);
         String documento = documentoDe(codigoContribuyente);
-        solicitudConstanciaRepository
-                .findFirstByDocumentoContribuyenteAndEstadoNotInOrderByFechaSolicitudDesc(documento, ESTADOS_CERRADOS)
-                .ifPresent(enCurso -> {
+        /* El firmador simulado permite repetir la demostración después de firmar; la solicitud sin firmar se retoma. */
+        var enCurso = firmador.esSimulado()
+                ? solicitudConstanciaRepository.findFirstByDocumentoContribuyenteAndEstadoOrderByFechaSolicitudDesc(
+                        documento, EstadoConstancia.INICIADA)
+                : solicitudConstanciaRepository.findFirstByDocumentoContribuyenteAndEstadoNotInOrderByFechaSolicitudDesc(
+                        documento, ESTADOS_CERRADOS);
+        enCurso
+                .ifPresent(solicitudExistente -> {
                     throw new ConflictoException("SOLICITUD_EN_CURSO",
-                            "Ya tiene la solicitud de constancia N.° " + enCurso.getIdSolicitud()
+                            "Ya tiene la solicitud de constancia N.° " + solicitudExistente.getIdSolicitud()
                                     + " en curso. Continúe con ella.");
                 });
 
@@ -71,17 +84,28 @@ public class SolicitudConstanciaService {
         return SolicitudConstanciaRespuesta.desde(buscarPropia(codigoContribuyente, idSolicitud));
     }
 
+    public List<SolicitudConstanciaRespuesta> listarSolicitudes(String codigoContribuyente) {
+        return solicitudConstanciaRepository
+                .findByDocumentoContribuyenteOrderByFechaSolicitudDesc(documentoDe(codigoContribuyente))
+                .stream().map(SolicitudConstanciaRespuesta::desde).toList();
+    }
+
     public DocumentoFirmaRespuesta obtenerDocumentoParaFirma(String codigoContribuyente, Long idSolicitud) {
         SolicitudConstancia solicitud = buscarPropia(codigoContribuyente, idSolicitud);
         exigirPendienteDeFirma(solicitud);
+        exigirSinDeuda(codigoContribuyente);
         byte[] documento = documentoParaFirma(solicitud);
+        Contribuyente contribuyente = contribuyenteService.obtenerPorCodigo(codigoContribuyente);
         return new DocumentoFirmaRespuesta(
                 solicitud.getIdSolicitud(),
                 "solicitud-constancia-" + solicitud.getIdSolicitud() + ".txt",
                 TIPO_CONTENIDO_DOCUMENTO,
                 Base64.getEncoder().encodeToString(documento),
                 sha256(documento),
-                firmador.esSimulado());
+                firmador.esSimulado(),
+                new DocumentoFirmaRespuesta.DatosContribuyente(contribuyente.getCodigoContribuyente(),
+                        contribuyente.getNombreRazonSocial(), contribuyente.getTipoDocumento().name(),
+                        contribuyente.getNumeroDocumento()));
     }
 
     @Transactional
@@ -89,6 +113,7 @@ public class SolicitudConstanciaService {
             FirmaSolicitudConstancia firma) {
         SolicitudConstancia solicitud = buscarPropia(codigoContribuyente, idSolicitud);
         exigirPendienteDeFirma(solicitud);
+        exigirSinDeuda(codigoContribuyente);
 
         ResultadoFirma resultado = firmador.verificarFirma(documentoParaFirma(solicitud),
                 decodificarFirma(firma.firmaBase64()), firma.certificado().strip());
@@ -116,6 +141,24 @@ public class SolicitudConstanciaService {
 
     private String documentoDe(String codigoContribuyente) {
         return contribuyenteService.obtenerPorCodigo(codigoContribuyente).getNumeroDocumento();
+    }
+
+    public DeudaConstanciaRespuesta consultarDeuda(String codigoContribuyente) {
+        var cuenta = samnet.obtenerEstadoCuenta(codigoContribuyente);
+        if (cuenta.isDesdeCopia()) {
+            throw new ReglaNegocioException("DEUDA_NO_VERIFICADA", "No se pudo verificar la deuda actual.");
+        }
+        var pendientes = cuenta.getObligaciones().stream().filter(o -> o.saldo().signum() > 0)
+                .map(o -> EstadoCuentaFilaRespuesta.desde(o, cuenta.obtenerFechaCorte())).toList();
+        BigDecimal total = pendientes.stream().map(EstadoCuentaFilaRespuesta::deuda)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new DeudaConstanciaRespuesta(total, pendientes);
+    }
+
+    private void exigirSinDeuda(String codigoContribuyente) {
+        if (!consultarDeuda(codigoContribuyente).puedeSolicitar()) {
+            throw new ReglaNegocioException("DEUDA_PENDIENTE", "Tienes deuda pendiente. Consulta tu estado de cuenta antes de continuar.");
+        }
     }
 
     private static void exigirPendienteDeFirma(SolicitudConstancia solicitud) {

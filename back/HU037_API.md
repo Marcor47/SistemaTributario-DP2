@@ -6,7 +6,8 @@ contribuyentes de mayor impacto en la recaudación (RF-050). Es una consulta de 
 
 ## Acceso
 
-Solo usuarios internos con rol `GERENCIA`, `ANALISTA_RENTAS` o `ADMINISTRADOR`. Se usa la sesión interna:
+Solo usuarios internos con el permiso `REPORTES:CONSULTAR`, que tienen los roles `GERENCIA` y `ANALISTA_RENTAS`.
+Se usa la sesión interna:
 
 1. `POST /api/auth/interno/login` con `{"nombreUsuario": "...", "clave": "..."}` deja la cookie de sesión (el
    front debe enviar `credentials: 'include'`).
@@ -15,7 +16,7 @@ Solo usuarios internos con rol `GERENCIA`, `ANALISTA_RENTAS` o `ADMINISTRADOR`. 
 | Situación | Respuesta |
 | --- | --- |
 | Sin sesión interna (o con sesión de contribuyente) | `401` `SESION_REQUERIDA` |
-| Sesión con otro rol (por ejemplo `TERMINALISTA`) | `403` |
+| Sesión con otro rol (por ejemplo `TERMINALISTA` o `ADMINISTRADOR`) | `403` |
 | El rol tiene el reporte PRICOS restringido (RF-060) | `403` |
 | `limite` fuera de 1 a 200, o `criterio` desconocido | `400` `SOLICITUD_INVALIDA` |
 | No hay ninguna carga publicada del ETL | `422` `SIN_CARGA_ETL` |

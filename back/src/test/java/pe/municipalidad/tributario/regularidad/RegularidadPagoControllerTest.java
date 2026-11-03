@@ -7,12 +7,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /**
  * HU010: Calcular la regularidad de pago del contribuyente (% de cuotas pagadas a tiempo).
  */
-@PruebaIntegracion
+@PruebaInterna
 class RegularidadPagoControllerTest {
 
     private static final String RUTA = "/api/contribuyentes/{codigo}/regularidad";

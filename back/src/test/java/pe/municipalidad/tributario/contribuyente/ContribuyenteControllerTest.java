@@ -9,10 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.web.servlet.MockMvc;
-import pe.municipalidad.tributario.soporte.PruebaIntegracion;
+import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /* HU001: consultar contribuyente por documento. */
-@PruebaIntegracion
+@PruebaInterna
 class ContribuyenteControllerTest {
 
     private static final String RUTA = "/api/contribuyentes";
@@ -127,5 +127,56 @@ class ContribuyenteControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("SOLICITUD_INVALIDA"))
                 .andExpect(jsonPath("$.detalles").value(hasItem("numeroDocumento: es obligatorio")));
+    }
+
+    @Test
+    void buscaCoincidenciasPorNombreParcial() throws Exception {
+        mockMvc.perform(get(RUTA + "/buscar").param("q", "medina"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].codigo").value("058934"))
+                .andExpect(jsonPath("$[0].nombre").value("MEDINA CRUZ, PATRICIA"))
+                .andExpect(jsonPath("$[0].tipoDoc").value("DNI"))
+                .andExpect(jsonPath("$[0].doc").value("45871203"))
+                .andExpect(jsonPath("$[1].codigo").value("061177"))
+                .andExpect(jsonPath("$[1].nombre").value("MEDINA CRUZ, ROBERTO"));
+    }
+
+    @Test
+    void buscaCoincidenciasPorDocumentoParcial() throws Exception {
+        mockMvc.perform(get(RUTA + "/buscar").param("q", "4102"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].codigo").value("014502"))
+                .andExpect(jsonPath("$[0].nombre").value("GARCÍA TORRES, MARÍA ELENA"))
+                .andExpect(jsonPath("$[0].tipoDoc").value("DNI"))
+                .andExpect(jsonPath("$[0].doc").value("41028765"));
+    }
+
+    @Test
+    void busquedaSinCoincidenciasDevuelveListaVacia() throws Exception {
+        mockMvc.perform(get(RUTA + "/buscar").param("q", "99999999"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(0)));
+    }
+
+    @Test
+    void busquedaSinTextoDevuelve400() throws Exception {
+        mockMvc.perform(get(RUTA + "/buscar"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("SOLICITUD_INVALIDA"));
+
+        mockMvc.perform(get(RUTA + "/buscar").param("q", "   "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("SOLICITUD_INVALIDA"))
+                .andExpect(jsonPath("$.detalles").value(hasItem("q: es obligatorio")));
+    }
+
+    @Test
+    void busquedaDemasiadoLargaDevuelve400() throws Exception {
+        mockMvc.perform(get(RUTA + "/buscar").param("q", "a".repeat(121)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("SOLICITUD_INVALIDA"))
+                .andExpect(jsonPath("$.detalles").value(hasItem("q: debe tener como máximo 120 caracteres")));
     }
 }

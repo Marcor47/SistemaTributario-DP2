@@ -1,4 +1,4 @@
--- Procedimientos de SAMNET emulados sobre la BD sintética. Conservan el nombre y el propósito de los SP
+﻿-- Procedimientos de SAMNET emulados sobre la BD sintética. Conservan el nombre y el propósito de los SP
 -- reales (ps_ctacte, ps_resumenpagos, ps_verificarBeneficio, ps_login); si algún día se obtiene acceso
 -- a SAMNET, solo cambia la implementación de SamnetGateway, no sus llamadas.
 -- Las únicas escrituras permitidas son las de RF-048 y RF-056 (ps_registrarpredio), según RNF-001.
@@ -256,4 +256,83 @@ LANGUAGE sql STABLE AS $$
     FROM samnet.pago p
     WHERE p.fecha_pago <= p_fecha_corte
     ORDER BY p.fecha_pago, p.id_pago;
+$$;
+
+-- HU006 y HU018 (RF-024, RF-050, RF-051): cartera por contribuyente y tributo para los reportes de morosos, PRICOS y
+-- buenos pagadores. La deuda vencida suma todos los aos; lo emitido, lo pagado y la puntualidad, solo p_anio.
+-- En HU018 (RF-024 adaptado) se incluye adems segmentacin por periodo/ao, rgimen, domicilio fiscal desglosado
+-- y deuda sin beneficio.
+-- Una cuota exigible se pag a tiempo si qued cancelada y su ltimo pago es del da de vencimiento o anterior
+-- (si no hay pago, la cancel un beneficio). zonas: zonas de los predios del contribuyente, separadas por coma.
+-- etapas_cobranza: etapas actuales de sus cuotas vencidas impagas, separadas por coma.
+-- PostgreSQL no permite cambiar los parámetros OUT mediante CREATE OR REPLACE;
+-- se elimina la versión anterior antes de aplicar las columnas ampliadas de HU018.
+DROP FUNCTION IF EXISTS samnet.ps_reportecartera(DATE, INTEGER);
+CREATE OR REPLACE FUNCTION samnet.ps_reportecartera(p_fecha_corte DATE, p_anio INTEGER)
+RETURNS TABLE (
+    contribuyente_codigo VARCHAR, nombre VARCHAR, tipo_persona VARCHAR, tipo_documento VARCHAR,
+    numero_documento VARCHAR, condicion VARCHAR, correo VARCHAR, telefonos VARCHAR, domicilio_fiscal VARCHAR, zonas VARCHAR, tributo VARCHAR, emitido_anio NUMERIC,
+    pagado_anio NUMERIC, cuotas_exigibles_anio INTEGER, cuotas_a_tiempo_anio INTEGER, deuda_vencida NUMERIC,
+    cuotas_vencidas INTEGER, vencimiento_mas_antiguo DATE, etapas_cobranza VARCHAR,
+    regimen VARCHAR, dom_via VARCHAR, dom_numero VARCHAR, dom_departamento VARCHAR,
+    dom_interior VARCHAR, dom_manzana VARCHAR, dom_lote VARCHAR, dom_distrito VARCHAR,
+    deuda_sin_beneficio NUMERIC, deuda_vencida_anio NUMERIC, deuda_sin_beneficio_anio NUMERIC,
+    cuotas_vencidas_anio INTEGER, detalle_deuda TEXT)
+LANGUAGE sql STABLE AS $$
+    WITH cuotas AS (
+        SELECT o.contribuyente_codigo, o.tributo, o.anio, o.cuota, o.fecha_vencimiento, o.monto_emitido, o.monto_pagado,
+               o.insoluto, (o.monto_emitido - o.monto_pagado) AS sin_beneficio, o.etapa_cobranza,
+               o.fecha_vencimiento < p_fecha_corte AS vencida,
+               (SELECT max(pg.fecha_pago)
+                FROM samnet.pago_obligacion po
+                JOIN samnet.pago pg ON pg.id_pago = po.id_pago
+                WHERE po.id_obligacion = o.id_obligacion) AS ultimo_pago
+        FROM samnet.fn_obligaciones(NULL, NULL) o
+        WHERE o.anio = p_anio OR o.fecha_vencimiento < p_fecha_corte
+    ),
+    zonas_contribuyente AS (
+        SELECT z.codigo, string_agg(DISTINCT z.zona, ',' ORDER BY z.zona) AS zonas
+        FROM (
+            SELECT t.contribuyente_codigo AS codigo, p.zona
+            FROM samnet.predio_titular t
+            JOIN samnet.predio p ON p.codigo_predio = t.codigo_predio
+            UNION
+            SELECT o.contribuyente_codigo, p.zona
+            FROM samnet.obligacion o
+            JOIN samnet.predio p ON p.codigo_predio = o.codigo_predio
+        ) z
+        GROUP BY z.codigo
+    )
+    SELECT c.codigo, c.nombre, c.tipo_persona, c.tipo_documento, c.numero_documento, c.condicion, c.correo, c.telefonos, c.domicilio_fiscal,
+           z.zonas, q.tributo,
+           coalesce(sum(q.monto_emitido) FILTER (WHERE q.anio = p_anio), 0),
+           coalesce(sum(q.monto_pagado) FILTER (WHERE q.anio = p_anio), 0),
+           (count(*) FILTER (WHERE q.anio = p_anio AND q.vencida))::INTEGER,
+           (count(*) FILTER (WHERE q.anio = p_anio AND q.vencida AND q.insoluto <= 0
+                             AND coalesce(q.ultimo_pago, q.fecha_vencimiento) <= q.fecha_vencimiento))::INTEGER,
+           coalesce(sum(q.insoluto) FILTER (WHERE q.vencida AND q.insoluto > 0), 0),
+           (count(*) FILTER (WHERE q.vencida AND q.insoluto > 0))::INTEGER,
+           min(q.fecha_vencimiento) FILTER (WHERE q.vencida AND q.insoluto > 0),
+           string_agg(DISTINCT q.etapa_cobranza, ',') FILTER (WHERE q.vencida AND q.insoluto > 0),
+           c.regimen, c.dom_via, c.dom_numero, c.dom_departamento,
+           c.dom_interior, c.dom_manzana, c.dom_lote, c.dom_distrito,
+           coalesce(sum(q.sin_beneficio) FILTER (WHERE q.vencida AND q.insoluto > 0), 0),
+           coalesce(sum(q.insoluto) FILTER (WHERE q.vencida AND q.insoluto > 0 AND (p_anio IS NULL OR q.anio = p_anio)), 0),
+           coalesce(sum(q.sin_beneficio) FILTER (WHERE q.vencida AND q.insoluto > 0 AND (p_anio IS NULL OR q.anio = p_anio)), 0),
+           (count(*) FILTER (WHERE q.vencida AND q.insoluto > 0 AND (p_anio IS NULL OR q.anio = p_anio)))::INTEGER,
+           jsonb_build_object(
+               'sinBeneficio', coalesce(jsonb_agg(jsonb_build_object('anio', q.anio, 'tributo', q.tributo,
+                   'periodo', q.cuota, 'monto', q.sin_beneficio) ORDER BY q.anio, q.tributo, q.cuota)
+                   FILTER (WHERE q.vencida AND q.insoluto > 0), '[]'::jsonb),
+               'conBeneficio', coalesce(jsonb_agg(jsonb_build_object('anio', q.anio, 'tributo', q.tributo,
+                   'periodo', q.cuota, 'monto', q.insoluto) ORDER BY q.anio, q.tributo, q.cuota)
+                   FILTER (WHERE q.vencida AND q.insoluto > 0), '[]'::jsonb)
+           )::TEXT
+    FROM cuotas q
+    JOIN samnet.contribuyente c ON c.codigo = q.contribuyente_codigo
+    LEFT JOIN zonas_contribuyente z ON z.codigo = c.codigo
+    GROUP BY c.codigo, c.nombre, c.tipo_persona, c.tipo_documento, c.numero_documento, c.condicion, c.correo, c.telefonos, c.domicilio_fiscal,
+             z.zonas, q.tributo, c.regimen, c.dom_via, c.dom_numero, c.dom_departamento,
+             c.dom_interior, c.dom_manzana, c.dom_lote, c.dom_distrito
+    ORDER BY c.codigo, q.tributo;
 $$;

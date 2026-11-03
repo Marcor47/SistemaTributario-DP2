@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { listarMisReclamos, ordenarReclamos, registrarReclamo } from '../services/reclamoService.js'
+import { cancelarReclamo, listarMisReclamos, ordenarReclamos, registrarReclamo } from '../services/reclamoService.js'
 import {
   ESTADOS_RECLAMO,
   MAXIMO_COMENTARIO,
@@ -11,8 +11,6 @@ import {
 } from '../utils/reclamos.js'
 import './Reclamos.css'
 
-// En la plataforma web reclama un trabajador interno; el contribuyente lo hace desde la app móvil (RF-064).
-const RECLAMANTE = 'TRABAJADOR'
 const FORMULARIO_VACIO = { tipoReclamo: '', fechaHoraIncidente: '', referencia: '', comentario: '' }
 
 const formatoFechaHora = (iso) =>
@@ -25,7 +23,7 @@ const CAMPOS = [
   ['comentario', 'reclamo-comentario'],
 ]
 
-export default function Reclamos() {
+export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
   const [reclamos, setReclamos] = useState([])
   const [demo, setDemo] = useState(false)
   const [ocupado, setOcupado] = useState(true)
@@ -38,9 +36,11 @@ export default function Reclamos() {
   const [errorEnvio, setErrorEnvio] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
   const [detalleId, setDetalleId] = useState(null)
+  const [confirmandoCancelacion, setConfirmandoCancelacion] = useState(false)
+  const [cancelando, setCancelando] = useState(false)
   const resumen = useRef(null)
   const botonDetalle = useRef(null)
-  const tipos = tiposPara(RECLAMANTE)
+  const tipos = tiposPara(reclamante)
 
   useEffect(() => {
     let activo = true
@@ -80,7 +80,7 @@ export default function Reclamos() {
     setErrorEnvio('')
     setEnviando(true)
     try {
-      const creado = await registrarReclamo(datos, demo, RECLAMANTE)
+      const creado = await registrarReclamo(datos, demo, reclamante)
       setReclamos((actuales) => ordenarReclamos([creado, ...actuales.filter((r) => r.idReclamo !== creado.idReclamo)]))
       setDatos(FORMULARIO_VACIO)
       setErrores({})
@@ -105,19 +105,27 @@ export default function Reclamos() {
 
   function cerrarDetalle() {
     setDetalleId(null)
+    setConfirmandoCancelacion(false)
     requestAnimationFrame(() => botonDetalle.current?.focus())
+  }
+
+  async function cancelarActual() {
+    setCancelando(true)
+    setError('')
+    try {
+      const actualizado = demo ? { ...detalle, estado: 'CANCELADO' } : await cancelarReclamo(detalle.idReclamo)
+      setReclamos((actuales) => actuales.map((reclamo) => reclamo.idReclamo === actualizado.idReclamo ? actualizado : reclamo))
+      setConfirmandoCancelacion(false)
+      setAviso(`El reclamo ${actualizado.numeroReclamo} fue cancelado.`)
+    } catch (err) {
+      setError(err.message || 'No se pudo cancelar el reclamo.')
+    } finally {
+      setCancelando(false)
+    }
   }
 
   return (
     <div aria-busy={ocupado || enviando}>
-      <section className="pcard">
-        <h2>Reclamos</h2>
-        <p className="hint">
-          Registra un reclamo por un incidente laboral y consulta su estado. Un gestor de reclamos lo recibe y lo deriva
-          al área correspondiente hasta que se atienda.
-        </p>
-      </section>
-
       {demo && (
         <div className="alert" role="note">
           <strong>Datos ficticios de demostración.</strong> El servicio de reclamos no está disponible: los reclamos que
@@ -162,7 +170,7 @@ export default function Reclamos() {
             </div>
 
             <div className={`fld${errores.fechaHoraIncidente ? ' fld-error' : ''}`}>
-              <label htmlFor="reclamo-fecha">Fecha y hora del incidente *</label>
+              <label htmlFor="reclamo-fecha">Fecha y hora del hecho *</label>
               <input
                 id="reclamo-fecha"
                 type="datetime-local"
@@ -176,7 +184,7 @@ export default function Reclamos() {
             </div>
 
             <div className={`fld campo-completo${errores.referencia ? ' fld-error' : ''}`}>
-              <label htmlFor="reclamo-referencia">Documento o servicio relacionado (opcional)</label>
+              <label htmlFor="reclamo-referencia">Documento, servicio o trámite relacionado (opcional)</label>
               <input
                 id="reclamo-referencia"
                 type="text"
@@ -318,6 +326,26 @@ export default function Reclamos() {
             </div>
           ) : (
             <p className="hint">Aún no hay una respuesta oficial.</p>
+          )}
+
+          {(detalle.estado === 'ENVIADO' || detalle.estado === 'EN_REVISION') && (
+            <div className="cancelacion-reclamo">
+              {!confirmandoCancelacion ? (
+                <button className="btn" type="button" onClick={() => setConfirmandoCancelacion(true)}>
+                  Cancelar reclamo
+                </button>
+              ) : (
+                <div className="alert" role="alert">
+                  <p><strong>¿Cancelar este reclamo?</strong> Ya no podrá ser derivado ni respondido.</p>
+                  <div className="acciones-documento">
+                    <button className="btn primary" type="button" onClick={cancelarActual} disabled={cancelando}>
+                      {cancelando ? 'Cancelando…' : 'Sí, cancelar reclamo'}
+                    </button>
+                    <button className="btn" type="button" onClick={() => setConfirmandoCancelacion(false)} disabled={cancelando}>Volver</button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </section>
       )}

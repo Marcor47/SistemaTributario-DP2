@@ -1,0 +1,7 @@
+UPDATE seguridad.rol
+SET permisos = CASE
+    WHEN permisos = '' THEN 'CONTRIBUYENTES:CONSULTAR'
+    ELSE permisos || ',CONTRIBUYENTES:CONSULTAR'
+END
+WHERE nombre = 'VENTANILLA'
+  AND permisos NOT LIKE '%CONTRIBUYENTES:CONSULTAR%';

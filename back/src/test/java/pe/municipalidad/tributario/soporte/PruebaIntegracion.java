@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Import;
 /* Atajo para los tests de API: contexto completo, MockMvc y PostgreSQL embebido con fecha fija. */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-@SpringBootTest
+@SpringBootTest(properties = "spring.flyway.locations=classpath:db/migration,classpath:db/datos-prueba")
 @AutoConfigureMockMvc
 @Import(PostgresEmbebidoConfig.class)
 public @interface PruebaIntegracion {

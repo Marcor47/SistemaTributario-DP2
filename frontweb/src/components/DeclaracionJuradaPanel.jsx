@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext.jsx'
+import { AccesoDenegado, AccesoRestringido, VerificandoAcceso } from './AccesoInterno.jsx'
 import { obtenerDeclaracionJurada } from '../services/declaracionJuradaService.js'
+import { ROLES_CONSULTA_PREDIO, tieneRolInterno } from '../utils/roles.js'
 import { fecha, moneda } from '../utils/formato.js'
+import './AccesoInterno.css'
 
 const ETIQUETAS = {
   INSCRIPCION: 'Inscripción',
@@ -115,32 +119,78 @@ function ResultadoDeclaracion({ datos }) {
 }
 
 const TITULOS_ERROR = {
+  SESION_REQUERIDA: 'Tu sesión interna no está vigente',
+  ERROR_HTTP: 'Sin permiso para consultar la declaración jurada',
   PREDIO_NO_ENCONTRADO: 'El predio no se encontró en SAMNET',
   DECLARACION_VIGENTE_AMBIGUA: 'No se puede determinar la declaración vigente',
   SAMNET_NO_DISPONIBLE: 'SAMNET no está disponible',
   SIN_CONEXION: 'No se pudo conectar con el servicio',
+  RESPUESTA_INVALIDA: 'La respuesta no corresponde al predio seleccionado',
 }
 
 export default function DeclaracionJuradaPanel({ codigoPredio }) {
+  const { sesion, limpiarSesion } = useAuth()
   const [intento, setIntento] = useState(0)
+  const [expirada, setExpirada] = useState(false)
   const [consulta, setConsulta] = useState({ datos: null, error: null, ocupado: true })
 
+  const esInterno = sesion.tipo === 'interno'
+  const tieneRol = tieneRolInterno(sesion, ROLES_CONSULTA_PREDIO)
+
   useEffect(() => {
+    if (!tieneRol) return undefined
+
     let activo = true
     const controlador = new AbortController()
+
     obtenerDeclaracionJurada(codigoPredio, { signal: controlador.signal })
       .then((datos) => {
         if (activo) setConsulta({ datos, error: null, ocupado: false })
       })
       .catch((error) => {
-        if (activo) setConsulta({ datos: null, error, ocupado: false })
+        if (!activo) return
+        if (error.estado === 401) {
+          // La sesión interna dura 15 minutos; se limpia el contexto y se pide reingresar.
+          setExpirada(true)
+          limpiarSesion()
+          setConsulta({ datos: null, error: null, ocupado: false })
+          return
+        }
+        setConsulta({ datos: null, error, ocupado: false })
       })
+
     return () => { activo = false; controlador.abort() }
-  }, [codigoPredio, intento])
+  }, [codigoPredio, intento, tieneRol, limpiarSesion])
 
   function recargar() {
     setConsulta({ datos: null, error: null, ocupado: true })
     setIntento((valor) => valor + 1)
+  }
+
+  if (sesion.estado === 'cargando') {
+    return <VerificandoAcceso mensaje="Verificando el acceso a la declaración jurada…" />
+  }
+
+  if (!esInterno) {
+    return (
+      <AccesoRestringido
+        titulo={`Declaración jurada del predio ${codigoPredio}`}
+        descripcion="Esta consulta está reservada al personal municipal con rol Analista de Rentas o Administrador."
+        mensajeExpirada="Tu sesión interna venció. Vuelve a ingresar para consultar la declaración jurada."
+        expirada={expirada}
+      />
+    )
+  }
+
+  if (!tieneRol) {
+    return (
+      <AccesoDenegado
+        titulo="Acceso denegado"
+        usuario={sesion.usuario}
+        descripcion={`La declaración jurada del predio ${codigoPredio} solo la consulta el personal autorizado.`}
+        rolesPermitidos={ROLES_CONSULTA_PREDIO}
+      />
+    )
   }
 
   return (
@@ -154,7 +204,14 @@ export default function DeclaracionJuradaPanel({ codigoPredio }) {
           <p>{consulta.error.message || 'Intenta nuevamente en unos momentos.'}</p>
           <button className="btn" type="button" onClick={recargar}>Reintentar consulta</button>
         </div>
-      ) : <ResultadoDeclaracion datos={consulta.datos} />}
+      ) : consulta.datos ? (
+        <ResultadoDeclaracion datos={consulta.datos} />
+      ) : (
+        <div className="alert" role="alert">
+          <strong>No se recibió información de la declaración jurada</strong>
+          <p>Vuelve a abrir la pestaña para intentar la consulta nuevamente.</p>
+        </div>
+      )}
     </div>
   )
 }

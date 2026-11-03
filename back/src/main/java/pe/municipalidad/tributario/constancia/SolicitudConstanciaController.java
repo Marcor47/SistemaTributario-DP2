@@ -3,6 +3,7 @@ package pe.municipalidad.tributario.constancia;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -31,6 +32,16 @@ public class SolicitudConstanciaController {
         SolicitudConstanciaRespuesta solicitud =
                 solicitudConstanciaService.iniciarSolicitud(SesionContribuyente.codigoContribuyente(request));
         return ResponseEntity.created(URI.create("/api/constancias/" + solicitud.idSolicitud())).body(solicitud);
+    }
+
+    @GetMapping
+    public List<SolicitudConstanciaRespuesta> listar(HttpServletRequest request) {
+        return solicitudConstanciaService.listarSolicitudes(SesionContribuyente.codigoContribuyente(request));
+    }
+
+    @GetMapping("/deuda")
+    public DeudaConstanciaRespuesta consultarDeuda(HttpServletRequest request) {
+        return solicitudConstanciaService.consultarDeuda(SesionContribuyente.codigoContribuyente(request));
     }
 
     @GetMapping("/{idSolicitud}")

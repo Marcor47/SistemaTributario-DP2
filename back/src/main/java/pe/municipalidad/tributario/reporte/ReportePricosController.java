@@ -31,8 +31,7 @@ public class ReportePricosController {
             @RequestParam(defaultValue = LIMITE_POR_DEFECTO) @Min(value = 1, message = "debe estar entre 1 y 200")
             @Max(value = 200, message = "debe estar entre 1 y 200") int limite,
             HttpServletRequest request) {
-        String usuario = sesion.conRol(request, NombreRol.GERENCIA, NombreRol.ANALISTA_RENTAS,
-                NombreRol.ADMINISTRADOR);
+        String usuario = sesion.conRol(request, NombreRol.GERENCIA, NombreRol.ANALISTA_RENTAS);
         return servicio.generar(usuario, criterio, limite);
     }
 }
