@@ -1,8 +1,23 @@
-const FILTROS_VALIDOS = new Set(['anio', 'periodo', 'zona', 'tributo', 'montoMinimo'])
+const FILTROS_VALIDOS = new Set(['anio', 'periodo', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'montoMinimo'])
+const CAMPOS_FILTRO = ['anio', 'periodo', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'montoMinimo']
 
 export const TRIBUTOS = [
   { valor: 'IMPUESTO_PREDIAL', etiqueta: 'Impuesto Predial' },
   { valor: 'ARBITRIOS', etiqueta: 'Arbitrios' },
+]
+
+export const TIPOS_DOCUMENTO = [
+  { valor: 'DNI', etiqueta: 'DNI' },
+  { valor: 'RUC', etiqueta: 'RUC' },
+  { valor: 'CE', etiqueta: 'Carné de extranjería' },
+]
+
+export const ETAPAS_COBRANZA = [
+  { valor: 'MORA_TEMPRANA', etiqueta: 'Mora temprana' },
+  { valor: 'CAMPANA', etiqueta: 'Campaña persuasiva' },
+  { valor: 'VALOR_EMITIDO', etiqueta: 'Valor emitido' },
+  { valor: 'ESPERA_LEGAL', etiqueta: 'Espera legal' },
+  { valor: 'COACTIVA', etiqueta: 'Exigible en vía coactiva' },
 ]
 
 export function filtrosDisponibles(reporte) {
@@ -33,6 +48,9 @@ export function validarFiltros(reporte, filtros) {
   }
   if (permitidos.has('zona') && filtros.zona?.trim().length > 20) errores.zona = 'La zona no puede superar 20 caracteres.'
   if (permitidos.has('tributo') && filtros.tributo && !TRIBUTOS.some(({ valor }) => valor === filtros.tributo)) errores.tributo = 'Selecciona un tributo válido.'
+  if (permitidos.has('regimen') && filtros.regimen?.trim().length > 40) errores.regimen = 'El régimen no puede superar 40 caracteres.'
+  if (permitidos.has('tipoDocumento') && filtros.tipoDocumento && !TIPOS_DOCUMENTO.some(({ valor }) => valor === filtros.tipoDocumento)) errores.tipoDocumento = 'Selecciona un tipo de documento válido.'
+  if (permitidos.has('etapa') && filtros.etapa && !ETAPAS_COBRANZA.some(({ valor }) => valor === filtros.etapa)) errores.etapa = 'Selecciona una etapa válida.'
   if (permitidos.has('montoMinimo') && filtros.montoMinimo !== '') {
     const monto = Number(filtros.montoMinimo)
     if (!Number.isFinite(monto) || monto < 0) errores.montoMinimo = 'Ingresa un monto igual o mayor a cero.'
@@ -43,7 +61,7 @@ export function validarFiltros(reporte, filtros) {
 export function parametrosReporte(reporte, filtros) {
   const parametros = new URLSearchParams()
   const permitidos = new Set(filtrosDisponibles(reporte))
-  for (const clave of ['anio', 'periodo', 'zona', 'tributo', 'montoMinimo']) {
+  for (const clave of CAMPOS_FILTRO) {
     const valor = filtros[clave]
     if (permitidos.has(clave) && valor !== '' && valor != null) parametros.set(clave, String(valor).trim())
   }
@@ -58,6 +76,14 @@ export function metricaReporte(tipo, fila) {
 
 export function etiquetaTributo(tributo) {
   return TRIBUTOS.find(({ valor }) => valor === tributo)?.etiqueta || tributo || 'Todos'
+}
+
+export function etiquetaTipoDocumento(tipoDocumento) {
+  return TIPOS_DOCUMENTO.find(({ valor }) => valor === tipoDocumento)?.etiqueta || tipoDocumento || 'Todos'
+}
+
+export function etiquetaEtapa(etapa) {
+  return ETAPAS_COBRANZA.find(({ valor }) => valor === etapa)?.etiqueta || etapa || 'Todas'
 }
 
 export function porcentaje(valor) {

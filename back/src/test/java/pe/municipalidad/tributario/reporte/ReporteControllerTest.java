@@ -57,7 +57,8 @@ class ReporteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].tipo", contains("MOROSOS", "PRICOS", "BUENOS_PAGADORES")))
                 .andExpect(jsonPath("$[0].titulo").value("Reporte de morosos"))
-                .andExpect(jsonPath("$[0].filtros", contains("periodo", "zona", "tributo", "montoMinimo")))
+                .andExpect(jsonPath("$[0].filtros", contains("periodo", "zona", "tributo", "regimen",
+                        "tipoDocumento", "etapa", "montoMinimo")))
                 .andExpect(jsonPath("$[1].filtros", contains("anio", "zona", "tributo", "montoMinimo")));
     }
 
@@ -115,6 +116,28 @@ class ReporteControllerTest {
         mvc.perform(get("/api/reportes/MOROSOS").param("montoMinimo", "1000").session(gerencia))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")));
+    }
+
+    @Test
+    void morososPorRegimenTipoDocumentoYEtapaMasAvanzada() throws Exception {
+        MockHttpSession gerencia = sesion(NombreRol.GERENCIA);
+        mvc.perform(get("/api/reportes/MOROSOS").param("regimen", "general").session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filtrosAplicados.regimen").value("GENERAL"))
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067", "058934", "061177")));
+
+        mvc.perform(get("/api/reportes/MOROSOS").param("tipoDocumento", "RUC").session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")));
+
+        mvc.perform(get("/api/reportes/MOROSOS").param("etapa", "COACTIVA").session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390")))
+                .andExpect(jsonPath("$.filas[0].etapaCobranza").value("COACTIVA"));
+
+        mvc.perform(get("/api/reportes/MOROSOS").param("etapa", "VALOR_EMITIDO").session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[*].codigo", contains("058934")));
     }
 
     @Test

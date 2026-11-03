@@ -2,18 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, validarFiltros } from '../src/utils/reportes.js'
 
-const morosos = { tipo: 'MOROSOS', filtros: ['zona', 'tributo', 'montoMinimo'] }
+const morosos = { tipo: 'MOROSOS', filtros: ['periodo', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'montoMinimo'] }
 const pricos = { tipo: 'PRICOS', filtros: ['anio', 'zona', 'tributo', 'montoMinimo'] }
 
 test('HU006: el catálogo controla los filtros visibles', () => {
-  assert.deepEqual(filtrosDisponibles(morosos), ['zona', 'tributo', 'montoMinimo'])
+  assert.deepEqual(filtrosDisponibles(morosos), ['periodo', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'montoMinimo'])
   assert.deepEqual(filtrosDisponibles({ filtros: ['zona', 'desconocido'] }), ['zona'])
 })
 
 test('HU006: morosos limpia y nunca envía el año', () => {
-  const filtros = { anio: '2025', zona: ' Z2 ', tributo: 'ARBITRIOS', montoMinimo: '1000' }
+  const filtros = { anio: '2025', zona: ' Z2 ', tributo: 'ARBITRIOS', regimen: 'GENERAL', tipoDocumento: 'RUC', etapa: 'COACTIVA', montoMinimo: '1000' }
   assert.equal(limpiarFiltros(morosos, filtros).anio, '')
-  assert.equal(parametrosReporte(morosos, filtros).toString(), 'zona=Z2&tributo=ARBITRIOS&montoMinimo=1000')
+  assert.equal(parametrosReporte(morosos, filtros).toString(),
+    'zona=Z2&tributo=ARBITRIOS&regimen=GENERAL&tipoDocumento=RUC&etapa=COACTIVA&montoMinimo=1000')
 })
 
 test('HU006: construye los parámetros aceptados para PRICOS', () => {
@@ -27,6 +28,11 @@ test('HU006: construye los parámetros aceptados para PRICOS', () => {
 test('HU006: rechaza filtros inválidos antes de consultar', () => {
   const errores = validarFiltros(pricos, { anio: '1999', zona: '123456789012345678901', tributo: 'ALCABALA', montoMinimo: '-1' })
   assert.deepEqual(Object.keys(errores).sort(), ['anio', 'montoMinimo', 'tributo', 'zona'])
+})
+
+test('HU018: valida régimen, tipo de documento y etapa de morosos', () => {
+  const errores = validarFiltros(morosos, { montoMinimo: '', regimen: 'X'.repeat(41), tipoDocumento: 'PASAPORTE', etapa: 'JUZGADO' })
+  assert.deepEqual(Object.keys(errores).sort(), ['etapa', 'regimen', 'tipoDocumento'])
 })
 
 test('HU006: selecciona la métrica monetaria de cada reporte', () => {

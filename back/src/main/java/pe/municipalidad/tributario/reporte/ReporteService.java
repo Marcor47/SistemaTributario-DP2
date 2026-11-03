@@ -56,7 +56,7 @@ public class ReporteService {
 
     /* Filtros que acepta cada reporte, con el nombre del parámetro de la API. */
     private static final Map<TipoReporte, List<String>> FILTROS = Map.of(
-            TipoReporte.MOROSOS, List.of("periodo", "zona", "tributo", "montoMinimo"),
+            TipoReporte.MOROSOS, List.of("periodo", "zona", "tributo", "regimen", "tipoDocumento", "etapa", "montoMinimo"),
             TipoReporte.PRICOS, List.of("anio", "zona", "tributo", "montoMinimo"),
             TipoReporte.BUENOS_PAGADORES, List.of("anio", "zona", "tributo", "montoMinimo"));
 
@@ -141,6 +141,12 @@ public class ReporteService {
         List<Cartera> carteras = agrupar(samnet.obtenerCartera(fechaCorte, anio), aplicados).stream()
                 .filter(cartera -> aplicados.zona() == null || cartera.zonas().contains(aplicados.zona()))
                 .filter(cartera -> cartera.zonas().stream().allMatch(acceso::puedeVerZona))
+                .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.regimen() == null
+                        || aplicados.regimen().equalsIgnoreCase(regimenDe(cartera)))
+                .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.tipoDocumento() == null
+                        || aplicados.tipoDocumento() == cartera.datos().tipoDocumento())
+                .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.etapa() == null
+                        || aplicados.etapa() == etapaCobranza(cartera))
                 .toList();
 
         ReporteRespuesta<?> reporte = switch (tipo) {
@@ -418,18 +424,31 @@ public class ReporteService {
                 filas, FilaBuenPagador::pagadoAnio, null);
     }
 
+    /* Etapa más avanzada de la deuda vencida; sin etapas registradas se asume mora temprana. */
+    private static EtapaCobranza etapaCobranza(Cartera cartera) {
+        return cartera.tributos().stream()
+                .map(CarteraTributo::etapaCobranza)
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(EtapaCobranza.MORA_TEMPRANA);
+    }
+
+    /* Régimen del contribuyente; GENERAL es el valor que ya muestra el reporte cuando SAMNET no lo informa. */
+    private static String regimenDe(Cartera cartera) {
+        return cartera.tributos().stream()
+                .map(CarteraTributo::regimen)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("GENERAL");
+    }
+
     private static FilaMoroso filaMoroso(Cartera cartera, LocalDate fechaCorte, boolean filtraPeriodo) {
         LocalDate masAntiguo = cartera.tributos().stream()
                 .map(CarteraTributo::vencimientoMasAntiguo)
                 .filter(Objects::nonNull)
                 .min(Comparator.naturalOrder())
                 .orElse(fechaCorte);
-        /* Sin etapas registradas en SAMNET, la deuda está en mora temprana desde su vencimiento. */
-        EtapaCobranza etapa = cartera.tributos().stream()
-                .map(CarteraTributo::etapaCobranza)
-                .filter(Objects::nonNull)
-                .max(Comparator.naturalOrder())
-                .orElse(EtapaCobranza.MORA_TEMPRANA);
+        EtapaCobranza etapa = etapaCobranza(cartera);
         List<MontoPorTributo> porTributo = cartera.tributos().stream()
                 .filter(tributo -> (filtraPeriodo ? tributo.deudaVencidaAnio() : tributo.deudaVencida()).signum() > 0)
                 .map(tributo -> new MontoPorTributo(tributo.tributo(), filtraPeriodo ? tributo.deudaVencidaAnio() : tributo.deudaVencida()))
@@ -445,11 +464,7 @@ public class ReporteService {
                 ? cartera.cuenta(CarteraTributo::cuotasVencidasAnio)
                 : cartera.cuenta(CarteraTributo::cuotasVencidas);
 
-        String regimen = cartera.tributos().stream()
-                .map(CarteraTributo::regimen)
-                .filter(Objects::nonNull)
-                .findFirst()
-                .orElse("GENERAL");
+        String regimen = regimenDe(cartera);
         DomicilioFiscal domDesglosado = cartera.tributos().stream()
                 .map(CarteraTributo::domicilioDesglosado)
                 .filter(Objects::nonNull)

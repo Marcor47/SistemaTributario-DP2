@@ -39,7 +39,7 @@ cada uno. La pantalla debe armar el selector y los filtros con esta respuesta.
     "tipo": "MOROSOS",
     "titulo": "Reporte de morosos",
     "descripcion": "Contribuyentes con cuotas vencidas impagas a la fecha de corte, con su deuda y etapa de cobranza.",
-    "filtros": ["zona", "tributo", "montoMinimo"]
+    "filtros": ["periodo", "zona", "tributo", "regimen", "tipoDocumento", "etapa", "montoMinimo"]
   },
   {
     "tipo": "PRICOS",
@@ -76,7 +76,7 @@ las usa para el selector de zona.
 ## 2. Generar un reporte
 
 ```
-GET /api/reportes/{tipo}?anio=&zona=&tributo=&montoMinimo=
+GET /api/reportes/{tipo}?anio=&periodo=&zona=&tributo=&regimen=&tipoDocumento=&etapa=&montoMinimo=
 ```
 
 `tipo`: `MOROSOS`, `PRICOS` o `BUENOS_PAGADORES` (el `tipo` del catálogo). Todos los filtros son opcionales:
@@ -84,8 +84,12 @@ GET /api/reportes/{tipo}?anio=&zona=&tributo=&montoMinimo=
 | Filtro | Valores | Efecto |
 | --- | --- | --- |
 | `anio` | `2000`-`2100`. Por defecto, el año de la fecha de corte | Año de lo emitido, lo pagado y la puntualidad. **No aplica a morosos**: su deuda es de todos los años. |
+| `periodo` | `2000`-`2100` | Periodo/año de la deuda vencida en morosos. |
 | `zona` | `Z1`, `Z2`, ... (se ignoran espacios y mayúsculas) | Solo contribuyentes con algún predio en esa zona. |
 | `tributo` | `IMPUESTO_PREDIAL` o `ARBITRIOS` | Los montos y cuotas se calculan solo con ese tributo. |
+| `regimen` | Texto (máx. 40) | Solo morosos: régimen del contribuyente, sin distinguir mayúsculas. |
+| `tipoDocumento` | `DNI`, `RUC` o `CE` | Solo morosos: tipo de documento del contribuyente. |
+| `etapa` | `MORA_TEMPRANA`, `CAMPANA`, `VALOR_EMITIDO`, `ESPERA_LEGAL` o `COACTIVA` | Solo morosos: etapa más avanzada de su deuda vencida. |
 | `montoMinimo` | Soles, `>= 0` | Mínimo del monto principal: deuda vencida (morosos), monto emitido (PRICOS) o monto pagado (buenos pagadores). |
 
 ### Respuesta 200 (estructura común)
