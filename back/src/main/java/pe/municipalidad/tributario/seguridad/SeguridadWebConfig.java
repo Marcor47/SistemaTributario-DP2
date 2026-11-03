@@ -42,7 +42,8 @@ public class SeguridadWebConfig {
                                 .hasAuthority("RECLAMOS:GESTIONAR")
                         .requestMatchers("/api/reclamos/asignados/**").hasAuthority("RECLAMOS:ATENDER")
                         .requestMatchers("/api/health", "/api/auth/**", "/api/portal/**", "/api/constancias/**",
-                                "/api/estado-cuenta/**", "/api/reclamos/**").permitAll()
+                                "/api/estado-cuenta/**", "/api/reclamos/**", "/api/buzon/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/reportes/pricos").hasAuthority("REPORTES:CONSULTAR")
                         .requestMatchers(HttpMethod.POST, "/api/admin/usuarios").hasAuthority("USUARIOS:CREAR")
                         .requestMatchers(HttpMethod.GET, "/api/admin/usuarios").hasAuthority("USUARIOS:LISTAR")
                         .requestMatchers(HttpMethod.GET, "/api/admin/roles").hasAuthority("ROLES:LISTAR")
