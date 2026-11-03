@@ -52,8 +52,10 @@ public class ReporteExportador {
             TipoReporte.PRICOS, Set.of("codigo", "nombre", "tipoPersona", "tipoDocumento",
                     "numeroDocumento", "domicilioFiscal", "zonas", "emitidoAnio", "pagadoAnio",
                     "porcentajePagado", "deudaVencida"),
-            TipoReporte.BUENOS_PAGADORES, Set.of("codigo", "nombre", "tipoDocumento",
-                    "numeroDocumento", "domicilioFiscal", "zonas", "cuotasPagadasATiempo", "pagadoAnio")
+            TipoReporte.BUENOS_PAGADORES, Set.of("codigo", "nombre", "razonSocial", "regimen", "tipoDocumento",
+                    "numeroDocumento", "domicilioFiscal", "zonas", "montoEmitidoPredial", "montoEmitidoArbitrios",
+                    "montoPagadoPredial", "montoPagadoArbitrios", "totalEmitido", "totalPagado",
+                    "cuotasPagadasATiempo", "pagadoAnio")
     );
 
     public static final Map<TipoReporte, List<String>> COLUMNAS_DEFECTO = Map.of(
@@ -61,8 +63,9 @@ public class ReporteExportador {
                     "zonas", "deudaVencida", "cuotasVencidas", "vencimientoMasAntiguo", "diasVencido", "nombreEtapa"),
             TipoReporte.PRICOS, List.of("codigo", "nombre", "tipoPersona", "tipoDocumento",
                     "numeroDocumento", "zonas", "emitidoAnio", "pagadoAnio", "porcentajePagado", "deudaVencida"),
-            TipoReporte.BUENOS_PAGADORES, List.of("codigo", "nombre", "tipoDocumento",
-                    "numeroDocumento", "zonas", "cuotasPagadasATiempo", "pagadoAnio")
+            TipoReporte.BUENOS_PAGADORES, List.of("codigo", "razonSocial", "regimen", "tipoDocumento",
+                    "numeroDocumento", "domicilioFiscal", "zonas", "montoEmitidoPredial", "montoEmitidoArbitrios",
+                    "montoPagadoPredial", "montoPagadoArbitrios", "cuotasPagadasATiempo", "totalPagado")
     );
 
     public void validarColumnas(TipoReporte tipo, List<String> columnas) {
@@ -215,7 +218,9 @@ public class ReporteExportador {
     private byte[] generarPdf(ReporteRespuesta<?> reporte, List<String> columnas, String emisor) {
         try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             // Hoja apaisada (A4 Landscape)
-            PDRectangle pageSize = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
+            PDRectangle formatoPagina = reporte.tipoReporte() == TipoReporte.BUENOS_PAGADORES
+                    ? PDRectangle.A3 : PDRectangle.A4;
+            PDRectangle pageSize = new PDRectangle(formatoPagina.getHeight(), formatoPagina.getWidth());
             float anchoPagina = pageSize.getWidth();
             float altoPagina = pageSize.getHeight();
             float margen = 36f;
@@ -407,6 +412,7 @@ public class ReporteExportador {
             case "deudaPorTributo" -> 2.0f;
             case "codigo", "tipoDocumento", "zonas" -> 0.9f;
             case "numeroDocumento", "deudaVencida", "emitidoAnio", "pagadoAnio" -> 1.2f;
+            case "montoEmitidoPredial", "montoEmitidoArbitrios", "montoPagadoPredial", "montoPagadoArbitrios", "totalEmitido", "totalPagado" -> 1.3f;
             case "cuotasVencidas", "diasVencido", "cuotasPagadasATiempo", "porcentajePagado" -> 1.0f;
             case "vencimientoMasAntiguo", "etapaCobranza", "nombreEtapa" -> 1.3f;
             default -> 1.0f;
@@ -451,6 +457,12 @@ public class ReporteExportador {
             case "deudaPorTributo" -> "Deuda por Tributo";
             case "emitidoAnio" -> "Emitido (S/)";
             case "pagadoAnio" -> "Pagado (S/)";
+            case "montoEmitidoPredial" -> "Emitido Predial (S/)";
+            case "montoEmitidoArbitrios" -> "Emitido Arbitrios (S/)";
+            case "montoPagadoPredial" -> "Pagado Predial (S/)";
+            case "montoPagadoArbitrios" -> "Pagado Arbitrios (S/)";
+            case "totalEmitido" -> "Total Emitido (S/)";
+            case "totalPagado" -> "Total Pagado (S/)";
             case "porcentajePagado" -> "% Pagado";
             case "cuotasPagadasATiempo" -> "Cuotas a Tiempo";
             default -> columna;
@@ -513,10 +525,18 @@ public class ReporteExportador {
             return switch (columna) {
                 case "codigo" -> b.codigo();
                 case "nombre" -> b.nombre();
+                case "razonSocial" -> b.razonSocial();
+                case "regimen" -> b.regimen();
                 case "tipoDocumento" -> b.tipoDocumento() != null ? b.tipoDocumento().name() : "";
                 case "numeroDocumento" -> b.numeroDocumento();
                 case "domicilioFiscal" -> b.domicilioFiscal();
                 case "zonas" -> b.zonas() != null ? String.join(", ", b.zonas()) : "";
+                case "montoEmitidoPredial" -> b.montoEmitidoPredial();
+                case "montoEmitidoArbitrios" -> b.montoEmitidoArbitrios();
+                case "montoPagadoPredial" -> b.montoPagadoPredial();
+                case "montoPagadoArbitrios" -> b.montoPagadoArbitrios();
+                case "totalEmitido" -> b.totalEmitido();
+                case "totalPagado" -> b.totalPagado();
                 case "cuotasPagadasATiempo" -> b.cuotasPagadasATiempo();
                 case "pagadoAnio" -> b.pagadoAnio();
                 default -> "";
