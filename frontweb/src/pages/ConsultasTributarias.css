@@ -7,6 +7,7 @@
 .consulta-indicadores { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .consulta-indicador { display: flex; flex-direction: column; gap: 10px; padding: 22px; min-width: 0; }
 .consulta-indicador.principal { border-top: 4px solid var(--marino); }
+.consulta-indicador.alerta-deuda { border-top: 4px solid var(--critico); }
 .consulta-cifra { font-size: clamp(24px, 2.6vw, 36px); line-height: 1.2; color: var(--marino-osc); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .consulta-cifra.secundaria { font-size: clamp(20px, 2vw, 28px); }
 .consulta-cifra.deuda { color: var(--critico); }
@@ -17,8 +18,10 @@
 .consulta-barras { display: grid; gap: 22px; padding: 10px 0 0; margin: 20px 0 8px; list-style: none; }
 .consulta-barras li > div:first-child { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
 .consulta-barras strong { white-space: nowrap; color: var(--marino-osc); font-variant-numeric: tabular-nums; }
+.consulta-barras strong.valor-deuda { color: var(--critico); }
 .consulta-barra { height: 12px; border-radius: 6px; background: var(--fondo); overflow: hidden; }
-.consulta-barra span { display: block; height: 100%; border-radius: inherit; background: var(--marino); }
+.consulta-barra span { display: block; height: 100%; border-radius: inherit; background: var(--critico); }
+.tabla td.valor-deuda, .tabla td.valor-morosidad.valor-deuda strong { color: var(--critico); font-weight: 700; }
 .consulta-vacio { padding: 32px 24px; text-align: center; color: var(--texto-atenuado); }
 .consulta-vacio p { max-width: 65ch; margin: 12px auto 20px; }
 .consulta-vacio .btn { text-decoration: none; }

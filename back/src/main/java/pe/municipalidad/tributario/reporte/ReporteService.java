@@ -21,9 +21,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.cobranza.EtapaCobranza;
+import pe.municipalidad.tributario.contribuyente.DomicilioFiscal;
+import pe.municipalidad.tributario.etl.EstadoLote;
+import pe.municipalidad.tributario.etl.LoteETLRepository;
 import pe.municipalidad.tributario.common.AccesoDenegadoException;
+import pe.municipalidad.tributario.common.ConflictoException;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.common.NoAutenticadoException;
+import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.gestiontributaria.CarteraTributo;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.reporte.ReporteRespuesta.FilaBuenPagador;
@@ -38,9 +43,9 @@ import pe.municipalidad.tributario.seguridad.UsuarioRepository;
 import tools.jackson.databind.json.JsonMapper;
 
 /*
- * HU006: la Gerencia genera los reportes de morosos, PRICOS y buenos pagadores sin pedirlos a TI (RF-024, RF-050,
- * RF-051). Los datos se leen de SAMNET a la fecha de corte de hoy; cada generación queda registrada (RF-059) y se
- * aplican las restricciones del rol sobre el reporte y sus zonas (RF-060).
+ * HU006 y HU007: servicio de reportes de Seguimiento Institucional para la Gerencia de Rentas.
+ * HU006: generación sin soporte de TI (RF-024, RF-050, RF-051).
+ * HU007: guardar, gestionar y exportar vistas personalizadas a Excel o PDF (RF-008, RF-044, RF-059, RF-060).
  */
 @Service
 public class ReporteService {
@@ -51,28 +56,36 @@ public class ReporteService {
 
     /* Filtros que acepta cada reporte, con el nombre del parámetro de la API. */
     private static final Map<TipoReporte, List<String>> FILTROS = Map.of(
-            TipoReporte.MOROSOS, List.of("zona", "tributo", "montoMinimo"),
+            TipoReporte.MOROSOS, List.of("periodo", "zona", "tributo", "montoMinimo"),
             TipoReporte.PRICOS, List.of("anio", "zona", "tributo", "montoMinimo"),
             TipoReporte.BUENOS_PAGADORES, List.of("anio", "zona", "tributo", "montoMinimo"));
 
     private final SamnetGateway samnet;
     private final RestriccionReporteRepository restricciones;
     private final SolicitudReporteRepository solicitudes;
+    private final VistaReporteRepository vistas;
+    private final ReporteExportador exportador;
     private final UsuarioRepository usuarios;
     private final ParametroConfiguracionRepository parametros;
     private final JsonMapper json;
     private final Clock reloj;
+    private final LoteETLRepository lotes;
 
     public ReporteService(SamnetGateway samnet, RestriccionReporteRepository restricciones,
-            SolicitudReporteRepository solicitudes, UsuarioRepository usuarios,
-            ParametroConfiguracionRepository parametros, JsonMapper json, Clock reloj) {
+            SolicitudReporteRepository solicitudes, VistaReporteRepository vistas,
+            ReporteExportador exportador, UsuarioRepository usuarios,
+            ParametroConfiguracionRepository parametros, JsonMapper json, Clock reloj,
+            LoteETLRepository lotes) {
         this.samnet = samnet;
         this.restricciones = restricciones;
         this.solicitudes = solicitudes;
+        this.vistas = vistas;
+        this.exportador = exportador;
         this.usuarios = usuarios;
         this.parametros = parametros;
         this.json = json;
         this.reloj = reloj;
+        this.lotes = lotes;
     }
 
     /* Catálogo sin los reportes que el rol tiene restringidos por completo. */
@@ -89,19 +102,28 @@ public class ReporteService {
     @Transactional
     public ReporteRespuesta<?> generar(TipoReporte tipo, FiltrosReporte filtros, String nombreUsuario) {
         Usuario usuario = usuario(nombreUsuario);
+        return ejecutarReporte(tipo, filtros, usuario, FormatoExportacion.NINGUNO);
+    }
+
+    private ReporteRespuesta<?> ejecutarReporte(TipoReporte tipo, FiltrosReporte filtros, Usuario usuario,
+            FormatoExportacion formato) {
         Acceso acceso = accesoDe(usuario, tipo);
         if (!acceso.puedeVerReporte()) {
             throw new AccesoDenegadoException("REPORTE_RESTRINGIDO",
                     "Su rol no tiene acceso al " + tipo.getTitulo().toLowerCase() + ".");
         }
-        if (tipo == TipoReporte.MOROSOS && filtros.anio() != null) {
+        if (tipo == TipoReporte.MOROSOS && filtros.anio() != null && filtros.periodo() == null) {
             throw new DatoInvalidoException("FILTRO_NO_APLICABLE",
                     "El reporte de morosos no se filtra por año: incluye la deuda vencida de todos los años.");
         }
 
-        LocalDate fechaCorte = LocalDate.now(reloj);
-        int anio = Objects.requireNonNullElse(filtros.anio(), fechaCorte.getYear());
-        FiltrosReporte aplicados = filtros.conAnio(tipo == TipoReporte.MOROSOS ? null : anio);
+        LocalDate fechaCorte = lotes.findTopByEstadoAndFuenteOrderByFechaCorteDescIdLoteDesc(
+                        EstadoLote.PUBLICADO, "ps_etl_cobranza")
+                .map(lote -> lote.getFechaCorte())
+                // La instalación inicial aún no tiene una carga ETL: se conserva el comportamiento previo.
+                .orElseGet(() -> LocalDate.now(reloj));
+        int anio = Objects.requireNonNullElse(filtros.periodo() != null ? filtros.periodo() : filtros.anio(), fechaCorte.getYear());
+        FiltrosReporte aplicados = filtros.conAnio(tipo == TipoReporte.MOROSOS && filtros.periodo() == null ? null : anio);
         List<Cartera> carteras = agrupar(samnet.obtenerCartera(fechaCorte, anio), aplicados).stream()
                 .filter(cartera -> aplicados.zona() == null || cartera.zonas().contains(aplicados.zona()))
                 .filter(cartera -> cartera.zonas().stream().allMatch(acceso::puedeVerZona))
@@ -113,21 +135,238 @@ public class ReporteService {
             case BUENOS_PAGADORES -> buenosPagadores(carteras, aplicados, fechaCorte);
         };
         solicitudes.save(new SolicitudReporte(tipo, usuario, LocalDateTime.now(reloj),
-                json.writeValueAsString(aplicados), FormatoExportacion.NINGUNO));
+                serializar(aplicados), formato));
         return reporte;
     }
 
-    /* RF-024: cuotas vencidas impagas de cualquier año; la de mayor deuda primero. */
+        /* ===== HU018: Generar reporte de morosos por zona y periodo (RF-024) ===== */
+    @Transactional
+    public ReporteRespuesta<?> generarMorososPorZona(FiltrosReporte filtros, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        return ejecutarReporte(TipoReporte.MOROSOS, filtros, usuario, FormatoExportacion.NINGUNO);
+    }
+
+    @Transactional
+    public ExportacionReporte exportarMorososPorZona(FiltrosReporte filtros, FormatoExportacion formato,
+            List<String> columnas, String nombreUsuario) {
+        if (formato == null || formato == FormatoExportacion.NINGUNO) {
+            throw new DatoInvalidoException("FORMATO_NO_SOPORTADO",
+                    "El formato de exportación debe ser EXCEL o PDF.");
+        }
+        Usuario usuario = usuario(nombreUsuario);
+        ReporteRespuesta<?> reporte = ejecutarReporte(TipoReporte.MOROSOS, filtros, usuario, formato);
+        ExportacionReporte exportacion = exportador.exportar(reporte, formato, columnas, usuario.getNombreCompleto());
+        String extension = formato == FormatoExportacion.EXCEL ? ".xlsx" : ".pdf";
+        return new ExportacionReporte(exportacion.contenido(),
+                "reporte_morosos_zona_" + reporte.fechaCorte().toString().replace("-", "") + extension,
+                exportacion.mediaType());
+    }
+
+    /* ===== HU007: Vistas personalizadas de reporte (RF-008, RF-044, RNF-023) ===== */
+
+    @Transactional
+    public VistaReporteRespuesta guardarVista(TipoReporte tipo, GuardarVistaPeticion peticion, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        Acceso acceso = accesoDe(usuario, tipo);
+        if (!acceso.puedeVerReporte()) {
+            throw new AccesoDenegadoException("REPORTE_RESTRINGIDO",
+                    "Su rol no tiene acceso al " + tipo.getTitulo().toLowerCase() + ".");
+        }
+
+        String nombreLimpio = peticion.nombre() == null ? "" : peticion.nombre().strip();
+        if (nombreLimpio.isBlank()) {
+            throw new DatoInvalidoException("NOMBRE_REQUERIDO", "El nombre de la vista es obligatorio.");
+        }
+        if (vistas.existsByUsuarioAndTipoReporteAndNombre(usuario, tipo, nombreLimpio)) {
+            throw new ConflictoException("NOMBRE_VISTA_DUPLICADO",
+                    "Ya existe una vista guardada con el nombre '" + nombreLimpio + "' para este reporte.");
+        }
+
+        FiltrosReporte filtros = peticion.filtros() != null ? peticion.filtros() : new FiltrosReporte(null, null, null, null);
+        if (tipo == TipoReporte.MOROSOS && filtros.anio() != null) {
+            throw new DatoInvalidoException("FILTRO_NO_APLICABLE",
+                    "El reporte de morosos no se filtra por año: incluye la deuda vencida de todos los años.");
+        }
+
+        List<String> columnas = peticion.columnasVisibles();
+        if (columnas == null || columnas.isEmpty()) {
+            throw new DatoInvalidoException("COLUMNAS_REQUERIDAS", "Debe indicar al menos una columna visible.");
+        }
+        exportador.validarColumnas(tipo, columnas);
+
+        TipoGrafica tipoGrafica = peticion.tipoGrafica() != null ? peticion.tipoGrafica() : TipoGrafica.TABLA;
+
+        VistaReporte vista = new VistaReporte(tipo, usuario, nombreLimpio, tipoGrafica,
+                serializar(filtros), serializar(columnas), peticion.orden(), LocalDateTime.now(reloj));
+        vistas.save(vista);
+        return mapearVista(vista);
+    }
+
+    @Transactional(readOnly = true)
+    public List<VistaReporteRespuesta> listarVistas(TipoReporte tipo, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        List<VistaReporte> lista = tipo != null
+                ? vistas.findByUsuarioAndTipoReporteOrderByFechaCreacionDesc(usuario, tipo)
+                : vistas.findByUsuarioOrderByFechaCreacionDesc(usuario);
+        return lista.stream().map(this::mapearVista).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public VistaReporteRespuesta obtenerVista(Long idVista, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        VistaReporte vista = vistaPropia(idVista, usuario);
+        return mapearVista(vista);
+    }
+
+    @Transactional
+    public VistaEjecutadaRespuesta<?> abrirVista(Long idVista, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        VistaReporte vista = vistaPropia(idVista, usuario);
+        FiltrosReporte filtros = parsearFiltros(vista.getFiltros());
+        ReporteRespuesta<?> reporte = ejecutarReporte(vista.getTipoReporte(), filtros, usuario, FormatoExportacion.NINGUNO);
+        return new VistaEjecutadaRespuesta<>(mapearVista(vista), reporte);
+    }
+
+    @Transactional
+    public VistaReporteRespuesta actualizarVista(Long idVista, ActualizarVistaPeticion peticion, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        VistaReporte vista = vistaPropia(idVista, usuario);
+
+        String nuevoNombre = peticion.nombre() != null ? peticion.nombre().strip() : null;
+        if (nuevoNombre != null && !nuevoNombre.isBlank() && !nuevoNombre.equalsIgnoreCase(vista.getNombre())) {
+            if (vistas.existsByUsuarioAndTipoReporteAndNombre(usuario, vista.getTipoReporte(), nuevoNombre)) {
+                throw new ConflictoException("NOMBRE_VISTA_DUPLICADO",
+                        "Ya existe una vista guardada con el nombre '" + nuevoNombre + "' para este reporte.");
+            }
+        }
+
+        String filtrosJson = vista.getFiltros();
+        if (peticion.filtros() != null) {
+            if (vista.getTipoReporte() == TipoReporte.MOROSOS && peticion.filtros().anio() != null) {
+                throw new DatoInvalidoException("FILTRO_NO_APLICABLE",
+                        "El reporte de morosos no se filtra por año: incluye la deuda vencida de todos los años.");
+            }
+            filtrosJson = serializar(peticion.filtros());
+        }
+
+        String columnasJson = vista.getColumnasVisibles();
+        if (peticion.columnasVisibles() != null) {
+            if (peticion.columnasVisibles().isEmpty()) {
+                throw new DatoInvalidoException("COLUMNAS_REQUERIDAS", "Debe indicar al menos una columna visible.");
+            }
+            exportador.validarColumnas(vista.getTipoReporte(), peticion.columnasVisibles());
+            columnasJson = serializar(peticion.columnasVisibles());
+        }
+
+        vista.actualizar(nuevoNombre, peticion.tipoGrafica(), filtrosJson, columnasJson, peticion.orden());
+        return mapearVista(vista);
+    }
+
+    @Transactional
+    public void eliminarVista(Long idVista, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        VistaReporte vista = vistaPropia(idVista, usuario);
+        vistas.delete(vista);
+    }
+
+    /* ===== HU007: Exportación a Excel y PDF (RF-008, RF-059, RF-060) ===== */
+
+    @Transactional
+    public ExportacionReporte exportar(TipoReporte tipo, FiltrosReporte filtros, FormatoExportacion formato,
+            List<String> columnas, String nombreUsuario) {
+        if (formato == null || formato == FormatoExportacion.NINGUNO) {
+            throw new DatoInvalidoException("FORMATO_NO_SOPORTADO",
+                    "El formato de exportación debe ser EXCEL o PDF.");
+        }
+        Usuario usuario = usuario(nombreUsuario);
+        ReporteRespuesta<?> reporte = ejecutarReporte(tipo, filtros, usuario, formato);
+        return exportador.exportar(reporte, formato, columnas, usuario.getNombreCompleto());
+    }
+
+    @Transactional
+    public ExportacionReporte exportarVista(Long idVista, FormatoExportacion formato, String nombreUsuario) {
+        if (formato == null || formato == FormatoExportacion.NINGUNO) {
+            throw new DatoInvalidoException("FORMATO_NO_SOPORTADO",
+                    "El formato de exportación debe ser EXCEL o PDF.");
+        }
+        Usuario usuario = usuario(nombreUsuario);
+        VistaReporte vista = vistaPropia(idVista, usuario);
+        FiltrosReporte filtros = parsearFiltros(vista.getFiltros());
+        List<String> columnas = parsearColumnas(vista.getColumnasVisibles(), vista.getTipoReporte());
+        ReporteRespuesta<?> reporte = ejecutarReporte(vista.getTipoReporte(), filtros, usuario, formato);
+        return exportador.exportar(reporte, formato, columnas, usuario.getNombreCompleto());
+    }
+
+    private VistaReporte vistaPropia(Long idVista, Usuario usuario) {
+        return vistas.findById(idVista)
+                .filter(v -> v.perteneceA(usuario))
+                .orElseThrow(() -> new RecursoNoEncontradoException("VISTA_NO_ENCONTRADA",
+                        "No existe esa vista de reporte."));
+    }
+
+    private VistaReporteRespuesta mapearVista(VistaReporte vista) {
+        return new VistaReporteRespuesta(
+                vista.getIdVista(),
+                vista.getTipoReporte(),
+                vista.getNombre(),
+                vista.getTipoGrafica(),
+                parsearFiltros(vista.getFiltros()),
+                parsearColumnas(vista.getColumnasVisibles(), vista.getTipoReporte()),
+                vista.getOrden(),
+                vista.getFechaCreacion()
+        );
+    }
+
+    private FiltrosReporte parsearFiltros(String filtrosJson) {
+        if (filtrosJson == null || filtrosJson.isBlank()) {
+            return new FiltrosReporte(null, null, null, null);
+        }
+        try {
+            return json.readValue(filtrosJson, FiltrosReporte.class);
+        } catch (Exception ex) {
+            LOG.warn("No se pudieron parsear los filtros guardados: {}", filtrosJson, ex);
+            return new FiltrosReporte(null, null, null, null);
+        }
+    }
+
+    private List<String> parsearColumnas(String columnasJson, TipoReporte tipo) {
+        if (columnasJson == null || columnasJson.isBlank()) {
+            return ReporteExportador.COLUMNAS_DEFECTO.getOrDefault(tipo, List.of("codigo", "nombre"));
+        }
+        try {
+            String[] cols = json.readValue(columnasJson, String[].class);
+            return List.of(cols);
+        } catch (Exception ex) {
+            LOG.warn("No se pudieron parsear las columnas guardadas: {}", columnasJson, ex);
+            return ReporteExportador.COLUMNAS_DEFECTO.getOrDefault(tipo, List.of("codigo", "nombre"));
+        }
+    }
+
+    private String serializar(Object obj) {
+        try {
+            return json.writeValueAsString(obj);
+        } catch (Exception ex) {
+            throw new IllegalStateException("Error al serializar a JSON", ex);
+        }
+    }
+
+    /* RF-024 y HU018: cuotas vencidas impagas de cualquier año (o del periodo solicitado); la de mayor deuda primero. */
     private ReporteRespuesta<FilaMoroso> morosos(List<Cartera> carteras, FiltrosReporte filtros,
             LocalDate fechaCorte) {
+        boolean filtraPeriodo = filtros.periodo() != null;
+        Function<CarteraTributo, BigDecimal> selectorDeuda = filtraPeriodo
+                ? CarteraTributo::deudaVencidaAnio
+                : CarteraTributo::deudaVencida;
+
         List<FilaMoroso> filas = carteras.stream()
-                .filter(cartera -> cartera.suma(CarteraTributo::deudaVencida).signum() > 0)
-                .filter(cartera -> alcanza(cartera.suma(CarteraTributo::deudaVencida), filtros.montoMinimo()))
-                .sorted(Comparator.comparing((Cartera cartera) -> cartera.suma(CarteraTributo::deudaVencida))
+                .filter(cartera -> cartera.suma(selectorDeuda).signum() > 0)
+                .filter(cartera -> alcanza(cartera.suma(selectorDeuda), filtros.montoMinimo()))
+                .sorted(Comparator.comparing((Cartera cartera) -> cartera.suma(selectorDeuda))
                         .reversed().thenComparing(Cartera::codigo))
-                .map(cartera -> filaMoroso(cartera, fechaCorte))
+                .map(cartera -> filaMoroso(cartera, fechaCorte, filtraPeriodo))
                 .toList();
-        return respuesta(TipoReporte.MOROSOS, fechaCorte, filtros, "Deuda vencida", filas, FilaMoroso::deudaVencida,
+        String concepto = filtraPeriodo ? "Deuda vencida periodo " + filtros.periodo() : "Deuda vencida";
+        return respuesta(TipoReporte.MOROSOS, fechaCorte, filtros, concepto, filas, FilaMoroso::deudaVencida,
                 null);
     }
 
@@ -165,12 +404,12 @@ public class ReporteService {
                 filas, FilaBuenPagador::pagadoAnio, null);
     }
 
-    private static FilaMoroso filaMoroso(Cartera cartera, LocalDate fechaCorte) {
+    private static FilaMoroso filaMoroso(Cartera cartera, LocalDate fechaCorte, boolean filtraPeriodo) {
         LocalDate masAntiguo = cartera.tributos().stream()
                 .map(CarteraTributo::vencimientoMasAntiguo)
                 .filter(Objects::nonNull)
                 .min(Comparator.naturalOrder())
-                .orElseThrow();
+                .orElse(fechaCorte);
         /* Sin etapas registradas en SAMNET, la deuda está en mora temprana desde su vencimiento. */
         EtapaCobranza etapa = cartera.tributos().stream()
                 .map(CarteraTributo::etapaCobranza)
@@ -178,13 +417,56 @@ public class ReporteService {
                 .max(Comparator.naturalOrder())
                 .orElse(EtapaCobranza.MORA_TEMPRANA);
         List<MontoPorTributo> porTributo = cartera.tributos().stream()
-                .filter(tributo -> tributo.deudaVencida().signum() > 0)
-                .map(tributo -> new MontoPorTributo(tributo.tributo(), tributo.deudaVencida()))
+                .filter(tributo -> (filtraPeriodo ? tributo.deudaVencidaAnio() : tributo.deudaVencida()).signum() > 0)
+                .map(tributo -> new MontoPorTributo(tributo.tributo(), filtraPeriodo ? tributo.deudaVencidaAnio() : tributo.deudaVencida()))
                 .toList();
-        return new FilaMoroso(cartera.codigo(), cartera.datos().nombre(), cartera.datos().tipoDocumento(),
-                cartera.datos().numeroDocumento(), cartera.datos().domicilioFiscal(), cartera.zonas(),
-                cartera.suma(CarteraTributo::deudaVencida), cartera.cuenta(CarteraTributo::cuotasVencidas),
-                masAntiguo, ChronoUnit.DAYS.between(masAntiguo, fechaCorte), etapa, etapa.getNombre(), porTributo);
+
+        BigDecimal deuda = filtraPeriodo
+                ? cartera.suma(CarteraTributo::deudaVencidaAnio)
+                : cartera.suma(CarteraTributo::deudaVencida);
+        BigDecimal sinBeneficio = filtraPeriodo
+                ? cartera.suma(CarteraTributo::deudaSinBeneficioAnio)
+                : cartera.suma(CarteraTributo::deudaSinBeneficio);
+        int cuotas = filtraPeriodo
+                ? cartera.cuenta(CarteraTributo::cuotasVencidasAnio)
+                : cartera.cuenta(CarteraTributo::cuotasVencidas);
+
+        String regimen = cartera.tributos().stream()
+                .map(CarteraTributo::regimen)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("GENERAL");
+        DomicilioFiscal domDesglosado = cartera.tributos().stream()
+                .map(CarteraTributo::domicilioDesglosado)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+
+        return new FilaMoroso(
+                cartera.codigo(),
+                cartera.datos().nombre(),
+                cartera.datos().nombre(),
+                regimen,
+                cartera.datos().tipoDocumento(),
+                cartera.datos().numeroDocumento(),
+                cartera.datos().condicion(),
+                cartera.datos().tipoPersona(),
+                cartera.datos().correo(),
+                cartera.datos().telefonos(),
+                cartera.datos().domicilioFiscal(),
+                domDesglosado,
+                cartera.zonas(),
+                deuda,
+                sinBeneficio,
+                cuotas,
+                masAntiguo,
+                ChronoUnit.DAYS.between(masAntiguo, fechaCorte),
+                etapa,
+                etapa.getNombre(),
+                porTributo,
+                cartera.tributos().stream().map(CarteraTributo::detalleDeuda)
+                        .filter(Objects::nonNull).findFirst().orElse(null)
+        );
     }
 
     private static FilaPrico filaPrico(Cartera cartera) {

@@ -41,7 +41,7 @@ public class PostgresEmbebidoConfig {
     private static synchronized EmbeddedPostgres obtenerPostgres() {
         if (postgres == null) {
             try {
-                postgres = EmbeddedPostgres.builder().start();
+                postgres = EmbeddedPostgres.builder().setPGStartupWait(java.time.Duration.ofSeconds(30)).start();
             } catch (IOException ex) {
                 throw new UncheckedIOException("No se pudo iniciar el PostgreSQL embebido", ex);
             }

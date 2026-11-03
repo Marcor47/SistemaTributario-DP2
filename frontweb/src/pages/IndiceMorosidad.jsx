@@ -37,7 +37,7 @@ function Desglose({ titulo, filas, tipo }) {
         : vista === 'grafico' ? (
           <ul className="consulta-barras" aria-label={titulo}>
             {ordenadas.map((fila) => <li key={fila.valorAlcance}>
-              <div><span>{etiqueta(fila)}</span><strong>{porcentaje(fila.indice)}</strong></div>
+              <div><span>{etiqueta(fila)}</span><strong className={(fila.indice ?? 0) > 0 ? 'valor-deuda' : ''}>{porcentaje(fila.indice)}</strong></div>
               <div className="consulta-barra" aria-hidden="true"><span style={{ width: `${Math.min(100, Math.max(0, fila.indice ?? 0))}%` }} /></div>
             </li>)}
           </ul>
@@ -45,7 +45,12 @@ function Desglose({ titulo, filas, tipo }) {
           <div className="tabla-scroll" tabIndex={0} role="region" aria-label={titulo}>
             <table className="tabla"><caption className="sr-only">{titulo}</caption>
               <thead><tr><th scope="col">{tipo === 'tributo' ? 'Tributo' : 'Zona'}</th><th scope="col" className="num">Emitido exigible</th><th scope="col" className="num">Vencido no pagado</th><th scope="col" className="num">Morosidad</th></tr></thead>
-              <tbody>{ordenadas.map((fila) => <tr key={fila.valorAlcance}><th scope="row">{etiqueta(fila)}</th><td className="num">{monto(fila.montoEmitido)}</td><td className="num">{monto(fila.montoVencido)}</td><td className="num"><strong>{porcentaje(fila.indice)}</strong></td></tr>)}</tbody>
+              <tbody>{ordenadas.map((fila) => <tr key={fila.valorAlcance}>
+                <th scope="row">{etiqueta(fila)}</th>
+                <td className="num">{monto(fila.montoEmitido)}</td>
+                <td className={`num ${(fila.montoVencido ?? 0) > 0 ? 'valor-deuda' : ''}`}>{monto(fila.montoVencido)}</td>
+                <td className={`num valor-morosidad ${(fila.indice ?? 0) > 0 ? 'valor-deuda' : ''}`}><strong>{porcentaje(fila.indice)}</strong></td>
+              </tr>)}</tbody>
             </table>
           </div>
         )}
@@ -94,9 +99,21 @@ export default function IndiceMorosidad() {
           <div className="pfields"><div className="pf"><span className="pl">Periodo</span><strong className="pv">{datos.lote.periodo}</strong></div><div className="pf"><span className="pl">Fecha de corte</span><strong className="pv">{fecha(datos.lote.fechaCorte)}</strong></div></div>
         </section>
         <section className="consulta-indicadores" aria-label="Resumen de morosidad">
-          <div className="pcard consulta-indicador principal"><span className="pl">Índice de morosidad total</span><strong className="consulta-cifra">{porcentaje(datos.total)}</strong><p className="hint">De la emisión exigible al corte</p></div>
-          <div className="pcard consulta-indicador"><span className="pl">Emitido exigible</span><strong className="consulta-cifra secundaria">{monto(datos.montoEmitidoTotal)}</strong><p className="hint">Base del índice</p></div>
-          <div className="pcard consulta-indicador"><span className="pl">Vencido no pagado</span><strong className="consulta-cifra secundaria">{monto(datos.montoVencidoTotal)}</strong><p className="hint">Saldo de cuotas vencidas</p></div>
+          <div className={`pcard consulta-indicador principal ${(datos.total ?? 0) > 0 ? 'alerta-deuda' : ''}`}>
+            <span className="pl">Índice de morosidad total</span>
+            <strong className={`consulta-cifra ${(datos.total ?? 0) > 0 ? 'deuda' : ''}`}>{porcentaje(datos.total)}</strong>
+            <p className="hint">De la emisión exigible al corte</p>
+          </div>
+          <div className="pcard consulta-indicador">
+            <span className="pl">Emitido exigible</span>
+            <strong className="consulta-cifra secundaria">{monto(datos.montoEmitidoTotal)}</strong>
+            <p className="hint">Base del índice</p>
+          </div>
+          <div className={`pcard consulta-indicador ${(datos.montoVencidoTotal ?? 0) > 0 ? 'alerta-deuda' : ''}`}>
+            <span className="pl">Vencido no pagado</span>
+            <strong className={`consulta-cifra secundaria ${(datos.montoVencidoTotal ?? 0) > 0 ? 'deuda' : ''}`}>{monto(datos.montoVencidoTotal)}</strong>
+            <p className="hint">Saldo de cuotas vencidas</p>
+          </div>
         </section>
         {datos.total === null && <div className="info">El índice total no está disponible para esta carga. Un valor no disponible no equivale a 0 %.</div>}
         <Desglose titulo="Morosidad por tributo" filas={datos.porTributo} tipo="tributo" />
