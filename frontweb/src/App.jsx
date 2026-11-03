@@ -10,6 +10,7 @@ import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import UsuariosRoles from './pages/UsuariosRoles.jsx'
 import Reclamos from './pages/Reclamos.jsx'
+import ResumenEjecutivo from './pages/ResumenEjecutivo.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
@@ -102,6 +103,7 @@ export default function App() {
           <Route path="/morosidad" element={<IndiceMorosidad />} />
           <Route path="/usuarios" element={<UsuariosRoles />} />
           <Route path="/reclamos" element={<Reclamos />} />
+          <Route path="/resumen-ejecutivo" element={<ResumenEjecutivo />} />
         </Route>
       </Routes>
     </BrowserRouter>
