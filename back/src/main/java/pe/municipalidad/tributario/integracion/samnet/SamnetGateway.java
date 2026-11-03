@@ -30,6 +30,9 @@ public interface SamnetGateway {
     /* RF-002: por código predial o por contribuyente titular; uno de los dos puede ser nulo. */
     List<Predio> buscarPredio(String codigoPredio, String codigoContribuyente);
 
+    /* HU018: zonas registradas en los predios, para el selector de los reportes por zona. */
+    List<String> obtenerZonas();
+
     /* RF-003: declaraciones juradas del predio; la vigente primero. */
     List<DeclaracionJurada> obtenerDeclaracionJurada(String codigoPredio);
 

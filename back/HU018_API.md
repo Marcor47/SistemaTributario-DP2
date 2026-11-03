@@ -44,6 +44,9 @@ GET /api/reportes/morosos-zona?periodo={periodo}&zona={zona}&tributo={tributo}&m
 | `tributo` | `String` | Opcional | `IMPUESTO_PREDIAL` o `ARBITRIOS`. Si se omite, incluye ambos tributos. |
 | `montoMinimo` | `BigDecimal`| Opcional | Monto mínimo de deuda vencida (mayor o igual a 0). |
 
+Para el selector de zona, la pantalla puede obtener las zonas disponibles con `GET /api/reportes/zonas?tipo=MOROSOS`
+(ver [HU006](HU006_API.md)); ese catálogo ya excluye las zonas restringidas para el rol.
+
 #### Respuesta Exitosa (`200 OK`)
 
 ```json

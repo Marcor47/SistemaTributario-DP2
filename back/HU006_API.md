@@ -56,6 +56,23 @@ cada uno. La pantalla debe armar el selector y los filtros con esta respuesta.
 ]
 ```
 
+### Catálogo de zonas
+
+```
+GET /api/reportes/zonas?tipo=MOROSOS
+```
+
+Devuelve las zonas disponibles para el tipo de reporte, ya filtradas por las restricciones del rol. La pantalla
+las usa para el selector de zona.
+
+```json
+["Z1", "Z2", "Z3"]
+```
+
+- `tipo` es obligatorio y debe ser `MOROSOS`, `PRICOS` o `BUENOS_PAGADORES`.
+- Si el rol tiene restringido el reporte completo, responde `403` `REPORTE_RESTRINGIDO`.
+- Si SAMNET no responde, responde `503` `SAMNET_NO_DISPONIBLE`.
+
 ## 2. Generar un reporte
 
 ```

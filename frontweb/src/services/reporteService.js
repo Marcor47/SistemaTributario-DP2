@@ -17,6 +17,10 @@ export function generarReporte(reporte, filtros, { signal } = {}) {
   return pedir(`/reportes/${encodeURIComponent(reporte.tipo)}${consulta}`, { signal }).catch(controlarSesion)
 }
 
+export function listarZonas(tipo, { signal } = {}) {
+  return pedir(`/reportes/zonas?tipo=${encodeURIComponent(tipo)}`, { signal }).catch(controlarSesion)
+}
+
 export function generarMorososPorZona(filtros, { signal } = {}) {
   const parametros = parametrosReporte({ filtros: ['periodo', 'zona', 'tributo', 'montoMinimo'] }, filtros)
   const consulta = parametros.size ? `?${parametros}` : ''

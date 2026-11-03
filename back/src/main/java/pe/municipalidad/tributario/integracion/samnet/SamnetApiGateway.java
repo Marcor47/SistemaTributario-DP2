@@ -86,6 +86,11 @@ public class SamnetApiGateway implements SamnetGateway {
     }
 
     @Override
+    public List<String> obtenerZonas() {
+        return invocar(() -> jdbc.queryForList("SELECT zona FROM samnet.ps_zonas()", String.class));
+    }
+
+    @Override
     public List<DeclaracionJurada> obtenerDeclaracionJurada(String codigoPredio) {
         return invocar(() -> jdbc.query("SELECT * FROM samnet.ps_declaracionjurada(?)",
                 (rs, i) -> new DeclaracionJurada(

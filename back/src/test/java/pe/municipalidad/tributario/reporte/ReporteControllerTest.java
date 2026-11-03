@@ -184,6 +184,31 @@ class ReporteControllerTest {
     }
 
     @Test
+    void elCatalogoDeZonasDevuelveLasZonasDisponibles() throws Exception {
+        mvc.perform(get("/api/reportes/zonas").param("tipo", "MOROSOS").session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", contains("Z1", "Z2", "Z3")));
+    }
+
+    @Test
+    void elCatalogoDeZonasRespetaLaRestriccionDelRol() throws Exception {
+        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Z2");
+
+        mvc.perform(get("/api/reportes/zonas").param("tipo", "MOROSOS").session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", contains("Z1", "Z3")));
+    }
+
+    @Test
+    void elCatalogoDeZonasConReporteRestringidoDevuelve403() throws Exception {
+        restringir(NombreRol.ANALISTA_RENTAS, TipoReporte.MOROSOS, DimensionRestringida.REPORTE, null);
+
+        mvc.perform(get("/api/reportes/zonas").param("tipo", "MOROSOS").session(sesion(NombreRol.ANALISTA_RENTAS)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("REPORTE_RESTRINGIDO"));
+    }
+
+    @Test
     void unReporteRestringidoAlRolDevuelve403() throws Exception {
         restringir(NombreRol.ANALISTA_RENTAS, TipoReporte.MOROSOS, DimensionRestringida.REPORTE, null);
 

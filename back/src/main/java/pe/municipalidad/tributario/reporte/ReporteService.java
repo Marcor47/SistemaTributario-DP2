@@ -99,6 +99,20 @@ public class ReporteService {
                 .toList();
     }
 
+    /* HU018: zonas visibles para el rol en el reporte indicado, para el selector de la pantalla. */
+    @Transactional(readOnly = true)
+    public List<String> zonas(TipoReporte tipo, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        Acceso acceso = accesoDe(usuario, tipo);
+        if (!acceso.puedeVerReporte()) {
+            throw new AccesoDenegadoException("REPORTE_RESTRINGIDO",
+                    "Su rol no tiene acceso al " + tipo.getTitulo().toLowerCase() + ".");
+        }
+        return samnet.obtenerZonas().stream()
+                .filter(acceso::puedeVerZona)
+                .toList();
+    }
+
     @Transactional
     public ReporteRespuesta<?> generar(TipoReporte tipo, FiltrosReporte filtros, String nombreUsuario) {
         Usuario usuario = usuario(nombreUsuario);

@@ -61,6 +61,11 @@ class SamnetApiGatewayTest {
     }
 
     @Test
+    void listaLasZonasDeLosPredios() {
+        assertThat(samnet.obtenerZonas()).containsExactly("Z1", "Z2", "Z3");
+    }
+
+    @Test
     void devuelveLaDeclaracionJuradaVigentePrimero() {
         List<DeclaracionJurada> declaraciones = samnet.obtenerDeclaracionJurada("014502-01");
 

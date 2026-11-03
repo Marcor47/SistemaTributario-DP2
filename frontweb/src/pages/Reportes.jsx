@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { fecha, moneda } from '../utils/formato.js'
-import { etiquetaTributo, filtrosDisponibles, limpiarFiltros, metricaReporte, porcentaje, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
-import { abrirVista, descargarReporte, generarReporte, guardarVista, listarVistas, obtenerCatalogoReportes } from '../services/reporteService.js'
+import { etiquetaTributo, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, porcentaje, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
+import { abrirVista, descargarReporte, generarReporte, guardarVista, listarVistas, listarZonas, obtenerCatalogoReportes } from '../services/reporteService.js'
 import './Reportes.css'
 
 const FILTROS_INICIALES = { anio: '', periodo: '', zona: '', tributo: '', montoMinimo: '' }
@@ -61,6 +61,22 @@ function Resumen({ datos }) {
   return <><section className="reporte-resumen" aria-label="Resumen del reporte"><article className="pcard"><span className="pl">Fecha de corte</span><strong>{fecha(datos.fechaCorte)}</strong></article><article className="pcard"><span className="pl">Contribuyentes</span><strong>{datos.resumen.cantidad}</strong></article><article className="pcard"><span className="pl">{datos.resumen.conceptoMonto}</span><strong>{moneda(datos.resumen.montoTotal)}</strong></article>{datos.resumen.umbralPrico != null && <article className="pcard"><span className="pl">Umbral PRICO</span><strong>{moneda(datos.resumen.umbralPrico)}</strong></article>}</section><div className="reporte-aplicados"><strong>Filtros aplicados:</strong>{aplicados.length ? aplicados.map((filtro) => <span key={filtro}>{filtro}</span>) : <span>Sin filtros adicionales</span>}</div></>
 }
 
+function FiltroZona({ valor, zonas, cargando, error, errorCampo, onCambio }) {
+  const seleccionada = valor?.trim() || ''
+  return <div className={`fld${errorCampo ? ' fld-error' : ''}`}>
+    <label htmlFor="reporte-zona">Zona</label>
+    {error
+      ? <input id="reporte-zona" maxLength="20" placeholder="Ej. Z2" value={valor} onChange={(e) => onCambio(e.target.value)} />
+      : <select id="reporte-zona" value={seleccionada} onChange={(e) => onCambio(e.target.value)} disabled={cargando}>
+          <option value="">Todas</option>
+          {opcionesZona(zonas, seleccionada).map((zona) => <option key={zona} value={zona}>{zona}</option>)}
+        </select>}
+    {cargando && <span className="hint">Cargando zonas…</span>}
+    {error && <span className="hint">No se pudo cargar el catálogo; escribe la zona.</span>}
+    {errorCampo && <span className="error-campo">{errorCampo}</span>}
+  </div>
+}
+
 export default function Reportes() {
   const [catalogo, setCatalogo] = useState({ cargando: true, datos: [], error: null, revision: 0 })
   const [seleccion, setSeleccion] = useState('')
@@ -74,6 +90,7 @@ export default function Reportes() {
   const [vistas, setVistas] = useState([])
   const [nombreVista, setNombreVista] = useState('')
   const [accionError, setAccionError] = useState(null)
+  const [zonas, setZonas] = useState({ tipo: '', datos: [], error: null })
   const consultaActiva = useRef(null)
   const reporte = useMemo(() => catalogo.datos.find(({ tipo }) => tipo === seleccion), [catalogo.datos, seleccion])
 
@@ -86,6 +103,17 @@ export default function Reportes() {
     }).catch((error) => { if (!controlador.signal.aborted) setCatalogo((actual) => ({ ...actual, cargando: false, datos: [], error })) })
     return () => controlador.abort()
   }, [catalogo.revision])
+
+  useEffect(() => {
+    if (!seleccion) return
+    const controlador = new AbortController()
+    listarZonas(seleccion, { signal: controlador.signal }).then((datos) => {
+      if (!controlador.signal.aborted) setZonas({ tipo: seleccion, datos, error: null })
+    }).catch((error) => {
+      if (!controlador.signal.aborted) setZonas({ tipo: seleccion, datos: [], error })
+    })
+    return () => controlador.abort()
+  }, [seleccion])
 
   useEffect(() => () => consultaActiva.current?.abort(), [])
   useEffect(() => { listarVistas().then(setVistas).catch(() => {}) }, [])
@@ -153,13 +181,16 @@ export default function Reportes() {
   const errorGeneral = resultado.error
   const reintentarCatalogo = () => setCatalogo((actual) => ({ ...actual, cargando: true, error: null, revision: actual.revision + 1 }))
   const columnasDisponibles = COLUMNAS[seleccion] || []
+  const zonasDisponibles = zonas.tipo === seleccion ? zonas.datos : []
+  const cargandoZonas = Boolean(seleccion) && zonas.tipo !== seleccion
+  const errorZonas = zonas.tipo === seleccion ? zonas.error : null
   return <div className="reportes" aria-busy={catalogo.cargando || resultado.cargando}>
     {catalogo.cargando && <div className="pcard reporte-estado" role="status">Cargando el catálogo de reportes…</div>}
     {catalogo.error && <div className="alert" role="alert"><strong>No se pudo cargar el catálogo.</strong><p>{catalogo.error.message}</p><button className="btn" type="button" onClick={reintentarCatalogo}>Reintentar</button></div>}
     {!catalogo.cargando && !catalogo.error && catalogo.datos.length === 0 && <section className="pcard reporte-estado" role="status"><h2>Sin reportes disponibles</h2><p>Tu perfil no tiene reportes habilitados en este momento.</p></section>}
     {catalogo.datos.length > 0 && <>
       <section className="pcard reporte-catalogo" aria-labelledby="catalogo-reportes"><h2 id="catalogo-reportes">Selecciona un reporte</h2><p className="hint">El catálogo muestra únicamente los reportes habilitados para tu perfil.</p><div className="reporte-opciones" role="radiogroup" aria-label="Catálogo de reportes">{catalogo.datos.map((item) => <button key={item.tipo} type="button" className={`reporte-opcion${seleccion === item.tipo ? ' seleccionada' : ''}`} role="radio" aria-checked={seleccion === item.tipo} onClick={() => elegir(item.tipo)}><strong>{item.titulo}</strong><span>{item.descripcion}</span></button>)}</div></section>
-      {reporte && <form className="filters reporte-filtros" onSubmit={consultar} noValidate><div className="reporte-filtros-titulo"><h2>Filtros</h2><p className="hint">Todos son opcionales. El reporte se actualizará solo al pulsar “Generar reporte”.</p></div>{disponibles.has('anio') && <div className={`fld${errores.anio ? ' fld-error' : ''}`}><label htmlFor="reporte-anio">Año</label><input id="reporte-anio" inputMode="numeric" value={filtros.anio} onChange={(e) => setFiltros({ ...filtros, anio: e.target.value })} aria-describedby={errores.anio ? 'error-anio' : undefined} />{errores.anio && <span id="error-anio" className="error-campo">{errores.anio}</span>}</div>}{disponibles.has('zona') && <div className={`fld${errores.zona ? ' fld-error' : ''}`}><label htmlFor="reporte-zona">Zona</label><input id="reporte-zona" maxLength="20" placeholder="Ej. Z2" value={filtros.zona} onChange={(e) => setFiltros({ ...filtros, zona: e.target.value })} />{errores.zona && <span className="error-campo">{errores.zona}</span>}</div>}{disponibles.has('tributo') && <div className={`fld${errores.tributo ? ' fld-error' : ''}`}><label htmlFor="reporte-tributo">Tributo</label><select id="reporte-tributo" value={filtros.tributo} onChange={(e) => setFiltros({ ...filtros, tributo: e.target.value })}><option value="">Todos</option>{TRIBUTOS.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}</select>{errores.tributo && <span className="error-campo">{errores.tributo}</span>}</div>}{disponibles.has('montoMinimo') && <div className={`fld${errores.montoMinimo ? ' fld-error' : ''}`}><label htmlFor="reporte-monto">Monto mínimo (S/)</label><input id="reporte-monto" type="number" min="0" step="0.01" value={filtros.montoMinimo} onChange={(e) => setFiltros({ ...filtros, montoMinimo: e.target.value })} />{errores.montoMinimo && <span className="error-campo">{errores.montoMinimo}</span>}</div>}<button className="btn primary" type="submit" disabled={resultado.cargando}>{resultado.cargando ? 'Generando…' : 'Generar reporte'}</button></form>}
+      {reporte && <form className="filters reporte-filtros" onSubmit={consultar} noValidate><div className="reporte-filtros-titulo"><h2>Filtros</h2><p className="hint">Todos son opcionales. El reporte se actualizará solo al pulsar “Generar reporte”.</p></div>{disponibles.has('anio') && <div className={`fld${errores.anio ? ' fld-error' : ''}`}><label htmlFor="reporte-anio">Año</label><input id="reporte-anio" inputMode="numeric" value={filtros.anio} onChange={(e) => setFiltros({ ...filtros, anio: e.target.value })} aria-describedby={errores.anio ? 'error-anio' : undefined} />{errores.anio && <span id="error-anio" className="error-campo">{errores.anio}</span>}</div>}{disponibles.has('zona') && <FiltroZona valor={filtros.zona} zonas={zonasDisponibles} cargando={cargandoZonas} error={errorZonas} errorCampo={errores.zona} onCambio={(zona) => setFiltros({ ...filtros, zona })} />}{disponibles.has('tributo') && <div className={`fld${errores.tributo ? ' fld-error' : ''}`}><label htmlFor="reporte-tributo">Tributo</label><select id="reporte-tributo" value={filtros.tributo} onChange={(e) => setFiltros({ ...filtros, tributo: e.target.value })}><option value="">Todos</option>{TRIBUTOS.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}</select>{errores.tributo && <span className="error-campo">{errores.tributo}</span>}</div>}{disponibles.has('montoMinimo') && <div className={`fld${errores.montoMinimo ? ' fld-error' : ''}`}><label htmlFor="reporte-monto">Monto mínimo (S/)</label><input id="reporte-monto" type="number" min="0" step="0.01" value={filtros.montoMinimo} onChange={(e) => setFiltros({ ...filtros, montoMinimo: e.target.value })} />{errores.montoMinimo && <span className="error-campo">{errores.montoMinimo}</span>}</div>}<button className="btn primary" type="submit" disabled={resultado.cargando}>{resultado.cargando ? 'Generando…' : 'Generar reporte'}</button></form>}
       <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}</div>
       {resultado.datos && <section className="reporte-resultados" aria-labelledby="resultado-reporte"><div className="reporte-resultados-cab"><div><h2 id="resultado-reporte">{resultado.datos.titulo}</h2><p className="hint">Información oficial a la fecha de corte indicada.</p></div><div className="reporte-vistas" role="group" aria-label="Visualización"><button className="btn" type="button" aria-pressed={vista === 'tabla'} onClick={() => setVista('tabla')}>Tabla</button><button className="btn" type="button" aria-pressed={vista === 'barras'} onClick={() => setVista('barras')}>Barras</button></div></div><Resumen datos={resultado.datos} />{resultado.datos.filas.length === 0 ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes que cumplan los criterios seleccionados.</p></div> : vista === 'tabla' ? <TablaReporte datos={resultado.datos} /> : <BarrasReporte datos={resultado.datos} />}</section>}
       {resultado.datos && <section className="pcard reporte-personalizacion" aria-label="Personalizar reporte">

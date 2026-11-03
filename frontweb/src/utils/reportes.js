@@ -9,6 +9,12 @@ export function filtrosDisponibles(reporte) {
   return (reporte?.filtros || []).filter((filtro) => FILTROS_VALIDOS.has(filtro))
 }
 
+export function opcionesZona(zonas, valorActual) {
+  const opciones = Array.isArray(zonas) ? zonas.filter(Boolean) : []
+  const actual = valorActual?.trim()
+  return [...new Set(actual ? [...opciones, actual] : opciones)]
+}
+
 export function limpiarFiltros(reporte, filtros) {
   const permitidos = new Set(filtrosDisponibles(reporte))
   return Object.fromEntries(Object.entries(filtros).map(([clave, valor]) => [clave, permitidos.has(clave) ? valor : '']))

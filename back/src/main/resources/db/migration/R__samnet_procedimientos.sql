@@ -50,6 +50,15 @@ LANGUAGE sql STABLE AS $$
     ORDER BY p.codigo_predio, t.contribuyente_codigo;
 $$;
 
+-- HU018: zonas disponibles para el selector de los reportes por zona.
+CREATE OR REPLACE FUNCTION samnet.ps_zonas()
+RETURNS TABLE (zona VARCHAR)
+LANGUAGE sql STABLE AS $$
+    SELECT DISTINCT p.zona
+    FROM samnet.predio p
+    ORDER BY p.zona;
+$$;
+
 -- RF-003: declaraciones juradas del predio, la vigente primero.
 CREATE OR REPLACE FUNCTION samnet.ps_declaracionjurada(p_codigo_predio VARCHAR)
 RETURNS TABLE (
