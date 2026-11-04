@@ -28,6 +28,18 @@ export function resumirCuenta(filas) {
   }), { emitido: 0, pagado: 0, deuda: 0, vencido: 0, vigente: 0 })
 }
 
+// Subtotales visibles por tributo; conserva las obligaciones individuales para el pago y la trazabilidad.
+export function resumirTributos(filas) {
+  const porTributo = new Map()
+  for (const fila of filas) {
+    if (!porTributo.has(fila.tributo)) porTributo.set(fila.tributo, [])
+    porTributo.get(fila.tributo).push(fila)
+  }
+  return [...porTributo].map(([tributo, obligaciones]) => ({
+    tributo, cantidad: obligaciones.length, ...resumirCuenta(obligaciones),
+  }))
+}
+
 export function filtrarCuenta(filas, { anio = '', tributo = '', estado = '', texto = '', vista = 'obligaciones' } = {}) {
   return filas.filter((fila) => (!anio || String(fila.anio) === String(anio))
     && (!tributo || fila.tributo === tributo) && (!estado || fila.estado === estado)
