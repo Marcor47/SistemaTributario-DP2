@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { obtenerEstadoCuentaPortal, iniciarPagoPortal, confirmarPagoPortal } from '../src/services/portalCuentaService.js'
-import { agruparCuentaPorPeriodo, filtrarCuenta, filtrarPeriodos, normalizarCuenta, resumirCuenta } from '../src/utils/estadoCuentaPortal.js'
+import { agruparCuentaPorPeriodo, filtrarCuenta, filtrarPeriodos, normalizarCuenta, resumirCuenta, resumirTributos } from '../src/utils/estadoCuentaPortal.js'
 import { FECHA_CORTE, generarCuenta } from '../src/mocks/cuentas.js'
 
 const respuesta = {
@@ -81,6 +81,25 @@ test('HU014: unifica el predial y los arbitrios por trimestre sin alterar import
     .map((fila) => fila.id))
   assert.equal(filtrarPeriodos(grupos, { anio: 2026, texto: 'Predial' }).length, 2)
   assert.equal(filtrarPeriodos(grupos, { vista: 'pagos' }).length, 3)
+})
+
+test('HU014: muestra un subtotal por tributo aunque existan varias cuotas de arbitrios', () => {
+  const filas = normalizarCuenta({ ...respuesta, filas: [
+    { id: 1, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 866, pagado: 866, deuda: 0 },
+    { id: 2, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 574, pagado: 574, deuda: 0 },
+    { id: 3, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 292, pagado: 292, deuda: 0 },
+    { id: 4, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 1196, pagado: 1196, deuda: 0 },
+    { id: 5, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 376, pagado: 376, deuda: 0 },
+    { id: 6, tributo: 'Impuesto Predial', periodo: '2025-T1', emitido: 936, pagado: 936, deuda: 0 },
+  ] }).filas
+  const grupo = agruparCuentaPorPeriodo(filas)[0]
+  const tributos = resumirTributos(grupo.conceptos)
+  assert.deepEqual(tributos.map(({ tributo, cantidad, emitido }) => ({ tributo, cantidad, emitido })), [
+    { tributo: 'Arbitrios Municipales', cantidad: 5, emitido: 3304 },
+    { tributo: 'Impuesto Predial', cantidad: 1, emitido: 936 },
+  ])
+  assert.equal(resumirCuenta(tributos).emitido, grupo.emitido)
+  assert.deepEqual(grupo.idsPendientes, [])
 })
 
 test('HU014: no mezcla obligaciones ajenas al trimestre ni inventa un vencimiento único', () => {
