@@ -42,7 +42,43 @@
 .consulta-pagos label { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--borde); border-radius: 10px; cursor: pointer; }
 .consulta-pagos label span { flex: 1; }
 .consulta-pagos input { width: 18px; height: 18px; accent-color: var(--marino); }
+.cuenta-titular { border-left: 4px solid var(--marino-osc); }
+.cuenta-titular-cabecera { align-items: flex-start; }
+.cuenta-titular h2 { margin: 2px 0 0; color: var(--marino-osc); font-size: clamp(20px, 2.2vw, 28px); overflow-wrap: anywhere; }
+.cuenta-etiqueta { margin: 0; color: var(--marino-osc); font-size: 12px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+.cuenta-identificadores { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--borde); color: var(--texto-atenuado); font-size: 14px; }
+.cuenta-identificadores strong { margin-left: 5px; color: var(--texto); }
+.cuenta-indicadores { margin: 18px 0; }
+.cuenta-indicadores .consulta-indicador { border-top: 3px solid var(--borde-fuerte); }
+.cuenta-indicadores .consulta-indicador.principal { border-top-color: var(--marino-osc); background: linear-gradient(145deg, #fff, var(--azul-suave)); }
+.cuenta-indicadores .consulta-indicador .hint { margin: auto 0 0; }
+.cuenta-orientacion { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; margin: 16px 0; padding: 12px 16px; border-left: 4px solid var(--marino); border-radius: 8px; background: var(--azul-suave); color: var(--marino-osc); }
+.cuenta-orientacion span { color: var(--texto); }
+.cuenta-detalle { margin-top: 18px; }
+.cuenta-seccion-cabecera { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 20px; margin-bottom: 20px; }
+.cuenta-seccion-cabecera h2 { margin: 4px 0 0; color: var(--marino-osc); }
+.cuenta-seccion-cabecera .hint { max-width: 34ch; margin: 0; }
+.cuenta-detalle .consulta-vistas { padding-bottom: 16px; border-bottom: 1px solid var(--borde); }
+.cuenta-detalle .consulta-filtros-interiores { margin: 0; padding: 16px 0 8px; }
+.cuenta-detalle .consulta-filtros-interiores .btn { align-self: end; }
+.cuenta-tabla-ayuda { max-width: 90ch; margin: 12px 0; }
+.cuenta-detalle .consulta-conteo { margin: 14px 0 10px; font-weight: 700; color: var(--marino-osc); }
+.cuenta-desliza { display: none; color: var(--texto-atenuado); font-size: 13px; }
+.consulta-tabla-cuenta th[scope="row"] { font-weight: 700; color: var(--marino-osc); }
+.consulta-tabla-cuenta th[scope="row"] small { display: block; margin-top: 2px; color: var(--texto-atenuado); font-size: 11px; font-weight: 400; }
+.consulta-tabla-cuenta .cuenta-saldo { color: var(--marino-osc); }
+.consulta-detalle-periodo ul { list-style: none; padding: 0; min-width: 235px; }
+.consulta-detalle-periodo li { padding: 8px 0; border-top: 1px solid var(--borde); }
+.consulta-detalle-periodo li strong, .consulta-detalle-periodo li span { display: block; }
+.consulta-detalle-periodo li small { display: block; color: var(--texto-atenuado); font-size: 11px; }
+.consulta-detalle-periodo li span { margin-top: 3px; color: var(--texto-atenuado); font-size: 12px; line-height: 1.4; }
+.cuenta-seleccion-aviso { margin: 14px 0 0; font-size: 13px; }
 @media (max-width: 1050px) { .consulta-indicadores { grid-template-columns: 1fr; gap: 0; } }
+@media (max-width: 1050px) {
+  .cuenta-indicadores { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .cuenta-indicadores .consulta-indicador.principal { grid-column: 1 / -1; }
+  .cuenta-desliza { display: block; margin: 0 0 8px; }
+}
 @media (max-width: 600px) {
   .consulta-tributaria .pcard { padding: 20px 16px; }
   .consulta-filtros .fld { flex-basis: 100%; min-width: 0; }
@@ -51,4 +87,8 @@
   .consulta-tributaria .btn { min-height: 44px; }
   .consulta-barras li > div:first-child { align-items: start; }
   .consulta-corte { width: 100%; }
+  .cuenta-indicadores { grid-template-columns: 1fr; }
+  .cuenta-indicadores .consulta-indicador.principal { grid-column: auto; }
+  .cuenta-identificadores { display: grid; }
+  .cuenta-detalle .consulta-vistas .btn { flex: 1 1 100%; }
 }
