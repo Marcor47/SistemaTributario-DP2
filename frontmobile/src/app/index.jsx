@@ -11,6 +11,12 @@ import { colores, fuentes, radios, sombra, texto } from '../theme/tokens'
 // Servicios del contribuyente. Cada historia agrega aquí su acceso.
 const SERVICIOS = [
   {
+    ruta: '/buzon',
+    icono: 'documento',
+    titulo: 'Mi buzón',
+    descripcion: 'Recibe tus documentos y las respuestas a tus solicitudes.',
+  },
+  {
     ruta: '/estado-cuenta',
     icono: 'tarjeta',
     titulo: 'Estado de cuenta y pagos',

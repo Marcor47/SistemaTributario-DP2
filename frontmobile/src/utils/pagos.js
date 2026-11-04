@@ -28,7 +28,8 @@ function respuestaInvalida() {
 }
 
 export function validarPasarela(pago) {
-  if (pago.dePrueba !== true || pago.estado !== 'INICIADA' || !RUTA_SIMULADA.test(pago.urlPasarela || '')) {
+  if (pago.dePrueba !== true || pago.estado !== 'INICIADA'
+    || (!checkoutValido(pago.checkout) && !RUTA_SIMULADA.test(pago.urlPasarela || ''))) {
     throw Object.assign(new Error('La pasarela de esta orden no está disponible en la app. Consulta tu estado de cuenta.'), {
       codigo: 'PASARELA_NO_DISPONIBLE',
     })
@@ -36,8 +37,22 @@ export function validarPasarela(pago) {
   return pago
 }
 
+export function checkoutValido(checkout) {
+  if (!checkout || typeof checkout.sessionKey !== 'string' || !checkout.sessionKey
+    || !/^\d{9}$/.test(checkout.merchantId) || !/^\d{1,12}$/.test(checkout.purchaseNumber)
+    || checkout.checkoutUrl !== 'https://static-content-qas.vnforapps.com/env/sandbox/js/checkout.js') return false
+  return [checkout.callbackUrl, checkout.timeoutUrl].every((valor) => {
+    try { const url = new URL(valor); return url.protocol === 'https:' && !!url.hostname && !url.username && !url.password }
+    catch { return false }
+  })
+}
+
 export function mensajeErrorPago(error) {
   const mensajes = {
+    NIUBIZ_NO_CONFIGURADO: ['Pago en línea no disponible', 'La Municipalidad todavía no ha habilitado el servicio de pagos. Puedes seguir consultando tu cuenta.', 'cuenta'],
+    TOKEN_NIUBIZ_REQUERIDO: ['Completa el formulario de Niubiz', 'Abre la pasarela para ingresar los datos de prueba y autorizar esta operación.', 'consultar'],
+    NIUBIZ_NO_DISPONIBLE: ['No se pudo determinar el resultado', 'Consulta esta operación. Si continúa pendiente, contacta a la Municipalidad antes de iniciar otro pago.', 'consultar'],
+    CORREO_REQUERIDO_NIUBIZ: ['Necesitas un correo registrado', 'Actualiza tu correo con la Municipalidad para pagar en línea.', 'ventanilla'],
     BENEFICIO_INDETERMINADO: ['Acude a ventanilla', 'La Municipalidad debe verificar el beneficio aplicable antes de habilitar el pago virtual.', 'ventanilla'],
     SIN_COBRO_VIRTUAL: ['Tus beneficios requieren atención en ventanilla', 'El beneficio cubre toda la deuda. Acude a ventanilla para aplicarlo sin generar un cobro.', 'ventanilla'],
     SIN_DEUDA: ['No tienes saldo pendiente para pagar', 'Actualiza tu estado de cuenta para revisar la información más reciente.', 'cuenta'],

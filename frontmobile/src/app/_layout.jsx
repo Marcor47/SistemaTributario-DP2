@@ -30,7 +30,7 @@ function Navegacion() {
   if (sesion.estado === 'cargando') return <Bienvenida />
   const autenticado = Boolean(sesion.usuario)
   return (
-    <PagosProvider key={sesion.usuario?.codigoContribuyente ?? 'sin-sesion'}>
+    <PagosProvider key={sesion.usuario?.codigoContribuyente ?? 'sin-sesion'} habilitarPasarela={autenticado}>
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colores.fondo } }}>
         <Stack.Protected guard={!autenticado} redirectTo="/">
           <Stack.Screen name="login" />
@@ -38,6 +38,8 @@ function Navegacion() {
         <Stack.Protected guard={autenticado} redirectTo="/login">
           <Stack.Screen name="index" />
           <Stack.Screen name="estado-cuenta" />
+          <Stack.Screen name="buzon/index" />
+          <Stack.Screen name="buzon/[id]" />
           <Stack.Screen name="pagos/[id]" />
           <Stack.Screen name="solicitud-predio/index" />
           <Stack.Screen name="solicitud-predio/enviada" options={{ gestureEnabled: false }} />

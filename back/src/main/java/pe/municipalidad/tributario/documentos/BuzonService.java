@@ -36,12 +36,22 @@ public class BuzonService {
     public DocumentoBuzonRespuesta abrir(String codigoContribuyente, Long idDocumento) {
         String documento = documentoDe(codigoContribuyente);
         /* Un documento de otro contribuyente se responde igual que uno inexistente, sin revelar datos (RNF-023). */
-        DocumentoBuzon buscado = documentoBuzonRepository.findById(idDocumento)
-                .filter(candidato -> candidato.getDocumentoContribuyente().equals(documento))
+        DocumentoBuzon buscado = documentoBuzonRepository.bloquearPropio(idDocumento, documento)
                 .orElseThrow(() -> new RecursoNoEncontradoException("DOCUMENTO_NO_ENCONTRADO",
                         "No tiene un documento en su buzón con N.° " + idDocumento + "."));
         buscado.marcarLeido(LocalDateTime.now(reloj));
         return DocumentoBuzonRespuesta.desde(documentoBuzonRepository.saveAndFlush(buscado));
+    }
+
+    @Transactional
+    public byte[] descargar(String codigoContribuyente, Long idDocumento) {
+        DocumentoBuzon buscado = documentoBuzonRepository.bloquearPropio(idDocumento, documentoDe(codigoContribuyente))
+                .orElseThrow(() -> new RecursoNoEncontradoException("DOCUMENTO_NO_ENCONTRADO", "No existe ese documento."));
+        if (buscado.getConstancia() == null || buscado.getConstancia().getContenidoPdf() == null) {
+            throw new RecursoNoEncontradoException("ARCHIVO_NO_DISPONIBLE", "Este documento no tiene un archivo descargable.");
+        }
+        buscado.marcarLeido(LocalDateTime.now(reloj));
+        return buscado.getConstancia().getContenidoPdf();
     }
 
     private String documentoDe(String codigoContribuyente) {
