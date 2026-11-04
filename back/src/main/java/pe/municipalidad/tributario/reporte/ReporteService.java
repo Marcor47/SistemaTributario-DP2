@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
 import org.slf4j.Logger;
@@ -64,7 +65,7 @@ public class ReporteService {
             TipoReporte.MOROSOS, List.of("anioDesde", "anioHasta", "zona", "tributo", "regimen",
                     "tipoDocumento", "etapa", "beneficio", "montoMinimo"),
             TipoReporte.PRICOS, List.of("anio", "zona", "tributo", "montoMinimo"),
-            TipoReporte.BUENOS_PAGADORES, List.of("anio", "zona", "tributo", "montoMinimo"));
+            TipoReporte.BUENOS_PAGADORES, List.of("periodo", "anio", "zona", "tributo", "montoMinimo"));
 
     private final SamnetGateway samnet;
     private final RestriccionReporteRepository restricciones;
@@ -146,8 +147,18 @@ public class ReporteService {
         int anioCorte = fechaCorte.getYear();
         int anio = Objects.requireNonNullElse(filtros.periodo() != null ? filtros.periodo() : filtros.anio(), anioCorte);
         boolean esMorosos = tipo == TipoReporte.MOROSOS;
-        int anioDesde = esMorosos ? Objects.requireNonNullElse(filtros.anioDesde(), 1900) : anio;
-        int anioHasta = esMorosos ? Objects.requireNonNullElse(filtros.anioHasta(), anioCorte) : anio;
+        int anioDesde;
+        int anioHasta;
+        if (esMorosos && filtros.periodo() != null) {
+            anioDesde = filtros.periodo();
+            anioHasta = filtros.periodo();
+        } else if (esMorosos) {
+            anioDesde = Objects.requireNonNullElse(filtros.anioDesde(), 1900);
+            anioHasta = Objects.requireNonNullElse(filtros.anioHasta(), anioCorte);
+        } else {
+            anioDesde = anio;
+            anioHasta = anio;
+        }
         if (anioDesde > anioHasta) {
             throw new DatoInvalidoException("RANGO_INVALIDO",
                     "El año inicial no puede ser mayor que el año final.");
@@ -156,8 +167,18 @@ public class ReporteService {
                 ? Objects.requireNonNullElse(filtros.beneficio(), FiltroBeneficio.AMBOS)
                 : FiltroBeneficio.AMBOS;
         FiltrosReporte aplicados = filtros.conRangoYBeneficio(esMorosos ? null : anio, anioDesde, anioHasta, beneficio);
-        List<Cartera> carteras = agrupar(samnet.obtenerCartera(fechaCorte, anioDesde, anioHasta,
-                beneficio.name()), aplicados).stream()
+        List<CarteraTributo> datosSamnet = samnet.obtenerCartera(fechaCorte, anioDesde, anioHasta,
+                beneficio.name());
+        // La puntualidad es global: un filtro de tributo no debe ocultar deuda de otro tributo.
+        Set<String> contribuyentesPuntuales = tipo == TipoReporte.BUENOS_PAGADORES && aplicados.tributo() != null
+                ? agrupar(datosSamnet, new FiltrosReporte(anio, null, null, null)).stream()
+                        .filter(ReporteService::esBuenPagador)
+                        .map(Cartera::codigo)
+                        .collect(Collectors.toSet())
+                : null;
+        List<Cartera> carteras = agrupar(datosSamnet, aplicados).stream()
+                .filter(cartera -> contribuyentesPuntuales == null
+                        || contribuyentesPuntuales.contains(cartera.codigo()))
                 .filter(cartera -> aplicados.zona() == null || cartera.zonas().contains(aplicados.zona()))
                 .filter(cartera -> cartera.zonas().stream().allMatch(acceso::puedeVerZona))
                 .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.regimen() == null
@@ -201,6 +222,29 @@ public class ReporteService {
         String extension = formato == FormatoExportacion.EXCEL ? ".xlsx" : ".pdf";
         return new ExportacionReporte(exportacion.contenido(),
                 "reporte_morosos_zona_" + reporte.fechaCorte().toString().replace("-", "") + extension,
+                exportacion.mediaType());
+    }
+
+    /* ===== HU038: Generar reporte de buenos pagadores por zona (RF-051) ===== */
+    @Transactional
+    public ReporteRespuesta<?> generarBuenosPagadoresPorZona(FiltrosReporte filtros, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        return ejecutarReporte(TipoReporte.BUENOS_PAGADORES, filtros, usuario, FormatoExportacion.NINGUNO);
+    }
+
+    @Transactional
+    public ExportacionReporte exportarBuenosPagadoresPorZona(FiltrosReporte filtros, FormatoExportacion formato,
+            List<String> columnas, String nombreUsuario) {
+        if (formato == null || formato == FormatoExportacion.NINGUNO) {
+            throw new DatoInvalidoException("FORMATO_NO_SOPORTADO",
+                    "El formato de exportación debe ser EXCEL o PDF.");
+        }
+        Usuario usuario = usuario(nombreUsuario);
+        ReporteRespuesta<?> reporte = ejecutarReporte(TipoReporte.BUENOS_PAGADORES, filtros, usuario, formato);
+        ExportacionReporte exportacion = exportador.exportar(reporte, formato, columnas, usuario.getNombreCompleto());
+        String extension = formato == FormatoExportacion.EXCEL ? ".xlsx" : ".pdf";
+        return new ExportacionReporte(exportacion.contenido(),
+                "reporte_buenos_pagadores_zona_" + reporte.fechaCorte().toString().replace("-", "") + extension,
                 exportacion.mediaType());
     }
 
@@ -494,14 +538,21 @@ public class ReporteService {
     /* RF-024 y HU018: cuotas vencidas impagas del rango de años solicitado; la de mayor deuda primero. */
     private ReporteRespuesta<FilaMoroso> morosos(List<Cartera> carteras, FiltrosReporte filtros,
             LocalDate fechaCorte) {
+        boolean filtraPeriodo = filtros.periodo() != null;
+        boolean filtraRango = filtros.anioDesde() != null || filtros.anioHasta() != null;
+        boolean usarRango = filtraPeriodo || filtraRango;
+        Function<CarteraTributo, BigDecimal> selectorDeuda = usarRango
+                ? CarteraTributo::deudaVencidaAnio
+                : CarteraTributo::deudaVencida;
         List<FilaMoroso> filas = carteras.stream()
-                .filter(cartera -> cartera.suma(CarteraTributo::deudaVencidaAnio).signum() > 0)
-                .filter(cartera -> alcanza(cartera.suma(CarteraTributo::deudaVencidaAnio), filtros.montoMinimo()))
-                .sorted(Comparator.comparing((Cartera cartera) -> cartera.suma(CarteraTributo::deudaVencidaAnio))
+                .filter(cartera -> cartera.suma(selectorDeuda).signum() > 0)
+                .filter(cartera -> alcanza(cartera.suma(selectorDeuda), filtros.montoMinimo()))
+                .sorted(Comparator.comparing((Cartera cartera) -> cartera.suma(selectorDeuda))
                         .reversed().thenComparing(Cartera::codigo))
-                .map(cartera -> filaMoroso(cartera, fechaCorte))
+                .map(cartera -> filaMoroso(cartera, fechaCorte, usarRango))
                 .toList();
-        return respuesta(TipoReporte.MOROSOS, fechaCorte, filtros, "Deuda vencida", filas,
+        String concepto = filtraPeriodo ? "Deuda vencida periodo " + filtros.periodo() : "Deuda vencida";
+        return respuesta(TipoReporte.MOROSOS, fechaCorte, filtros, concepto, filas,
                 FilaMoroso::deudaVencida, null);
     }
 
@@ -523,17 +574,11 @@ public class ReporteService {
     private ReporteRespuesta<FilaBuenPagador> buenosPagadores(List<Cartera> carteras, FiltrosReporte filtros,
             LocalDate fechaCorte) {
         List<FilaBuenPagador> filas = carteras.stream()
-                .filter(cartera -> cartera.cuenta(CarteraTributo::cuotasExigiblesAnio) > 0
-                        && cartera.cuenta(CarteraTributo::cuotasATiempoAnio)
-                                == cartera.cuenta(CarteraTributo::cuotasExigiblesAnio)
-                        && cartera.suma(CarteraTributo::deudaVencida).signum() == 0)
+                .filter(ReporteService::esBuenPagador)
                 .filter(cartera -> alcanza(cartera.suma(CarteraTributo::pagadoAnio), filtros.montoMinimo()))
                 .sorted(Comparator.comparing((Cartera cartera) -> cartera.suma(CarteraTributo::pagadoAnio))
                         .reversed().thenComparing(Cartera::codigo))
-                .map(cartera -> new FilaBuenPagador(cartera.codigo(), cartera.datos().nombre(),
-                        cartera.datos().tipoDocumento(), cartera.datos().numeroDocumento(),
-                        cartera.datos().domicilioFiscal(), cartera.zonas(),
-                        cartera.cuenta(CarteraTributo::cuotasATiempoAnio), cartera.suma(CarteraTributo::pagadoAnio)))
+                .map(ReporteService::filaBuenPagador)
                 .toList();
         return respuesta(TipoReporte.BUENOS_PAGADORES, fechaCorte, filtros, "Monto pagado en " + filtros.anio(),
                 filas, FilaBuenPagador::pagadoAnio, null);
@@ -557,7 +602,68 @@ public class ReporteService {
                 .orElse("GENERAL");
     }
 
-    private static FilaMoroso filaMoroso(Cartera cartera, LocalDate fechaCorte) {
+    private static boolean esBuenPagador(Cartera cartera) {
+        return cartera.cuenta(CarteraTributo::cuotasExigiblesAnio) > 0
+                && cartera.cuenta(CarteraTributo::cuotasATiempoAnio)
+                        == cartera.cuenta(CarteraTributo::cuotasExigiblesAnio)
+                && cartera.suma(CarteraTributo::deudaVencida).signum() == 0;
+    }
+
+    private static FilaBuenPagador filaBuenPagador(Cartera cartera) {
+        BigDecimal emitidoPredial = cartera.tributos().stream()
+                .filter(t -> t.tributo() == pe.municipalidad.tributario.obligacion.Tributo.IMPUESTO_PREDIAL)
+                .map(CarteraTributo::emitidoAnio)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal emitidoArbitrios = cartera.tributos().stream()
+                .filter(t -> t.tributo() == pe.municipalidad.tributario.obligacion.Tributo.ARBITRIOS)
+                .map(CarteraTributo::emitidoAnio)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal pagadoPredial = cartera.tributos().stream()
+                .filter(t -> t.tributo() == pe.municipalidad.tributario.obligacion.Tributo.IMPUESTO_PREDIAL)
+                .map(CarteraTributo::pagadoAnio)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal pagadoArbitrios = cartera.tributos().stream()
+                .filter(t -> t.tributo() == pe.municipalidad.tributario.obligacion.Tributo.ARBITRIOS)
+                .map(CarteraTributo::pagadoAnio)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalEmitido = emitidoPredial.add(emitidoArbitrios);
+        BigDecimal totalPagado = pagadoPredial.add(pagadoArbitrios);
+
+        String regimen = cartera.tributos().stream()
+                .map(CarteraTributo::regimen)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse("GENERAL");
+
+        DomicilioFiscal domDesglosado = cartera.tributos().stream()
+                .map(CarteraTributo::domicilioDesglosado)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+
+        return new FilaBuenPagador(
+                cartera.codigo(),
+                cartera.datos().nombre(),
+                cartera.datos().nombre(),
+                regimen,
+                cartera.datos().tipoDocumento(),
+                cartera.datos().numeroDocumento(),
+                cartera.datos().domicilioFiscal(),
+                domDesglosado,
+                cartera.zonas(),
+                emitidoPredial,
+                emitidoArbitrios,
+                pagadoPredial,
+                pagadoArbitrios,
+                totalEmitido,
+                totalPagado,
+                cartera.cuenta(CarteraTributo::cuotasATiempoAnio),
+                totalPagado
+        );
+    }
+
+    private static FilaMoroso filaMoroso(Cartera cartera, LocalDate fechaCorte, boolean usarRango) {
         LocalDate masAntiguo = cartera.tributos().stream()
                 .map(CarteraTributo::vencimientoMasAntiguo)
                 .filter(Objects::nonNull)
@@ -565,13 +671,17 @@ public class ReporteService {
                 .orElse(fechaCorte);
         EtapaCobranza etapa = etapaCobranza(cartera);
         List<MontoPorTributo> porTributo = cartera.tributos().stream()
-                .filter(tributo -> tributo.deudaVencidaAnio().signum() > 0)
-                .map(tributo -> new MontoPorTributo(tributo.tributo(), tributo.deudaVencidaAnio()))
+                .filter(tributo -> (usarRango ? tributo.deudaVencidaAnio() : tributo.deudaVencida()).signum() > 0)
+                .map(tributo -> new MontoPorTributo(tributo.tributo(),
+                        usarRango ? tributo.deudaVencidaAnio() : tributo.deudaVencida()))
                 .toList();
 
-        BigDecimal deuda = cartera.suma(CarteraTributo::deudaVencidaAnio);
-        BigDecimal sinBeneficio = cartera.suma(CarteraTributo::deudaSinBeneficioAnio);
-        int cuotas = cartera.cuenta(CarteraTributo::cuotasVencidasAnio);
+        BigDecimal deuda = cartera.suma(usarRango
+                ? CarteraTributo::deudaVencidaAnio : CarteraTributo::deudaVencida);
+        BigDecimal sinBeneficio = cartera.suma(usarRango
+                ? CarteraTributo::deudaSinBeneficioAnio : CarteraTributo::deudaSinBeneficio);
+        int cuotas = cartera.cuenta(usarRango
+                ? CarteraTributo::cuotasVencidasAnio : CarteraTributo::cuotasVencidas);
 
         String regimen = regimenDe(cartera);
         DomicilioFiscal domDesglosado = cartera.tributos().stream()

@@ -11,7 +11,7 @@ import pe.municipalidad.tributario.gestiontributaria.DetalleDeuda;
 import pe.municipalidad.tributario.obligacion.Tributo;
 
 /*
- * HU006 y HU018: reporte del catálogo generado con los datos de SAMNET a la fecha de corte. filas es FilaMoroso, FilaPrico
+ * HU006, HU018 y HU038: reporte del catálogo generado con los datos de SAMNET a la fecha de corte. filas es FilaMoroso, FilaPrico
  * o FilaBuenPagador según tipoReporte. filtrosAplicados.anio es el año usado.
  */
 public record ReporteRespuesta<T>(
@@ -90,15 +90,39 @@ public record ReporteRespuesta<T>(
             BigDecimal deudaVencida) {
     }
 
+    /* HU006 y HU038 (RF-051): contribuyente puntual con razón social, régimen, documento, domicilio y montos por tributo. */
     public record FilaBuenPagador(
             String codigo,
             String nombre,
+            String razonSocial,
+            String regimen,
             TipoDocumento tipoDocumento,
             String numeroDocumento,
             String domicilioFiscal,
+            DomicilioFiscal domicilioFiscalDesglosado,
             List<String> zonas,
+            BigDecimal montoEmitidoPredial,
+            BigDecimal montoEmitidoArbitrios,
+            BigDecimal montoPagadoPredial,
+            BigDecimal montoPagadoArbitrios,
+            BigDecimal totalEmitido,
+            BigDecimal totalPagado,
             int cuotasPagadasATiempo,
             BigDecimal pagadoAnio) {
+
+        public FilaBuenPagador(
+                String codigo,
+                String nombre,
+                TipoDocumento tipoDocumento,
+                String numeroDocumento,
+                String domicilioFiscal,
+                List<String> zonas,
+                int cuotasPagadasATiempo,
+                BigDecimal pagadoAnio) {
+            this(codigo, nombre, nombre, "GENERAL", tipoDocumento, numeroDocumento, domicilioFiscal, null, zonas,
+                    BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, pagadoAnio, pagadoAnio, pagadoAnio,
+                    cuotasPagadasATiempo, pagadoAnio);
+        }
     }
 
     public record MontoPorTributo(Tributo tributo, BigDecimal monto) {

@@ -140,6 +140,15 @@ export const MODULOS = [
     permiso: 'INDICADORES:CONSULTAR',
     icono: icono(<><path d="M3 3v18h18" /><path d="M18 8l-6 6-3-3-5 5" /></>),
   },
+  {
+    ruta: '/resumen-ejecutivo',
+    texto: 'Resumen ejecutivo',
+    titulo: 'Resumen ejecutivo con IA',
+    descripcion: 'Genera el resumen del periodo con un modelo local a partir de los indicadores calculados, revísalo y descárgalo.',
+    seccion: 'gestion',
+    permiso: 'INDICADORES:CONSULTAR',
+    icono: icono(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>),
+  },
 ]
 
 export function rutaInicialGestion(sesion) {

@@ -86,6 +86,14 @@ public class Segmento {
         this.estado = EstadoSegmento.PUBLICADO;
     }
 
+    /* HU031: al publicarse una segmentación nueva, la anterior deja de ofrecerse como filtro del dashboard. */
+    public void retirar() {
+        if (estado != EstadoSegmento.PUBLICADO) {
+            throw new ReglaNegocioException("SEGMENTO_NO_PUBLICADO", "Solo se retira un segmento publicado.");
+        }
+        this.estado = EstadoSegmento.RETIRADO;
+    }
+
     public Long getIdSegmento() {
         return idSegmento;
     }
