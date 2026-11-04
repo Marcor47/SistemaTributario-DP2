@@ -64,6 +64,13 @@ class ConstanciaDemoControllerTest {
         byte[] pdf = mvc.perform(get("/api/constancias/buzon/" + documento + "/descarga").session(propia))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
         assertThat(new String(pdf, 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        mvc.perform(get("/api/buzon").session(propia)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.documentos[0].urlDescarga").value("/buzon/" + documento + "/descarga"));
+        byte[] desdeBuzon = mvc.perform(get("/api/buzon/" + documento + "/descarga").session(propia))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        assertThat(desdeBuzon).isEqualTo(pdf);
+        mvc.perform(get("/api/buzon/" + documento + "/descarga").session(sesion("033218")))
+                .andExpect(status().isNotFound());
         try (var documentoPdf = Loader.loadPDF(pdf)) {
             assertThat(new PDFTextStripper().getText(documentoPdf))
                     .contains("DOCUMENTO DE PRUEBA", "GARCÍA TORRES, MARÍA ELENA", "Firma municipal simulada");

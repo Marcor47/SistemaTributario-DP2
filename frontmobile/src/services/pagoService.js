@@ -38,13 +38,15 @@ export async function consultarPago(id, { signal } = {}) {
   return pagoDeLaOperacion(await pedirPago(`/portal/pagos/${referencia(id)}`, { signal, cache: 'no-store' }), id)
 }
 
-async function confirmarPago(id) {
-  return pagoDeLaOperacion(await pedirPago(`/portal/pagos/${referencia(id)}/confirmacion`, { method: 'POST' }), id)
+async function confirmarPago(id, transactionToken) {
+  return pagoDeLaOperacion(await pedirPago(`/portal/pagos/${referencia(id)}/confirmacion`, {
+    method: 'POST', body: JSON.stringify(transactionToken ? { transactionToken } : {}),
+  }), id)
 }
 
-export async function confirmarYRecuperar(id) {
+export async function confirmarYRecuperar(id, transactionToken) {
   try {
-    return { pago: await confirmarPago(id), error: null }
+    return { pago: await confirmarPago(id, transactionToken), error: null }
   } catch (error) {
     if (error.estado >= 400 && error.estado < 500) throw error
     // Una respuesta perdida puede corresponder a un pago registrado. Solo se consulta la misma orden.

@@ -1,5 +1,20 @@
 /* HU039: alertas de desvío de meta en el dashboard. */
 .dashboard { min-width: 0; }
+.dashboard-filtros.dashboard-filtros--ejecutivo .fld { flex: 1 1 150px; min-width: 140px; }
+.dashboard-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; margin-bottom: 20px; }
+.dashboard-rejilla .pcard { margin: 0; }
+.dashboard-rejilla h2 { color: var(--marino-osc); font-size: 19px; margin: 0 0 20px; }
+.dashboard-barras { list-style: none; padding: 0; margin: 0; display: grid; gap: 20px; }
+.dashboard-barras li > div:first-child { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.dashboard-barra { height: 10px; background: var(--azul-suave); border-radius: 10px; overflow: hidden; }
+.dashboard-barra span { display: block; height: 100%; background: var(--marino-osc); border-radius: inherit; }
+.dashboard-meta { padding: 12px 0; border-top: 1px solid var(--borde); }
+.dashboard-meta p { margin: 5px 0; }
+.dashboard-tabla { overflow-x: auto; }
+.dashboard-tabla table { width: 100%; border-collapse: collapse; }
+.dashboard-tabla th, .dashboard-tabla td { padding: 12px; text-align: right; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+.dashboard-tabla th:first-child { text-align: left; }
+.dashboard-alertas > summary { cursor: pointer; padding: 20px clamp(16px, 3vw, 40px); color: var(--marino-osc); font-weight: 700; }
 
 .pmain--dashboard {
   width: 100%;

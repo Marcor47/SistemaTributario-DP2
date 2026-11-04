@@ -43,7 +43,7 @@ tributario:
     predios: ${PREDIO_FILES_DIR:./storage/predios}
     clave: ${PREDIO_FILES_KEY:}
   niubiz:
-    mode: ${NIUBIZ_MODE:simulado}
+    mode: ${NIUBIZ_MODE:sandbox}
     username: ${NIUBIZ_USERNAME:}
     password: ${NIUBIZ_PASSWORD:}
     merchant-id: ${NIUBIZ_MERCHANT_ID:}

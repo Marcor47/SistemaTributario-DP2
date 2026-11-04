@@ -119,8 +119,8 @@ vuelve a verificar la deuda, autoriza con Niubiz servidor a servidor y solo regi
 si la respuesta indica `Authorized`, código `000` o `010` e importe exacto. Nunca se aceptan
 datos de tarjeta en esta API. Si expira el token de checkout, se crea una orden nueva.
 
-El frontend móvil de pagos conserva su flujo actual hasta que su responsable conecte el
-checkout y envíe el token. En modo sandbox, su confirmación sin token se rechaza con
+El frontend móvil presenta el checkout oficial en un WebView, recibe el token del callback
+`complete` y lo envía con la sesión autenticada. En modo sandbox, la confirmación sin token se rechaza con
 HTTP 400 `TOKEN_NIUBIZ_REQUERIDO`; no se crea un pago por omitir la pasarela.
 Si Niubiz agota el tiempo de autorización, el resultado puede ser incierto: no se reintenta
 automáticamente y se debe conciliar la orden con Niubiz antes de repetirla. También se requiere
@@ -134,7 +134,14 @@ Referencia: [Botón de Pago Web de Niubiz](https://desarrolladores.niubiz.com.pe
 `NiubizSimuladoGateway` autoriza órdenes de prueba, conserva su importe en memoria y devuelve
 una URL local. Una orden de prueba pendiente no se puede confirmar tras reiniciar el backend.
 No representa el sandbox real de Niubiz ni mueve dinero. Es el modo por defecto para desarrollo
-y pruebas (`NIUBIZ_MODE=simulado`).
+y pruebas cuando se configura explícitamente `NIUBIZ_MODE=simulado`. El modo por defecto es
+`sandbox`; sin sus credenciales el backend arranca, pero los pagos devuelven `503 NIUBIZ_NO_CONFIGURADO`
+antes de contactar a Niubiz. Los módulos de Gerencia y las consultas siguen disponibles.
+
+Las respuestas de creación y consulta incluyen `proveedor`: `NIUBIZ_SANDBOX` o `SIMULADO`.
+El objeto `checkout` se entrega al crear la orden y se conserva solo en memoria durante la sesión
+móvil. La consulta del estado no repite autorizaciones. Si la app se reinicia o el resultado de la
+autorización queda indeterminado, se consulta el estado y se concilia antes de volver a pagar.
 
 La fuente municipal debe definir y proporcionar la **asignación explícita de cada beneficio a
 cada obligación** (`samnet.obligacion.id_beneficio` en la base sintética), junto con la tasa

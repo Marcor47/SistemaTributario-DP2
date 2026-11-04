@@ -46,9 +46,9 @@ export const MODULOS = [
     ruta: '/dashboard',
     texto: 'Dashboard',
     titulo: 'Dashboard de Rentas',
-    descripcion: 'Revisa las alertas activas por desvío de meta y apoya la toma de decisiones de la Gerencia de Rentas.',
+    descripcion: 'Consulta recaudación, morosidad, metas y segmentos por periodo, zona y tributo.',
     seccion: 'gestion',
-    permiso: 'ALERTAS:CONSULTAR',
+    permiso: 'DASHBOARD:CONSULTAR',
     icono: icono(
       <>
         <rect x="3" y="3" width="7" height="9" rx="1" />

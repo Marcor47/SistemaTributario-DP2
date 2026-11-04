@@ -134,6 +134,18 @@ class BuzonControllerTest {
         return buzon.saveAndFlush(DocumentoBuzon.deEstadoCuenta(documentoContribuyente, titulo, null, fechaEnvio));
     }
 
+    @Test
+    void descargaExigeSesionYPropiedadYNoInventaUnArchivo() throws Exception {
+        DocumentoBuzon documento = guardar(DOCUMENTO_CONTRIBUYENTE, "Estado de cuenta", ENVIO_RECIENTE);
+        String ruta = RUTA + "/" + documento.getIdDocumento() + "/descarga";
+        mockMvc.perform(get(ruta)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(ruta).session(sesion(OTRO_CONTRIBUYENTE))).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("DOCUMENTO_NO_ENCONTRADO"));
+        mockMvc.perform(get(ruta).session(sesion(CONTRIBUYENTE))).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("ARCHIVO_NO_DISPONIBLE"));
+        assertThat(buzon.findById(documento.getIdDocumento()).orElseThrow().getFechaPrimeraLectura()).isNull();
+    }
+
     private static MockHttpSession sesion(String codigoContribuyente) {
         MockHttpSession sesion = new MockHttpSession();
         sesion.setAttribute(SesionContribuyente.ATRIBUTO_CODIGO_CONTRIBUYENTE, codigoContribuyente);

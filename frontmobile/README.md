@@ -76,10 +76,19 @@ año, saldo o pagos solo cambian la vista. Al volver a esta pantalla se actualiz
 
 **Pagar obligaciones** crea una orden mediante `POST /api/portal/pagos` con `{}`. El servidor determina
 todas las obligaciones pendientes y calcula base, descuentos e importe final. `/pagos/[id]` consulta
-esa misma orden y muestra la pasarela simulada; no solicita datos de tarjeta ni abre una URL externa.
-**Confirmar pago** llama a `POST /api/portal/pagos/{id}/confirmacion`. La autorización es simulada,
-pero el backend sí registra el pago y actualiza los saldos de PostgreSQL. La app solo muestra éxito
+esa misma orden y abre el formulario oficial de Niubiz sandbox dentro de un WebView.
+El formulario devuelve un token temporal que la app envía a `POST /api/portal/pagos/{id}/confirmacion`.
+El backend autoriza el pago con Niubiz y registra el resultado en SAMNET sintético. La app solo muestra éxito
 cuando la API devuelve `CONFIRMADA` y su comprobante.
+
+`PagosProvider` mantiene el visor fuera de las pantallas y precarga el SDK inicial durante la sesión.
+Al recibir una orden válida prepara el formulario; volver al inicio y retomar el pago conserva la
+descarga en memoria. Tras una confirmación de este visor se reutiliza el motor con una sesión,
+número de compra e importe propios de la siguiente orden. Nunca se reutiliza el token de autorización.
+Reemplazar una orden pendiente o cambiar su sesión crea un visor nuevo para aislar sus respuestas.
+Cerrar sesión también lo destruye. El WebView usa la caché normal, sin guardar el SDK como archivo local.
+La primera descarga aún depende del servidor de Niubiz y de la conexión. Una demora muestra una
+advertencia sin cerrar el formulario; **Reintentar carga** lo reinicia solo a petición del usuario.
 
 El resultado abre un modal con el importe y comprobante. Desde la cuenta se puede volver al último
 comprobante de la sesión y consultar los periodos con pagos. La última operación se mantiene en memoria
@@ -88,7 +97,22 @@ abrirla. Si se pierde una confirmación, se consulta la misma orden; no se crea 
 
 Una copia desactualizada no habilita el pago. Los errores de beneficios indeterminados o de cobertura del
 100 % derivan a ventanilla. Un cambio de saldo requiere volver a la cuenta y generar una cotización nueva.
-El contrato completo y las limitaciones del simulador están en `back/HU022_API.md`.
+El contrato completo está en `back/HU022_API.md`. La configuración del sandbox está en
+`back/NIUBIZ_SANDBOX.md`. El simulador solo se activa explícitamente con `NIUBIZ_MODE=simulado`.
+
+## Buzón del ciudadano (HU019)
+
+Desde el inicio, **Mi buzón** abre `/buzon`. Consulta `GET /api/buzon` con la sesión del
+contribuyente; permite filtrar todos, sin leer y por tipo de documento. La lista muestra fecha
+de envío y estado de lectura. Al abrir `/buzon/[id]`, el backend registra una única primera
+lectura, incluso ante aperturas concurrentes. Volver a la lista actualiza su contador.
+
+Las respuestas de predios y reclamos muestran el contenido registrado. Las constancias con PDF
+se descargan por `GET /api/buzon/{id}/descarga`, validando la propiedad en el servidor. Los
+documentos sin contenido disponible se indican explícitamente. No se abren rutas de archivos
+del servidor recibidas en `archivo`. El dashboard de Rentas (HU011) es un módulo interno web.
+
+Validación: `npm test`, `npm run lint`, `npm run typecheck` y `npx expo export --platform android`.
 
 ## Solicitud de Constancia de No Adeudo (HU015)
 

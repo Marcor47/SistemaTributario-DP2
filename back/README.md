@@ -1,5 +1,8 @@
 # Backend tributario
 
+Para probar el dashboard HU011 y el buzón móvil HU019 con datos incluidos al iniciar el perfil
+`local`, consulta [DEMOSTRACION_LOCAL.md](DEMOSTRACION_LOCAL.md).
+
 ## Portal del contribuyente (HU014, HU022 y HU046)
 
 El contrato corregido de pago total y beneficios de HU022 está en [HU022_API.md](HU022_API.md).
@@ -23,8 +26,9 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 | `GET /api/portal/solicitudes-predio`, `GET /api/portal/solicitudes-predio/{id}` | Consultar solicitudes propias. |
 | `GET /api/portal/solicitudes-predio/{id}/adjuntos/{idAdjunto}` | Descargar un adjunto de una solicitud propia. |
 
-Los pagos usan `NiubizSimuladoGateway`: quedan identificados como `dePrueba`, no mueven dinero
-real, pero sí actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
+Los pagos usan Niubiz sandbox por defecto; la configuración está en [NIUBIZ_SANDBOX.md](NIUBIZ_SANDBOX.md).
+El simulador requiere `NIUBIZ_MODE=simulado` explícito. Ambos modos se identifican como `dePrueba`,
+no mueven dinero real y actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
 el total pendiente con beneficios asignados explícitamente por SAMNET a cada obligación. Si
 la asignación no se puede verificar, se deriva a ventanilla. Si la deuda o los beneficios cambian
 después de crear la orden, la confirmación devuelve `409 SALDO_CAMBIO`.

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { MODULOS, icono } from '../utils/modulos.jsx'
 import { cerrarSesion } from '../services/authService.js'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { useAuth } from '../context/AuthContext.jsx'
+import { obtenerEstadoCuentaPortal } from '../services/portalCuentaService.js'
 
 /**
  * Panel de navegación lateral.
@@ -17,10 +18,27 @@ import { useAuth } from '../context/AuthContext.jsx'
 export default function MenuLateral({ solo }) {
   const navegar = useNavigate()
   const { sesion, salir: salirInterno } = useSesionInterna()
-  const { limpiarSesion } = useAuth()
+  const { sesion: sesionAuth, limpiarSesion } = useAuth()
   const [errorSalida, setErrorSalida] = useState('')
+  const [perfilPortal, setPerfilPortal] = useState(null)
   const rutaLogin = solo === 'gestion' ? '/gestion/login' : '/login'
   const rutaInicio = solo === 'portal' ? '/portal/inicio' : '/'
+  const codigoPortal = sesionAuth.tipo === 'contribuyente'
+    ? sesionAuth.usuario?.codigoContribuyente || sesionAuth.usuario?.codigo
+    : null
+
+  useEffect(() => {
+    if (solo !== 'portal' || !codigoPortal) return undefined
+    const controlador = new AbortController()
+    obtenerEstadoCuentaPortal({ signal: controlador.signal })
+      .then((cuenta) => {
+        if (!controlador.signal.aborted && cuenta.contribuyente?.codigo === codigoPortal) {
+          setPerfilPortal({ codigo: codigoPortal, nombre: cuenta.contribuyente.nombre })
+        }
+      })
+      .catch(() => {}) // El código de la sesión sigue identificando al contribuyente.
+    return () => controlador.abort()
+  }, [solo, codigoPortal])
 
   async function salir(evento) {
     evento.preventDefault()
@@ -46,10 +64,10 @@ export default function MenuLateral({ solo }) {
   const mostrarPortal  = !solo || solo === 'portal'
   const mostrarGestion = !solo || solo === 'gestion'
 
-  // Nombre del usuario activo (solo disponible en sesión de gestión interna)
-  const nombreUsuario = solo === 'gestion' && sesion?.nombreCompleto
-    ? sesion.nombreCompleto
-    : null
+  const nombreUsuario = solo === 'gestion' ? sesion?.nombreCompleto
+    : solo === 'portal' && codigoPortal
+      ? (perfilPortal?.codigo === codigoPortal && perfilPortal.nombre) || codigoPortal
+      : null
 
   return (
     <aside className="menu">
@@ -64,11 +82,14 @@ export default function MenuLateral({ solo }) {
       {nombreUsuario && (
         <div className="menu-perfil" role="status" aria-label={`Usuario activo: ${nombreUsuario}`}>
           <div className="menu-perfil-avatar" aria-hidden="true">
-            {nombreUsuario.charAt(0).toUpperCase()}
+            {solo === 'portal'
+              ? <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+              : nombreUsuario.charAt(0).toUpperCase()}
           </div>
           <div className="menu-perfil-info">
-            <span className="menu-perfil-etiqueta">Usuario activo</span>
+            <span className="menu-perfil-etiqueta">{solo === 'portal' ? 'Contribuyente' : 'Usuario activo'}</span>
             <strong className="menu-perfil-nombre">{nombreUsuario}</strong>
+            {solo === 'portal' && nombreUsuario !== codigoPortal && <span className="menu-perfil-codigo">Código {codigoPortal}</span>}
           </div>
         </div>
       )}

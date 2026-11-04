@@ -1,6 +1,9 @@
 package pe.municipalidad.tributario.documentos;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,5 +29,12 @@ public class BuzonController {
     @GetMapping("/{idDocumento}")
     public DocumentoBuzonRespuesta abrir(@PathVariable Long idDocumento, HttpServletRequest request) {
         return buzonService.abrir(SesionContribuyente.codigoContribuyente(request), idDocumento);
+    }
+
+    @GetMapping("/{idDocumento}/descarga")
+    public ResponseEntity<byte[]> descargar(@PathVariable Long idDocumento, HttpServletRequest request) {
+        return ResponseEntity.ok().contentType(MediaType.APPLICATION_PDF).cacheControl(CacheControl.noStore())
+                .header("Content-Disposition", "attachment; filename=\"documento-" + idDocumento + ".pdf\"")
+                .body(buzonService.descargar(SesionContribuyente.codigoContribuyente(request), idDocumento));
     }
 }

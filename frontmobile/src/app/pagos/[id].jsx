@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, usePreventRemove, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Cabecera from '../../components/ui/Cabecera'
 import Boton from '../../components/ui/Boton'
@@ -10,7 +10,7 @@ import ResumenPago from '../../components/pagos/ResumenPago'
 import ModalPagoConfirmado from '../../components/pagos/ModalPagoConfirmado'
 import { usePagos } from '../../context/PagosContext'
 import { confirmarYRecuperar, consultarPago } from '../../services/pagoService'
-import { mensajeErrorPago } from '../../utils/pagos'
+import { checkoutValido, mensajeErrorPago } from '../../utils/pagos'
 import { colores, fuentes, radios, sombra, texto } from '../../theme/tokens'
 
 const ESTADOS = { INICIADA: 'Pendiente de confirmación', CONFIRMADA: 'Confirmada', RECHAZADA: 'Rechazada', EXPIRADA: 'Expirada' }
@@ -24,15 +24,21 @@ export default function Pago() {
 function Operacion({ id }) {
   const router = useRouter()
   const { bottom } = useSafeAreaInsets()
-  const { guardarPago, descartarPago } = usePagos()
+  const { ultimoPago, guardarPago, descartarPago, abrirPasarela } = usePagos()
   const [resultado, setResultado] = useState({ pago: null, cargando: true, error: null })
   const [confirmando, setConfirmando] = useState(false)
   const [errorConfirmacion, setErrorConfirmacion] = useState(null)
   const [revision, setRevision] = useState(0)
   const [modal, setModal] = useState(false)
+  const liberarPasarela = useRef(null)
   const enCurso = useRef(false)
   const activo = useRef(true)
   usePreventRemove(confirmando)
+
+  useFocusEffect(useCallback(() => () => {
+    liberarPasarela.current?.()
+    liberarPasarela.current = null
+  }, []))
 
   useEffect(() => {
     activo.current = true
@@ -57,14 +63,14 @@ function Operacion({ id }) {
     setRevision((valor) => valor + 1)
   }
 
-  async function confirmar() {
+  async function confirmar(transactionToken) {
     if (enCurso.current || resultado.pago?.estado !== 'INICIADA' || resultado.pago?.dePrueba !== true
       || resultado.error || errorConfirmacion) return
     enCurso.current = true
     setConfirmando(true)
     setErrorConfirmacion(null)
     try {
-      const recuperado = await confirmarYRecuperar(id)
+      const recuperado = await confirmarYRecuperar(id, transactionToken)
       if (activo.current) {
         guardarPago(recuperado.pago)
         setResultado({ pago: recuperado.pago, cargando: false, error: null })
@@ -84,7 +90,23 @@ function Operacion({ id }) {
   const aviso = error ? mensajeErrorPago(error) : null
   const confirmado = pago?.estado === 'CONFIRMADA'
   const cerrado = pago && ['RECHAZADA', 'EXPIRADA'].includes(pago.estado)
+  const checkout = String(ultimoPago?.idTransaccion) === String(id) ? ultimoPago?.checkout : null
+  const sandbox = pago?.proveedor === 'NIUBIZ_SANDBOX' || checkoutValido(checkout)
   const puedeConfirmar = pago?.estado === 'INICIADA' && pago.dePrueba === true && !error
+    && (!sandbox || checkoutValido(checkout))
+  const pagoPasarela = useMemo(() => pago && checkoutValido(checkout) ? { ...pago, checkout } : null, [pago, checkout])
+
+  function abrirFormulario() {
+    if (!puedeConfirmar || confirmando || !pagoPasarela) return
+    try {
+      liberarPasarela.current = abrirPasarela(pagoPasarela, {
+        onToken: confirmar,
+        onError: () => setErrorConfirmacion({ codigo: 'PASARELA_NO_DISPONIBLE' }),
+      })
+    } catch (fallo) {
+      setErrorConfirmacion(fallo)
+    }
+  }
 
   function volverCuenta() {
     if (enCurso.current) return
@@ -97,7 +119,7 @@ function Operacion({ id }) {
     <View style={estilos.raiz}>
       <Cabecera titulo={confirmado ? 'Comprobante de pago' : 'Pago en línea'} subtitulo="Municipalidad de San Miguel" onVolver={volverCuenta} volverDeshabilitado={confirmando} />
       <ScrollView contentContainerStyle={[estilos.contenido, { paddingBottom: bottom + 24 }]}>
-        {pago?.dePrueba && <View style={estilos.badge}><Text style={estilos.badgeTexto}>Simulación</Text></View>}
+        {pago?.dePrueba && !sandbox && <View style={estilos.badge}><Text style={estilos.badgeTexto}>Simulador de contingencia</Text></View>}
         <View style={estilos.tarjeta}>
           <Text style={texto.subtitulo} accessibilityRole="header">{confirmado ? 'Tu pago quedó registrado' : 'Revisa tu pago'}</Text>
           {cargando && <View style={estilos.carga}><ActivityIndicator color={colores.marino} /><Text style={texto.secundario}>Consultando la operación…</Text></View>}
@@ -129,13 +151,14 @@ function Operacion({ id }) {
               {pago.montoDescuento > 0 && <Text style={texto.pequeno}>Se incluyen los beneficios verificados por la Municipalidad.</Text>}
               {confirmado && <Boton titulo="Ver resumen del pago" variante="secundario" icono="documento" onPress={() => setModal(true)} />}
               {cerrado && <Aviso tipo="alerta">Esta orden está cerrada. Consulta tu cuenta antes de iniciar otro pago.</Aviso>}
+              {!confirmado && sandbox && !checkoutValido(checkout) && <Aviso tipo="alerta">La sesión del formulario ya no está disponible en este dispositivo. Consulta la operación y contacta a la Municipalidad antes de iniciar otro pago.</Aviso>}
               {!confirmado && pago.dePrueba !== true && <Aviso tipo="alerta">La pasarela de esta operación no está disponible en la app.</Aviso>}
               {puedeConfirmar && <Boton
-                titulo="Confirmar pago"
+                titulo={sandbox ? 'Pagar' : 'Confirmar pago de prueba'}
                 tituloCargando="Verificando el pago…"
                 icono="tarjeta"
                 cargando={confirmando}
-                onPress={confirmar}
+                onPress={sandbox ? abrirFormulario : () => confirmar()}
                 grande
               />}
               {confirmando && <Text style={texto.pequeno} accessibilityLiveRegion="polite">Espera mientras se verifica y registra el resultado de esta operación.</Text>}

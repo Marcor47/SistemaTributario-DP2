@@ -85,6 +85,15 @@ Es la llamada que debe hacer la pantalla cuando el contribuyente abre el documen
 
 ## Datos de prueba
 
+La app móvil incorpora la lista y el detalle del buzón. Las respuestas incluyen además
+`contenido` (texto de la respuesta de solicitud o reclamo, cuando existe) y `urlDescarga`
+(ruta relativa de descarga protegida, solo si la constancia tiene PDF persistido).
+
+`GET /api/buzon/{idDocumento}/descarga` entrega ese PDF con `Cache-Control: no-store`.
+Exige la misma sesión y propiedad que la apertura; un archivo no disponible devuelve
+`404 ARCHIVO_NO_DISPONIBLE`. Nunca resuelve directamente rutas guardadas en `archivo`.
+La primera lectura se protege con bloqueo de fila para conservarla ante aperturas simultáneas.
+
 La base sintética no trae documentos en el buzón: se crean al emitir constancias o responder solicitudes. Para
 probar a mano hay que insertar filas en `operativo.documento_buzon` con `documento_contribuyente` igual al
 DNI/RUC del contribuyente (por ejemplo `41028765` para el código `014502`).
