@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Reorder } from 'framer-motion'
 import { fecha, fechaHora, moneda } from '../utils/formato.js'
 import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
@@ -37,6 +37,20 @@ function opcionesDesdeMorosos(filas) {
 
 function graficaVisible(tipo) {
   return tipo === 'TABLA' ? 'TABLA' : 'BARRAS'
+}
+
+function medirDesborde(elemento) {
+  if (!elemento) return { izquierda: false, derecha: false }
+  return {
+    izquierda: elemento.scrollLeft > 2,
+    derecha: elemento.scrollLeft + elemento.clientWidth < elemento.scrollWidth - 2,
+  }
+}
+
+function desplazarColumnas(ref, direccion) {
+  const grid = ref.current?.querySelector('.reporte-columnas-grid')
+  if (!grid) return
+  grid.scrollBy({ left: direccion * Math.max(180, grid.clientWidth * 0.75), behavior: 'smooth' })
 }
 
 function valorColumna(fila, columna) {
@@ -298,6 +312,8 @@ export default function Reportes() {
   const arrastreDetalle = useRef(false)
   const grupoColumnasRef = useRef(null)
   const grupoDetalleRef = useRef(null)
+  const [desbordeColumnas, setDesbordeColumnas] = useState({ izquierda: false, derecha: false })
+  const [desbordeDetalle, setDesbordeDetalle] = useState({ izquierda: false, derecha: false })
   const reporte = useMemo(() => catalogo.datos.find(({ tipo }) => tipo === seleccion), [catalogo.datos, seleccion])
   const columnasEfectivas = columnas.length ? columnas : (COLUMNAS[seleccion] || [])
   const columnasDetalleEfectivas = columnasDetalle.length
@@ -334,6 +350,35 @@ export default function Reportes() {
     || columnasDetalleEfectivas.join('|') !== columnasDetalleAplicadasEfectivas.join('|')
     || ordenColumnasDetalleEfectivas.join('|') !== ordenColumnasDetalleAplicadasEfectivas.join('|')
     || orden !== ordenAplicado
+  const mostrarAvisoCambios = hayCambiosSinAplicar && !resultado.cargando
+
+  const actualizarDesbordeColumnas = useCallback(() => {
+    setDesbordeColumnas((actual) => {
+      const siguiente = medirDesborde(grupoColumnasRef.current?.querySelector('.reporte-columnas-grid'))
+      return actual.izquierda === siguiente.izquierda && actual.derecha === siguiente.derecha ? actual : siguiente
+    })
+  }, [])
+
+  const actualizarDesbordeDetalle = useCallback(() => {
+    setDesbordeDetalle((actual) => {
+      const siguiente = medirDesborde(grupoDetalleRef.current?.querySelector('.reporte-columnas-grid'))
+      return actual.izquierda === siguiente.izquierda && actual.derecha === siguiente.derecha ? actual : siguiente
+    })
+  }, [])
+
+  useEffect(() => {
+    const actualizar = () => {
+      actualizarDesbordeColumnas()
+      actualizarDesbordeDetalle()
+    }
+    const frame = window.requestAnimationFrame(actualizar)
+    window.addEventListener('resize', actualizar)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', actualizar)
+    }
+  }, [seleccion, columnasEfectivas.length, columnasDetalleEfectivas.length,
+    actualizarDesbordeColumnas, actualizarDesbordeDetalle])
 
   async function cargarMorososInicial(reporteMorosos, filtrosIniciales = FILTROS_INICIALES) {
     consultaActiva.current?.abort()
@@ -595,12 +640,14 @@ export default function Reportes() {
     setColumnas([])
     setOrdenColumnas([...columnasPredeterminadas])
     grupoColumnasRef.current?.querySelector('.reporte-columnas-grid')?.scrollTo({ left: 0 })
+    window.requestAnimationFrame(actualizarDesbordeColumnas)
   }
 
   function restablecerColumnasDetalle() {
     setColumnasDetalle([])
     setOrdenColumnasDetalle([...detallePredeterminado])
     grupoDetalleRef.current?.querySelector('.reporte-columnas-grid')?.scrollTo({ left: 0 })
+    window.requestAnimationFrame(actualizarDesbordeDetalle)
   }
 
   function restablecerFiltros() {
@@ -669,7 +716,14 @@ export default function Reportes() {
               <button className="btn primary reporte-generar" type="submit" disabled={resultado.cargando}>{resultado.cargando ? 'Generando…' : 'Generar reporte'}</button>
             </div>
           </div>
-          {hayCambiosSinAplicar && !resultado.cargando && <p className="reporte-cambios-pendientes" role="status">Hay cambios de filtros, columnas u orden sin aplicar. Pulsa “Generar reporte” para verlos.</p>}
+          <div
+            className={`reporte-cambios-pendientes-wrap${mostrarAvisoCambios ? ' reporte-cambios-pendientes-wrap--visible' : ''}`}
+            aria-hidden={!mostrarAvisoCambios}
+          >
+            <div className="reporte-cambios-pendientes-interior">
+              <p className="reporte-cambios-pendientes" role="status">Hay cambios de filtros, columnas u orden sin aplicar. Pulsa “Generar reporte” para verlos.</p>
+            </div>
+          </div>
 
           <div className="reporte-configuracion-grid">
             <fieldset className="reporte-config-grupo">
@@ -764,12 +818,18 @@ export default function Reportes() {
                 <fieldset className="reporte-columnas">
                   <legend>Columnas visibles</legend>
                   <div className="reporte-fila-restablecer">
-                    <div className="reporte-columnas-grupo" ref={grupoColumnasRef}>
+                    <div
+                      className="reporte-columnas-grupo"
+                      ref={grupoColumnasRef}
+                      data-desborde-izquierda={desbordeColumnas.izquierda}
+                      data-desborde-derecha={desbordeColumnas.derecha}
+                    >
                       <Reorder.Group
                         as="div"
                         axis="x"
                         values={ordenColumnasEfectivas}
                         onReorder={reordenarColumnas}
+                        onScroll={actualizarDesbordeColumnas}
                         className="reporte-columnas-grid"
                         role="group"
                         aria-label="Columnas visibles"
@@ -791,6 +851,18 @@ export default function Reportes() {
                           {seleccion === 'MOROSOS' ? ETIQUETAS_CABECERA[columna] : ETIQUETAS[columna]}
                         </Reorder.Item>)}
                       </Reorder.Group>
+                      {desbordeColumnas.izquierda && <button
+                        className="reporte-columnas-flecha reporte-columnas-flecha--izquierda"
+                        type="button"
+                        aria-label="Desplazar columnas a la izquierda"
+                        onClick={() => desplazarColumnas(grupoColumnasRef, -1)}
+                      ><span aria-hidden="true">‹</span></button>}
+                      {desbordeColumnas.derecha && <button
+                        className="reporte-columnas-flecha reporte-columnas-flecha--derecha"
+                        type="button"
+                        aria-label="Desplazar columnas a la derecha"
+                        onClick={() => desplazarColumnas(grupoColumnasRef, 1)}
+                      ><span aria-hidden="true">›</span></button>}
                     </div>
                     <button
                       className="btn reporte-btn-restablecer"
@@ -804,12 +876,18 @@ export default function Reportes() {
                   {seleccion === 'MOROSOS' && <>
                     <p className="reporte-columnas-subtitulo">Columnas del detalle</p>
                     <div className="reporte-fila-restablecer">
-                      <div className="reporte-columnas-grupo" ref={grupoDetalleRef}>
+                      <div
+                        className="reporte-columnas-grupo"
+                        ref={grupoDetalleRef}
+                        data-desborde-izquierda={desbordeDetalle.izquierda}
+                        data-desborde-derecha={desbordeDetalle.derecha}
+                      >
                         <Reorder.Group
                           as="div"
                           axis="x"
                           values={ordenColumnasDetalleEfectivas}
                           onReorder={reordenarColumnasDetalle}
+                          onScroll={actualizarDesbordeDetalle}
                           className="reporte-columnas-grid"
                           role="group"
                           aria-label="Columnas del detalle"
@@ -831,6 +909,18 @@ export default function Reportes() {
                             {ETIQUETAS_DETALLE[columna]}
                           </Reorder.Item>)}
                         </Reorder.Group>
+                        {desbordeDetalle.izquierda && <button
+                          className="reporte-columnas-flecha reporte-columnas-flecha--izquierda"
+                          type="button"
+                          aria-label="Desplazar columnas del detalle a la izquierda"
+                          onClick={() => desplazarColumnas(grupoDetalleRef, -1)}
+                        ><span aria-hidden="true">‹</span></button>}
+                        {desbordeDetalle.derecha && <button
+                          className="reporte-columnas-flecha reporte-columnas-flecha--derecha"
+                          type="button"
+                          aria-label="Desplazar columnas del detalle a la derecha"
+                          onClick={() => desplazarColumnas(grupoDetalleRef, 1)}
+                        ><span aria-hidden="true">›</span></button>}
                       </div>
                       <button
                         className="btn reporte-btn-restablecer"
