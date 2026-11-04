@@ -32,7 +32,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-@SpringBootTest
+@SpringBootTest(properties = "tributario.niubiz.mode=simulado")
 @ActiveProfiles("local")
 @AutoConfigureMockMvc
 @Import(PostgresEmbebidoConfig.class)

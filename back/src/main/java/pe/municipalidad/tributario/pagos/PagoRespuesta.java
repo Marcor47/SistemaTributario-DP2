@@ -7,7 +7,7 @@ import pe.municipalidad.tributario.integracion.niubiz.NiubizGateway;
 
 public record PagoRespuesta(Long idTransaccion, String estado, BigDecimal montoBase, BigDecimal montoDescuento,
         BigDecimal montoTotal, Set<String> obligaciones,
-        String urlPasarela, String comprobante, boolean dePrueba, NiubizGateway.Checkout checkout) {
+        String urlPasarela, String comprobante, boolean dePrueba, NiubizGateway.Checkout checkout, String proveedor) {
 
     public static PagoRespuesta desde(TransaccionPago transaccion, String urlPasarela) {
         return desde(transaccion, urlPasarela, null);
@@ -17,6 +17,8 @@ public record PagoRespuesta(Long idTransaccion, String estado, BigDecimal montoB
         return new PagoRespuesta(transaccion.getIdTransaccion(), transaccion.getEstado().name(),
                 transaccion.getMontoBase(), transaccion.getMontoDescuento(),
                 transaccion.getMontoTotal(), transaccion.getObligaciones(), urlPasarela,
-                transaccion.getComprobante(), true, checkout);
+                transaccion.getComprobante(), true, checkout,
+                transaccion.getIdOrdenPasarela() != null && transaccion.getIdOrdenPasarela().startsWith("SIM-")
+                        ? "SIMULADO" : "NIUBIZ_SANDBOX");
     }
 }

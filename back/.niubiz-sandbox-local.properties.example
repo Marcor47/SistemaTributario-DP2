@@ -1,0 +1,9 @@
+# Copiar como .niubiz-sandbox-local.properties dentro de back/ (Git lo ignora).
+# Credenciales API de la seccion Datos de prueba de la guia oficial de Niubiz.
+NIUBIZ_MODE=sandbox
+NIUBIZ_USERNAME=
+NIUBIZ_PASSWORD=
+NIUBIZ_MERCHANT_ID=456879852
+# Retorno virtual de la app: complete entrega el token al WebView sin navegar.
+NIUBIZ_CALLBACK_URL=https://localhost/niubiz/retorno
+NIUBIZ_TIMEOUT_URL=https://localhost/niubiz/timeout

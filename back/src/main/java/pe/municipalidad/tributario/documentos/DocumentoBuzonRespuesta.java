@@ -13,7 +13,9 @@ public record DocumentoBuzonRespuesta(
         String archivo,
         LocalDateTime fechaEnvio,
         LocalDateTime fechaPrimeraLectura,
-        boolean leido) {
+        boolean leido,
+        String contenido,
+        String urlDescarga) {
 
     public static DocumentoBuzonRespuesta desde(DocumentoBuzon documento) {
         return new DocumentoBuzonRespuesta(
@@ -23,6 +25,21 @@ public record DocumentoBuzonRespuesta(
                 documento.getArchivo(),
                 documento.getFechaEnvio(),
                 documento.getFechaPrimeraLectura(),
-                documento.getFechaPrimeraLectura() != null);
+                documento.getFechaPrimeraLectura() != null,
+                contenido(documento),
+                documento.getConstancia() != null && documento.getConstancia().getContenidoPdf() != null
+                        ? "/buzon/" + documento.getIdDocumento() + "/descarga" : null);
+    }
+
+    private static String contenido(DocumentoBuzon documento) {
+        if (documento.getReclamo() != null) return documento.getReclamo().getRespuesta();
+        if (documento.getSolicitudPredio() != null) {
+            var solicitud = documento.getSolicitudPredio();
+            return "Solicitud #" + solicitud.getIdSolicitud() + " · " + solicitud.getTipoTramite()
+                    + " · " + solicitud.getEstado()
+                    + (solicitud.getCodigoPredio() == null ? "" : "\nPredio: " + solicitud.getCodigoPredio())
+                    + (solicitud.getMotivoRechazo() == null ? "" : "\nMotivo: " + solicitud.getMotivoRechazo());
+        }
+        return null;
     }
 }

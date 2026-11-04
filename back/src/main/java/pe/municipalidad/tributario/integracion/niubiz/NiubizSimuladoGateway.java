@@ -10,7 +10,7 @@ import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 
 /* Simula la confirmación del pago con el mismo contrato de NiubizGateway (RNF-015); no mueve dinero. */
 @Component
-@ConditionalOnProperty(name = "tributario.niubiz.mode", havingValue = "simulado", matchIfMissing = true)
+@ConditionalOnProperty(name = "tributario.niubiz.mode", havingValue = "simulado")
 public class NiubizSimuladoGateway implements NiubizGateway {
 
     private final Map<String, BigDecimal> ordenes = new ConcurrentHashMap<>();

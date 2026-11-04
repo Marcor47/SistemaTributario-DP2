@@ -165,7 +165,7 @@ public class ConstanciaDemoService {
     @Transactional
     public byte[] descargar(String codigo, Long id) {
         String documento = contribuyentes.obtenerPorCodigo(codigo).getNumeroDocumento();
-        DocumentoBuzon entrega = buzon.findById(id).filter(d -> documento.equals(d.getDocumentoContribuyente()))
+        DocumentoBuzon entrega = buzon.bloquearPropio(id, documento)
                 .orElseThrow(() -> new RecursoNoEncontradoException("DOCUMENTO_NO_ENCONTRADO", "No existe ese documento."));
         if (entrega.getConstancia() == null || entrega.getConstancia().getContenidoPdf() == null) {
             throw new RecursoNoEncontradoException("DOCUMENTO_NO_ENCONTRADO", "El documento no está disponible.");

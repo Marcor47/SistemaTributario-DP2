@@ -5,6 +5,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -28,25 +29,30 @@ public class NiubizSandboxGateway implements NiubizGateway {
     private final String callbackUrl;
     private final String timeoutUrl;
 
+    @Autowired
     public NiubizSandboxGateway(@Value("${tributario.niubiz.username:}") String username,
             @Value("${tributario.niubiz.password:}") String password,
             @Value("${tributario.niubiz.merchant-id:}") String merchantId,
             @Value("${tributario.niubiz.callback-url:}") String callbackUrl,
             @Value("${tributario.niubiz.timeout-url:}") String timeoutUrl) {
-        this(username, password, merchantId, callbackUrl, timeoutUrl, API);
+        this(username, password, merchantId, callbackUrl, timeoutUrl, clienteHttp(API));
     }
 
     NiubizSandboxGateway(String username, String password, String merchantId, String callbackUrl,
-            String timeoutUrl, String apiBaseUrl) {
-        this.username = required(username, "NIUBIZ_USERNAME");
-        this.password = required(password, "NIUBIZ_PASSWORD");
-        this.merchantId = required(merchantId, "NIUBIZ_MERCHANT_ID");
-        this.callbackUrl = https(required(callbackUrl, "NIUBIZ_CALLBACK_URL"));
-        this.timeoutUrl = https(required(timeoutUrl, "NIUBIZ_TIMEOUT_URL"));
+            String timeoutUrl, RestClient http) {
+        this.username = limpiar(username);
+        this.password = limpiar(password);
+        this.merchantId = limpiar(merchantId);
+        this.callbackUrl = limpiar(callbackUrl);
+        this.timeoutUrl = limpiar(timeoutUrl);
+        this.http = http;
+    }
+
+    private static RestClient clienteHttp(String apiBaseUrl) {
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(15));
-        this.http = RestClient.builder().baseUrl(apiBaseUrl).requestFactory(factory).build();
+        return RestClient.builder().baseUrl(apiBaseUrl).requestFactory(factory).build();
     }
 
     @Override
@@ -56,6 +62,7 @@ public class NiubizSandboxGateway implements NiubizGateway {
 
     @Override
     public OrdenPago crearOrdenPago(BigDecimal monto, String referencia, Contribuyente contribuyente, String clientIp) {
+        validarConfiguracion();
         if (contribuyente.getCorreo() == null || contribuyente.getCorreo().isBlank()) {
             throw new ReglaNegocioException("CORREO_REQUERIDO_NIUBIZ", "Actualice su correo antes de pagar en línea.");
         }
@@ -81,6 +88,7 @@ public class NiubizSandboxGateway implements NiubizGateway {
 
     @Override
     public EstadoPagoPasarela autorizar(String idOrden, BigDecimal monto, String transactionToken) {
+        validarConfiguracion();
         if (transactionToken == null || transactionToken.isBlank() || transactionToken.length() > 4096) {
             throw new DatoInvalidoException("TOKEN_NIUBIZ_REQUERIDO", "Envía un transactionToken válido del checkout de Niubiz.");
         }
@@ -137,14 +145,24 @@ public class NiubizSandboxGateway implements NiubizGateway {
     }
 
     private static String texto(Object valor) { return valor == null ? null : valor.toString(); }
-    private static String required(String value, String key) {
-        if (value == null || value.isBlank()) throw new IllegalStateException("Configure " + key + " para Niubiz sandbox.");
-        return value.trim();
+    private static String limpiar(String valor) {
+        return valor == null ? "" : valor.trim();
     }
-    private static String https(String value) {
-        URI uri = URI.create(value);
-        if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null)
-            throw new IllegalStateException("Las URLs de retorno de Niubiz deben ser HTTPS.");
-        return value;
+
+    /* Se valida antes de cualquier llamada externa, sin bloquear el arranque ni usar el simulador. */
+    private void validarConfiguracion() {
+        if (username.isBlank() || password.isBlank() || !merchantId.matches("\\d{9}")
+                || !esHttps(callbackUrl) || !esHttps(timeoutUrl)) {
+            throw new NiubizNoConfiguradoException();
+        }
+    }
+
+    private static boolean esHttps(String valor) {
+        try {
+            URI uri = URI.create(valor);
+            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 }

@@ -124,7 +124,7 @@ export default function App() {
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
         <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
-          <Route path="/dashboard" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
+          <Route path="/dashboard" element={<RutaInternaProtegida permiso="DASHBOARD:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
