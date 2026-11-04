@@ -2,10 +2,13 @@ package pe.municipalidad.tributario.reporte;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -57,8 +60,8 @@ class ReporteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].tipo", contains("MOROSOS", "PRICOS", "BUENOS_PAGADORES")))
                 .andExpect(jsonPath("$[0].titulo").value("Reporte de morosos"))
-                .andExpect(jsonPath("$[0].filtros", contains("periodo", "zona", "tributo", "regimen",
-                        "tipoDocumento", "etapa", "montoMinimo")))
+                .andExpect(jsonPath("$[0].filtros", contains("anioDesde", "anioHasta", "zona", "tributo", "regimen",
+                        "tipoDocumento", "etapa", "beneficio", "montoMinimo")))
                 .andExpect(jsonPath("$[1].filtros", contains("anio", "zona", "tributo", "montoMinimo")));
     }
 
@@ -99,6 +102,44 @@ class ReporteControllerTest {
                 .andExpect(jsonPath("$.resumen.conceptoMonto").value("Deuda vencida"))
                 .andExpect(jsonPath("$.resumen.montoTotal").value(19520.16))
                 .andExpect(jsonPath("$.resumen.umbralPrico").value(nullValue()));
+    }
+
+    @Test
+    void morososPorRangoDeAniosYFiltroDeBeneficio() throws Exception {
+        MockHttpSession gerencia = sesion(NombreRol.GERENCIA);
+        mvc.perform(get("/api/reportes/MOROSOS")
+                        .param("anioDesde", "2025")
+                        .param("anioHasta", "2025")
+                        .session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filtrosAplicados.anioDesde").value(2025))
+                .andExpect(jsonPath("$.filtrosAplicados.anioHasta").value(2025));
+
+        mvc.perform(get("/api/reportes/MOROSOS")
+                        .param("beneficio", "CON_BENEFICIO")
+                        .session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resumen.cantidad").value(0));
+
+        mvc.perform(get("/api/reportes/MOROSOS")
+                        .param("beneficio", "SIN_BENEFICIO")
+                        .session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resumen.cantidad").value(4));
+    }
+
+    @Test
+    void elDetalleDeDeudaIncluyeTodosLosTributosYAmbosMontos() throws Exception {
+        mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[*].tributo",
+                        hasItems("ARBITRIOS", "IMPUESTO_PREDIAL")))
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[*].codigoPredio", hasItem("021390-01")))
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[0].montoSinBeneficio").isNumber())
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[0].montoConBeneficio").isNumber())
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[0].fechaVencimiento").isString())
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[0].diasVencido").isNumber())
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[0].etapaCobranza").isString());
     }
 
     @Test
@@ -254,10 +295,11 @@ class ReporteControllerTest {
     }
 
     @Test
-    void elAnioNoSeAplicaAMorosos() throws Exception {
+    void elAnioSeInterpretaComoRangoDeUnAnioEnMorosos() throws Exception {
         mvc.perform(get("/api/reportes/MOROSOS").param("anio", "2025").session(sesion(NombreRol.GERENCIA)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.codigo").value("FILTRO_NO_APLICABLE"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filtrosAplicados.anioDesde").value(2025))
+                .andExpect(jsonPath("$.filtrosAplicados.anioHasta").value(2025));
     }
 
     @Test
@@ -290,7 +332,8 @@ class ReporteControllerTest {
 
     @Test
     void siSamnetNoRespondeInformaQueNoEstaDisponible() throws Exception {
-        doThrow(new SamnetNoDisponibleException(null)).when(samnet).obtenerCartera(any(), anyInt());
+        doThrow(new SamnetNoDisponibleException(null)).when(samnet)
+                .obtenerCartera(any(), anyInt(), anyInt(), anyString());
 
         mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isServiceUnavailable())

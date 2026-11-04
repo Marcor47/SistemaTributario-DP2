@@ -2,19 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, validarFiltros } from '../src/utils/reportes.js'
 
-const morosos = { tipo: 'MOROSOS', filtros: ['periodo', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'montoMinimo'] }
+const morosos = { tipo: 'MOROSOS', filtros: ['anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'] }
 const pricos = { tipo: 'PRICOS', filtros: ['anio', 'zona', 'tributo', 'montoMinimo'] }
 
 test('HU006: el catálogo controla los filtros visibles', () => {
-  assert.deepEqual(filtrosDisponibles(morosos), ['periodo', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'montoMinimo'])
+  assert.deepEqual(filtrosDisponibles(morosos), ['anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'])
   assert.deepEqual(filtrosDisponibles({ filtros: ['zona', 'desconocido'] }), ['zona'])
 })
 
-test('HU006: morosos limpia y nunca envía el año', () => {
-  const filtros = { anio: '2025', zona: ' Z2 ', tributo: 'ARBITRIOS', regimen: 'GENERAL', tipoDocumento: 'RUC', etapa: 'COACTIVA', montoMinimo: '1000' }
+test('HU006: morosos limpia y envía rango de años y beneficio', () => {
+  const filtros = { anio: '2025', anioDesde: '2025', anioHasta: '2026', zona: ' Z2 ', tributo: 'ARBITRIOS', regimen: 'GENERAL', tipoDocumento: 'RUC', etapa: 'COACTIVA', beneficio: 'CON_BENEFICIO', montoMinimo: '1000' }
   assert.equal(limpiarFiltros(morosos, filtros).anio, '')
   assert.equal(parametrosReporte(morosos, filtros).toString(),
-    'zona=Z2&tributo=ARBITRIOS&regimen=GENERAL&tipoDocumento=RUC&etapa=COACTIVA&montoMinimo=1000')
+    'anioDesde=2025&anioHasta=2026&zona=Z2&tributo=ARBITRIOS&regimen=GENERAL&tipoDocumento=RUC&etapa=COACTIVA&beneficio=CON_BENEFICIO&montoMinimo=1000')
 })
 
 test('HU006: construye los parámetros aceptados para PRICOS', () => {
@@ -31,8 +31,16 @@ test('HU006: rechaza filtros inválidos antes de consultar', () => {
 })
 
 test('HU018: valida régimen, tipo de documento y etapa de morosos', () => {
-  const errores = validarFiltros(morosos, { montoMinimo: '', regimen: 'X'.repeat(41), tipoDocumento: 'PASAPORTE', etapa: 'JUZGADO' })
-  assert.deepEqual(Object.keys(errores).sort(), ['etapa', 'regimen', 'tipoDocumento'])
+  const errores = validarFiltros(morosos, {
+    anioDesde: '2025', anioHasta: '2026', montoMinimo: '', regimen: 'X'.repeat(41),
+    tipoDocumento: 'PASAPORTE', etapa: 'JUZGADO', beneficio: 'OTRO',
+  })
+  assert.deepEqual(Object.keys(errores).sort(), ['beneficio', 'etapa', 'regimen', 'tipoDocumento'])
+})
+
+test('HU018: valida el rango de años de morosos', () => {
+  const errores = validarFiltros(morosos, { anioDesde: '2026', anioHasta: '2025', montoMinimo: '' })
+  assert.equal(errores.anioHasta, 'El año final no puede ser menor que el año inicial.')
 })
 
 test('HU006: selecciona la métrica monetaria de cada reporte', () => {

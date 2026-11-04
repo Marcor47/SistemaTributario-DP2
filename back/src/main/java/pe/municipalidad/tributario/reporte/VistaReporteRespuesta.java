@@ -13,6 +13,9 @@ public record VistaReporteRespuesta(
         TipoGrafica tipoGrafica,
         FiltrosReporte filtros,
         List<String> columnasVisibles,
+        List<String> columnasDetalleVisibles,
+        List<String> ordenColumnas,
+        List<String> ordenColumnasDetalle,
         String orden,
         LocalDateTime fechaCreacion) {
 }

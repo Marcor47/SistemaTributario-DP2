@@ -71,12 +71,17 @@ public class ReporteController {
             @RequestParam(required = false) @Size(max = 40, message = "es demasiado largo") String regimen,
             @RequestParam(required = false) TipoDocumento tipoDocumento,
             @RequestParam(required = false) EtapaCobranza etapa,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioDesde,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioHasta,
+            @RequestParam(required = false) FiltroBeneficio beneficio,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
             BigDecimal montoMinimo,
             HttpServletRequest request) {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
         return servicio.generar(tipo, new FiltrosReporte(anio, zona, tributo, montoMinimo, periodo,
-                regimen, tipoDocumento, etapa), usuario);
+                regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio), usuario);
     }
 
     /* ===== HU018: Reporte de morosos por zona y periodo (RF-024) ===== */
@@ -91,13 +96,17 @@ public class ReporteController {
             @RequestParam(required = false) @Size(max = 40, message = "es demasiado largo") String regimen,
             @RequestParam(required = false) TipoDocumento tipoDocumento,
             @RequestParam(required = false) EtapaCobranza etapa,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioDesde,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioHasta,
+            @RequestParam(required = false) FiltroBeneficio beneficio,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
             BigDecimal montoMinimo,
             HttpServletRequest request) {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
-        Integer periodoEfectivo = periodo != null ? periodo : anio;
-        return servicio.generarMorososPorZona(new FiltrosReporte(periodoEfectivo, zona, tributo, montoMinimo,
-                periodoEfectivo, regimen, tipoDocumento, etapa), usuario);
+        return servicio.generarMorososPorZona(new FiltrosReporte(anio, zona, tributo, montoMinimo,
+                periodo, regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio), usuario);
     }
 
     /* ===== HU007: Vistas personalizadas de reporte ===== */
@@ -176,14 +185,22 @@ public class ReporteController {
             @RequestParam(required = false) @Size(max = 40, message = "es demasiado largo") String regimen,
             @RequestParam(required = false) TipoDocumento tipoDocumento,
             @RequestParam(required = false) EtapaCobranza etapa,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioDesde,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioHasta,
+            @RequestParam(required = false) FiltroBeneficio beneficio,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
             BigDecimal montoMinimo,
             @RequestParam(required = false) List<String> columnas,
+            @RequestParam(required = false) List<String> columnasDetalle,
+            @RequestParam(required = false) @Size(max = 250, message = "es demasiado largo") String orden,
             HttpServletRequest request) {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
         ExportacionReporte exportacion = servicio.exportar(tipo,
                 new FiltrosReporte(anio, zona, tributo, montoMinimo, periodo,
-                        regimen, tipoDocumento, etapa), formato, columnas, usuario);
+                        regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio), formato, columnas,
+                columnasDetalle, orden, usuario);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportacion.nombreArchivo() + "\"")
                 .contentType(MediaType.parseMediaType(exportacion.mediaType()))
@@ -201,16 +218,22 @@ public class ReporteController {
             @RequestParam(required = false) @Size(max = 40, message = "es demasiado largo") String regimen,
             @RequestParam(required = false) TipoDocumento tipoDocumento,
             @RequestParam(required = false) EtapaCobranza etapa,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioDesde,
+            @RequestParam(required = false) @Min(value = 1900, message = "debe ser 1900 o posterior")
+            @Max(value = 2100, message = "debe ser 2100 o anterior") Integer anioHasta,
+            @RequestParam(required = false) FiltroBeneficio beneficio,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
             BigDecimal montoMinimo,
             @RequestParam(required = false) List<String> columnas,
+            @RequestParam(required = false) List<String> columnasDetalle,
+            @RequestParam(required = false) @Size(max = 250, message = "es demasiado largo") String orden,
             HttpServletRequest request) {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
-        Integer periodoEfectivo = periodo != null ? periodo : anio;
         ExportacionReporte exportacion = servicio.exportarMorososPorZona(
-                new FiltrosReporte(periodoEfectivo, zona, tributo, montoMinimo, periodoEfectivo,
-                        regimen, tipoDocumento, etapa),
-                formato, columnas, usuario);
+                new FiltrosReporte(anio, zona, tributo, montoMinimo, periodo,
+                        regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio),
+                formato, columnas, columnasDetalle, orden, usuario);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportacion.nombreArchivo() + "\"")
                 .contentType(MediaType.parseMediaType(exportacion.mediaType()))

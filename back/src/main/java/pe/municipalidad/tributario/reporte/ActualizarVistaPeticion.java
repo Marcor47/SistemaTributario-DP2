@@ -16,6 +16,12 @@ public record ActualizarVistaPeticion(
 
         List<String> columnasVisibles,
 
+        List<String> columnasDetalleVisibles,
+
+        List<String> ordenColumnas,
+
+        List<String> ordenColumnasDetalle,
+
         @Size(max = 250, message = "El criterio de orden no puede exceder 250 caracteres.")
         String orden) {
 }

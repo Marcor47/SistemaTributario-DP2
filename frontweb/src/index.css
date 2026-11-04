@@ -92,6 +92,7 @@ body {
 /* Contenido */
 .pmain { width: 100%; max-width: 1240px; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 16px; flex: 1; }
 .pmain--metas { max-width: none; }
+.pmain--reportes { max-width: none; }
 .pcard {
   background: var(--superficie); border: 1px solid var(--borde); border-radius: var(--radio);
   padding: 22px 26px; margin-bottom: 20px; box-shadow: var(--sombra);

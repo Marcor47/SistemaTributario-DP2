@@ -20,6 +20,12 @@ public record GuardarVistaPeticion(
         @NotEmpty(message = "Debe indicar al menos una columna visible.")
         List<String> columnasVisibles,
 
+        List<String> columnasDetalleVisibles,
+
+        List<String> ordenColumnas,
+
+        List<String> ordenColumnasDetalle,
+
         @Size(max = 250, message = "El criterio de orden no puede exceder 250 caracteres.")
         String orden) {
 }

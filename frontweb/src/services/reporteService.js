@@ -31,14 +31,32 @@ export function listarVistas({ signal } = {}) {
   return pedir('/reportes/vistas', { signal }).catch(controlarSesion)
 }
 
-export function guardarVista(tipo, configuracion) {
+async function cabecerasProtegidas() {
+  const token = await pedir('/auth/interno/csrf')
+  return { [token.headerName]: token.token, 'Content-Type': 'application/json' }
+}
+
+export async function guardarVista(tipo, configuracion) {
   return pedir(`/reportes/${encodeURIComponent(tipo)}/vistas`, {
-    method: 'POST', body: JSON.stringify(configuracion),
+    method: 'POST',
+    headers: await cabecerasProtegidas(),
+    body: JSON.stringify(configuracion),
   }).catch(controlarSesion)
 }
 
 export function abrirVista(idVista) {
   return pedir(`/reportes/vistas/${idVista}/abrir`).catch(controlarSesion)
+}
+
+export async function eliminarVista(idVista) {
+  return pedir(`/reportes/vistas/${idVista}`, {
+    method: 'DELETE',
+    headers: await cabecerasProtegidas(),
+  }).catch(controlarSesion)
+}
+
+export function exportarVista(idVista, formato) {
+  return descargarReporte(`/reportes/vistas/${idVista}/exportar?formato=${formato}`)
 }
 
 export async function descargarReporte(ruta) {

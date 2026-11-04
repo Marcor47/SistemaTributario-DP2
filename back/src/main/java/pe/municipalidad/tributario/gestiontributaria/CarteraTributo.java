@@ -41,7 +41,7 @@ public record CarteraTributo(
         BigDecimal deudaVencidaAnio,
         BigDecimal deudaSinBeneficioAnio,
         int cuotasVencidasAnio,
-        String detalleDeuda) {
+        List<DetalleDeuda> detalleDeuda) {
 
     public CarteraTributo(
             String codigoContribuyente,
@@ -63,6 +63,6 @@ public record CarteraTributo(
         this(codigoContribuyente, nombre, tipoPersona, tipoDocumento, numeroDocumento, null, null, null, domicilioFiscal,
                 zonas, tributo, emitidoAnio, pagadoAnio, cuotasExigiblesAnio, cuotasATiempoAnio,
                 deudaVencida, cuotasVencidas, vencimientoMasAntiguo, etapaCobranza,
-                null, null, deudaVencida, deudaVencida, deudaVencida, cuotasVencidas, null);
+                null, null, deudaVencida, deudaVencida, deudaVencida, cuotasVencidas, List.of());
     }
 }

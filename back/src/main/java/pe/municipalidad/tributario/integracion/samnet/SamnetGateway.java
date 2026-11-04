@@ -60,7 +60,7 @@ public interface SamnetGateway {
     String registrarPredio(Predio predio, String codigoContribuyente);
 
     /* RF-024, RF-050, RF-051: cartera por contribuyente y tributo para los reportes del catálogo (HU006). */
-    List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anio);
+    List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anioDesde, int anioHasta, String beneficio);
 
     /* RF-038: extracción de un SP de Rentas para el ETL. */
     List<Map<String, Object>> extraerParaETL(String procedimiento, LocalDate fechaCorte);

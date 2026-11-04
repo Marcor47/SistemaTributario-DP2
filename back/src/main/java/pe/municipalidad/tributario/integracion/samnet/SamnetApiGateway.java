@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 import pe.municipalidad.tributario.cobranza.SeguimientoCobranza;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
@@ -31,6 +33,7 @@ import pe.municipalidad.tributario.gestiontributaria.BeneficioTributario;
 import pe.municipalidad.tributario.gestiontributaria.CanalPago;
 import pe.municipalidad.tributario.gestiontributaria.CarteraTributo;
 import pe.municipalidad.tributario.gestiontributaria.DeclaracionJurada;
+import pe.municipalidad.tributario.gestiontributaria.DetalleDeuda;
 import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
 import pe.municipalidad.tributario.gestiontributaria.Pago;
 import pe.municipalidad.tributario.gestiontributaria.Predio;
@@ -56,10 +59,12 @@ public class SamnetApiGateway implements SamnetGateway {
 
     private final JdbcTemplate jdbc;
     private final Clock reloj;
+    private final JsonMapper json;
 
-    public SamnetApiGateway(JdbcTemplate jdbc, Clock reloj) {
+    public SamnetApiGateway(JdbcTemplate jdbc, Clock reloj, JsonMapper json) {
         this.jdbc = jdbc;
         this.reloj = reloj;
+        this.json = json;
     }
 
     @Override
@@ -202,8 +207,8 @@ public class SamnetApiGateway implements SamnetGateway {
     }
 
     @Override
-    public List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anio) {
-        return invocar(() -> jdbc.query("SELECT * FROM samnet.ps_reportecartera(?, ?)",
+    public List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anioDesde, int anioHasta, String beneficio) {
+        return invocar(() -> jdbc.query("SELECT * FROM samnet.ps_reportecartera(?, ?, ?, ?)",
                 (rs, i) -> new CarteraTributo(
                         rs.getString("contribuyente_codigo"),
                         rs.getString("nombre"),
@@ -239,8 +244,8 @@ public class SamnetApiGateway implements SamnetGateway {
                         rs.getBigDecimal("deuda_vencida_anio"),
                         rs.getBigDecimal("deuda_sin_beneficio_anio"),
                         rs.getInt("cuotas_vencidas_anio"),
-                        rs.getString("detalle_deuda")),
-                Date.valueOf(fechaCorte), anio));
+                        detalleDeuda(rs.getString("detalle_deuda"))),
+                Date.valueOf(fechaCorte), anioDesde, anioHasta, beneficio));
     }
 
     @Override
@@ -338,6 +343,45 @@ public class SamnetApiGateway implements SamnetGateway {
     /* El orden del enum es el orden en que avanza la cobranza. */
     private static EtapaCobranza etapaMasAvanzada(String etapas) {
         return lista(etapas).stream().map(EtapaCobranza::valueOf).max(Comparator.naturalOrder()).orElse(null);
+    }
+
+    private List<DetalleDeuda> detalleDeuda(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return List.of();
+        }
+        try {
+            DetalleDeudaJson[] items = json.readValue(valor, DetalleDeudaJson[].class);
+            return Arrays.stream(items).map(item -> new DetalleDeuda(
+                    item.anio(),
+                    item.codigoPredio(),
+                    item.tributo() == null ? null : Tributo.valueOf(item.tributo()),
+                    item.periodo(),
+                    item.montoSinBeneficio(),
+                    item.montoConBeneficio(),
+                    item.fechaVencimiento() == null ? null : LocalDate.parse(item.fechaVencimiento()),
+                    item.diasVencido(),
+                    item.etapaCobranza() == null ? null : EtapaCobranza.valueOf(item.etapaCobranza()),
+                    item.montoEmitido(),
+                    item.montoPagado(),
+                    item.montoDescontado())).toList();
+        } catch (Exception ex) {
+            throw new IllegalStateException("No se pudo leer el detalle de deuda de la cartera.", ex);
+        }
+    }
+
+    private record DetalleDeudaJson(
+            Integer anio,
+            String codigoPredio,
+            String tributo,
+            Integer periodo,
+            BigDecimal montoSinBeneficio,
+            BigDecimal montoConBeneficio,
+            String fechaVencimiento,
+            Integer diasVencido,
+            String etapaCobranza,
+            BigDecimal montoEmitido,
+            BigDecimal montoPagado,
+            BigDecimal montoDescontado) {
     }
 
     private static LocalDate aFecha(Object valor) {
