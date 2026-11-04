@@ -656,7 +656,7 @@ export default function Reportes() {
     {catalogo.error && <div className="alert" role="alert"><strong>No se pudo cargar el catálogo.</strong><p>{catalogo.error.message}</p><button className="btn" type="button" onClick={reintentarCatalogo}>Reintentar</button></div>}
     {!catalogo.cargando && !catalogo.error && catalogo.datos.length === 0 && <section className="pcard reporte-estado" role="status"><h2>Sin reportes disponibles</h2><p>Tu perfil no tiene reportes habilitados en este momento.</p></section>}
     {catalogo.datos.length > 0 && !reporte && <section className="pcard reporte-catalogo reporte-catalogo--entrada" aria-labelledby="catalogo-reportes"><h2 id="catalogo-reportes">Selecciona un reporte</h2><p className="hint">El catálogo muestra únicamente los reportes habilitados para tu perfil.</p><div className="reporte-opciones" role="radiogroup" aria-label="Catálogo de reportes">{catalogo.datos.map((item) => <button key={item.tipo} type="button" className="reporte-opcion" role="radio" aria-checked="false" onClick={() => elegir(item.tipo)}><strong>{item.titulo}</strong><span>{item.descripcion}</span></button>)}</div></section>}
-    {reporte && <>
+    {reporte && seleccion === 'MOROSOS' && <>
       <section className="pcard reporte-configuracion" aria-labelledby="configuracion-reporte">
         <form className="reporte-configuracion-form" onSubmit={consultar} noValidate>
           <div className="reporte-configuracion-cab">
