@@ -28,6 +28,9 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
 
 tributario:
+  constancia:
+    # Derecho de trámite de la Constancia de No Adeudo (HU020). Confirmar el monto vigente del TUPA con la Municipalidad.
+    derecho-tramite: ${CONSTANCIA_DERECHO_TRAMITE:10.00}
   seguridad:
     cors-origins: ${CORS_ORIGINS:http://localhost:5173}
     administrador-inicial:
