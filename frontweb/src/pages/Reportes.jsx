@@ -1,9 +1,10 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Reorder } from 'framer-motion'
 import { fecha, fechaHora, moneda } from '../utils/formato.js'
 import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
 import { abrirVista, descargarReporte, eliminarVista, exportarVista, generarReporte, guardarVista, listarVistas, listarZonas, obtenerCatalogoReportes } from '../services/reporteService.js'
 import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
+import ReportePricos from './ReportePricos.jsx'
 import './Reportes.css'
 
 const ANIO_ACTUAL = new Date().getFullYear()
@@ -14,14 +15,14 @@ const ORDENES = {
   BUENOS_PAGADORES: [['pagadoAnio:desc', 'Pagado: mayor a menor'], ['pagadoAnio:asc', 'Pagado: menor a mayor'], ['nombre:asc', 'Nombre: A-Z']],
 }
 const COLUMNAS = {
-  MOROSOS: ['codigo', 'razonSocial', 'regimen', 'tipoDocumento', 'numeroDocumento', 'via', 'numero', 'departamento', 'interior', 'manzana', 'lote', 'distrito', 'deudaVencida', 'deudaSinBeneficio', 'condicion', 'tipoPersona', 'correo', 'telefonos'],
+  MOROSOS: ['codigo', 'razonSocial', 'regimen', 'tipoDocumento', 'numeroDocumento', 'via', 'numero', 'departamento', 'interior', 'manzana', 'lote', 'distrito', 'zonas', 'deudaVencida', 'deudaSinBeneficio', 'condicion', 'tipoPersona', 'correo', 'telefonos'],
   PRICOS: ['codigo', 'nombre', 'tipoPersona', 'zonas', 'emitidoAnio', 'pagadoAnio', 'porcentajePagado', 'deudaVencida'],
   BUENOS_PAGADORES: ['codigo', 'nombre', 'zonas', 'cuotasPagadasATiempo', 'pagadoAnio'],
 }
-const COLUMNAS_DETALLE_MOROSOS = ['anio', 'codigoPredio', 'tributo', 'periodo', 'fechaVencimiento', 'diasVencido', 'etapaCobranza', 'montoSinBeneficio', 'montoConBeneficio']
+const COLUMNAS_DETALLE_MOROSOS = ['anio', 'codigoPredio', 'zona', 'tributo', 'periodo', 'fechaVencimiento', 'diasVencido', 'etapaCobranza', 'montoSinBeneficio', 'montoConBeneficio']
 const ETIQUETAS = { codigo: 'Código', nombre: 'Contribuyente', razonSocial: 'Razón social', regimen: 'Régimen', tipoPersona: 'Tipo persona', tipoDocumento: 'Tipo doc.', numeroDocumento: 'Documento', via: 'Vía', numero: 'N°', departamento: 'Dpto', interior: 'Interior', manzana: 'Mz', lote: 'Lote', distrito: 'Distrito', condicion: 'Condición', correo: 'Email', telefonos: 'Teléfonos', zonas: 'Zonas', deudaSinBeneficio: 'Deuda sin beneficio', deudaVencida: 'Deuda vencida', cuotasVencidas: 'Cuotas vencidas', nombreEtapa: 'Etapa', emitidoAnio: 'Emitido', pagadoAnio: 'Pagado', porcentajePagado: '% pagado', cuotasPagadasATiempo: 'Cuotas a tiempo' }
 const ETIQUETAS_CABECERA = { ...ETIQUETAS, numeroDocumento: 'N° doc.', deudaVencida: 'Total con beneficio', deudaSinBeneficio: 'Total sin beneficio' }
-const ETIQUETAS_DETALLE = { anio: 'Año', codigoPredio: 'Predio', tributo: 'Tributo', periodo: 'Cuota', fechaVencimiento: 'Vencimiento', diasVencido: 'Días vencido', etapaCobranza: 'Etapa', montoSinBeneficio: 'Sin beneficio', montoConBeneficio: 'Con beneficio' }
+const ETIQUETAS_DETALLE = { anio: 'Año', codigoPredio: 'Predio', zona: 'Zona', tributo: 'Tributo', periodo: 'Cuota', fechaVencimiento: 'Vencimiento', diasVencido: 'Días vencido', etapaCobranza: 'Etapa', montoSinBeneficio: 'Sin beneficio', montoConBeneficio: 'Con beneficio' }
 const COLUMNAS_MONTO_MOROSOS = new Set(['deudaVencida', 'deudaSinBeneficio'])
 const COLUMNAS_MONTO_DETALLE = new Set(['montoSinBeneficio', 'montoConBeneficio'])
 
@@ -37,6 +38,20 @@ function opcionesDesdeMorosos(filas) {
 
 function graficaVisible(tipo) {
   return tipo === 'TABLA' ? 'TABLA' : 'BARRAS'
+}
+
+function medirDesborde(elemento) {
+  if (!elemento) return { izquierda: false, derecha: false }
+  return {
+    izquierda: elemento.scrollLeft > 2,
+    derecha: elemento.scrollLeft + elemento.clientWidth < elemento.scrollWidth - 2,
+  }
+}
+
+function desplazarColumnas(ref, direccion) {
+  const grid = ref.current?.querySelector('.reporte-columnas-grid')
+  if (!grid) return
+  grid.scrollBy({ left: direccion * Math.max(180, grid.clientWidth * 0.75), behavior: 'smooth' })
 }
 
 function valorColumna(fila, columna) {
@@ -117,6 +132,7 @@ function valorCabecera(fila, columna) {
     case 'manzana': return textoCabecera(domicilio.manzana)
     case 'lote': return textoCabecera(domicilio.lote)
     case 'distrito': return textoCabecera(domicilio.distrito)
+    case 'zonas': return textoCabecera(fila.zonas?.join(', '))
     case 'deudaVencida': return montoCabecera(fila.deudaVencida)
     case 'deudaSinBeneficio': return montoCabecera(fila.deudaSinBeneficio)
     case 'condicion': return textoCabecera(fila.condicion)
@@ -138,6 +154,7 @@ function valorDetalle(item, columna) {
   switch (columna) {
     case 'anio': return textoCabecera(item.anio)
     case 'codigoPredio': return textoCabecera(item.codigoPredio)
+    case 'zona': return textoCabecera(item.zona)
     case 'tributo': return etiquetaTributo(item.tributo)
     case 'periodo': return etiquetaCuota(item.tributo, item.periodo)
     case 'fechaVencimiento': return fechaCabecera(item.fechaVencimiento)
@@ -298,6 +315,8 @@ export default function Reportes() {
   const arrastreDetalle = useRef(false)
   const grupoColumnasRef = useRef(null)
   const grupoDetalleRef = useRef(null)
+  const [desbordeColumnas, setDesbordeColumnas] = useState({ izquierda: false, derecha: false })
+  const [desbordeDetalle, setDesbordeDetalle] = useState({ izquierda: false, derecha: false })
   const reporte = useMemo(() => catalogo.datos.find(({ tipo }) => tipo === seleccion), [catalogo.datos, seleccion])
   const columnasEfectivas = columnas.length ? columnas : (COLUMNAS[seleccion] || [])
   const columnasDetalleEfectivas = columnasDetalle.length
@@ -334,6 +353,35 @@ export default function Reportes() {
     || columnasDetalleEfectivas.join('|') !== columnasDetalleAplicadasEfectivas.join('|')
     || ordenColumnasDetalleEfectivas.join('|') !== ordenColumnasDetalleAplicadasEfectivas.join('|')
     || orden !== ordenAplicado
+  const mostrarAvisoCambios = hayCambiosSinAplicar && !resultado.cargando
+
+  const actualizarDesbordeColumnas = useCallback(() => {
+    setDesbordeColumnas((actual) => {
+      const siguiente = medirDesborde(grupoColumnasRef.current?.querySelector('.reporte-columnas-grid'))
+      return actual.izquierda === siguiente.izquierda && actual.derecha === siguiente.derecha ? actual : siguiente
+    })
+  }, [])
+
+  const actualizarDesbordeDetalle = useCallback(() => {
+    setDesbordeDetalle((actual) => {
+      const siguiente = medirDesborde(grupoDetalleRef.current?.querySelector('.reporte-columnas-grid'))
+      return actual.izquierda === siguiente.izquierda && actual.derecha === siguiente.derecha ? actual : siguiente
+    })
+  }, [])
+
+  useEffect(() => {
+    const actualizar = () => {
+      actualizarDesbordeColumnas()
+      actualizarDesbordeDetalle()
+    }
+    const frame = window.requestAnimationFrame(actualizar)
+    window.addEventListener('resize', actualizar)
+    return () => {
+      window.cancelAnimationFrame(frame)
+      window.removeEventListener('resize', actualizar)
+    }
+  }, [seleccion, columnasEfectivas.length, columnasDetalleEfectivas.length,
+    actualizarDesbordeColumnas, actualizarDesbordeDetalle])
 
   async function cargarMorososInicial(reporteMorosos, filtrosIniciales = FILTROS_INICIALES) {
     consultaActiva.current?.abort()
@@ -595,12 +643,14 @@ export default function Reportes() {
     setColumnas([])
     setOrdenColumnas([...columnasPredeterminadas])
     grupoColumnasRef.current?.querySelector('.reporte-columnas-grid')?.scrollTo({ left: 0 })
+    window.requestAnimationFrame(actualizarDesbordeColumnas)
   }
 
   function restablecerColumnasDetalle() {
     setColumnasDetalle([])
     setOrdenColumnasDetalle([...detallePredeterminado])
     grupoDetalleRef.current?.querySelector('.reporte-columnas-grid')?.scrollTo({ left: 0 })
+    window.requestAnimationFrame(actualizarDesbordeDetalle)
   }
 
   function restablecerFiltros() {
@@ -656,6 +706,7 @@ export default function Reportes() {
     {catalogo.error && <div className="alert" role="alert"><strong>No se pudo cargar el catálogo.</strong><p>{catalogo.error.message}</p><button className="btn" type="button" onClick={reintentarCatalogo}>Reintentar</button></div>}
     {!catalogo.cargando && !catalogo.error && catalogo.datos.length === 0 && <section className="pcard reporte-estado" role="status"><h2>Sin reportes disponibles</h2><p>Tu perfil no tiene reportes habilitados en este momento.</p></section>}
     {catalogo.datos.length > 0 && !reporte && <section className="pcard reporte-catalogo reporte-catalogo--entrada" aria-labelledby="catalogo-reportes"><h2 id="catalogo-reportes">Selecciona un reporte</h2><p className="hint">El catálogo muestra únicamente los reportes habilitados para tu perfil.</p><div className="reporte-opciones" role="radiogroup" aria-label="Catálogo de reportes">{catalogo.datos.map((item) => <button key={item.tipo} type="button" className="reporte-opcion" role="radio" aria-checked="false" onClick={() => elegir(item.tipo)}><strong>{item.titulo}</strong><span>{item.descripcion}</span></button>)}</div></section>}
+    {reporte && seleccion === 'PRICOS' && <ReportePricos titulo={reporte.titulo} onCambiarReporte={cambiarReporte} />}
     {reporte && seleccion === 'MOROSOS' && <>
       <section className="pcard reporte-configuracion" aria-labelledby="configuracion-reporte">
         <form className="reporte-configuracion-form" onSubmit={consultar} noValidate>
@@ -669,7 +720,14 @@ export default function Reportes() {
               <button className="btn primary reporte-generar" type="submit" disabled={resultado.cargando}>{resultado.cargando ? 'Generando…' : 'Generar reporte'}</button>
             </div>
           </div>
-          {hayCambiosSinAplicar && !resultado.cargando && <p className="reporte-cambios-pendientes" role="status">Hay cambios de filtros, columnas u orden sin aplicar. Pulsa “Generar reporte” para verlos.</p>}
+          <div
+            className={`reporte-cambios-pendientes-wrap${mostrarAvisoCambios ? ' reporte-cambios-pendientes-wrap--visible' : ''}`}
+            aria-hidden={!mostrarAvisoCambios}
+          >
+            <div className="reporte-cambios-pendientes-interior">
+              <p className="reporte-cambios-pendientes" role="status">Hay cambios de filtros, columnas u orden sin aplicar. Pulsa “Generar reporte” para verlos.</p>
+            </div>
+          </div>
 
           <div className="reporte-configuracion-grid">
             <fieldset className="reporte-config-grupo">
@@ -764,12 +822,18 @@ export default function Reportes() {
                 <fieldset className="reporte-columnas">
                   <legend>Columnas visibles</legend>
                   <div className="reporte-fila-restablecer">
-                    <div className="reporte-columnas-grupo" ref={grupoColumnasRef}>
+                    <div
+                      className="reporte-columnas-grupo"
+                      ref={grupoColumnasRef}
+                      data-desborde-izquierda={desbordeColumnas.izquierda}
+                      data-desborde-derecha={desbordeColumnas.derecha}
+                    >
                       <Reorder.Group
                         as="div"
                         axis="x"
                         values={ordenColumnasEfectivas}
                         onReorder={reordenarColumnas}
+                        onScroll={actualizarDesbordeColumnas}
                         className="reporte-columnas-grid"
                         role="group"
                         aria-label="Columnas visibles"
@@ -791,6 +855,18 @@ export default function Reportes() {
                           {seleccion === 'MOROSOS' ? ETIQUETAS_CABECERA[columna] : ETIQUETAS[columna]}
                         </Reorder.Item>)}
                       </Reorder.Group>
+                      {desbordeColumnas.izquierda && <button
+                        className="reporte-columnas-flecha reporte-columnas-flecha--izquierda"
+                        type="button"
+                        aria-label="Desplazar columnas a la izquierda"
+                        onClick={() => desplazarColumnas(grupoColumnasRef, -1)}
+                      ><span aria-hidden="true">‹</span></button>}
+                      {desbordeColumnas.derecha && <button
+                        className="reporte-columnas-flecha reporte-columnas-flecha--derecha"
+                        type="button"
+                        aria-label="Desplazar columnas a la derecha"
+                        onClick={() => desplazarColumnas(grupoColumnasRef, 1)}
+                      ><span aria-hidden="true">›</span></button>}
                     </div>
                     <button
                       className="btn reporte-btn-restablecer"
@@ -804,12 +880,18 @@ export default function Reportes() {
                   {seleccion === 'MOROSOS' && <>
                     <p className="reporte-columnas-subtitulo">Columnas del detalle</p>
                     <div className="reporte-fila-restablecer">
-                      <div className="reporte-columnas-grupo" ref={grupoDetalleRef}>
+                      <div
+                        className="reporte-columnas-grupo"
+                        ref={grupoDetalleRef}
+                        data-desborde-izquierda={desbordeDetalle.izquierda}
+                        data-desborde-derecha={desbordeDetalle.derecha}
+                      >
                         <Reorder.Group
                           as="div"
                           axis="x"
                           values={ordenColumnasDetalleEfectivas}
                           onReorder={reordenarColumnasDetalle}
+                          onScroll={actualizarDesbordeDetalle}
                           className="reporte-columnas-grid"
                           role="group"
                           aria-label="Columnas del detalle"
@@ -831,6 +913,18 @@ export default function Reportes() {
                             {ETIQUETAS_DETALLE[columna]}
                           </Reorder.Item>)}
                         </Reorder.Group>
+                        {desbordeDetalle.izquierda && <button
+                          className="reporte-columnas-flecha reporte-columnas-flecha--izquierda"
+                          type="button"
+                          aria-label="Desplazar columnas del detalle a la izquierda"
+                          onClick={() => desplazarColumnas(grupoDetalleRef, -1)}
+                        ><span aria-hidden="true">‹</span></button>}
+                        {desbordeDetalle.derecha && <button
+                          className="reporte-columnas-flecha reporte-columnas-flecha--derecha"
+                          type="button"
+                          aria-label="Desplazar columnas del detalle a la derecha"
+                          onClick={() => desplazarColumnas(grupoDetalleRef, 1)}
+                        ><span aria-hidden="true">›</span></button>}
                       </div>
                       <button
                         className="btn reporte-btn-restablecer"
@@ -910,7 +1004,7 @@ export default function Reportes() {
           {accionError && <div className="alert" role="alert">{accionError.message}</div>}
         </form>
       </section>
-      <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}</div>
+      <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : errorGeneral.codigo === 'SIN_CARGA_ETL' ? 'El ETL no tiene una carga publicada.' : errorGeneral.codigo === 'ETL_SIN_CORRESPONDENCIA' ? 'El ETL no tiene correspondencia con SAMNET.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}</div>
       {resultado.datos && <section className="reporte-resultados" aria-labelledby="resultado-reporte"><div className="reporte-resultados-cab"><div><h2 id="resultado-reporte">{resultado.datos.titulo}</h2><p className="hint">Información oficial a la fecha de corte indicada.</p></div></div><Resumen datos={resultado.datos} />{resultado.datos.filas.length === 0 ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes que cumplan los criterios seleccionados.</p></div> : grafica === 'TABLA' ? <TablaReporte datos={resultado.datos} columnasDetalle={columnasDetalleAplicadasEfectivas} /> : <BarrasReporte datos={resultado.datos} />}</section>}
     </>}
     <ModalConfirmacion

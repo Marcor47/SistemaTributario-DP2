@@ -26,6 +26,34 @@ export const FILTROS_BENEFICIO = [
   { valor: 'SIN_BENEFICIO', etiqueta: 'Sin beneficio' },
 ]
 
+export const CRITERIOS_PRICOS = [
+  { valor: 'BASE_IMPONIBLE', etiqueta: 'Base imponible', descripcion: 'Ordena por la mayor base imponible de los predios del contribuyente.' },
+  { valor: 'DEUDA_TOTAL', etiqueta: 'Deuda total', descripcion: 'Ordena por la mayor deuda vencida de todos los años.' },
+]
+
+export function validarPricos({ criterio, limite }) {
+  const errores = {}
+  if (!CRITERIOS_PRICOS.some(({ valor }) => valor === criterio)) {
+    errores.criterio = 'Selecciona un criterio válido.'
+  }
+  const cantidad = Number(limite)
+  if (limite === '' || limite == null || !Number.isInteger(cantidad) || cantidad < 1 || cantidad > 200) {
+    errores.limite = 'Ingresa un límite entre 1 y 200.'
+  }
+  return errores
+}
+
+export function parametrosPricos({ criterio, limite }) {
+  const parametros = new URLSearchParams()
+  if (criterio) parametros.set('criterio', String(criterio).trim())
+  if (limite !== '' && limite != null) parametros.set('limite', String(limite).trim())
+  return parametros
+}
+
+export function etiquetaCriterioPricos(criterio) {
+  return CRITERIOS_PRICOS.find(({ valor }) => valor === criterio)?.etiqueta || criterio || 'No definido'
+}
+
 export function filtrosDisponibles(reporte) {
   return (reporte?.filtros || []).filter((filtro) => FILTROS_VALIDOS.has(filtro))
 }

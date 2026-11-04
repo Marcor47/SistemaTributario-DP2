@@ -43,6 +43,9 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
  * - documento de identidad (tipo y DNI o RUC)
  * - domicilio fiscal (vía, número, departamento, interior, manzana, lote y distrito)
  * - deuda sin beneficio
+ *
+ * La muestra se calcula sobre la carga ETL de 2026-10-19. Con filtro de zona solo se suman los
+ * arbitrios de los predios de esa zona; el predial no tiene zona.
  */
 @PruebaIntegracion
 @Transactional
@@ -60,7 +63,7 @@ class ReporteMorososZonaTest {
     private LoteETLRepository lotes;
 
     @Test
-    void morososPorZonaYPeriodoCoincideConMuestraControlSAMNET() throws Exception {
+    void morososPorZonaYPeriodoCoincideConLaCargaEtl() throws Exception {
         mvc.perform(get("/api/reportes/morosos-zona")
                         .param("periodo", "2026")
                         .param("zona", "Z2")
@@ -81,15 +84,16 @@ class ReporteMorososZonaTest {
                 .andExpect(jsonPath("$.filas[0].domicilioFiscalDesglosado.numero").value("220"))
                 .andExpect(jsonPath("$.filas[0].domicilioFiscalDesglosado.distrito").value("SAN MIGUEL"))
                 // La muestra se calcula a la fecha de corte del último lote publicado de cobranza.
-                .andExpect(jsonPath("$.filas[0].deudaVencida").value(4647.76))
-                .andExpect(jsonPath("$.filas[0].deudaSinBeneficio").value(4647.76))
-                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(4))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z2")));
+                // Con filtro de zona solo se suman los arbitrios de los predios de Z2.
+                .andExpect(jsonPath("$.filas[0].deudaVencida").value(6930.08))
+                .andExpect(jsonPath("$.filas[0].deudaSinBeneficio").value(6930.08))
+                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(10))
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2", "Z3")));
     }
 
     @Test
-    void conCargaDelETLDelPeriodoElReporteCoincideConSAMNET() throws Exception {
-        // Carga previa del ETL para el periodo evaluado (prerrequisito HU026)
+    void conCargaDelETLDelPeriodoElReporteSeCalculaSobreElEtl() throws Exception {
+        // Un lote publicado sin hechos no se usa: el reporte toma la carga del seed que sí trae hechos.
         LoteETL lote = new LoteETL(
                 "ps_etl_cobranza",
                 LocalDate.of(2026, 10, 19),
@@ -104,11 +108,11 @@ class ReporteMorososZonaTest {
                         .param("zona", "Z1")
                         .session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filas[*].codigo", contains("045067")))
-                .andExpect(jsonPath("$.filas[0].razonSocial").value("CENTRO EDUCATIVO SOL DE LIMA E.I.R.L."))
-                .andExpect(jsonPath("$.filas[0].regimen").value("GENERAL"))
-                .andExpect(jsonPath("$.filas[0].domicilioFiscalDesglosado.via").value("Av. Faro Azul"))
-                .andExpect(jsonPath("$.filas[0].deudaSinBeneficio", notNullValue()));
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")))
+                .andExpect(jsonPath("$.filas[1].razonSocial").value("CENTRO EDUCATIVO SOL DE LIMA E.I.R.L."))
+                .andExpect(jsonPath("$.filas[1].regimen").value("GENERAL"))
+                .andExpect(jsonPath("$.filas[1].domicilioFiscalDesglosado.via").value("Av. Faro Azul"))
+                .andExpect(jsonPath("$.filas[1].deudaSinBeneficio", notNullValue()));
     }
 
     @Test

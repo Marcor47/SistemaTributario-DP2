@@ -3,7 +3,6 @@ package pe.municipalidad.tributario.reporte;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -35,14 +34,14 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
 /*
  * HU037: reporte PRICOS con los datos de prueba y fecha de corte 2026-10-19. Muestra de control de la fila de
- * 021390 (INVERSIONES COSTA AZUL, predio de base imponible 960 000,00):
+ * 021390 (INVERSIONES COSTA AZUL, 11 predios con base imponible total 4 270 000,00):
  *
- *   Emisión 2026      predial 1010,88 + 1029,60 = 2040,48   arbitrios 1291,68 + 1315,60 = 2607,28
- *   Deuda anteriores  predial 992,16                         arbitrios 1267,76  (cuota 4 de 2025 sin pagar)
- *   Deuda 2026        predial 2040,48                        arbitrios 2607,28  (todas vencidas y sin pagar)
- *   Deuda total       6907,68, igual al total de deuda de HU048 para ese contribuyente
+ *   Emisión 2026      predial 2040,48   arbitrios 12 707,28
+ *   Deuda anteriores  predial 992,16    arbitrios 1267,76  (cuota 4 de 2025 sin pagar)
+ *   Deuda 2026        predial 2040,48   arbitrios 12 707,28 (todas vencidas y sin pagar)
+ *   Deuda total       6907,68 de predial + 13 975,04 de arbitrios
  *
- * Por base imponible el orden es 045067 (1 250 000), 021390 (960 000), 014502 (185 000) y 033218 (142 000).
+ * Por base imponible el orden es 021390 (4 270 000), 045067 (1 250 000), 058934/061177 (210 000) y 014502 (185 000).
  */
 @PruebaIntegracion
 @Transactional
@@ -88,35 +87,40 @@ class ReportePricosControllerTest {
 
     @Test
     void muestraLasColumnasDeRf050DeCadaContribuyente() throws Exception {
-        LoteETL lote = cargaPublicada();
+        cargaPublicada();
+        Long idLoteSeed = jdbc.queryForObject("""
+                SELECT id_lote FROM analitica.lote_etl
+                WHERE fuente = 'ps_etl_cobranza' AND fecha_corte = DATE '2026-10-19'
+                ORDER BY id_lote LIMIT 1
+                """, Long.class);
 
         mockMvc.perform(get(RUTA).param("limite", "2").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.idLote").value(lote.getIdLote()))
+                .andExpect(jsonPath("$.idLote").value(idLoteSeed))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
                 .andExpect(jsonPath("$.criterio").value("BASE_IMPONIBLE"))
-                .andExpect(jsonPath("$.filas[1].posicion").value(2))
-                .andExpect(jsonPath("$.filas[1].codigo").value("021390"))
-                .andExpect(jsonPath("$.filas[1].razonSocial").value("INVERSIONES COSTA AZUL S.A.C."))
-                .andExpect(jsonPath("$.filas[1].regimen").value("GENERAL"))
-                .andExpect(jsonPath("$.filas[1].documento.tipo").value("RUC"))
-                .andExpect(jsonPath("$.filas[1].documento.numero").value("20456781239"))
-                .andExpect(jsonPath("$.filas[1].domicilioFiscal.direccion").value("Jr. Los Precursores 220, San Miguel"))
-                .andExpect(jsonPath("$.filas[1].domicilioFiscal.via").value("Jr. Los Precursores"))
-                .andExpect(jsonPath("$.filas[1].domicilioFiscal.numero").value("220"))
-                .andExpect(jsonPath("$.filas[1].domicilioFiscal.distrito").value("SAN MIGUEL"))
-                .andExpect(jsonPath("$.filas[1].baseImponible").value(960000.0))
-                .andExpect(jsonPath("$.filas[1].emisionAnioCorte.predial").value(2040.48))
-                .andExpect(jsonPath("$.filas[1].emisionAnioCorte.arbitrios").value(2607.28))
-                .andExpect(jsonPath("$.filas[1].deudaAniosAnteriores.predial").value(992.16))
-                .andExpect(jsonPath("$.filas[1].deudaAniosAnteriores.arbitrios").value(1267.76))
-                .andExpect(jsonPath("$.filas[1].deudaAnioCorte.predial").value(2040.48))
-                .andExpect(jsonPath("$.filas[1].deudaAnioCorte.arbitrios").value(2607.28))
-                .andExpect(jsonPath("$.filas[1].deudaAnioCorte.porcentajeDescuentoArbitrios").value(0.0))
-                .andExpect(jsonPath("$.filas[1].condicion").value("HABIDO"))
-                .andExpect(jsonPath("$.filas[1].tipoPersona").value("JURIDICA"))
-                .andExpect(jsonPath("$.filas[1].correo").value("cobranzas@costaazul.test"))
-                .andExpect(jsonPath("$.filas[1].telefonos").value("014500202"));
+                .andExpect(jsonPath("$.filas[0].posicion").value(1))
+                .andExpect(jsonPath("$.filas[0].codigo").value("021390"))
+                .andExpect(jsonPath("$.filas[0].razonSocial").value("INVERSIONES COSTA AZUL S.A.C."))
+                .andExpect(jsonPath("$.filas[0].regimen").value("GENERAL"))
+                .andExpect(jsonPath("$.filas[0].documento.tipo").value("RUC"))
+                .andExpect(jsonPath("$.filas[0].documento.numero").value("20456781239"))
+                .andExpect(jsonPath("$.filas[0].domicilioFiscal.direccion").value("Jr. Los Precursores 220, San Miguel"))
+                .andExpect(jsonPath("$.filas[0].domicilioFiscal.via").value("Jr. Los Precursores"))
+                .andExpect(jsonPath("$.filas[0].domicilioFiscal.numero").value("220"))
+                .andExpect(jsonPath("$.filas[0].domicilioFiscal.distrito").value("SAN MIGUEL"))
+                .andExpect(jsonPath("$.filas[0].baseImponible").value(4270000.0))
+                .andExpect(jsonPath("$.filas[0].emisionAnioCorte.predial").value(2040.48))
+                .andExpect(jsonPath("$.filas[0].emisionAnioCorte.arbitrios").value(12707.28))
+                .andExpect(jsonPath("$.filas[0].deudaAniosAnteriores.predial").value(992.16))
+                .andExpect(jsonPath("$.filas[0].deudaAniosAnteriores.arbitrios").value(1267.76))
+                .andExpect(jsonPath("$.filas[0].deudaAnioCorte.predial").value(2040.48))
+                .andExpect(jsonPath("$.filas[0].deudaAnioCorte.arbitrios").value(12707.28))
+                .andExpect(jsonPath("$.filas[0].deudaAnioCorte.porcentajeDescuentoArbitrios").value(0.0))
+                .andExpect(jsonPath("$.filas[0].condicion").value("HABIDO"))
+                .andExpect(jsonPath("$.filas[0].tipoPersona").value("JURIDICA"))
+                .andExpect(jsonPath("$.filas[0].correo").value("cobranzas@costaazul.test"))
+                .andExpect(jsonPath("$.filas[0].telefonos").value("014500202"));
     }
 
     @Test
@@ -128,11 +132,12 @@ class ReportePricosControllerTest {
                 .andExpect(jsonPath("$.limite").value(4))
                 .andExpect(jsonPath("$.totalContribuyentes", greaterThanOrEqualTo(5)))
                 .andExpect(jsonPath("$.filas", hasSize(4)))
-                .andExpect(jsonPath("$.filas[0].codigo").value("045067"))
-                .andExpect(jsonPath("$.filas[0].baseImponible").value(1250000.0))
-                .andExpect(jsonPath("$.filas[1].codigo").value("021390"))
-                .andExpect(jsonPath("$.filas[2].codigo").value("014502"))
-                .andExpect(jsonPath("$.filas[3].codigo").value("033218"));
+                .andExpect(jsonPath("$.filas[0].codigo").value("021390"))
+                .andExpect(jsonPath("$.filas[0].baseImponible").value(4270000.0))
+                .andExpect(jsonPath("$.filas[1].codigo").value("045067"))
+                .andExpect(jsonPath("$.filas[1].baseImponible").value(1250000.0))
+                .andExpect(jsonPath("$.filas[2].codigo").value("058934"))
+                .andExpect(jsonPath("$.filas[3].codigo").value("061177"));
     }
 
     @Test
@@ -198,11 +203,48 @@ class ReportePricosControllerTest {
     @Test
     void siSamnetNoRespondeInformaQueNoEstaDisponible() throws Exception {
         cargaPublicada();
-        doThrow(new SamnetNoDisponibleException(null)).when(samnet).extraerParaETL(anyString(), any());
+        doThrow(new SamnetNoDisponibleException(null)).when(samnet).buscarContribuyente(anyString());
 
         mockMvc.perform(get(RUTA).session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.codigo").value("SAMNET_NO_DISPONIBLE"));
+    }
+
+    @Test
+    void sinCargaPublicadaConHechosDevuelveErrorDeNegocio() throws Exception {
+        jdbc.update("DELETE FROM analitica.hecho_cobranza");
+
+        mockMvc.perform(get(RUTA).session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("SIN_CARGA_ETL"));
+    }
+
+    @Test
+    void sinCorrespondenciaConSamnetDevuelveErrorDeNegocio() throws Exception {
+        LoteETL lote = cargaPublicada();
+        String seudonimo = "pricos-sin-correspondencia";
+        jdbc.update("""
+                INSERT INTO analitica.dim_contribuyente
+                    (seudonimo_contribuyente, tipo_persona, regimen, condicion)
+                VALUES (?, 'JURIDICA', 'GENERAL', 'HABIDO')
+                """, seudonimo);
+        Long idPredio = jdbc.queryForObject("""
+                INSERT INTO analitica.dim_predio
+                    (seudonimo_predio, zona, uso_predio, tipo_predio, base_imponible)
+                VALUES ('pricos-predio-sin-correspondencia', 'Z1', 'Comercio', 'URBANO', 99999999.00)
+                RETURNING id_predio
+                """, Long.class);
+        jdbc.update("""
+                INSERT INTO analitica.hecho_cobranza
+                    (id_lote, seudonimo_contribuyente, id_predio, tributo, anio, cuota, fecha_vencimiento,
+                     monto_emitido, monto_insoluto, monto_pagado, monto_descuento, estado_pago)
+                VALUES (?, ?, ?, 'IMPUESTO_PREDIAL', 2026, 1, DATE '2026-03-31',
+                        100.00, 100.00, 0, 0, 'VENCIDA')
+                """, lote.getIdLote(), seudonimo, idPredio);
+
+        mockMvc.perform(get(RUTA).session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("ETL_SIN_CORRESPONDENCIA"));
     }
 
     private LoteETL cargaPublicada() {

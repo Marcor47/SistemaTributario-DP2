@@ -12,6 +12,7 @@ import pe.municipalidad.tributario.obligacion.Tributo;
 public record DetalleDeuda(
         Integer anio,
         String codigoPredio,
+        String zona,
         Tributo tributo,
         Integer periodo,
         BigDecimal montoSinBeneficio,

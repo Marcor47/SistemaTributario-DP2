@@ -1,8 +1,8 @@
 # HU037 - Generar el reporte de PRICOS
 
 Como Gerencia de Rentas, generar el reporte de Principales Contribuyentes (PRICOS) para dar seguimiento a los
-contribuyentes de mayor impacto en la recaudación (RF-050). Es una consulta de **solo lectura** sobre SAMNET; lo
-único que se escribe es el registro de la solicitud del reporte (RF-059).
+contribuyentes de mayor impacto en la recaudación (RF-050). Es una consulta de **solo lectura** sobre la última
+carga publicada del ETL; lo único que se escribe es el registro de la solicitud del reporte (RF-059).
 
 ## Acceso
 
@@ -19,10 +19,23 @@ Se usa la sesión interna:
 | Sesión con otro rol (por ejemplo `TERMINALISTA` o `ADMINISTRADOR`) | `403` |
 | El rol tiene el reporte PRICOS restringido (RF-060) | `403` |
 | `limite` fuera de 1 a 200, o `criterio` desconocido | `400` `SOLICITUD_INVALIDA` |
-| No hay ninguna carga publicada del ETL | `422` `SIN_CARGA_ETL` |
+| No hay ninguna carga publicada del ETL con hechos | `422` `SIN_CARGA_ETL` |
+| La carga no tiene correspondencia con SAMNET | `422` `ETL_SIN_CORRESPONDENCIA` |
 | SAMNET no responde | `503` `SAMNET_NO_DISPONIBLE` |
 
 Los errores usan el contrato del backend: `{ "codigo": "...", "mensaje": "...", "detalles": [] }`.
+
+## Fuente de los datos
+
+El reporte se calcula siempre sobre la última carga `PUBLICADA` de `ps_etl_cobranza` que tenga hechos:
+
+- La emisión, la deuda y la base imponible salen de `analitica.hecho_cobranza` y `analitica.dim_predio`.
+- `baseImponible` es la suma de la base de los predios del contribuyente en la carga. No descuenta copropiedad.
+- La identidad, el domicilio y el contacto se completan desde SAMNET mediante `maestros.correspondencia_origen`;
+  cada reidentificación queda auditada (RNF-018).
+- Si no hay una carga publicada con hechos: `422` `SIN_CARGA_ETL`.
+- Si la carga no tiene correspondencia con SAMNET: `422` `ETL_SIN_CORRESPONDENCIA`.
+- `totalContribuyentes` cuenta los contribuyentes con hechos en la carga, antes de aplicar `limite`.
 
 ## Endpoint
 
@@ -43,14 +56,14 @@ servicio, sin cambiar el contrato.
 
 ```json
 {
-  "idLote": 3,
+  "idLote": 2,
   "fechaCorte": "2026-10-19",
   "criterio": "BASE_IMPONIBLE",
   "limite": 10,
-  "totalContribuyentes": 7,
+  "totalContribuyentes": 6,
   "filas": [
     {
-      "posicion": 2,
+      "posicion": 1,
       "codigo": "021390",
       "razonSocial": "INVERSIONES COSTA AZUL S.A.C.",
       "regimen": "GENERAL",
@@ -65,10 +78,10 @@ servicio, sin cambiar el contrato.
         "lote": null,
         "distrito": "SAN MIGUEL"
       },
-      "baseImponible": 960000.00,
-      "emisionAnioCorte": { "predial": 2040.48, "arbitrios": 2607.28 },
+      "baseImponible": 4270000.00,
+      "emisionAnioCorte": { "predial": 2040.48, "arbitrios": 12707.28 },
       "deudaAniosAnteriores": { "predial": 992.16, "arbitrios": 1267.76 },
-      "deudaAnioCorte": { "predial": 2040.48, "arbitrios": 2607.28, "porcentajeDescuentoArbitrios": 0.00 },
+      "deudaAnioCorte": { "predial": 2040.48, "arbitrios": 12707.28, "porcentajeDescuentoArbitrios": 0.00 },
       "condicion": "HABIDO",
       "tipoPersona": "JURIDICA",
       "correo": "cobranzas@costaazul.test",
@@ -86,7 +99,7 @@ servicio, sin cambiar el contrato.
 | --- | --- |
 | `fechaCorte` | Fecha de la última carga publicada del ETL. Debe mostrarse en pantalla (RF-008). |
 | `totalContribuyentes` | Contribuyentes considerados antes de aplicar `limite`. |
-| `baseImponible` | Suma de la base imponible de sus predios según su porcentaje de propiedad; no cuenta predios dados de baja. |
+| `baseImponible` | Suma de la base imponible de los predios del contribuyente en la carga; no descuenta copropiedad. |
 | `emisionAnioCorte` | Monto emitido en el año de la fecha de corte, de predial y de arbitrios. |
 | `deudaAniosAnteriores` | Insoluto de cuotas vencidas de años anteriores al de corte. |
 | `deudaAnioCorte` | Insoluto de cuotas vencidas del año de corte, más el mayor porcentaje de descuento aplicado a los arbitrios. |
@@ -97,7 +110,7 @@ Los arbitrios se manejan como un solo tributo; no se separan limpieza, parques y
 
 ### Qué incluye y qué no
 
-- **Deuda** es el insoluto de las cuotas con vencimiento anterior a la fecha de corte. El insoluto de SAMNET ya
+- **Deuda** es el insoluto de las cuotas con vencimiento anterior a la fecha de corte. El insoluto de la carga ya
   descuenta los beneficios aplicados, por eso el porcentaje de descuento es informativo y no se vuelve a restar.
 - **Intereses y reajuste** no se incluyen: el SP de SAMNET emulado no los entrega.
 - **Usuario y clave de pagos en línea** quedan fuera hasta validarlos con la Gerencia de Rentas (RNF-018).
@@ -112,9 +125,11 @@ Con la base sintética y la fecha de corte `2026-10-19` (hay que haber publicado
 
 | Por `BASE_IMPONIBLE` | Contribuyente | Base imponible |
 | --- | --- | --- |
-| 1.º | `045067` Centro Educativo Sol de Lima | 1 250 000,00 |
-| 2.º | `021390` Inversiones Costa Azul | 960 000,00 |
-| 3.º | `014502` García Torres, María Elena | 185 000,00 |
-| 4.º | `033218` Ramos Quispe, Víctor Hugo | 142 000,00 |
+| 1.º | `021390` Inversiones Costa Azul | 4 270 000,00 |
+| 2.º | `045067` Centro Educativo Sol de Lima | 1 250 000,00 |
+| 3.º | `058934` Medina Cruz, Patricia | 210 000,00 |
+| 4.º | `061177` Medina Cruz, Roberto | 210 000,00 |
+| 5.º | `014502` García Torres, María Elena | 185 000,00 |
+| 6.º | `033218` Ramos Quispe, Víctor Hugo | 142 000,00 |
 
-Por `DEUDA_TOTAL`, `021390` es el primero, con 6 907,68 de deuda.
+Por `DEUDA_TOTAL`, `021390` es el primero, con 6 907,68 de predial más 13 975,04 de arbitrios.

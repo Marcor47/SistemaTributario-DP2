@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, validarFiltros } from '../src/utils/reportes.js'
+import { etiquetaCriterioPricos, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosPricos, parametrosReporte, validarFiltros, validarPricos } from '../src/utils/reportes.js'
 
 const morosos = { tipo: 'MOROSOS', filtros: ['anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'] }
 const pricos = { tipo: 'PRICOS', filtros: ['anio', 'zona', 'tributo', 'montoMinimo'] }
@@ -53,4 +53,17 @@ test('HU018: el selector conserva una zona guardada que no está en el catálogo
   assert.deepEqual(opcionesZona(['Z1', 'Z2'], 'Z2'), ['Z1', 'Z2'])
   assert.deepEqual(opcionesZona(['Z1', 'Z2'], 'Z9'), ['Z1', 'Z2', 'Z9'])
   assert.deepEqual(opcionesZona(null, ''), [])
+})
+
+test('HU037: PRICOS envía el criterio y el límite', () => {
+  const parametros = parametrosPricos({ criterio: 'DEUDA_TOTAL', limite: '25' })
+  assert.equal(parametros.get('criterio'), 'DEUDA_TOTAL')
+  assert.equal(parametros.get('limite'), '25')
+  assert.equal(etiquetaCriterioPricos('BASE_IMPONIBLE'), 'Base imponible')
+})
+
+test('HU037: valida el criterio y el límite de PRICOS', () => {
+  assert.deepEqual(Object.keys(validarPricos({ criterio: 'OTRO', limite: '0' })).sort(), ['criterio', 'limite'])
+  assert.deepEqual(validarPricos({ criterio: 'BASE_IMPONIBLE', limite: '10' }), {})
+  assert.deepEqual(Object.keys(validarPricos({ criterio: 'BASE_IMPONIBLE', limite: '201' })), ['limite'])
 })

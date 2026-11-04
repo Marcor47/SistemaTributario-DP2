@@ -6,8 +6,6 @@ import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,7 +31,7 @@ import pe.municipalidad.tributario.seguridad.Usuario;
 import pe.municipalidad.tributario.seguridad.UsuarioRepository;
 import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
-/* HU006: reportes de morosos, PRICOS y buenos pagadores sobre la BD sintética. Fecha de corte 2026-10-19. */
+/* HU006: reportes de morosos, PRICOS y buenos pagadores sobre la carga ETL sintética. Fecha de corte 2026-10-19. */
 @PruebaIntegracion
 @Transactional
 class ReporteControllerTest {
@@ -150,8 +148,8 @@ class ReporteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filtrosAplicados.zona").value("Z2"))
                 .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "058934", "061177")))
-                .andExpect(jsonPath("$.filas[0].deudaVencida").value(13975.04))
-                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(23))
+                .andExpect(jsonPath("$.filas[0].deudaVencida").value(8197.84))
+                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(11))
                 .andExpect(jsonPath("$.filas[1].deudaVencida").value(401.12));
 
         mvc.perform(get("/api/reportes/MOROSOS").param("montoMinimo", "1000").session(gerencia))
@@ -333,7 +331,7 @@ class ReporteControllerTest {
     @Test
     void siSamnetNoRespondeInformaQueNoEstaDisponible() throws Exception {
         doThrow(new SamnetNoDisponibleException(null)).when(samnet)
-                .obtenerCartera(any(), anyInt(), anyInt(), anyString());
+                .buscarContribuyente(anyString());
 
         mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isServiceUnavailable())

@@ -150,6 +150,15 @@ En `frontweb` utiliza `VITE_AUTH_DEMO=false` y el backend con su perfil normal.
 Las claves publicadas aquí son solo para los datos sintéticos de desarrollo;
 excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno real.
 
+### Carga ETL simulada para reportes
+
+El perfil `local` y los tests cargan `db/datos-prueba/R__datos_prueba_10_etl_cobranza.sql`, que simula
+una carga publicada de `ps_etl_cobranza` con fecha de corte `2026-10-19`. Llena `analitica.lote_etl`,
+`dim_contribuyente`, `dim_predio`, `hecho_cobranza` y `maestros.correspondencia_origen` a partir de los
+datos sintéticos de `samnet.*`. Los reportes de morosos y PRICOS se calculan siempre sobre esa carga; la
+carga real la producirá el proceso ETL. El archivo no se aplica en producción porque `db/datos-prueba` no
+está en las ubicaciones de Flyway del perfil normal.
+
 Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
 `tributario.integracion.autenticacion-simulada.documento` y `.clave`.
 
