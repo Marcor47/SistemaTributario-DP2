@@ -1,0 +1,244 @@
+.portal-inicio {
+  display: grid;
+  gap: 26px;
+}
+
+.portal-bienvenida {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  min-height: 225px;
+  overflow: hidden;
+  padding: clamp(26px, 4vw, 44px);
+  color: #fff;
+  background: linear-gradient(115deg, #17406b 0%, #285c89 68%, #26769a 100%);
+  border-radius: 18px;
+  box-shadow: 0 12px 30px rgba(23, 64, 107, 0.16);
+}
+
+.portal-bienvenida::after {
+  position: absolute;
+  right: 12%;
+  bottom: -180px;
+  width: 360px;
+  height: 360px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+  content: '';
+}
+
+.portal-bienvenida__contenido {
+  position: relative;
+  z-index: 1;
+  max-width: 680px;
+}
+
+.portal-bienvenida__eyebrow,
+.portal-servicios__eyebrow {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.portal-bienvenida__eyebrow {
+  color: #bdefff;
+}
+
+.portal-bienvenida h2 {
+  margin: 0;
+  color: inherit;
+  font-size: clamp(26px, 3.2vw, 38px);
+  line-height: 1.15;
+}
+
+.portal-bienvenida__contenido > p:last-child {
+  max-width: 60ch;
+  margin: 14px 0 0;
+  color: #e6f4fb;
+  font-size: 16px;
+}
+
+.portal-bienvenida__sello {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: 0 0 118px;
+  width: 118px;
+  height: 118px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.portal-bienvenida__sello svg {
+  width: 62px;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.portal-servicios {
+  padding: 2px 0;
+}
+
+.portal-servicios__cabecera {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.portal-servicios__eyebrow {
+  margin-bottom: 4px;
+  color: var(--texto-atenuado);
+}
+
+.portal-servicios__cabecera h2 {
+  margin: 0;
+  color: var(--marino-osc);
+  font-size: 23px;
+  line-height: 1.25;
+}
+
+.portal-servicios__cabecera > p {
+  margin: 0 0 2px;
+  color: var(--texto-secundario);
+  font-size: 14px;
+}
+
+.portal-servicios__rejilla {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.portal-servicio {
+  display: flex;
+  min-height: 224px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 22px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+}
+
+.portal-servicio__icono {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  color: var(--marino);
+  border-radius: 12px;
+  background: var(--azul-suave);
+}
+
+.portal-servicio__icono svg {
+  width: 24px;
+  height: 24px;
+}
+
+.portal-servicio h3 {
+  margin: 16px 0 6px;
+  color: var(--marino-osc);
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.portal-servicio > p {
+  margin: 0 0 18px;
+  color: var(--texto-secundario);
+  font-size: 14px;
+}
+
+.portal-servicio__enlace {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  color: var(--marino-osc);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.portal-servicio__enlace:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.portal-servicio__enlace:focus-visible {
+  outline: 3px solid var(--cian);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.portal-ayuda {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid #bfe6f5;
+  border-radius: 12px;
+  background: var(--azul-suave);
+  color: var(--marino-osc);
+}
+
+.portal-ayuda p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.portal-ayuda__marca {
+  display: grid;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .portal-servicios__rejilla {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .portal-bienvenida {
+    min-height: auto;
+  }
+
+  .portal-bienvenida__sello {
+    display: none;
+  }
+
+  .portal-servicios__cabecera {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .portal-servicios__rejilla {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-servicio {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-servicio__enlace {
+    scroll-behavior: auto;
+  }
+}
