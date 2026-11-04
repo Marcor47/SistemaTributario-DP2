@@ -95,6 +95,14 @@
 .reporte-resultados .tabla-scroll { border: 1px solid var(--borde-fuerte); border-radius: var(--radio); background: var(--superficie); box-shadow: var(--sombra); }
 .reporte-tabla { min-width: 980px; margin-top: 0; background: var(--superficie); }
 .reporte-tabla th[scope="row"] { min-width: 220px; }
+.tabla-scroll .tabla.reporte-tabla-pricos { min-width: 2600px; }
+.tabla.reporte-tabla-pricos thead tr.reporte-grupo th { background: var(--marino-osc); color: #fff; text-align: center; border-right: 1px solid rgba(255, 255, 255, .18); border-bottom: 1px solid var(--marino); }
+.tabla.reporte-tabla-pricos thead th:first-child,
+.tabla.reporte-tabla-pricos thead th:last-child { border-radius: 0; }
+.reporte-tabla-pricos .reporte-col-ancha { min-width: 220px; }
+.reporte-tabla-pricos .reporte-col-codigo { min-width: 90px; font-weight: 700; }
+.reporte-tabla-pricos .num { min-width: 120px; white-space: nowrap; }
+.reporte-resumen .pcard strong.reporte-resumen-texto { font-size: 18px; line-height: 1.3; }
 .tabla.reporte-tabla thead th { background: var(--marino); color: #fff; border-right: 1px solid rgba(255, 255, 255, .18); border-bottom: 2px solid var(--marino-osc); }
 .tabla.reporte-tabla thead th:last-child { border-right: 0; }
 .tabla.reporte-tabla tbody th, .tabla.reporte-tabla tbody td { background: var(--superficie); border-bottom: 1px solid var(--borde); }

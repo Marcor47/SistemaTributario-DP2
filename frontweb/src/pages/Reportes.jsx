@@ -4,6 +4,7 @@ import { fecha, fechaHora, moneda } from '../utils/formato.js'
 import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
 import { abrirVista, descargarReporte, eliminarVista, exportarVista, generarReporte, guardarVista, listarVistas, listarZonas, obtenerCatalogoReportes } from '../services/reporteService.js'
 import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
+import ReportePricos from './ReportePricos.jsx'
 import './Reportes.css'
 
 const ANIO_ACTUAL = new Date().getFullYear()
@@ -14,14 +15,14 @@ const ORDENES = {
   BUENOS_PAGADORES: [['pagadoAnio:desc', 'Pagado: mayor a menor'], ['pagadoAnio:asc', 'Pagado: menor a mayor'], ['nombre:asc', 'Nombre: A-Z']],
 }
 const COLUMNAS = {
-  MOROSOS: ['codigo', 'razonSocial', 'regimen', 'tipoDocumento', 'numeroDocumento', 'via', 'numero', 'departamento', 'interior', 'manzana', 'lote', 'distrito', 'deudaVencida', 'deudaSinBeneficio', 'condicion', 'tipoPersona', 'correo', 'telefonos'],
+  MOROSOS: ['codigo', 'razonSocial', 'regimen', 'tipoDocumento', 'numeroDocumento', 'via', 'numero', 'departamento', 'interior', 'manzana', 'lote', 'distrito', 'zonas', 'deudaVencida', 'deudaSinBeneficio', 'condicion', 'tipoPersona', 'correo', 'telefonos'],
   PRICOS: ['codigo', 'nombre', 'tipoPersona', 'zonas', 'emitidoAnio', 'pagadoAnio', 'porcentajePagado', 'deudaVencida'],
   BUENOS_PAGADORES: ['codigo', 'nombre', 'zonas', 'cuotasPagadasATiempo', 'pagadoAnio'],
 }
-const COLUMNAS_DETALLE_MOROSOS = ['anio', 'codigoPredio', 'tributo', 'periodo', 'fechaVencimiento', 'diasVencido', 'etapaCobranza', 'montoSinBeneficio', 'montoConBeneficio']
+const COLUMNAS_DETALLE_MOROSOS = ['anio', 'codigoPredio', 'zona', 'tributo', 'periodo', 'fechaVencimiento', 'diasVencido', 'etapaCobranza', 'montoSinBeneficio', 'montoConBeneficio']
 const ETIQUETAS = { codigo: 'Código', nombre: 'Contribuyente', razonSocial: 'Razón social', regimen: 'Régimen', tipoPersona: 'Tipo persona', tipoDocumento: 'Tipo doc.', numeroDocumento: 'Documento', via: 'Vía', numero: 'N°', departamento: 'Dpto', interior: 'Interior', manzana: 'Mz', lote: 'Lote', distrito: 'Distrito', condicion: 'Condición', correo: 'Email', telefonos: 'Teléfonos', zonas: 'Zonas', deudaSinBeneficio: 'Deuda sin beneficio', deudaVencida: 'Deuda vencida', cuotasVencidas: 'Cuotas vencidas', nombreEtapa: 'Etapa', emitidoAnio: 'Emitido', pagadoAnio: 'Pagado', porcentajePagado: '% pagado', cuotasPagadasATiempo: 'Cuotas a tiempo' }
 const ETIQUETAS_CABECERA = { ...ETIQUETAS, numeroDocumento: 'N° doc.', deudaVencida: 'Total con beneficio', deudaSinBeneficio: 'Total sin beneficio' }
-const ETIQUETAS_DETALLE = { anio: 'Año', codigoPredio: 'Predio', tributo: 'Tributo', periodo: 'Cuota', fechaVencimiento: 'Vencimiento', diasVencido: 'Días vencido', etapaCobranza: 'Etapa', montoSinBeneficio: 'Sin beneficio', montoConBeneficio: 'Con beneficio' }
+const ETIQUETAS_DETALLE = { anio: 'Año', codigoPredio: 'Predio', zona: 'Zona', tributo: 'Tributo', periodo: 'Cuota', fechaVencimiento: 'Vencimiento', diasVencido: 'Días vencido', etapaCobranza: 'Etapa', montoSinBeneficio: 'Sin beneficio', montoConBeneficio: 'Con beneficio' }
 const COLUMNAS_MONTO_MOROSOS = new Set(['deudaVencida', 'deudaSinBeneficio'])
 const COLUMNAS_MONTO_DETALLE = new Set(['montoSinBeneficio', 'montoConBeneficio'])
 
@@ -131,6 +132,7 @@ function valorCabecera(fila, columna) {
     case 'manzana': return textoCabecera(domicilio.manzana)
     case 'lote': return textoCabecera(domicilio.lote)
     case 'distrito': return textoCabecera(domicilio.distrito)
+    case 'zonas': return textoCabecera(fila.zonas?.join(', '))
     case 'deudaVencida': return montoCabecera(fila.deudaVencida)
     case 'deudaSinBeneficio': return montoCabecera(fila.deudaSinBeneficio)
     case 'condicion': return textoCabecera(fila.condicion)
@@ -152,6 +154,7 @@ function valorDetalle(item, columna) {
   switch (columna) {
     case 'anio': return textoCabecera(item.anio)
     case 'codigoPredio': return textoCabecera(item.codigoPredio)
+    case 'zona': return textoCabecera(item.zona)
     case 'tributo': return etiquetaTributo(item.tributo)
     case 'periodo': return etiquetaCuota(item.tributo, item.periodo)
     case 'fechaVencimiento': return fechaCabecera(item.fechaVencimiento)
@@ -703,6 +706,7 @@ export default function Reportes() {
     {catalogo.error && <div className="alert" role="alert"><strong>No se pudo cargar el catálogo.</strong><p>{catalogo.error.message}</p><button className="btn" type="button" onClick={reintentarCatalogo}>Reintentar</button></div>}
     {!catalogo.cargando && !catalogo.error && catalogo.datos.length === 0 && <section className="pcard reporte-estado" role="status"><h2>Sin reportes disponibles</h2><p>Tu perfil no tiene reportes habilitados en este momento.</p></section>}
     {catalogo.datos.length > 0 && !reporte && <section className="pcard reporte-catalogo reporte-catalogo--entrada" aria-labelledby="catalogo-reportes"><h2 id="catalogo-reportes">Selecciona un reporte</h2><p className="hint">El catálogo muestra únicamente los reportes habilitados para tu perfil.</p><div className="reporte-opciones" role="radiogroup" aria-label="Catálogo de reportes">{catalogo.datos.map((item) => <button key={item.tipo} type="button" className="reporte-opcion" role="radio" aria-checked="false" onClick={() => elegir(item.tipo)}><strong>{item.titulo}</strong><span>{item.descripcion}</span></button>)}</div></section>}
+    {reporte && seleccion === 'PRICOS' && <ReportePricos titulo={reporte.titulo} onCambiarReporte={cambiarReporte} />}
     {reporte && seleccion === 'MOROSOS' && <>
       <section className="pcard reporte-configuracion" aria-labelledby="configuracion-reporte">
         <form className="reporte-configuracion-form" onSubmit={consultar} noValidate>
@@ -1000,7 +1004,7 @@ export default function Reportes() {
           {accionError && <div className="alert" role="alert">{accionError.message}</div>}
         </form>
       </section>
-      <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}</div>
+      <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : errorGeneral.codigo === 'SIN_CARGA_ETL' ? 'El ETL no tiene una carga publicada.' : errorGeneral.codigo === 'ETL_SIN_CORRESPONDENCIA' ? 'El ETL no tiene correspondencia con SAMNET.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}</div>
       {resultado.datos && <section className="reporte-resultados" aria-labelledby="resultado-reporte"><div className="reporte-resultados-cab"><div><h2 id="resultado-reporte">{resultado.datos.titulo}</h2><p className="hint">Información oficial a la fecha de corte indicada.</p></div></div><Resumen datos={resultado.datos} />{resultado.datos.filas.length === 0 ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes que cumplan los criterios seleccionados.</p></div> : grafica === 'TABLA' ? <TablaReporte datos={resultado.datos} columnasDetalle={columnasDetalleAplicadasEfectivas} /> : <BarrasReporte datos={resultado.datos} />}</section>}
     </>}
     <ModalConfirmacion

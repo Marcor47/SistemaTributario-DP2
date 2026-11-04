@@ -354,6 +354,7 @@ public class SamnetApiGateway implements SamnetGateway {
             return Arrays.stream(items).map(item -> new DetalleDeuda(
                     item.anio(),
                     item.codigoPredio(),
+                    null,
                     item.tributo() == null ? null : Tributo.valueOf(item.tributo()),
                     item.periodo(),
                     item.montoSinBeneficio(),

@@ -17,6 +17,17 @@ Como **Gerencia de Rentas**, generar el reporte de contribuyentes morosos por **
 
 ---
 
+## Fuente de los datos
+
+El reporte se calcula sobre la última carga `PUBLICADA` de `ps_etl_cobranza`:
+
+- Montos, cuotas y antigüedad: `analitica.hecho_cobranza`.
+- Identidad y etapa de cobranza: SAMNET, a través de `maestros.correspondencia_origen`; cada reidentificación queda registrada en la auditoría (RNF-018).
+- Sin carga publicada con hechos: `422` `SIN_CARGA_ETL`.
+- Sin correspondencia con SAMNET: `422` `ETL_SIN_CORRESPONDENCIA`.
+
+**Filtro de zona:** cuando se envía `zona`, solo se suman los arbitrios de los predios de esa zona. El Impuesto Predial es del contribuyente y no se atribuye a una zona, por lo que no se incluye en los totales filtrados. En el detalle, `zona` solo viene para las cuotas de arbitrios; en predial es `null`.
+
 ## Seguridad y Acceso
 
 - **Roles autorizados**: `GERENCIA` y `ANALISTA_RENTAS`.
@@ -54,6 +65,8 @@ Para el selector de zona, la pantalla puede obtener las zonas disponibles con `G
 
 #### Respuesta Exitosa (`200 OK`)
 
+Se muestra solo la primera fila de las tres que devuelve `periodo=2026&zona=Z2`:
+
 ```json
 {
   "tipoReporte": "MOROSOS",
@@ -61,14 +74,15 @@ Para el selector de zona, la pantalla puede obtener las zonas disponibles con `G
   "fechaCorte": "2026-10-19",
   "filtrosAplicados": {
     "anio": 2026,
+    "periodo": 2026,
     "zona": "Z2",
     "tributo": null,
     "montoMinimo": null
   },
   "resumen": {
-    "cantidad": 1,
-    "conceptoMonto": "Deuda vencida",
-    "montoTotal": 6907.68,
+    "cantidad": 3,
+    "conceptoMonto": "Deuda vencida periodo 2026",
+    "montoTotal": 7732.32,
     "umbralPrico": null
   },
   "filas": [
@@ -89,17 +103,16 @@ Para el selector de zona, la pantalla puede obtener las zonas disponibles con `G
         "lote": null,
         "distrito": "San Miguel"
       },
-      "zonas": ["Z2"],
-      "deudaVencida": 6907.68,
-      "deudaSinBeneficio": 6907.68,
-      "cuotasVencidas": 6,
+      "zonas": ["Z1", "Z2", "Z3"],
+      "deudaVencida": 6930.08,
+      "deudaSinBeneficio": 6930.08,
+      "cuotasVencidas": 10,
       "vencimientoMasAntiguo": "2025-12-31",
       "diasVencido": 292,
-      "etapaCobranza": "COACTIVA",
-      "nombreEtapa": "Exigible en vía coactiva",
+      "etapaCobranza": "ESPERA_LEGAL",
+      "nombreEtapa": "Espera legal",
       "deudaPorTributo": [
-        { "tributo": "ARBITRIOS", "monto": 3875.04 },
-        { "tributo": "IMPUESTO_PREDIAL", "monto": 3032.64 }
+        { "tributo": "ARBITRIOS", "monto": 6930.08 }
       ]
     }
   ]

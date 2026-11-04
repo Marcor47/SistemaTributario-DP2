@@ -20,17 +20,20 @@ import java.util.function.Function;
 import java.util.function.ToIntFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 import pe.municipalidad.tributario.contribuyente.DomicilioFiscal;
 import pe.municipalidad.tributario.etl.EstadoLote;
+import pe.municipalidad.tributario.etl.LoteETL;
 import pe.municipalidad.tributario.etl.LoteETLRepository;
 import pe.municipalidad.tributario.common.AccesoDenegadoException;
 import pe.municipalidad.tributario.common.ConflictoException;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.common.NoAutenticadoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
+import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.gestiontributaria.CarteraTributo;
 import pe.municipalidad.tributario.gestiontributaria.DetalleDeuda;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
@@ -57,7 +60,7 @@ public class ReporteService {
     private static final BigDecimal UMBRAL_PRICO_POR_DEFECTO = BigDecimal.valueOf(2000);
     private static final BigDecimal CIEN = BigDecimal.valueOf(100);
     private static final Set<String> COLUMNAS_DETALLE_MOROSOS = Set.of(
-            "anio", "codigoPredio", "tributo", "periodo", "fechaVencimiento", "diasVencido",
+            "anio", "codigoPredio", "zona", "tributo", "periodo", "fechaVencimiento", "diasVencido",
             "etapaCobranza", "montoSinBeneficio", "montoConBeneficio");
 
     /* Filtros que acepta cada reporte, con el nombre del parámetro de la API. */
@@ -77,12 +80,13 @@ public class ReporteService {
     private final JsonMapper json;
     private final Clock reloj;
     private final LoteETLRepository lotes;
+    private final CarteraEtlService carteraEtl;
 
     public ReporteService(SamnetGateway samnet, RestriccionReporteRepository restricciones,
             SolicitudReporteRepository solicitudes, VistaReporteRepository vistas,
             ReporteExportador exportador, UsuarioRepository usuarios,
             ParametroConfiguracionRepository parametros, JsonMapper json, Clock reloj,
-            LoteETLRepository lotes) {
+            LoteETLRepository lotes, CarteraEtlService carteraEtl) {
         this.samnet = samnet;
         this.restricciones = restricciones;
         this.solicitudes = solicitudes;
@@ -93,6 +97,7 @@ public class ReporteService {
         this.json = json;
         this.reloj = reloj;
         this.lotes = lotes;
+        this.carteraEtl = carteraEtl;
     }
 
     /* Catálogo sin los reportes que el rol tiene restringidos por completo. */
@@ -115,7 +120,10 @@ public class ReporteService {
             throw new AccesoDenegadoException("REPORTE_RESTRINGIDO",
                     "Su rol no tiene acceso al " + tipo.getTitulo().toLowerCase() + ".");
         }
-        return samnet.obtenerZonas().stream()
+        List<String> disponibles = tipo == TipoReporte.MOROSOS
+                ? carteraEtl.zonas(cargaMorosos())
+                : samnet.obtenerZonas();
+        return disponibles.stream()
                 .filter(acceso::puedeVerZona)
                 .toList();
     }
@@ -139,14 +147,21 @@ public class ReporteService {
                     "El reporte de morosos usa el rango anioDesde/anioHasta.");
         }
 
-        LocalDate fechaCorte = lotes.findTopByEstadoAndFuenteOrderByFechaCorteDescIdLoteDesc(
+        boolean esMorosos = tipo == TipoReporte.MOROSOS;
+        /*
+         * HU006 y HU018: el reporte de morosos se calcula sobre el modelo estrella de la última carga
+         * publicada. Exigir la carga evita mezclar cifras del ETL con la consulta directa a SAMNET.
+         */
+        LoteETL cargaEtl = esMorosos ? cargaMorosos() : null;
+        LocalDate fechaCorte = cargaEtl != null
+                ? cargaEtl.getFechaCorte()
+                : lotes.findTopByEstadoAndFuenteOrderByFechaCorteDescIdLoteDesc(
                         EstadoLote.PUBLICADO, "ps_etl_cobranza")
-                .map(lote -> lote.getFechaCorte())
-                // La instalación inicial aún no tiene una carga ETL: se conserva el comportamiento previo.
-                .orElseGet(() -> LocalDate.now(reloj));
+                        .map(LoteETL::getFechaCorte)
+                        // La instalación inicial aún no tiene una carga ETL: se conserva el comportamiento previo.
+                        .orElseGet(() -> LocalDate.now(reloj));
         int anioCorte = fechaCorte.getYear();
         int anio = Objects.requireNonNullElse(filtros.periodo() != null ? filtros.periodo() : filtros.anio(), anioCorte);
-        boolean esMorosos = tipo == TipoReporte.MOROSOS;
         int anioDesde;
         int anioHasta;
         if (esMorosos && filtros.periodo() != null) {
@@ -167,16 +182,17 @@ public class ReporteService {
                 ? Objects.requireNonNullElse(filtros.beneficio(), FiltroBeneficio.AMBOS)
                 : FiltroBeneficio.AMBOS;
         FiltrosReporte aplicados = filtros.conRangoYBeneficio(esMorosos ? null : anio, anioDesde, anioHasta, beneficio);
-        List<CarteraTributo> datosSamnet = samnet.obtenerCartera(fechaCorte, anioDesde, anioHasta,
-                beneficio.name());
+        List<CarteraTributo> datosCartera = esMorosos
+                ? carteraEtl.obtener(cargaEtl, anioDesde, anioHasta, beneficio, aplicados.zona(), usuario)
+                : samnet.obtenerCartera(fechaCorte, anioDesde, anioHasta, beneficio.name());
         // La puntualidad es global: un filtro de tributo no debe ocultar deuda de otro tributo.
         Set<String> contribuyentesPuntuales = tipo == TipoReporte.BUENOS_PAGADORES && aplicados.tributo() != null
-                ? agrupar(datosSamnet, new FiltrosReporte(anio, null, null, null)).stream()
+                ? agrupar(datosCartera, new FiltrosReporte(anio, null, null, null)).stream()
                         .filter(ReporteService::esBuenPagador)
                         .map(Cartera::codigo)
                         .collect(Collectors.toSet())
                 : null;
-        List<Cartera> carteras = agrupar(datosSamnet, aplicados).stream()
+        List<Cartera> carteras = agrupar(datosCartera, aplicados).stream()
                 .filter(cartera -> contribuyentesPuntuales == null
                         || contribuyentesPuntuales.contains(cartera.codigo()))
                 .filter(cartera -> aplicados.zona() == null || cartera.zonas().contains(aplicados.zona()))
@@ -779,6 +795,12 @@ public class ReporteService {
                     ParametroConfiguracion.UMBRAL_PRICO);
         }
         return Optional.empty();
+    }
+
+    private LoteETL cargaMorosos() {
+        return lotes.buscarPublicadosConHechos("ps_etl_cobranza", Pageable.ofSize(1)).stream().findFirst()
+                .orElseThrow(() -> new ReglaNegocioException("SIN_CARGA_ETL",
+                        "No hay una carga publicada del ETL con hechos: no se puede generar el reporte de morosos."));
     }
 
     private Usuario usuario(String nombreUsuario) {

@@ -201,6 +201,17 @@ o anterior) y **no tienen deuda vencida** de ningún año. Orden: mayor monto pa
 - Exportar a Excel o PDF no está en esta HU: el registro de la solicitud se guarda con formato `NINGUNO`.
 - Los arbitrios se manejan como un solo tributo (ver `HU005_API.md`).
 
+## Fuente de los datos
+
+El reporte de morosos se calcula **siempre** sobre la última carga publicada de `ps_etl_cobranza`:
+
+- Los montos, cuotas y antigüedad salen de `analitica.hecho_cobranza`.
+- La identidad (nombre, documento, domicilio y contacto) y la etapa de cobranza se completan desde SAMNET usando `maestros.correspondencia_origen`; cada reidentificación queda auditada (RNF-018).
+- Si no hay una carga publicada con hechos, responde `422` `SIN_CARGA_ETL`.
+- Si la carga no tiene correspondencia con SAMNET, responde `422` `ETL_SIN_CORRESPONDENCIA`.
+
+El reporte informa en `fechaCorte` la fecha de la carga usada. El perfil `local` incluye una carga simulada en `db/datos-prueba`; la carga real la produce el proceso ETL.
+
 ## Datos de prueba
 
 Con la base sintética y fecha de corte `2026-10-19`:

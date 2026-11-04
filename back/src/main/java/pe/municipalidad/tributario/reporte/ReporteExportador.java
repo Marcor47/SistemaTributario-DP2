@@ -71,7 +71,7 @@ public class ReporteExportador {
     );
 
     public static final Set<String> COLUMNAS_DETALLE_MOROSOS = Set.of(
-            "anio", "codigoPredio", "tributo", "periodo", "fechaVencimiento", "diasVencido",
+            "anio", "codigoPredio", "zona", "tributo", "periodo", "fechaVencimiento", "diasVencido",
             "etapaCobranza", "montoSinBeneficio", "montoConBeneficio");
 
     /* Fila plana del detalle de obligaciones para las exportaciones de morosos. */
@@ -596,7 +596,7 @@ public class ReporteExportador {
             case "montoEmitidoPredial", "montoEmitidoArbitrios", "montoPagadoPredial", "montoPagadoArbitrios", "totalEmitido", "totalPagado" -> 1.3f;
             case "cuotasVencidas", "diasVencido", "cuotasPagadasATiempo", "porcentajePagado" -> 1.0f;
             case "vencimientoMasAntiguo", "etapaCobranza", "nombreEtapa" -> 1.3f;
-            case "codigoPredio", "fechaVencimiento", "montoSinBeneficio", "montoConBeneficio" -> 1.2f;
+            case "codigoPredio", "zona", "fechaVencimiento", "montoSinBeneficio", "montoConBeneficio" -> 1.2f;
             case "anio", "tributo", "periodo" -> 1.0f;
             default -> 1.0f;
         };
@@ -650,6 +650,7 @@ public class ReporteExportador {
             case "cuotasPagadasATiempo" -> "Cuotas a Tiempo";
             case "anio" -> "Año";
             case "codigoPredio" -> "Predio";
+            case "zona" -> "Zona";
             case "tributo" -> "Tributo";
             case "periodo" -> "Cuota";
             case "fechaVencimiento" -> "Vencimiento";
@@ -667,6 +668,7 @@ public class ReporteExportador {
                 case "razonSocial" -> f.razonSocial();
                 case "anio" -> d.anio();
                 case "codigoPredio" -> d.codigoPredio();
+                case "zona" -> d.zona();
                 case "tributo" -> d.tributo() != null ? d.tributo().name() : "";
                 case "periodo" -> d.periodo();
                 case "fechaVencimiento" -> d.fechaVencimiento() != null ? d.fechaVencimiento().toString() : "";
