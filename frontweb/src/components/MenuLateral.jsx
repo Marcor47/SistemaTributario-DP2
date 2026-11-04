@@ -20,6 +20,7 @@ export default function MenuLateral({ solo }) {
   const { limpiarSesion } = useAuth()
   const [errorSalida, setErrorSalida] = useState('')
   const rutaLogin = solo === 'gestion' ? '/gestion/login' : '/login'
+  const rutaInicio = solo === 'portal' ? '/portal/inicio' : '/'
 
   async function salir(evento) {
     evento.preventDefault()
@@ -52,7 +53,7 @@ export default function MenuLateral({ solo }) {
 
   return (
     <aside className="menu">
-      <Link to="/" className="menu-marca" aria-label="Municipalidad de San Miguel, ir al inicio">
+      <Link to={rutaInicio} className="menu-marca" aria-label="Municipalidad de San Miguel, ir al inicio">
         <img src="/logo-san-miguel-circulo.png" alt="" width="342" height="342" />
         <div>
           <span>Municipalidad</span>

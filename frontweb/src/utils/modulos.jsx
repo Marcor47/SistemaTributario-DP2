@@ -6,6 +6,14 @@ export const icono = (children) => (
 
 export const MODULOS = [
   {
+    ruta: '/portal/inicio',
+    texto: 'Inicio',
+    titulo: 'Bienvenido a Servicios en Línea',
+    descripcion: 'Accede a tus consultas y trámites municipales desde un solo lugar.',
+    seccion: 'portal',
+    icono: icono(<><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></>),
+  },
+  {
     ruta: '/estado-cuenta',
     texto: 'Estado de cuenta',
     titulo: 'Mi estado de cuenta',
