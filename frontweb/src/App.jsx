@@ -17,6 +17,7 @@ import GestionReclamos from './pages/GestionReclamos.jsx'
 import Reportes from './pages/Reportes.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
+import InicioPortal from './pages/InicioPortal.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
 import LoginInterno from './pages/LoginInterno.jsx'
 import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
@@ -111,6 +112,8 @@ export default function App() {
           {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
           <Route element={<RutaContribuyente />}>
             <Route element={<LayoutPortal />}>
+              <Route path="/portal/inicio" element={<InicioPortal />} />
+              <Route path="/portal" element={<Navigate to="/portal/inicio" replace />} />
               <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
               <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
               <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
