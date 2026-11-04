@@ -168,8 +168,8 @@ Respuesta `204 No Content`.
 Permite exportar directamente con filtros en línea:
 
 ```
-GET /api/reportes/{tipo}/exportar?formato=EXCEL&anio=&zona=&tributo=&montoMinimo=&columnas=codigo,nombre,deudaVencida
-GET /api/reportes/{tipo}/exportar?formato=PDF&anio=&zona=&tributo=&montoMinimo=
+GET /api/reportes/{tipo}/exportar?formato=EXCEL&anio=&periodo=&zona=&tributo=&regimen=&tipoDocumento=&etapa=&montoMinimo=&columnas=codigo,nombre,deudaVencida
+GET /api/reportes/{tipo}/exportar?formato=PDF&anio=&periodo=&zona=&tributo=&regimen=&tipoDocumento=&etapa=&montoMinimo=
 ```
 
 Parámetros:

@@ -32,17 +32,25 @@ Como **Gerencia de Rentas**, generar el reporte de contribuyentes morosos por **
 ### 1. Generar Reporte de Morosos por Zona y Periodo
 
 ```http
-GET /api/reportes/morosos-zona?periodo={periodo}&zona={zona}&tributo={tributo}&montoMinimo={montoMinimo}
+GET /api/reportes/morosos-zona?anioDesde={anioDesde}&anioHasta={anioHasta}&zona={zona}&tributo={tributo}&regimen={regimen}&tipoDocumento={tipoDocumento}&etapa={etapa}&beneficio={beneficio}&montoMinimo={montoMinimo}
 ```
 
 #### Parámetros de consulta (Query Params)
 
 | Parámetro | Tipo | Requerido | Descripción / Validación |
 | :--- | :--- | :--- | :--- |
-| `periodo` | `Integer` | Opcional | Año o periodo gravable evaluado (2000 a 2100). También se acepta como alias `anio`. Si se omite, evalúa la deuda histórica total. |
+| `anioDesde` | `Integer` | Opcional | Año inicial del rango de deuda vencida (1900 a 2100). Por defecto `1900`. |
+| `anioHasta` | `Integer` | Opcional | Año final del rango de deuda vencida (1900 a 2100). Por defecto el año de la fecha de corte. |
+| `beneficio` | `String` | Opcional | `AMBOS`, `CON_BENEFICIO` o `SIN_BENEFICIO`. Por defecto `AMBOS`. |
 | `zona` | `String` | Opcional | Código de zona (ej. `Z1`, `Z2`, etc. Máx. 20 caracteres). |
 | `tributo` | `String` | Opcional | `IMPUESTO_PREDIAL` o `ARBITRIOS`. Si se omite, incluye ambos tributos. |
+| `regimen` | `String` | Opcional | Régimen del contribuyente (máx. 40 caracteres). |
+| `tipoDocumento` | `String` | Opcional | `DNI`, `RUC` o `CE`. |
+| `etapa` | `String` | Opcional | Etapa más avanzada de la deuda vencida: `MORA_TEMPRANA`, `CAMPANA`, `VALOR_EMITIDO`, `ESPERA_LEGAL` o `COACTIVA`. |
 | `montoMinimo` | `BigDecimal`| Opcional | Monto mínimo de deuda vencida (mayor o igual a 0). |
+
+Para el selector de zona, la pantalla puede obtener las zonas disponibles con `GET /api/reportes/zonas?tipo=MOROSOS`
+(ver [HU006](HU006_API.md)); ese catálogo ya excluye las zonas restringidas para el rol.
 
 #### Respuesta Exitosa (`200 OK`)
 
@@ -103,7 +111,7 @@ GET /api/reportes/morosos-zona?periodo={periodo}&zona={zona}&tributo={tributo}&m
 ### 2. Exportar Reporte a Excel o PDF (RF-008)
 
 ```http
-GET /api/reportes/morosos-zona/exportar?formato={formato}&periodo={periodo}&zona={zona}&tributo={tributo}&montoMinimo={montoMinimo}
+GET /api/reportes/morosos-zona/exportar?formato={formato}&anioDesde={anioDesde}&anioHasta={anioHasta}&zona={zona}&tributo={tributo}&regimen={regimen}&tipoDocumento={tipoDocumento}&etapa={etapa}&beneficio={beneficio}&montoMinimo={montoMinimo}
 ```
 
 #### Parámetros adicionales

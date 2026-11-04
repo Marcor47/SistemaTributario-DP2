@@ -61,6 +61,11 @@ class SamnetApiGatewayTest {
     }
 
     @Test
+    void listaLasZonasDeLosPredios() {
+        assertThat(samnet.obtenerZonas()).containsExactly("Z1", "Z2", "Z3");
+    }
+
+    @Test
     void devuelveLaDeclaracionJuradaVigentePrimero() {
         List<DeclaracionJurada> declaraciones = samnet.obtenerDeclaracionJurada("014502-01");
 
@@ -74,8 +79,8 @@ class SamnetApiGatewayTest {
         EstadoCuenta estadoCuenta = samnet.obtenerEstadoCuenta("021390");
 
         assertThat(estadoCuenta.obtenerFechaCorte()).isEqualTo(LocalDate.of(2026, 10, 19));
-        assertThat(estadoCuenta.getObligaciones()).hasSize(12);
-        assertThat(estadoCuenta.getTotalDeuda()).isEqualByComparingTo("6907.68");
+        assertThat(estadoCuenta.getObligaciones()).hasSize(48);
+        assertThat(estadoCuenta.getTotalDeuda()).isEqualByComparingTo("17007.68");
         assertThat(estadoCuenta.getPagos()).isNotEmpty();
         assertThat(estadoCuenta.getPagos()).allSatisfy(p -> assertThat(p.diferencia()).isZero());
     }

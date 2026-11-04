@@ -19,7 +19,7 @@ export function AccesoRestringido({ titulo, descripcion, mensajeExpirada, expira
           {mensajeExpirada || 'Tu sesión interna venció. Vuelve a ingresar para continuar.'}
         </div>
       )}
-      <Link className="btn primary acceso-interno__btn" to="/interno/login" state={{ from: '/predios' }}>
+      <Link className="btn primary acceso-interno__btn" to="/gestion/login" state={{ from: '/predios' }}>
         Iniciar sesión interna
       </Link>
     </section>

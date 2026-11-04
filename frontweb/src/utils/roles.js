@@ -16,6 +16,8 @@ export function etiquetaRol(rol) {
 // Consultas internas de predios (HU003 y HU005): solo estos roles pueden ver la información.
 export const ROLES_CONSULTA_PREDIO = ['ANALISTA_RENTAS', 'ADMINISTRADOR']
 
+// La sesión interna (SesionInternaRespuesta) expone los roles del usuario en `roles`.
 export function tieneRolInterno(sesion, roles = ROLES_CONSULTA_PREDIO) {
-  return sesion?.tipo === 'interno' && roles.some((rol) => sesion.usuario?.roles?.includes(rol))
+  const asignados = sesion?.roles
+  return Array.isArray(asignados) && roles.some((rol) => asignados.includes(rol))
 }

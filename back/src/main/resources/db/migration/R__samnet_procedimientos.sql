@@ -50,6 +50,15 @@ LANGUAGE sql STABLE AS $$
     ORDER BY p.codigo_predio, t.contribuyente_codigo;
 $$;
 
+-- HU018: zonas disponibles para el selector de los reportes por zona.
+CREATE OR REPLACE FUNCTION samnet.ps_zonas()
+RETURNS TABLE (zona VARCHAR)
+LANGUAGE sql STABLE AS $$
+    SELECT DISTINCT p.zona
+    FROM samnet.predio p
+    ORDER BY p.zona;
+$$;
+
 -- RF-003: declaraciones juradas del predio, la vigente primero.
 CREATE OR REPLACE FUNCTION samnet.ps_declaracionjurada(p_codigo_predio VARCHAR)
 RETURNS TABLE (
@@ -259,16 +268,18 @@ LANGUAGE sql STABLE AS $$
 $$;
 
 -- HU006 y HU018 (RF-024, RF-050, RF-051): cartera por contribuyente y tributo para los reportes de morosos, PRICOS y
--- buenos pagadores. La deuda vencida suma todos los aos; lo emitido, lo pagado y la puntualidad, solo p_anio.
--- En HU018 (RF-024 adaptado) se incluye adems segmentacin por periodo/ao, rgimen, domicilio fiscal desglosado
--- y deuda sin beneficio.
--- Una cuota exigible se pag a tiempo si qued cancelada y su ltimo pago es del da de vencimiento o anterior
--- (si no hay pago, la cancel un beneficio). zonas: zonas de los predios del contribuyente, separadas por coma.
+-- buenos pagadores. La deuda vencida suma todos los años; lo emitido, lo pagado y la puntualidad se calculan para
+-- el rango de años solicitado.
+-- En HU018 (RF-024 adaptado) se incluye además segmentación por rango de años, régimen, domicilio fiscal desglosado,
+-- deuda sin beneficio y filtro de obligaciones con o sin beneficio.
+-- Una cuota exigible se pagó a tiempo si quedó cancelada y su último pago es del día de vencimiento o anterior
+-- (si no hay pago, la canceló un beneficio). zonas: zonas de los predios del contribuyente, separadas por coma.
 -- etapas_cobranza: etapas actuales de sus cuotas vencidas impagas, separadas por coma.
 -- PostgreSQL no permite cambiar los parámetros OUT mediante CREATE OR REPLACE;
 -- se elimina la versión anterior antes de aplicar las columnas ampliadas de HU018.
 DROP FUNCTION IF EXISTS samnet.ps_reportecartera(DATE, INTEGER);
-CREATE OR REPLACE FUNCTION samnet.ps_reportecartera(p_fecha_corte DATE, p_anio INTEGER)
+CREATE OR REPLACE FUNCTION samnet.ps_reportecartera(
+        p_fecha_corte DATE, p_anio_desde INTEGER, p_anio_hasta INTEGER, p_beneficio TEXT)
 RETURNS TABLE (
     contribuyente_codigo VARCHAR, nombre VARCHAR, tipo_persona VARCHAR, tipo_documento VARCHAR,
     numero_documento VARCHAR, condicion VARCHAR, correo VARCHAR, telefonos VARCHAR, domicilio_fiscal VARCHAR, zonas VARCHAR, tributo VARCHAR, emitido_anio NUMERIC,
@@ -280,7 +291,7 @@ RETURNS TABLE (
     cuotas_vencidas_anio INTEGER, detalle_deuda TEXT)
 LANGUAGE sql STABLE AS $$
     WITH cuotas AS (
-        SELECT o.contribuyente_codigo, o.tributo, o.anio, o.cuota, o.fecha_vencimiento, o.monto_emitido, o.monto_pagado,
+        SELECT o.contribuyente_codigo, o.codigo_predio, o.tributo, o.anio, o.cuota, o.fecha_vencimiento, o.monto_emitido, o.monto_pagado,
                o.insoluto, (o.monto_emitido - o.monto_pagado) AS sin_beneficio, o.etapa_cobranza,
                o.fecha_vencimiento < p_fecha_corte AS vencida,
                (SELECT max(pg.fecha_pago)
@@ -288,7 +299,14 @@ LANGUAGE sql STABLE AS $$
                 JOIN samnet.pago pg ON pg.id_pago = po.id_pago
                 WHERE po.id_obligacion = o.id_obligacion) AS ultimo_pago
         FROM samnet.fn_obligaciones(NULL, NULL) o
-        WHERE o.anio = p_anio OR o.fecha_vencimiento < p_fecha_corte
+        WHERE (o.anio BETWEEN p_anio_desde AND p_anio_hasta OR o.fecha_vencimiento < p_fecha_corte)
+          AND (
+              p_beneficio = 'AMBOS'
+              OR (p_beneficio = 'CON_BENEFICIO'
+                  AND o.insoluto < o.monto_emitido - o.monto_pagado)
+              OR (p_beneficio = 'SIN_BENEFICIO'
+                  AND o.insoluto = o.monto_emitido - o.monto_pagado)
+          )
     ),
     zonas_contribuyente AS (
         SELECT z.codigo, string_agg(DISTINCT z.zona, ',' ORDER BY z.zona) AS zonas
@@ -305,10 +323,10 @@ LANGUAGE sql STABLE AS $$
     )
     SELECT c.codigo, c.nombre, c.tipo_persona, c.tipo_documento, c.numero_documento, c.condicion, c.correo, c.telefonos, c.domicilio_fiscal,
            z.zonas, q.tributo,
-           coalesce(sum(q.monto_emitido) FILTER (WHERE q.anio = p_anio), 0),
-           coalesce(sum(q.monto_pagado) FILTER (WHERE q.anio = p_anio), 0),
-           (count(*) FILTER (WHERE q.anio = p_anio AND q.vencida))::INTEGER,
-           (count(*) FILTER (WHERE q.anio = p_anio AND q.vencida AND q.insoluto <= 0
+           coalesce(sum(q.monto_emitido) FILTER (WHERE q.anio BETWEEN p_anio_desde AND p_anio_hasta), 0),
+           coalesce(sum(q.monto_pagado) FILTER (WHERE q.anio BETWEEN p_anio_desde AND p_anio_hasta), 0),
+           (count(*) FILTER (WHERE q.anio BETWEEN p_anio_desde AND p_anio_hasta AND q.vencida))::INTEGER,
+           (count(*) FILTER (WHERE q.anio BETWEEN p_anio_desde AND p_anio_hasta AND q.vencida AND q.insoluto <= 0
                              AND coalesce(q.ultimo_pago, q.fecha_vencimiento) <= q.fecha_vencimiento))::INTEGER,
            coalesce(sum(q.insoluto) FILTER (WHERE q.vencida AND q.insoluto > 0), 0),
            (count(*) FILTER (WHERE q.vencida AND q.insoluto > 0))::INTEGER,
@@ -317,17 +335,27 @@ LANGUAGE sql STABLE AS $$
            c.regimen, c.dom_via, c.dom_numero, c.dom_departamento,
            c.dom_interior, c.dom_manzana, c.dom_lote, c.dom_distrito,
            coalesce(sum(q.sin_beneficio) FILTER (WHERE q.vencida AND q.insoluto > 0), 0),
-           coalesce(sum(q.insoluto) FILTER (WHERE q.vencida AND q.insoluto > 0 AND (p_anio IS NULL OR q.anio = p_anio)), 0),
-           coalesce(sum(q.sin_beneficio) FILTER (WHERE q.vencida AND q.insoluto > 0 AND (p_anio IS NULL OR q.anio = p_anio)), 0),
-           (count(*) FILTER (WHERE q.vencida AND q.insoluto > 0 AND (p_anio IS NULL OR q.anio = p_anio)))::INTEGER,
-           jsonb_build_object(
-               'sinBeneficio', coalesce(jsonb_agg(jsonb_build_object('anio', q.anio, 'tributo', q.tributo,
-                   'periodo', q.cuota, 'monto', q.sin_beneficio) ORDER BY q.anio, q.tributo, q.cuota)
-                   FILTER (WHERE q.vencida AND q.insoluto > 0), '[]'::jsonb),
-               'conBeneficio', coalesce(jsonb_agg(jsonb_build_object('anio', q.anio, 'tributo', q.tributo,
-                   'periodo', q.cuota, 'monto', q.insoluto) ORDER BY q.anio, q.tributo, q.cuota)
-                   FILTER (WHERE q.vencida AND q.insoluto > 0), '[]'::jsonb)
-           )::TEXT
+           coalesce(sum(q.insoluto) FILTER (WHERE q.vencida AND q.insoluto > 0
+                                            AND q.anio BETWEEN p_anio_desde AND p_anio_hasta), 0),
+           coalesce(sum(q.sin_beneficio) FILTER (WHERE q.vencida AND q.insoluto > 0
+                                                AND q.anio BETWEEN p_anio_desde AND p_anio_hasta), 0),
+           (count(*) FILTER (WHERE q.vencida AND q.insoluto > 0
+                             AND q.anio BETWEEN p_anio_desde AND p_anio_hasta))::INTEGER,
+           coalesce(jsonb_agg(jsonb_build_object(
+               'anio', q.anio,
+               'codigoPredio', q.codigo_predio,
+               'tributo', q.tributo,
+               'periodo', q.cuota,
+               'montoSinBeneficio', q.sin_beneficio,
+               'montoConBeneficio', q.insoluto,
+               'fechaVencimiento', q.fecha_vencimiento,
+               'diasVencido', p_fecha_corte - q.fecha_vencimiento,
+               'etapaCobranza', q.etapa_cobranza,
+               'montoEmitido', q.monto_emitido,
+               'montoPagado', q.monto_pagado,
+               'montoDescontado', q.monto_emitido - q.monto_pagado - q.insoluto
+           ) ORDER BY q.anio, q.tributo, q.cuota, q.codigo_predio)
+           FILTER (WHERE q.vencida AND q.sin_beneficio > 0), '[]'::jsonb)::TEXT
     FROM cuotas q
     JOIN samnet.contribuyente c ON c.codigo = q.contribuyente_codigo
     LEFT JOIN zonas_contribuyente z ON z.codigo = c.codigo

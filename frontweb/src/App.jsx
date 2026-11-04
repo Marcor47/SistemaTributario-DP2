@@ -70,6 +70,7 @@ function LayoutGestion() {
   const modulo = moduloDeRuta(pathname, 'gestion')
   const esDashboard = pathname.startsWith('/dashboard')
   const esMetas = pathname.startsWith('/metas')
+  const esReportes = pathname.startsWith('/reportes')
   return (
     <div className="app">
       <MenuLateral solo="gestion" />
@@ -81,7 +82,7 @@ function LayoutGestion() {
             <p className="pagina-cab__desc">{modulo.descripcion}</p>
           </header>
         )}
-        <main className={`pmain${esDashboard ? ' pmain--dashboard' : ''}${esMetas ? ' pmain--metas' : ''}`}>
+        <main className={`pmain${esDashboard ? ' pmain--dashboard' : ''}${esMetas ? ' pmain--metas' : ''}${esReportes ? ' pmain--reportes' : ''}`}>
           <Outlet />
         </main>
         <footer className="pie">

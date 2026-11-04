@@ -42,10 +42,10 @@ class RegularidadPagoControllerTest {
                 .andExpect(jsonPath("$.codigoContribuyente").value("021390"))
                 .andExpect(jsonPath("$.nombreContribuyente").value("INVERSIONES COSTA AZUL S.A.C."))
                 .andExpect(jsonPath("$.anio").value(2025))
-                .andExpect(jsonPath("$.totalCuotasEmitidas").value(8))
-                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(6))
+                .andExpect(jsonPath("$.totalCuotasEmitidas").value(24))
+                .andExpect(jsonPath("$.cuotasPagadasATiempo").value(22))
                 .andExpect(jsonPath("$.cuotasPendientesOVencidas").value(2))
-                .andExpect(jsonPath("$.porcentajeRegularidad").value(75.00))
+                .andExpect(jsonPath("$.porcentajeRegularidad").value(91.67))
                 .andExpect(jsonPath("$.segmentoSugerido").value("REGULAR"));
     }
 
@@ -66,7 +66,7 @@ class RegularidadPagoControllerTest {
         mockMvc.perform(get(RUTA_ALIAS, "021390").param("anio", "2025"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.codigoContribuyente").value("021390"))
-                .andExpect(jsonPath("$.porcentajeRegularidad").value(75.00));
+                .andExpect(jsonPath("$.porcentajeRegularidad").value(91.67));
     }
 
     @Test

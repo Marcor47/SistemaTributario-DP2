@@ -7,6 +7,7 @@ import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 import pe.municipalidad.tributario.contribuyente.DomicilioFiscal;
 import pe.municipalidad.tributario.contribuyente.TipoDocumento;
 import pe.municipalidad.tributario.contribuyente.TipoPersona;
+import pe.municipalidad.tributario.gestiontributaria.DetalleDeuda;
 import pe.municipalidad.tributario.obligacion.Tributo;
 
 /*
@@ -52,7 +53,7 @@ public record ReporteRespuesta<T>(
             EtapaCobranza etapaCobranza,
             String nombreEtapa,
             List<MontoPorTributo> deudaPorTributo,
-            String detalleDeuda) {
+            List<DetalleDeuda> detalleDeuda) {
 
         public FilaMoroso(
                 String codigo,
@@ -70,7 +71,7 @@ public record ReporteRespuesta<T>(
                 List<MontoPorTributo> deudaPorTributo) {
             this(codigo, nombre, nombre, null, tipoDocumento, numeroDocumento, null, null, null, null, domicilioFiscal,
                     null, zonas, deudaVencida, deudaVencida, cuotasVencidas, vencimientoMasAntiguo,
-                    diasVencido, etapaCobranza, nombreEtapa, deudaPorTributo, null);
+                    diasVencido, etapaCobranza, nombreEtapa, deudaPorTributo, List.of());
         }
     }
 

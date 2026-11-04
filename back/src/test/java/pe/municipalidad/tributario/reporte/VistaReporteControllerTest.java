@@ -76,6 +76,7 @@ class VistaReporteControllerTest {
                     "montoMinimo": 1000
                   },
                   "columnasVisibles": ["codigo", "nombre", "deudaVencida", "nombreEtapa"],
+                  "columnasDetalleVisibles": ["codigoPredio", "tributo", "montoConBeneficio"],
                   "orden": "deudaVencida:desc"
                 }
                 """;
@@ -94,6 +95,7 @@ class VistaReporteControllerTest {
                 .andExpect(jsonPath("$.filtros.tributo").value("ARBITRIOS"))
                 .andExpect(jsonPath("$.filtros.montoMinimo").value(1000))
                 .andExpect(jsonPath("$.columnasVisibles", contains("codigo", "nombre", "deudaVencida", "nombreEtapa")))
+                .andExpect(jsonPath("$.columnasDetalleVisibles", contains("codigoPredio", "tributo", "montoConBeneficio")))
                 .andExpect(jsonPath("$.orden").value("deudaVencida:desc"))
                 .andExpect(jsonPath("$.fechaCreacion", notNullValue()));
     }
@@ -132,8 +134,8 @@ class VistaReporteControllerTest {
                 .andExpect(jsonPath("$.reporte.tipoReporte").value("PRICOS"))
                 .andExpect(jsonPath("$.reporte.filtrosAplicados.anio").value(2025))
                 .andExpect(jsonPath("$.reporte.filas[*].codigo", contains("021390", "045067")))
-                .andExpect(jsonPath("$.reporte.filas[0].emitidoAnio").value(8783.84))
-                .andExpect(jsonPath("$.reporte.filas[0].porcentajePagado").value(74.27));
+                .andExpect(jsonPath("$.reporte.filas[0].emitidoAnio").value(17479.84))
+                .andExpect(jsonPath("$.reporte.filas[0].porcentajePagado").value(87.07));
     }
 
     @Test
@@ -276,22 +278,49 @@ class VistaReporteControllerTest {
     }
 
     @Test
-    void nombreDeVistaDuplicadoParaMismoUsuarioYReporteDevuelve409() throws Exception {
+    void guardarVistaConNombreExistenteSobrescribeLaVista() throws Exception {
         MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_duplicado");
-        String jsonPeticion = """
+        String primeraPeticion = """
                 {
                   "nombre": "Mi Reporte Favorito",
                   "tipoGrafica": "TABLA",
                   "columnasVisibles": ["codigo", "nombre"]
                 }
                 """;
+        String segundaPeticion = """
+                {
+                  "nombre": "Mi Reporte Favorito",
+                  "tipoGrafica": "BARRAS",
+                  "columnasVisibles": ["codigo", "razonSocial", "deudaVencida"],
+                  "columnasDetalleVisibles": ["codigoPredio", "montoConBeneficio"],
+                  "orden": "deudaVencida:desc"
+                }
+                """;
 
-        mvc.perform(post("/api/reportes/MOROSOS/vistas").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(jsonPeticion).session(sesion))
-                .andExpect(status().isCreated());
+        String primeraRespuesta = mvc.perform(post("/api/reportes/MOROSOS/vistas")
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(primeraPeticion).session(sesion))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        Number primerId = com.jayway.jsonpath.JsonPath.read(primeraRespuesta, "$.idVista");
 
-        mvc.perform(post("/api/reportes/MOROSOS/vistas").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(jsonPeticion).session(sesion))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.codigo").value("NOMBRE_VISTA_DUPLICADO"));
+        String segundaRespuesta = mvc.perform(post("/api/reportes/MOROSOS/vistas")
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(segundaPeticion).session(sesion))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.idVista").value(primerId))
+                .andExpect(jsonPath("$.tipoGrafica").value("BARRAS"))
+                .andExpect(jsonPath("$.columnasVisibles", contains("codigo", "razonSocial", "deudaVencida")))
+                .andExpect(jsonPath("$.columnasDetalleVisibles", contains("codigoPredio", "montoConBeneficio")))
+                .andExpect(jsonPath("$.orden").value("deudaVencida:desc"))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+
+        Number segundoId = com.jayway.jsonpath.JsonPath.read(segundaRespuesta, "$.idVista");
+        assertThat(segundoId).isEqualTo(primerId);
+
+        Integer total = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM operativo.vista_reporte v JOIN seguridad.usuario u ON u.id_usuario = v.id_usuario"
+                        + " WHERE u.nombre_usuario = 'gerente_duplicado' AND v.nombre = 'Mi Reporte Favorito'",
+                Integer.class);
+        assertThat(total).isEqualTo(1);
     }
 
     @Test
@@ -353,6 +382,111 @@ class VistaReporteControllerTest {
     }
 
     @Test
+    void exportarVistaGuardadaAplicaColumnasDelDetalleYOrden() throws Exception {
+        MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_exp_detalle_vista");
+        String guardarJson = """
+                {
+                  "nombre": "Morosos con detalle",
+                  "tipoGrafica": "TABLA",
+                  "columnasVisibles": ["codigo", "razonSocial", "deudaVencida"],
+                  "columnasDetalleVisibles": ["codigoPredio", "montoConBeneficio"],
+                  "orden": "deudaVencida:desc"
+                }
+                """;
+
+        String guardado = mvc.perform(post("/api/reportes/MOROSOS/vistas")
+                        .with(csrf()).contentType(MediaType.APPLICATION_JSON).content(guardarJson).session(sesion))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        Number idVista = com.jayway.jsonpath.JsonPath.read(guardado, "$.idVista");
+
+        byte[] pdf = mvc.perform(get("/api/reportes/vistas/" + idVista + "/exportar")
+                        .param("formato", "PDF")
+                        .session(sesion))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        try (var doc = Loader.loadPDF(pdf)) {
+            String texto = new PDFTextStripper().getText(doc);
+            assertThat(texto)
+                    .contains("Detalle de obligaciones")
+                    .contains("Predio")
+                    .contains("Con Beneficio");
+        }
+    }
+
+    @Test
+    void exportarMorososAplicaOrdenColumnasYDetalle() throws Exception {
+        MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_export_detalle");
+
+        byte[] excel = mvc.perform(get("/api/reportes/MOROSOS/exportar")
+                        .param("formato", "EXCEL")
+                        .param("columnas", "codigo", "razonSocial", "deudaVencida")
+                        .param("columnasDetalle", "anio", "codigoPredio", "montoConBeneficio")
+                        .param("orden", "deudaVencida:desc")
+                        .session(sesion))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(excel))) {
+            var sheet = wb.getSheetAt(0);
+            assertThat(sheet.getRow(5).getCell(0).getStringCellValue()).isEqualTo("Código");
+
+            // El orden solicitado (deudaVencida:desc) se refleja en las filas exportadas.
+            double primeraDeuda = sheet.getRow(6).getCell(2).getNumericCellValue();
+            double segundaDeuda = sheet.getRow(7).getCell(2).getNumericCellValue();
+            assertThat(primeraDeuda).isGreaterThanOrEqualTo(segundaDeuda);
+
+            boolean tieneTituloDetalle = false;
+            boolean tieneCabeceraPredio = false;
+            for (int i = 0; i <= sheet.getLastRowNum(); i++) {
+                var fila = sheet.getRow(i);
+                if (fila == null) {
+                    continue;
+                }
+                if (fila.getCell(0) != null
+                        && "Detalle de obligaciones".equals(fila.getCell(0).getStringCellValue())) {
+                    tieneTituloDetalle = true;
+                }
+                for (var celda : fila) {
+                    if ("Predio".equals(celda.toString())) {
+                        tieneCabeceraPredio = true;
+                    }
+                }
+            }
+            assertThat(tieneTituloDetalle).isTrue();
+            assertThat(tieneCabeceraPredio).isTrue();
+        }
+
+        byte[] pdf = mvc.perform(get("/api/reportes/MOROSOS/exportar")
+                        .param("formato", "PDF")
+                        .param("columnas", "codigo", "razonSocial", "deudaVencida")
+                        .param("columnasDetalle", "anio", "codigoPredio", "montoConBeneficio")
+                        .session(sesion))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        try (var doc = Loader.loadPDF(pdf)) {
+            String texto = new PDFTextStripper().getText(doc);
+            assertThat(texto)
+                    .contains("Detalle de obligaciones")
+                    .contains("Predio")
+                    .contains("Con Beneficio");
+        }
+    }
+
+    @Test
+    void exportarConColumnaDeDetalleInvalidaDevuelve400() throws Exception {
+        MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_export_detalle_invalido");
+        mvc.perform(get("/api/reportes/MOROSOS/exportar")
+                        .param("formato", "EXCEL")
+                        .param("columnasDetalle", "columna_fantasma")
+                        .session(sesion))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.codigo").value("COLUMNA_NO_VALIDA"));
+    }
+
+    @Test
     void exportarVistaGuardadaAExcelYPdf() throws Exception {
         MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_exp_vista");
         String guardarJson = """
@@ -398,17 +532,18 @@ class VistaReporteControllerTest {
     void validacionFiltrosYColumnasInvalidasDevuelven400() throws Exception {
         MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_validaciones");
 
-        // Morosos con anio
-        String morososConAnio = """
+        // Rango de años inválido
+        String morososConRangoInvalido = """
                 {
                   "nombre": "Morosos Malos",
-                  "filtros": { "anio": 2025 },
+                  "filtros": { "anioDesde": 2026, "anioHasta": 2025 },
                   "columnasVisibles": ["codigo", "nombre"]
                 }
                 """;
-        mvc.perform(post("/api/reportes/MOROSOS/vistas").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(morososConAnio).session(sesion))
+        mvc.perform(post("/api/reportes/MOROSOS/vistas").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content(morososConRangoInvalido).session(sesion))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.codigo").value("FILTRO_NO_APLICABLE"));
+                .andExpect(jsonPath("$.codigo").value("RANGO_INVALIDO"));
 
         // Columna inexistente
         String columnaInvalida = """
