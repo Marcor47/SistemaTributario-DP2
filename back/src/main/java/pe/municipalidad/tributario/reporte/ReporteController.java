@@ -212,6 +212,9 @@ public class ReporteController {
             @RequestParam(required = false) FiltroBeneficio beneficio,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
             BigDecimal montoMinimo,
+            @RequestParam(required = false) CriterioPricos criterio,
+            @RequestParam(required = false) @Min(value = 1, message = "debe ser al menos 1")
+            @Max(value = 200, message = "debe ser como máximo 200") Integer limite,
             @RequestParam(required = false) List<String> columnas,
             @RequestParam(required = false) List<String> columnasDetalle,
             @RequestParam(required = false) @Size(max = 250, message = "es demasiado largo") String orden,
@@ -219,7 +222,7 @@ public class ReporteController {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
         ExportacionReporte exportacion = servicio.exportar(tipo,
                 new FiltrosReporte(anio, zona, tributo, montoMinimo, periodo,
-                        regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio), formato, columnas,
+                        regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio, criterio, limite), formato, columnas,
                 columnasDetalle, orden, usuario);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportacion.nombreArchivo() + "\"")

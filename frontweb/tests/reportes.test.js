@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { etiquetaCriterioPricos, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosPricos, parametrosReporte, validarFiltros, validarPricos } from '../src/utils/reportes.js'
+import { etiquetaCriterioPricos, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, paginarFilas, parametrosPricos, parametrosReporte, validarFiltros, validarPricos } from '../src/utils/reportes.js'
 
 const morosos = { tipo: 'MOROSOS', filtros: ['anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'] }
 const pricos = { tipo: 'PRICOS', filtros: ['anio', 'zona', 'tributo', 'montoMinimo'] }
+const buenosPagadoresZona = { tipo: 'BUENOS_PAGADORES', filtros: ['periodo', 'zona', 'tributo', 'montoMinimo'] }
 
 test('HU006: el catálogo controla los filtros visibles', () => {
   assert.deepEqual(filtrosDisponibles(morosos), ['anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'])
@@ -66,4 +67,23 @@ test('HU037: valida el criterio y el límite de PRICOS', () => {
   assert.deepEqual(Object.keys(validarPricos({ criterio: 'OTRO', limite: '0' })).sort(), ['criterio', 'limite'])
   assert.deepEqual(validarPricos({ criterio: 'BASE_IMPONIBLE', limite: '10' }), {})
   assert.deepEqual(Object.keys(validarPricos({ criterio: 'BASE_IMPONIBLE', limite: '201' })), ['limite'])
+})
+
+test('HU038: construye los filtros del reporte de buenos pagadores por zona', () => {
+  const consulta = parametrosReporte(buenosPagadoresZona, { periodo: '2026', zona: ' Z2 ', tributo: 'ARBITRIOS', montoMinimo: '500' })
+  assert.equal(consulta.toString(), 'periodo=2026&zona=Z2&tributo=ARBITRIOS&montoMinimo=500')
+})
+
+test('HU038: valida el periodo y el monto mínimo antes de consultar', () => {
+  const errores = validarFiltros(buenosPagadoresZona, { periodo: '1999', zona: '', tributo: '', montoMinimo: '-1' })
+  assert.deepEqual(Object.keys(errores).sort(), ['montoMinimo', 'periodo'])
+})
+
+test('HU038: pagina los resultados y corrige una página fuera de rango', () => {
+  const filas = Array.from({ length: 23 }, (_, indice) => ({ codigo: indice + 1 }))
+  const segunda = paginarFilas(filas, 2, 10)
+  assert.deepEqual(segunda.filas.map(({ codigo }) => codigo), [11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
+  assert.deepEqual({ pagina: segunda.pagina, totalPaginas: segunda.totalPaginas, desde: segunda.desde, hasta: segunda.hasta }, { pagina: 2, totalPaginas: 3, desde: 11, hasta: 20 })
+  assert.equal(paginarFilas(filas, 99, 10).pagina, 3)
+  assert.equal(paginarFilas(Array.from({ length: 120 }), 2, 100).filas.length, 20)
 })

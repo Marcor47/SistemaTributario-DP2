@@ -16,6 +16,7 @@ public record VistaReporteRespuesta(
         List<String> columnasDetalleVisibles,
         List<String> ordenColumnas,
         List<String> ordenColumnasDetalle,
+        List<String> series,
         String orden,
         LocalDateTime fechaCreacion) {
 }
