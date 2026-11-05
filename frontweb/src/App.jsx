@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import MenuLateral from './components/MenuLateral.jsx'
 import { MODULOS } from './utils/modulos.jsx'
@@ -25,6 +26,8 @@ import GestionUsuarios from './pages/GestionUsuarios.jsx'
 import SinAcceso from './pages/SinAcceso.jsx'
 import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
 import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
+
+const Reporteria = lazy(() => import('./pages/Reporteria.jsx'))
 
 const moduloDeRuta = (pathname, seccion) => MODULOS
   .filter((modulo) => modulo.seccion === seccion && pathname.startsWith(modulo.ruta))
@@ -71,7 +74,7 @@ function LayoutGestion() {
   const modulo = moduloDeRuta(pathname, 'gestion')
   const esDashboard = pathname.startsWith('/dashboard')
   const esMetas = pathname.startsWith('/metas')
-  const esReportes = pathname.startsWith('/reportes')
+  const esReportes = pathname.startsWith('/reportes') || pathname.startsWith('/reporteria')
   return (
     <div className="app">
       <MenuLateral solo="gestion" />
@@ -134,6 +137,7 @@ export default function App() {
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
           <Route path="/resumen-ejecutivo" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><ResumenEjecutivo /></RutaInternaProtegida>} />
           <Route path="/reportes" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Reportes /></RutaInternaProtegida>} />
+          <Route path="/reporteria" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Suspense fallback={<p className="mensaje-carga" role="status">Cargando la plataforma analítica…</p>}><Reporteria /></Suspense></RutaInternaProtegida>} />
           <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />
           <Route path="/gestion/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:GESTIONAR"><GestionReclamos modo="gestion" /></RutaInternaProtegida>} />
           <Route path="/reclamos/asignados" element={<RutaInternaProtegida permiso="RECLAMOS:ATENDER"><GestionReclamos modo="asignados" /></RutaInternaProtegida>} />

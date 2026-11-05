@@ -3,6 +3,8 @@
 Para probar el dashboard HU011 y el buzón móvil HU019 con datos incluidos al iniciar el perfil
 `local`, consulta [DEMOSTRACION_LOCAL.md](DEMOSTRACION_LOCAL.md).
 
+La plataforma analítica de Rentas y la configuración de su asistente de IA están en [REPORTERIA_API.md](REPORTERIA_API.md).
+
 ## Portal del contribuyente (HU014, HU022 y HU046)
 
 El contrato corregido de pago total y beneficios de HU022 está en [HU022_API.md](HU022_API.md).

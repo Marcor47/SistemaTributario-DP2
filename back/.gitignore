@@ -1,6 +1,7 @@
 HELP.md
 target/
 .niubiz-sandbox-local.properties
+.asistente-local.properties
 tributario-demo*
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
