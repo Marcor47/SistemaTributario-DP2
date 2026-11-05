@@ -62,6 +62,9 @@ public class VistaReporte {
     @Column(name = "orden_columnas_detalle", columnDefinition = "text")
     private String ordenColumnasDetalle;
 
+    @Column(name = "series", columnDefinition = "text")
+    private String series;
+
     @Column(name = "orden", length = 250)
     private String orden;
 
@@ -73,7 +76,7 @@ public class VistaReporte {
 
     public VistaReporte(TipoReporte tipoReporte, Usuario usuario, String nombre, TipoGrafica tipoGrafica,
             String filtros, String columnasVisibles, String columnasDetalleVisibles, String ordenColumnas,
-            String ordenColumnasDetalle, String orden, LocalDateTime fechaCreacion) {
+            String ordenColumnasDetalle, String series, String orden, LocalDateTime fechaCreacion) {
         this.tipoReporte = tipoReporte;
         this.usuario = usuario;
         this.nombre = nombre;
@@ -83,12 +86,13 @@ public class VistaReporte {
         this.columnasDetalleVisibles = columnasDetalleVisibles;
         this.ordenColumnas = ordenColumnas;
         this.ordenColumnasDetalle = ordenColumnasDetalle;
+        this.series = series;
         this.orden = orden;
         this.fechaCreacion = fechaCreacion;
     }
 
     public void actualizar(String nombre, TipoGrafica tipoGrafica, String filtros, String columnasVisibles,
-            String columnasDetalleVisibles, String ordenColumnas, String ordenColumnasDetalle, String orden) {
+            String columnasDetalleVisibles, String ordenColumnas, String ordenColumnasDetalle, String series, String orden) {
         if (nombre != null && !nombre.isBlank()) {
             this.nombre = nombre;
         }
@@ -110,13 +114,14 @@ public class VistaReporte {
         if (ordenColumnasDetalle != null) {
             this.ordenColumnasDetalle = ordenColumnasDetalle;
         }
+        if (series != null) this.series = series;
         this.orden = orden;
     }
 
     public void actualizar(TipoGrafica tipoGrafica, String filtros, String columnasVisibles,
-            String columnasDetalleVisibles, String ordenColumnas, String ordenColumnasDetalle, String orden) {
+            String columnasDetalleVisibles, String ordenColumnas, String ordenColumnasDetalle, String series, String orden) {
         actualizar(null, tipoGrafica, filtros, columnasVisibles, columnasDetalleVisibles, ordenColumnas,
-                ordenColumnasDetalle, orden);
+                ordenColumnasDetalle, series, orden);
     }
 
     public boolean perteneceA(Usuario otro) {
@@ -161,6 +166,10 @@ public class VistaReporte {
 
     public String getOrdenColumnasDetalle() {
         return ordenColumnasDetalle;
+    }
+
+    public String getSeries() {
+        return series;
     }
 
     public String getOrden() {

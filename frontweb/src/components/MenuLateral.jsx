@@ -88,7 +88,7 @@ export default function MenuLateral({ solo }) {
           </div>
           <div className="menu-perfil-info">
             <span className="menu-perfil-etiqueta">{solo === 'portal' ? 'Contribuyente' : 'Usuario activo'}</span>
-            <strong className="menu-perfil-nombre">{nombreUsuario}</strong>
+            <strong className="menu-perfil-nombre" title={nombreUsuario}>{nombreUsuario}</strong>
             {solo === 'portal' && nombreUsuario !== codigoPortal && <span className="menu-perfil-codigo">Código {codigoPortal}</span>}
           </div>
         </div>
