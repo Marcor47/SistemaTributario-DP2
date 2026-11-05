@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { obtenerEstadoCuentaPortal, iniciarPagoPortal, confirmarPagoPortal } from '../src/services/portalCuentaService.js'
-import { agruparCuentaPorPeriodo, filtrarCuenta, filtrarPeriodos, normalizarCuenta, resumirCuenta, resumirTributos } from '../src/utils/estadoCuentaPortal.js'
-import { FECHA_CORTE, generarCuenta } from '../src/mocks/cuentas.js'
+import { agruparCuentaPorPeriodo, filtrarCuenta, filtrarPeriodos, normalizarCuenta, resumirCuenta } from '../src/utils/estadoCuentaPortal.js'
 
 const respuesta = {
   contribuyente: { codigo: '014502', nombre: 'Contribuyente de prueba', tipoDoc: 'DNI', doc: '12345678' },
@@ -43,7 +42,7 @@ test('HU014: conserva fecha de corte y copia desactualizada recibidas del servid
 })
 
 test('HU014: suma pagos parciales y distingue deuda vencida de obligaciones vigentes', () => {
-  assert.deepEqual(resumirCuenta(normalizarCuenta(respuesta).filas), { emitido: 900, pagado: 550, deuda: 350, vencido: 250, vigente: 100 })
+  assert.deepEqual(resumirCuenta(normalizarCuenta(respuesta).filas), { emitido: 900, pagado: 550, deuda: 350, vencido: 250, vigente: 100, interes: 0 })
 })
 
 test('HU014: filtros combinados y pagos aplicados incluyen obligaciones parcialmente pagadas', () => {
@@ -63,58 +62,60 @@ test('HU014: no inventa año, vencimiento, recibo ni fecha de pago cuando faltan
 })
 
 test('HU014: cuenta sin obligaciones tiene todos los totales en cero', () => {
-  assert.deepEqual(resumirCuenta([]), { emitido: 0, pagado: 0, deuda: 0, vencido: 0, vigente: 0 })
+  assert.deepEqual(resumirCuenta([]), { emitido: 0, pagado: 0, deuda: 0, vencido: 0, vigente: 0, interes: 0 })
 })
 
-test('HU014: unifica el predial y los arbitrios por trimestre sin alterar importes ni IDs de pago', () => {
-  const filas = normalizarCuenta({ fechaCorte: FECHA_CORTE, filas: generarCuenta('021390', FECHA_CORTE) }).filas
+// Auditoría 2026-11: el predial va por cuota y los arbitrios por mes; un mes de arbitrios suma todos los predios.
+function filaArbitrio(id, codigoPredio, mes, emitido, pagado, servicios) {
+  return { id, tributo: 'Arbitrios Municipales', tributoCodigo: 'ARBITRIOS', anio: 2026, cuota: mes,
+    periodo: `2026-${String(mes).padStart(2, '0')}`, codigoPredio, emitido, pagado, deuda: emitido - pagado,
+    interesMoratorio: emitido > pagado ? 1.5 : 0, estado: emitido > pagado ? 'VENCIDA' : 'PAGADA',
+    fechaVencimiento: '2026-02-27', servicios }
+}
+
+test('HU014: una fila por cuota de predial y una por mes de arbitrios con sus predios y servicios', () => {
+  const servicios = [{ servicio: 'BARRIDO_CALLES', monto: 10 }, { servicio: 'SERENAZGO', monto: 15 }]
+  const filas = normalizarCuenta({ fechaCorte: '2026-10-19', filas: [
+    { id: 1, tributo: 'Impuesto Predial', tributoCodigo: 'IMPUESTO_PREDIAL', anio: 2026, cuota: 1, periodo: '2026-T1',
+      emitido: 342, pagado: 342, deuda: 0, estado: 'PAGADA', fechaVencimiento: '2026-02-27', servicios: [] },
+    filaArbitrio(2, '014502-01', 1, 25, 25, servicios),
+    filaArbitrio(3, '014502-02', 1, 25, 0, servicios),
+    filaArbitrio(4, '014502-01', 2, 25, 25, servicios),
+  ] }).filas
   const grupos = agruparCuentaPorPeriodo(filas)
-  assert.equal(filas.length, 12)
-  assert.equal(grupos.length, 6)
-  assert.ok(grupos.every((grupo) => grupo.conceptos.length === 2 && grupo.titulo === 'Tributos municipales'))
-  assert.deepEqual(grupos.map((grupo) => grupo.periodo), ['2025-T1', '2025-T2', '2025-T3', '2025-T4', '2026-T1', '2026-T2'])
+  assert.deepEqual(grupos.map((grupo) => grupo.etiqueta), ['1.ª cuota 2026', 'Enero 2026', 'Febrero 2026'])
+  assert.equal(grupos[0].titulo, 'Impuesto Predial')
+  assert.equal(grupos[0].tieneDetalle, false)
+  const enero = grupos[1]
+  assert.equal(enero.titulo, 'Arbitrios municipales')
+  assert.equal(enero.conceptos.length, 2)
+  assert.equal(enero.emitido, 50)
+  assert.equal(enero.deuda, 25)
+  assert.equal(enero.interes, 1.5)
+  assert.equal(enero.estado, 'Vencida')
+  assert.deepEqual(enero.idsPendientes, ['3'])
+  assert.deepEqual(enero.porServicio.map((s) => [s.codigo, s.monto]), [['BARRIDO_CALLES', 20], ['SERENAZGO', 30]])
   for (const campo of ['emitido', 'pagado', 'deuda']) {
     assert.equal(resumirCuenta(grupos)[campo], resumirCuenta(filas)[campo])
   }
-  const grupo = grupos.find((item) => item.periodo === '2026-T1')
-  assert.deepEqual(grupo.idsPendientes, filas.filter((fila) => fila.periodo === '2026-T1' && fila.deuda > 0)
-    .map((fila) => fila.id))
-  assert.equal(filtrarPeriodos(grupos, { anio: 2026, texto: 'Predial' }).length, 2)
-  assert.equal(filtrarPeriodos(grupos, { vista: 'pagos' }).length, 3)
+  assert.equal(filtrarPeriodos(grupos, { texto: 'enero' }).length, 1)
+  assert.equal(filtrarPeriodos(grupos, { texto: '014502-02' }).length, 1)
+  assert.equal(filtrarPeriodos(grupos, { estado: 'Pagada' }).length, 2)
 })
 
-test('HU014: muestra un subtotal por tributo aunque existan varias cuotas de arbitrios', () => {
-  const filas = normalizarCuenta({ ...respuesta, filas: [
-    { id: 1, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 866, pagado: 866, deuda: 0 },
-    { id: 2, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 574, pagado: 574, deuda: 0 },
-    { id: 3, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 292, pagado: 292, deuda: 0 },
-    { id: 4, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 1196, pagado: 1196, deuda: 0 },
-    { id: 5, tributo: 'Arbitrios Municipales', periodo: '2025-T1', emitido: 376, pagado: 376, deuda: 0 },
-    { id: 6, tributo: 'Impuesto Predial', periodo: '2025-T1', emitido: 936, pagado: 936, deuda: 0 },
-  ] }).filas
-  const grupo = agruparCuentaPorPeriodo(filas)[0]
-  const tributos = resumirTributos(grupo.conceptos)
-  assert.deepEqual(tributos.map(({ tributo, cantidad, emitido }) => ({ tributo, cantidad, emitido })), [
-    { tributo: 'Arbitrios Municipales', cantidad: 5, emitido: 3304 },
-    { tributo: 'Impuesto Predial', cantidad: 1, emitido: 936 },
-  ])
-  assert.equal(resumirCuenta(tributos).emitido, grupo.emitido)
-  assert.deepEqual(grupo.idsPendientes, [])
-})
-
-test('HU014: no mezcla obligaciones ajenas al trimestre ni inventa un vencimiento único', () => {
+test('HU014: otros conceptos no se mezclan con los tributos ni se inventa un vencimiento único', () => {
   const filas = normalizarCuenta({ fechaCorte: '2026-10-19', filas: [
-    { id: 1, tributo: 'Impuesto Predial', periodo: '2026-T1', emitido: 10, pagado: 5, deuda: 5, estado: 'VENCIDA', fechaVencimiento: '2026-03-31' },
-    { id: 2, tributo: 'Arbitrios Municipales', periodo: '2026-T1', emitido: 20, pagado: 20, deuda: 0, estado: 'PAGADA', fechaVencimiento: '2026-04-30' },
-    { id: 3, tributo: 'Derecho de trámite', periodo: '2026-T1', emitido: 7, pagado: 0, deuda: 7, estado: 'PENDIENTE' },
+    { id: 1, tributo: 'Impuesto Predial', tributoCodigo: 'IMPUESTO_PREDIAL', anio: 2026, cuota: 1, periodo: '2026-T1', emitido: 10, pagado: 5, deuda: 5, estado: 'VENCIDA', fechaVencimiento: '2026-02-27' },
+    { id: 2, tributo: 'Arbitrios Municipales', tributoCodigo: 'ARBITRIOS', anio: 2026, cuota: 3, periodo: '2026-03', codigoPredio: 'A', emitido: 20, pagado: 20, deuda: 0, estado: 'PAGADA', fechaVencimiento: '2026-03-31' },
+    { id: 3, tributo: 'Arbitrios Municipales', tributoCodigo: 'ARBITRIOS', anio: 2026, cuota: 3, periodo: '2026-03', codigoPredio: 'B', emitido: 20, pagado: 0, deuda: 20, estado: 'VENCIDA', fechaVencimiento: '2026-04-15' },
+    { id: 4, tributo: 'Derecho de trámite', periodo: '2026-T1', emitido: 7, pagado: 0, deuda: 7, estado: 'PENDIENTE' },
   ] }).filas
   const grupos = agruparCuentaPorPeriodo(filas)
-  assert.equal(grupos.length, 2)
+  assert.equal(grupos.length, 3)
   assert.equal(grupos[0].deuda, 5)
-  assert.equal(grupos[0].estado, 'Vencida')
-  assert.equal(grupos[0].fechaVencimiento, null)
   assert.deepEqual(grupos[0].idsPendientes, ['1'])
-  assert.equal(grupos[1].titulo, 'Derecho de trámite')
+  assert.equal(grupos[1].fechaVencimiento, null)
+  assert.equal(grupos[2].titulo, 'Derecho de trámite')
 })
 
 test('el acceso existente a pagos propaga una caída de red sin inventar confirmaciones', async (t) => {

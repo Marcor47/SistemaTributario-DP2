@@ -1,4 +1,5 @@
 import TablaPredios from './TablaPredios.jsx'
+import { moneda } from '../utils/formato.js'
 
 function Campo({ etiqueta, valor }) {
   return (
@@ -34,6 +35,9 @@ export default function FichaDatos({ ficha, ocupado, error, onReintentar }) {
 
   const activo = ficha.estado === 'ACTIVO'
   const predios = Array.isArray(ficha.predios) ? ficha.predios : []
+  // En copropiedad al titular solo le corresponde su porcentaje del autovalúo (base del Impuesto Predial).
+  const autovaluoTotal = predios.reduce(
+    (total, p) => total + Number(p.baseImponible ?? 0) * Number(p.porcentajePropiedad ?? 100) / 100, 0)
 
   return (
     <>
@@ -65,7 +69,7 @@ export default function FichaDatos({ ficha, ocupado, error, onReintentar }) {
         <p className="hint">
           {predios.length === 0
             ? 'El contribuyente no figura como titular de predios registrados en SAMNET.'
-            : `El contribuyente figura como titular en ${predios.length} ${predios.length === 1 ? 'predio' : 'predios'}.`}
+            : `El contribuyente figura como titular en ${predios.length} ${predios.length === 1 ? 'predio' : 'predios'}. Autovalúo que le corresponde por su porcentaje de propiedad: ${moneda(autovaluoTotal)}.`}
         </p>
         {predios.length > 0 && <TablaPredios key={ficha.codigo} predios={predios} />}
       </section>

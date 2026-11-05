@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { buscarCoincidencias } from '../services/contribuyenteService.js'
 import { obtenerEstadoCuenta } from '../services/cuentaService.js'
-import { TRIBUTOS } from '../mocks/cuentas.js'
+import DetalleCuenta from '../components/DetalleCuenta.jsx'
 import { MINIMO_BUSQUEDA, TIPOS_DOCUMENTO, limpiarDocumento, validarDocumento } from '../utils/documento.js'
-import { fecha, moneda } from '../utils/formato.js'
 
-const suma = (filas, campo) => filas.reduce((a, f) => a + f[campo], 0)
 const TIPO_CODIGO = { maximo: 20, ayuda: 'Código de contribuyente. Puedes buscar con parte del código.' }
 
 function limpiarBusqueda(valor, tipo) {
@@ -19,92 +17,27 @@ function validarBusqueda(tipo, valor) {
   return validarDocumento(tipo, valor)
 }
 
-function Estado({ valor }) {
-  const clase = valor === 'Pagada' ? 'ok' : valor === 'Vencida' ? 'critico' : 'aviso'
-  const icono = valor === 'Pagada' ? '✓' : valor === 'Vencida' ? '!' : '…'
-  return <span className={`estado ${clase}`}><span aria-hidden="true">{icono}</span> {valor}</span>
-}
-
+// Si la cuenta no se pudo cargar, el contribuyente sigue seleccionado (ficha, pagos, cobranza) y el error se muestra
+// solo en la pestaña del estado de cuenta.
 function Cuenta({ cuenta }) {
-  const { contribuyente: c, filas, fechaCorte, desactualizado } = cuenta
-  return (
-    <>
-      <section className="pcard" aria-label="Contribuyente">
-        <h2>{c.nombre}</h2>
-        <p className="hint">Código {c.codigo} · {c.tipoDoc} {c.doc}</p>
-        <p className="corte"><strong>Fecha de corte:</strong> {fecha(fechaCorte)}</p>
-        {desactualizado && (
-          <div className="alert" role="alert">
-            <strong>El servicio de cuenta corriente no responde. </strong>
-            Se muestra la última información disponible, con fecha de corte {fecha(fechaCorte)}.
-          </div>
-        )}
-        {filas.length === 0 ? (
-          <div className="info" role="status">
-            No hay información de estado de cuenta disponible para este contribuyente en la demostración.
-          </div>
-        ) : (
-          <div className="resumen">
-            <div><span className="pl">Emitido</span><strong>{moneda(suma(filas, 'emitido'))}</strong></div>
-            <div><span className="pl">Pagado</span><strong>{moneda(suma(filas, 'pagado'))}</strong></div>
-            <div className={suma(filas, 'deuda') > 0 ? 'deuda' : ''}>
-              <span className="pl">Deuda total</span><strong>{moneda(suma(filas, 'deuda'))}</strong>
-            </div>
-          </div>
-        )}
+  if (cuenta.error) {
+    return (
+      <section className="pcard" aria-label="Estado de cuenta">
+        <h2>{cuenta.contribuyente.nombre}</h2>
+        <div className="alert" role="alert">{cuenta.error}</div>
       </section>
-
-      {filas.length > 0 && TRIBUTOS.map((tributo) => {
-        const delTributo = filas.filter((f) => f.tributo === tributo)
-        return (
-          <section className="pcard" key={tributo} aria-label={tributo}>
-            <h2>{tributo}</h2>
-            <table className="tabla">
-              <thead>
-                <tr>
-                  <th>Periodo</th>
-                  <th className="num">Emitido</th>
-                  <th className="num">Pagado</th>
-                  <th className="num">Deuda</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {delTributo.map((f) => (
-                  <tr key={f.id}>
-                    <td>{f.periodo}</td>
-                    <td className="num">{moneda(f.emitido)}</td>
-                    <td className="num">{moneda(f.pagado)}</td>
-                    <td className="num">{moneda(f.deuda)}</td>
-                    <td><Estado valor={f.estado} /></td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th>Total</th>
-                  <th className="num">{moneda(suma(delTributo, 'emitido'))}</th>
-                  <th className="num">{moneda(suma(delTributo, 'pagado'))}</th>
-                  <th className="num">{moneda(suma(delTributo, 'deuda'))}</th>
-                  <th />
-                </tr>
-              </tfoot>
-            </table>
-          </section>
-        )
-      })}
-    </>
-  )
+    )
+  }
+  return <DetalleCuenta key={cuenta.contribuyente.codigo} cuenta={cuenta} />
 }
 
-export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle, permitirCodigo = false, mostrarSimulacion = true }) {
+export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle, permitirCodigo = false }) {
   const [tipoDocumento, setTipoDocumento] = useState('DNI')
   const [documento, setDocumento] = useState('')
   const [consulta, setConsulta] = useState('')
   const [lista, setLista] = useState(null) // coincidencias; null = aún no se busca
   const [cuenta, setCuenta] = useState(null)
   const [ocupado, setOcupado] = useState(false)
-  const [servicioCaido, setServicioCaido] = useState(false)
   const [error, setError] = useState('')
   const [errorDocumento, setErrorDocumento] = useState('')
   const [abierto, setAbierto] = useState(false)
@@ -187,9 +120,14 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
     setCargandoCuenta(true)
     setError('')
     try {
-      actualizarCuenta(await obtenerEstadoCuenta(contribuyente, { servicioCaido }))
-    } catch {
-      setError('No se pudo obtener el estado de cuenta. Intenta nuevamente.')
+      actualizarCuenta(await obtenerEstadoCuenta(contribuyente))
+    } catch (err) {
+      actualizarCuenta({
+        contribuyente,
+        error: err.estado === 403
+          ? 'Tu rol no tiene permiso para consultar estados de cuenta.'
+          : err.message || 'No se pudo obtener el estado de cuenta. Intenta nuevamente.',
+      })
     } finally {
       setCargandoCuenta(false)
     }
@@ -385,11 +323,6 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
           {errorDocumento && <span id="documento-error" className="campo-error" role="alert">{errorDocumento}</span>}
         </div>
       </form>
-
-      {mostrarSimulacion && <label className="demo-opcion">
-        <input type="checkbox" checked={servicioCaido} onChange={(e) => setServicioCaido(e.target.checked)} />
-        Simular que el servicio de cuenta corriente no responde (solo demostración)
-      </label>}
 
       {(ocupado || cargandoCuenta) && <p className="hint" role="status">Consultando SAMNET…</p>}
       {error && <div className="alert" role="alert">{error}</div>}

@@ -25,6 +25,7 @@ import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
 import pe.municipalidad.tributario.estadocuenta.EstadoCuentaFilaRespuesta;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
+import pe.municipalidad.tributario.obligacion.TasaInteresMoratorio;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway.ResultadoFirma;
 
@@ -47,14 +48,17 @@ public class SolicitudConstanciaService {
     private final FirmadorGateway firmador;
     private final SamnetGateway samnet;
     private final Clock reloj;
+    private final TasaInteresMoratorio tim;
 
     public SolicitudConstanciaService(SolicitudConstanciaRepository solicitudConstanciaRepository,
-            ContribuyenteService contribuyenteService, FirmadorGateway firmador, SamnetGateway samnet, Clock reloj) {
+            ContribuyenteService contribuyenteService, FirmadorGateway firmador, SamnetGateway samnet, Clock reloj,
+            TasaInteresMoratorio tim) {
         this.solicitudConstanciaRepository = solicitudConstanciaRepository;
         this.contribuyenteService = contribuyenteService;
         this.firmador = firmador;
         this.samnet = samnet;
         this.reloj = reloj;
+        this.tim = tim;
     }
 
     @Transactional
@@ -149,7 +153,7 @@ public class SolicitudConstanciaService {
             throw new ReglaNegocioException("DEUDA_NO_VERIFICADA", "No se pudo verificar la deuda actual.");
         }
         var pendientes = cuenta.getObligaciones().stream().filter(o -> o.saldo().signum() > 0)
-                .map(o -> EstadoCuentaFilaRespuesta.desde(o, cuenta.obtenerFechaCorte())).toList();
+                .map(o -> EstadoCuentaFilaRespuesta.desde(o, cuenta.obtenerFechaCorte(), tim.mensual())).toList();
         BigDecimal total = pendientes.stream().map(EstadoCuentaFilaRespuesta::deuda)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new DeudaConstanciaRespuesta(total, pendientes);

@@ -4,11 +4,13 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 
 /*
  * Cuota de un tributo para un periodo (RF-004, RF-007, RF-014). Se obtiene de SAMNET con SamnetGateway.
- * El Impuesto Predial se emite al contribuyente; los arbitrios por predio, por eso codigoPredio es opcional.
+ * El Impuesto Predial se emite al contribuyente en 4 cuotas trimestrales; los arbitrios por predio y por mes, con el
+ * detalle de sus servicios. Por eso codigoPredio y servicios solo vienen en los arbitrios.
  * El estado de pago no se guarda: depende de la fecha de corte (estadoAl).
  */
 public class Obligacion {
@@ -26,6 +28,11 @@ public class Obligacion {
     private final BigDecimal porcentajeDescuento;
     private final EtapaCobranza etapaCobranza;
     private final LocalDate fechaEtapa;
+    private final List<MontoServicio> servicios;
+    private final LocalDate fechaUltimoPago;
+
+    /* La TIM es mensual y el Código Tributario la aplica por día con meses de 30 días. */
+    private static final int DIAS_MES_TIM = 30;
 
     public Obligacion(Long idObligacion, String codigoContribuyente, String codigoPredio, Tributo tributo, int anio,
             int cuota, LocalDate fechaVencimiento, BigDecimal montoEmitido, BigDecimal montoPagado,
@@ -38,6 +45,14 @@ public class Obligacion {
             int cuota, LocalDate fechaVencimiento, BigDecimal montoEmitido, BigDecimal montoPagado,
             BigDecimal montoDescontado, BigDecimal porcentajeDescuento, EtapaCobranza etapaCobranza,
             LocalDate fechaEtapa) {
+        this(idObligacion, codigoContribuyente, codigoPredio, tributo, anio, cuota, fechaVencimiento, montoEmitido,
+                montoPagado, montoDescontado, porcentajeDescuento, etapaCobranza, fechaEtapa, List.of(), null);
+    }
+
+    public Obligacion(Long idObligacion, String codigoContribuyente, String codigoPredio, Tributo tributo, int anio,
+            int cuota, LocalDate fechaVencimiento, BigDecimal montoEmitido, BigDecimal montoPagado,
+            BigDecimal montoDescontado, BigDecimal porcentajeDescuento, EtapaCobranza etapaCobranza,
+            LocalDate fechaEtapa, List<MontoServicio> servicios, LocalDate fechaUltimoPago) {
         this.idObligacion = idObligacion;
         this.codigoContribuyente = codigoContribuyente;
         this.codigoPredio = codigoPredio;
@@ -51,6 +66,37 @@ public class Obligacion {
         this.porcentajeDescuento = porcentajeDescuento;
         this.etapaCobranza = etapaCobranza;
         this.fechaEtapa = fechaEtapa;
+        this.servicios = List.copyOf(servicios);
+        this.fechaUltimoPago = fechaUltimoPago;
+    }
+
+    /*
+     * HU010: cancelada sin pagos después de su vencimiento. Si no hay fecha de pago la canceló un beneficio, lo que
+     * no es un atraso.
+     */
+    public boolean pagadaATiempo() {
+        return saldo().signum() <= 0 && (fechaUltimoPago == null || !fechaUltimoPago.isAfter(fechaVencimiento));
+    }
+
+    public LocalDate getFechaUltimoPago() {
+        return fechaUltimoPago;
+    }
+
+    /*
+     * Interés moratorio (Código Tributario, art. 33): interés simple diario de TIM / 30 sobre el insoluto, desde el
+     * día siguiente al vencimiento hasta la fecha indicada. Solo corre si la cuota está vencida.
+     */
+    public BigDecimal interesMoratorioAl(LocalDate fecha, BigDecimal timMensual) {
+        if (!estaVencida(fecha)) {
+            return BigDecimal.ZERO.setScale(2);
+        }
+        BigDecimal tasaDiaria = timMensual.divide(BigDecimal.valueOf(DIAS_MES_TIM * 100), 10, RoundingMode.HALF_UP);
+        return saldo().multiply(tasaDiaria).multiply(BigDecimal.valueOf(diasVencidaAl(fecha)))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public List<MontoServicio> getServicios() {
+        return servicios;
     }
 
     /* Insoluto pendiente: monto emitido menos lo pagado. */
@@ -81,9 +127,11 @@ public class Obligacion {
         return Math.max(0, ChronoUnit.DAYS.between(fechaVencimiento, fecha));
     }
 
-    /* Mismo formato de periodo que usa el front: 2025-T3. */
+    /* El Impuesto Predial se identifica por su cuota trimestral (2026-T3) y los arbitrios por su mes (2026-07). */
     public String etiquetaPeriodo() {
-        return anio + "-T" + cuota;
+        return tributo == Tributo.ARBITRIOS
+                ? String.format("%d-%02d", anio, cuota)
+                : anio + "-T" + cuota;
     }
 
     public Long getIdObligacion() {

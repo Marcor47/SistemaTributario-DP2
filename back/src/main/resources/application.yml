@@ -28,6 +28,10 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
 
 tributario:
+  tributos:
+    # TIM mensual de los tributos municipales (Código Tributario, art. 33): la fija la ordenanza, como máximo la de
+    # SUNAT (0,90 %). Confirmar la ordenanza vigente de San Miguel; la última hallada (408/MDSM, 2020) fijaba 1 %.
+    tim-mensual: ${TIM_MENSUAL:0.90}
   constancia:
     # Derecho de trámite de la Constancia de No Adeudo (HU020). Confirmar el monto vigente del TUPA con la Municipalidad.
     derecho-tramite: ${CONSTANCIA_DERECHO_TRAMITE:10.00}

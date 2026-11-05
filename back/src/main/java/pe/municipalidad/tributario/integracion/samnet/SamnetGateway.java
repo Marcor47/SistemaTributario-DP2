@@ -32,6 +32,8 @@ public interface SamnetGateway {
 
     /* HU018: zonas registradas en los predios, para el selector de los reportes por zona. */
     List<String> obtenerZonas();
+    /* Auditoría 2026-11: búsqueda parcial por código predial, dirección o titular, para listas largas. */
+    List<Predio> buscarPredios(String texto);
 
     /* RF-003: declaraciones juradas del predio; la vigente primero. */
     List<DeclaracionJurada> obtenerDeclaracionJurada(String codigoPredio);

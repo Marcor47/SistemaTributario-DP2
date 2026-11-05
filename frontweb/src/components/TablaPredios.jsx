@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
-import { fecha } from '../utils/formato.js'
+import { Link } from 'react-router-dom'
+import { fecha, moneda } from '../utils/formato.js'
 import {
   CONDICION_PROPIEDAD,
   FILTROS_PREDIOS_INICIALES,
@@ -207,7 +208,17 @@ export default function TablaPredios({ predios = [] }) {
                                 valor={CONDICION_PROPIEDAD[predio.condicionPropiedad] ?? predio.condicionPropiedad}
                               />
                               <DatoDetalle etiqueta="% de propiedad" valor={medida(predio.porcentajePropiedad, '%')} />
+                              <DatoDetalle etiqueta="Zona" valor={predio.zona} />
+                              <DatoDetalle
+                                etiqueta="Autovalúo (base imponible)"
+                                valor={predio.baseImponible == null ? null : moneda(predio.baseImponible)}
+                              />
                             </dl>
+                            {predio.codigoPredio && (
+                              <Link className="btn" to={`/predios?consulta=${encodeURIComponent(predio.codigoPredio)}`}>
+                                Ver declaración jurada y arbitrios del predio
+                              </Link>
+                            )}
                           </td>
                         </tr>
                       )}

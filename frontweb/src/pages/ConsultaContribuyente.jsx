@@ -104,7 +104,6 @@ export default function ConsultaContribuyente() {
     <>
       <EstadoCuenta
         permitirCodigo
-        mostrarSimulacion={vista !== 'pagos'}
         onSeleccionarContribuyente={seleccionarContribuyente}
         renderDetalle={(detalleCuenta) => (
           <>

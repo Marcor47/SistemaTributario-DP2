@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Objects;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
@@ -64,7 +65,9 @@ public class CobranzaService {
         return samnet.obtenerEstadoCuenta(contribuyenteCodigo).getObligaciones().stream()
                 .filter(obligacion -> obligacion.estaVencida(hoy))
                 .sorted(Comparator.comparing(Obligacion::getFechaVencimiento)
-                        .thenComparing(obligacion -> obligacion.getTributo().name()))
+                        .thenComparing(obligacion -> obligacion.getTributo().name())
+                        .thenComparing(obligacion -> Objects.toString(obligacion.getCodigoPredio(), ""))
+                        .thenComparingInt(Obligacion::getCuota))
                 .map(obligacion -> {
                     /* Sin etapas registradas en SAMNET, la deuda está en mora temprana desde su vencimiento. */
                     EtapaCobranza etapaActual = obligacion.getEtapaCobranza() == null

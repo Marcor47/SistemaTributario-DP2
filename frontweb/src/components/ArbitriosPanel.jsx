@@ -12,6 +12,7 @@ import {
 } from '../utils/arbitrios.js'
 import { TAMANIOS_PAGINA, paginar } from '../utils/paginacion.js'
 import { ROLES_CONSULTA_PREDIO, tieneRolInterno } from '../utils/roles.js'
+import { SERVICIOS, montoServicio, nombreMes } from '../utils/estadoCuenta.js'
 import { fecha, moneda } from '../utils/formato.js'
 import './AccesoInterno.css'
 import './ArbitriosPanel.css'
@@ -96,13 +97,14 @@ function GrupoCuotas({ grupo }) {
           <thead>
             <tr>
               <th scope="col">Año</th>
-              <th scope="col">Cuota</th>
-              <th scope="col">Periodo</th>
+              <th scope="col">Mes</th>
               <th scope="col">Vencimiento</th>
+              {SERVICIOS.map((servicio) => <th key={servicio.codigo} scope="col" className="num">{servicio.corto}</th>)}
               <th scope="col" className="num">Emitido</th>
               <th scope="col" className="num">Pagado</th>
               <th scope="col" className="num">Descontado</th>
               <th scope="col" className="num">Saldo</th>
+              <th scope="col" className="num">Interés</th>
               <th scope="col">Estado</th>
               <th scope="col" className="num">Días vencida</th>
             </tr>
@@ -113,13 +115,16 @@ function GrupoCuotas({ grupo }) {
               return (
                 <tr key={cuota.idObligacion}>
                   <td>{cuota.anio}</td>
-                  <td>{cuota.cuota}</td>
-                  <td>{cuota.periodo}</td>
+                  <td>{nombreMes(cuota.cuota)}</td>
                   <td>{fecha(cuota.fechaVencimiento)}</td>
+                  {SERVICIOS.map((servicio) => (
+                    <td key={servicio.codigo} className="num">{moneda(montoServicio(cuota, servicio.codigo))}</td>
+                  ))}
                   <td className="num">{moneda(cuota.emitido)}</td>
                   <td className="num">{moneda(cuota.pagado)}</td>
                   <td className="num">{moneda(cuota.descontado)}</td>
                   <td className="num arb-saldo">{moneda(cuota.saldo)}</td>
+                  <td className="num">{cuota.interesMoratorio > 0 ? moneda(cuota.interesMoratorio) : '—'}</td>
                   <td><span className={`estado ${estado.clase}`}>{estado.etiqueta}</span></td>
                   <td className="num">{cuota.diasVencida > 0 ? `${cuota.diasVencida} días` : '—'}</td>
                 </tr>
@@ -205,7 +210,17 @@ function ResultadoArbitrios({ datos }) {
               <div><span className="pl">Total pagado</span><strong>{moneda(resumen.totalPagado)}</strong></div>
               <div><span className="pl">Total descontado</span><strong>{moneda(resumen.totalDescontado)}</strong></div>
               <div className="deuda"><span className="pl">Saldo total</span><strong>{moneda(resumen.totalSaldo)}</strong></div>
+              <div className={resumen.totalInteresMoratorio > 0 ? 'deuda' : ''}>
+                <span className="pl">Interés moratorio</span><strong>{moneda(resumen.totalInteresMoratorio)}</strong>
+              </div>
             </div>
+            {resumen.porServicio?.length > 0 && (
+              <dl className="arb-servicios" aria-label="Emitido por servicio">
+                {resumen.porServicio.map((servicio) => (
+                  <div key={servicio.servicio}><dt>{servicio.descripcion}</dt><dd>{moneda(servicio.emitido)}</dd></div>
+                ))}
+              </dl>
+            )}
             <div className="arb-conteo">
               <span className="estado ok">{conteo(resumen.cuotasPagadas, 'cuota pagada', 'cuotas pagadas')}</span>
               <span className="estado aviso">{conteo(resumen.cuotasPendientes, 'cuota pendiente', 'cuotas pendientes')}</span>
@@ -292,8 +307,9 @@ function ResultadoArbitrios({ datos }) {
       )}
 
       <p className="hint arb-nota">
-        Consulta de solo lectura. Los montos y estados los calcula el sistema a la fecha de corte;
-        no incluyen el desglose de los tres arbitrios.
+        Consulta de solo lectura. Los arbitrios se emiten por mes y cada cuota suma los servicios de barrido de
+        calles, recolección de residuos sólidos, parques y jardines y serenazgo, según el uso y la zona del predio.
+        El interés moratorio corre sobre las cuotas vencidas.
       </p>
     </section>
   )

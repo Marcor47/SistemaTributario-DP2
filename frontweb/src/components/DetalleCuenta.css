@@ -1,0 +1,41 @@
+.selector-anio { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 14px; }
+
+.estado-dias { font-weight: 500; }
+.texto-critico { color: var(--critico); font-weight: 600; }
+
+.predio-arbitrios {
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  margin-top: 10px;
+  background: var(--superficie);
+}
+.predio-arbitrios > summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.predio-arbitrios > summary:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; border-radius: 10px; }
+.predio-arbitrios[open] > summary { border-bottom: 1px solid var(--borde); }
+.predio-arbitrios .tabla-scroll { padding: 0 10px 10px; }
+.predio-arbitrios__montos { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-variant-numeric: tabular-nums; }
+
+.etiqueta-copropiedad {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--marino-osc);
+  background: var(--azul-suave);
+}
+
+.tabla-compacta th, .tabla-compacta td { padding: 8px 10px; font-size: 14px; }
+
+@media (max-width: 640px) {
+  .predio-arbitrios > summary { flex-direction: column; }
+}

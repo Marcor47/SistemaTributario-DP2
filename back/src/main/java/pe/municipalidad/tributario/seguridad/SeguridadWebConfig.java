@@ -67,6 +67,8 @@ public class SeguridadWebConfig {
                         .requestMatchers("/api/etl/**").hasAuthority("ETL:GESTIONAR")
                         .requestMatchers("/api/regularidad/**", "/api/contribuyentes/*/regularidad")
                                 .hasAuthority("REGULARIDAD:CONSULTAR")
+                        .requestMatchers(HttpMethod.GET, "/api/contribuyentes/*/estado-cuenta")
+                                .hasAuthority("CUENTAS:CONSULTAR")
                         .requestMatchers("/api/contribuyentes/**").hasAuthority("CONTRIBUYENTES:CONSULTAR")
                         .requestMatchers("/api/predios/*/declaracion-jurada").hasAuthority("DECLARACIONES:CONSULTAR")
                         .requestMatchers("/api/predios/*/arbitrios").hasAuthority("ARBITRIOS:CONSULTAR")
