@@ -26,6 +26,16 @@ public interface HechoCobranzaRepository extends JpaRepository<HechoCobranza, Lo
     List<MontosMorosidad> sumarCuotasExigibles(@Param("idLote") Long idLote, @Param("anio") int anio,
             @Param("fechaCorte") LocalDate fechaCorte);
 
+    /* HU008: cargas publicadas que traen hechos y aún no tienen valores del indicador indicado. */
+    @Query("""
+            select distinct l.idLote from HechoCobranza h join h.lote l
+            where l.estado = pe.municipalidad.tributario.etl.EstadoLote.PUBLICADO
+              and not exists (select 1 from ValorIndicador v
+                              where v.lote = l and v.indicador.codigo = :indicadorCodigo)
+            order by l.idLote
+            """)
+    List<Long> buscarLotesPublicadosSinIndicador(@Param("indicadorCodigo") String indicadorCodigo);
+
     /*
      * Hechos vencidos que aún tienen saldo sin beneficio (emitido - pagado > 0). Incluye las cuotas que un
      * beneficio dejó en cero para que el detalle coincida con ps_reportecartera; la deuda solo sumará las que

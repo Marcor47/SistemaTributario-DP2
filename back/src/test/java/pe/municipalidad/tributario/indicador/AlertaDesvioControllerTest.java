@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -27,9 +28,10 @@ import pe.municipalidad.tributario.etl.TipoEjecucion;
 import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /*
- * HU039: alerta de desvío de meta. Los datos de prueba dejan, con la carga del 2026-10-18, dos alertas activas
- * de octubre de 2026: índice de morosidad 14,80 % frente a la meta de 12,50 % (+18,40 %) y recaudación sobre
- * la emisión 72 % frente a 85 % (-15,29 %). Cada test crea sus propias cargas y se revierte al terminar.
+ * HU039: alerta de desvío de meta. Antes de cada test se publica y evalúa una carga del 2026-10-18 que deja dos
+ * alertas activas de octubre de 2026 frente a las metas de los datos de prueba: índice de morosidad 14,80 % contra
+ * 12,50 % (+18,40 %) y recaudación sobre la emisión 72 % contra 85 % (-15,29 %); la recuperación de deuda del
+ * 4.° trimestre (33 % contra 35 %) queda dentro del umbral. Cada test se revierte al terminar.
  */
 @PruebaInterna
 @Transactional
@@ -56,6 +58,15 @@ class AlertaDesvioControllerTest {
 
     @Autowired
     private IndicadorRepository indicadores;
+
+    @BeforeEach
+    void publicarCargaBase() throws Exception {
+        LoteETL base = cargaPublicada(LocalDate.of(2026, 10, 18), Map.of(
+                MOROSIDAD, new BigDecimal("14.8000"),
+                RECAUDACION, new BigDecimal("72.0000")));
+        valor(base, RECUPERACION, CUARTO_TRIMESTRE, new BigDecimal("33.0000"));
+        evaluar(base).andExpect(status().isOk());
+    }
 
     @Test
     void elDashboardMuestraLasAlertasActivasConIndicadorValorMetaYDesvio() throws Exception {
