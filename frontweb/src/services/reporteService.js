@@ -39,6 +39,20 @@ export function generarBuenosPagadoresPorZona(filtros, { signal } = {}) {
   return pedir(`/reportes/buenos-pagadores-zona${consulta}`, { signal }).catch(controlarSesion)
 }
 
+export function exportarBuenosPagadoresPorZona(filtros, formato, columnas = []) {
+  const parametros = parametrosReporte({ filtros: ['periodo', 'zona', 'tributo', 'montoMinimo'] }, filtros)
+  parametros.set('formato', formato)
+  columnas.forEach((columna) => parametros.append('columnas', columna))
+  return descargarReporte(`/reportes/buenos-pagadores-zona/exportar?${parametros}`)
+}
+
+export function exportarReportePricos({ criterio, limite, columnas }, formato) {
+  const parametros = parametrosPricos({ criterio, limite })
+  parametros.set('formato', formato)
+  columnas?.forEach((columna) => parametros.append('columnas', columna))
+  return descargarReporte(`/reportes/PRICOS/exportar?${parametros}`)
+}
+
 export function listarVistas({ signal } = {}) {
   return pedir('/reportes/vistas', { signal }).catch(controlarSesion)
 }

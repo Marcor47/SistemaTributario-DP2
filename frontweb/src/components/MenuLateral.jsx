@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
-import { MODULOS, icono } from '../utils/modulos.jsx'
-import { cerrarSesion } from '../services/authService.js'
+import { MODULOS } from '../utils/modulos.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { obtenerEstadoCuentaPortal } from '../services/portalCuentaService.js'
+import { cerrarSesion } from '../services/authService.js'
 
 /**
  * Panel de navegación lateral.
@@ -14,15 +14,16 @@ import { obtenerEstadoCuentaPortal } from '../services/portalCuentaService.js'
  *   - 'portal'  → muestra solo los módulos de Servicios en Línea del Contribuyente.
  *   - 'gestion' → muestra solo los módulos de Gestión Municipal (funcionarios).
  *   - undefined  → muestra ambas secciones (comportamiento original).
+ * @param {boolean} [props.visible=true]  Controla si el menú está expandido.
+ * @param {function} [props.onToggle]     Callback para colapsar/expandir.
  */
-export default function MenuLateral({ solo }) {
+export default function MenuLateral({ solo, visible = true, onToggle }) {
   const navegar = useNavigate()
   const { sesion, salir: salirInterno } = useSesionInterna()
   const { sesion: sesionAuth, limpiarSesion } = useAuth()
-  const [errorSalida, setErrorSalida] = useState('')
   const [perfilPortal, setPerfilPortal] = useState(null)
-  const rutaLogin = solo === 'gestion' ? '/gestion/login' : '/login'
-  const rutaInicio = solo === 'portal' ? '/portal/inicio' : '/'
+  const [errorSalida, setErrorSalida] = useState('')
+  const rutaInicio = solo === 'portal' ? '/portal/inicio' : (solo === 'gestion' ? '/gestion/inicio' : '/')
   const codigoPortal = sesionAuth.tipo === 'contribuyente'
     ? sesionAuth.usuario?.codigoContribuyente || sesionAuth.usuario?.codigo
     : null
@@ -40,6 +41,18 @@ export default function MenuLateral({ solo }) {
     return () => controlador.abort()
   }, [solo, codigoPortal])
 
+  const modulosPortal  = MODULOS.filter((m) => m.seccion === 'portal')
+  const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal'
+    && (!m.permiso || sesion?.permisos?.includes(m.permiso)))
+
+  const mostrarPortal  = !solo || solo === 'portal'
+  const mostrarGestion = !solo || solo === 'gestion'
+
+  const nombreUsuario = solo === 'gestion' ? sesion?.nombreCompleto
+    : solo === 'portal' && codigoPortal
+      ? (perfilPortal?.codigo === codigoPortal && perfilPortal.nombre) || codigoPortal
+      : null
+
   async function salir(evento) {
     evento.preventDefault()
     setErrorSalida('')
@@ -53,21 +66,29 @@ export default function MenuLateral({ solo }) {
         navegar('/login', { replace: true })
       }
     } catch (err) {
-      setErrorSalida(err.message)
+      setErrorSalida(err.message || 'Error al cerrar sesión')
     }
   }
 
-  const modulosPortal  = MODULOS.filter((m) => m.seccion === 'portal')
-  const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal'
-    && (!m.permiso || sesion?.permisos?.includes(m.permiso)))
-
-  const mostrarPortal  = !solo || solo === 'portal'
-  const mostrarGestion = !solo || solo === 'gestion'
-
-  const nombreUsuario = solo === 'gestion' ? sesion?.nombreCompleto
-    : solo === 'portal' && codigoPortal
-      ? (perfilPortal?.codigo === codigoPortal && perfilPortal.nombre) || codigoPortal
-      : null
+  /* ── Estado colapsado: solo muestra una tira angosta con botón ── */
+  if (!visible) {
+    return (
+      <aside className="menu menu--colapsado" aria-label="Menú lateral (colapsado)">
+        <button
+          className="menu__btn-toggle"
+          onClick={onToggle}
+          aria-label="Mostrar menú lateral"
+          title="Mostrar menú"
+          type="button"
+        >
+          {/* Chevron derecha */}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </aside>
+    )
+  }
 
   return (
     <aside className="menu">
@@ -88,13 +109,13 @@ export default function MenuLateral({ solo }) {
           </div>
           <div className="menu-perfil-info">
             <span className="menu-perfil-etiqueta">{solo === 'portal' ? 'Contribuyente' : 'Usuario activo'}</span>
-            <strong className="menu-perfil-nombre">{nombreUsuario}</strong>
+            <strong className="menu-perfil-nombre" title={nombreUsuario}>{nombreUsuario}</strong>
             {solo === 'portal' && nombreUsuario !== codigoPortal && <span className="menu-perfil-codigo">Código {codigoPortal}</span>}
           </div>
         </div>
       )}
 
-      <nav aria-label="Módulos del sistema">
+      <nav aria-label="Módulos del sistema" className="menu-secciones">
         {mostrarPortal && (
           <>
             <p className="menu-etiqueta">Servicios en Línea</p>
@@ -126,13 +147,29 @@ export default function MenuLateral({ solo }) {
         )}
       </nav>
 
+      {onToggle && (
+        <button
+          className="menu__btn-toggle menu__btn-toggle--expandido"
+          onClick={onToggle}
+          aria-label="Ocultar menú lateral"
+          title="Ocultar menú"
+          type="button"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+      )}
       <div className="menu-pie">
         <p className="menu-demo" role="note">Datos ficticios de demostración</p>
         {errorSalida && <p role="alert">{errorSalida}</p>}
-        <Link to={rutaLogin} className="menu-salir" onClick={salir}>
-          {icono(<><path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>)}
+        <button className="menu-salir" onClick={salir} type="button" title="Cerrar sesión">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" />
+            <path d="M16 17l5-5-5-5M21 12H9" />
+          </svg>
           Salir
-        </Link>
+        </button>
       </div>
     </aside>
   )

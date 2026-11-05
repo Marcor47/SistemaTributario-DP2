@@ -1,6 +1,7 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState, useCallback } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import MenuLateral from './components/MenuLateral.jsx'
+import BarraSuperior from './components/BarraSuperior.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -19,6 +20,7 @@ import Reportes from './pages/Reportes.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import InicioPortal from './pages/InicioPortal.jsx'
+import InicioGestion from './pages/InicioGestion.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
 import LoginInterno from './pages/LoginInterno.jsx'
 import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
@@ -36,15 +38,20 @@ const moduloDeRuta = (pathname, seccion) => MODULOS
 /**
  * Layout exclusivo para el Portal del Ciudadano (Servicios en Línea).
  * Solo muestra los módulos de la sección 'portal' en el menú lateral.
- * Cabecera: "Portal del Ciudadano · Servicios en Línea"
  */
 function LayoutPortal() {
   const { pathname } = useLocation()
   const modulo = moduloDeRuta(pathname, 'portal')
+  const [menuVisible, setMenuVisible] = useState(true)
+  const toggleMenu = useCallback(() => setMenuVisible((v) => !v), [])
+
   return (
-    <div className="app">
-      <MenuLateral solo="portal" />
+    <div className={`app${menuVisible ? '' : ' app--sin-menu'}`}>
+      <MenuLateral solo="portal" visible={menuVisible} onToggle={toggleMenu} />
       <div className="contenido">
+        <BarraSuperior
+          seccion="portal"
+        />
         {modulo && (
           <header className="pagina-cab">
             <p className="pagina-cab__ruta">Portal del Ciudadano · Servicios en Línea · {modulo.texto}</p>
@@ -67,7 +74,6 @@ function LayoutPortal() {
 /**
  * Layout para los módulos internos de funcionarios (Gestión Municipal).
  * Solo muestra los módulos de la sección 'gestion' en el menú lateral.
- * Cabecera: "Sistema de Gestión Tributaria"
  */
 function LayoutGestion() {
   const { pathname } = useLocation()
@@ -75,10 +81,16 @@ function LayoutGestion() {
   const esDashboard = pathname.startsWith('/dashboard')
   const esMetas = pathname.startsWith('/metas')
   const esReportes = pathname.startsWith('/reportes') || pathname.startsWith('/reporteria')
+  const [menuVisible, setMenuVisible] = useState(true)
+  const toggleMenu = useCallback(() => setMenuVisible((v) => !v), [])
+
   return (
-    <div className="app">
-      <MenuLateral solo="gestion" />
+    <div className={`app${menuVisible ? '' : ' app--sin-menu'}`}>
+      <MenuLateral solo="gestion" visible={menuVisible} onToggle={toggleMenu} />
       <div className="contenido">
+        <BarraSuperior
+          seccion="gestion"
+        />
         {modulo && (
           <header className="pagina-cab">
             <p className="pagina-cab__ruta">Sistema de Gestión Tributaria · {modulo.texto}</p>
@@ -127,6 +139,8 @@ export default function App() {
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
         <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
+          <Route path="/gestion/inicio" element={<InicioGestion />} />
+          <Route path="/gestion" element={<Navigate to="/gestion/inicio" replace />} />
           <Route path="/dashboard" element={<RutaInternaProtegida permiso="DASHBOARD:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />

@@ -43,6 +43,14 @@ export const MODULOS = [
     icono: icono(<><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M12 15.5v.01" /></>),
   },
   {
+    ruta: '/gestion/inicio',
+    texto: 'Inicio',
+    titulo: 'Panel de inicio institucional',
+    descripcion: 'Accede a los módulos y herramientas autorizadas según tu rol institucional.',
+    seccion: 'gestion',
+    icono: icono(<><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></>),
+  },
+  {
     ruta: '/dashboard',
     texto: 'Dashboard',
     titulo: 'Dashboard de Rentas',
@@ -169,6 +177,6 @@ export const MODULOS = [
 ]
 
 export function rutaInicialGestion(sesion) {
-  return MODULOS.find((modulo) => modulo.seccion === 'gestion' && sesion?.permisos?.includes(modulo.permiso))?.ruta
-    || '/gestion/sin-acceso'
+  if (!sesion) return '/gestion/login'
+  return '/gestion/inicio'
 }

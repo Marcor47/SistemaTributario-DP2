@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -82,23 +83,14 @@ public class IndiceMorosidadService {
                 .filter(valor -> valor.getIndicador().getCodigo().equals(CODIGO_INDICADOR))
                 .collect(Collectors.toMap(ClaveValor::de, Function.identity()));
         Calculo calculo = new Calculo(indicador, lote, anio, numeroPeriodo, existentes);
+        Agregado agregado = Agregado.de(grupos);
 
-        Montos montosTotales = Montos.CERO;
-        Map<Tributo, Montos> porTributo = new EnumMap<>(Tributo.class);
-        Map<String, Montos> porZona = new TreeMap<>();
-        for (MontosMorosidad grupo : grupos) {
-            Montos montos = new Montos(grupo.montoEmitido(), grupo.montoVencidoNoPagado());
-            montosTotales = montosTotales.sumar(montos);
-            porTributo.merge(grupo.tributo(), montos, Montos::sumar);
-            porZona.merge(grupo.zona(), montos, Montos::sumar);
-        }
-
-        DetalleMorosidad total = calculo.registrar(AlcanceIndicador.TOTAL, null, montosTotales).orElse(null);
+        DetalleMorosidad total = calculo.registrar(AlcanceIndicador.TOTAL, null, agregado.total()).orElse(null);
         List<DetalleMorosidad> detallePorTributo = new ArrayList<>();
-        porTributo.forEach((tributo, montos) -> calculo.registrar(AlcanceIndicador.TRIBUTO, tributo.name(), montos)
-                .ifPresent(detallePorTributo::add));
+        agregado.porTributo().forEach((tributo, montos) -> calculo.registrar(AlcanceIndicador.TRIBUTO, tributo,
+                montos).ifPresent(detallePorTributo::add));
         List<DetalleMorosidad> detallePorZona = new ArrayList<>();
-        porZona.forEach((zona, montos) -> calculo.registrar(AlcanceIndicador.ZONA, zona, montos)
+        agregado.porZona().forEach((zona, montos) -> calculo.registrar(AlcanceIndicador.ZONA, zona, montos)
                 .ifPresent(detallePorZona::add));
 
         /* En un lote ya publicado el valor nuevo afecta las alertas; uno en curso se evalúa al publicarse. */
@@ -125,22 +117,70 @@ public class IndiceMorosidadService {
                         && valor.getNumeroPeriodo() == referencia.getNumeroPeriodo())
                 .toList();
 
-        BigDecimal total = delPeriodo.stream()
+        /* Los montos base salen de los hechos de la misma carga; una carga sin hechos no los tiene. */
+        Agregado agregado = Agregado.de(hechoCobranzaRepository.sumarCuotasExigibles(
+                referencia.getLote().getIdLote(), referencia.getAnio(), referencia.getLote().getFechaCorte()));
+        ValorPorAlcance total = delPeriodo.stream()
                 .filter(valor -> valor.getAlcance() == AlcanceIndicador.TOTAL)
-                .map(ValorIndicador::getValor)
+                .map(valor -> valorPorAlcance(valor, agregado.vacio() ? null : agregado.total()))
                 .findFirst()
                 .orElse(null);
         return new IndiceMorosidadRespuesta(referencia.getLote().getIdLote(), referencia.getFechaCorte(),
                 referencia.getAnio(), referencia.getNumeroPeriodo(), referencia.etiquetaPeriodo(), total,
-                valoresDe(delPeriodo, AlcanceIndicador.TRIBUTO), valoresDe(delPeriodo, AlcanceIndicador.ZONA));
+                valoresDe(delPeriodo, AlcanceIndicador.TRIBUTO, agregado.porTributo()),
+                valoresDe(delPeriodo, AlcanceIndicador.ZONA, agregado.porZona()));
     }
 
-    private static List<ValorPorAlcance> valoresDe(List<ValorIndicador> valores, AlcanceIndicador alcance) {
+    /*
+     * Calcula el índice en las cargas publicadas que traen hechos y aún no lo tienen, por ejemplo las que se
+     * cargaron antes de existir este cálculo. Omite las que no tienen cuotas exigibles en el año de corte.
+     */
+    @Transactional
+    public List<Long> calcularCargasPendientes() {
+        List<Long> calculadas = new ArrayList<>();
+        for (Long idLote : hechoCobranzaRepository.buscarLotesPublicadosSinIndicador(CODIGO_INDICADOR)) {
+            LoteETL lote = loteETLRepository.findById(idLote).orElseThrow();
+            LocalDate fechaCorte = lote.getFechaCorte();
+            if (!hechoCobranzaRepository.sumarCuotasExigibles(idLote, fechaCorte.getYear(), fechaCorte).isEmpty()) {
+                calcularParaLote(idLote);
+                calculadas.add(idLote);
+            }
+        }
+        return calculadas;
+    }
+
+    private static List<ValorPorAlcance> valoresDe(List<ValorIndicador> valores, AlcanceIndicador alcance,
+            Map<String, Montos> montos) {
         return valores.stream()
                 .filter(valor -> valor.getAlcance() == alcance)
-                .map(valor -> new ValorPorAlcance(valor.getValorAlcance(), valor.getValor()))
+                .map(valor -> valorPorAlcance(valor, montos.get(valor.getValorAlcance())))
                 .sorted((a, b) -> a.valorAlcance().compareTo(b.valorAlcance()))
                 .toList();
+    }
+
+    private static ValorPorAlcance valorPorAlcance(ValorIndicador valor, Montos montos) {
+        return new ValorPorAlcance(valor.getValorAlcance(), montos == null ? null : montos.emitido(),
+                montos == null ? null : montos.vencidoNoPagado(), valor.getValor());
+    }
+
+    /* Suma los grupos por tributo y zona en los tres alcances del índice. */
+    private record Agregado(Montos total, Map<String, Montos> porTributo, Map<String, Montos> porZona,
+            boolean vacio) {
+
+        static Agregado de(List<MontosMorosidad> grupos) {
+            Montos total = Montos.CERO;
+            Map<Tributo, Montos> porTributo = new EnumMap<>(Tributo.class);
+            Map<String, Montos> porZona = new TreeMap<>();
+            for (MontosMorosidad grupo : grupos) {
+                Montos montos = new Montos(grupo.montoEmitido(), grupo.montoVencidoNoPagado());
+                total = total.sumar(montos);
+                porTributo.merge(grupo.tributo(), montos, Montos::sumar);
+                porZona.merge(grupo.zona(), montos, Montos::sumar);
+            }
+            Map<String, Montos> tributos = new LinkedHashMap<>();
+            porTributo.forEach((tributo, montos) -> tributos.put(tributo.name(), montos));
+            return new Agregado(total, tributos, porZona, grupos.isEmpty());
+        }
     }
 
     /* Guarda o, si el lote ya se calculó, actualiza cada valor del índice. */

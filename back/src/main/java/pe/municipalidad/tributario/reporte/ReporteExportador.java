@@ -53,7 +53,11 @@ public class ReporteExportador {
                     "vencimientoMasAntiguo", "diasVencido", "etapaCobranza", "nombreEtapa", "deudaPorTributo", "detalleDeuda"),
             TipoReporte.PRICOS, Set.of("codigo", "nombre", "tipoPersona", "tipoDocumento",
                     "numeroDocumento", "domicilioFiscal", "zonas", "emitidoAnio", "pagadoAnio",
-                    "porcentajePagado", "deudaVencida"),
+                    "porcentajePagado", "deudaVencida", "razonSocial", "regimen", "via", "numero",
+                    "departamento", "interior", "manzana", "lote", "distrito", "baseImponible",
+                    "emisionPredial", "emisionArbitrios", "deudaAnteriorPredial", "deudaAnteriorArbitrios",
+                    "deudaActualPredial", "deudaActualArbitrios", "porcentajeDescuentoArbitrios",
+                    "condicion", "correo", "telefonos"),
             TipoReporte.BUENOS_PAGADORES, Set.of("codigo", "nombre", "razonSocial", "regimen", "tipoDocumento",
                     "numeroDocumento", "domicilioFiscal", "zonas", "montoEmitidoPredial", "montoEmitidoArbitrios",
                     "montoPagadoPredial", "montoPagadoArbitrios", "totalEmitido", "totalPagado",
@@ -720,6 +724,35 @@ public class ReporteExportador {
                                         + ": sin S/ " + d.montoSinBeneficio() + ", con S/ " + d.montoConBeneficio())
                                 .collect(Collectors.joining("; "))
                         : "";
+                default -> "";
+            };
+        } else if (fila instanceof ReportePricosRespuesta.FilaPricos p) {
+            return switch (columna) {
+                case "codigo" -> p.codigo();
+                case "nombre", "razonSocial" -> p.razonSocial();
+                case "regimen" -> p.regimen();
+                case "tipoPersona" -> p.tipoPersona();
+                case "tipoDocumento" -> p.documento() != null ? p.documento().tipo() : "";
+                case "numeroDocumento" -> p.documento() != null ? p.documento().numero() : "";
+                case "domicilioFiscal" -> p.domicilioFiscal() != null ? p.domicilioFiscal().direccion() : "";
+                case "via" -> p.domicilioFiscal() != null ? p.domicilioFiscal().via() : "";
+                case "numero" -> p.domicilioFiscal() != null ? p.domicilioFiscal().numero() : "";
+                case "departamento" -> p.domicilioFiscal() != null ? p.domicilioFiscal().departamento() : "";
+                case "interior" -> p.domicilioFiscal() != null ? p.domicilioFiscal().interior() : "";
+                case "manzana" -> p.domicilioFiscal() != null ? p.domicilioFiscal().manzana() : "";
+                case "lote" -> p.domicilioFiscal() != null ? p.domicilioFiscal().lote() : "";
+                case "distrito" -> p.domicilioFiscal() != null ? p.domicilioFiscal().distrito() : "";
+                case "baseImponible" -> p.baseImponible();
+                case "emisionPredial" -> p.emisionAnioCorte() != null ? p.emisionAnioCorte().predial() : null;
+                case "emisionArbitrios" -> p.emisionAnioCorte() != null ? p.emisionAnioCorte().arbitrios() : null;
+                case "deudaAnteriorPredial" -> p.deudaAniosAnteriores() != null ? p.deudaAniosAnteriores().predial() : null;
+                case "deudaAnteriorArbitrios" -> p.deudaAniosAnteriores() != null ? p.deudaAniosAnteriores().arbitrios() : null;
+                case "deudaActualPredial" -> p.deudaAnioCorte() != null ? p.deudaAnioCorte().predial() : null;
+                case "deudaActualArbitrios" -> p.deudaAnioCorte() != null ? p.deudaAnioCorte().arbitrios() : null;
+                case "porcentajeDescuentoArbitrios" -> p.deudaAnioCorte() != null ? p.deudaAnioCorte().porcentajeDescuentoArbitrios() : null;
+                case "condicion" -> p.condicion();
+                case "correo" -> p.correo();
+                case "telefonos" -> p.telefonos();
                 default -> "";
             };
         } else if (fila instanceof FilaPrico p) {

@@ -11,6 +11,9 @@ server:
         secure: false
 
 tributario:
+  indicadores:
+    morosidad:
+      calcular-al-iniciar: true
   constancia:
     demo:
       habilitado: true
