@@ -58,6 +58,9 @@ class IndiceMorosidadControllerTest {
     @Autowired
     private JdbcTemplate jdbc;
 
+    @Autowired
+    private IndiceMorosidadService indiceMorosidadService;
+
     @Test
     void calculaElIndiceTotalPorTributoYPorZonaComoLaMuestraDeControl() throws Exception {
         LoteETL lote = loteConMuestraDeControl(true);
@@ -92,10 +95,48 @@ class IndiceMorosidadControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
                 .andExpect(jsonPath("$.periodo").value("2026-10"))
-                .andExpect(jsonPath("$.total").value(46.6667))
+                .andExpect(jsonPath("$.total.indice").value(46.6667))
+                .andExpect(jsonPath("$.total.montoEmitido").value(900.0))
+                .andExpect(jsonPath("$.total.montoVencidoNoPagado").value(420.0))
                 .andExpect(jsonPath("$.porTributo", hasSize(2)))
+                .andExpect(jsonPath("$.porTributo[0].valorAlcance").value("ARBITRIOS"))
+                .andExpect(jsonPath("$.porTributo[0].montoEmitido").value(100.0))
+                .andExpect(jsonPath("$.porTributo[0].montoVencidoNoPagado").value(20.0))
                 .andExpect(jsonPath("$.porZona[0].valorAlcance").value("Z01"))
-                .andExpect(jsonPath("$.porZona[0].indice").value(49.4118));
+                .andExpect(jsonPath("$.porZona[0].indice").value(49.4118))
+                .andExpect(jsonPath("$.porZona[0].montoEmitido").value(850.0))
+                .andExpect(jsonPath("$.porZona[0].montoVencidoNoPagado").value(420.0));
+    }
+
+    @Test
+    void unaCargaSinHechosMuestraElIndiceSinMontosBase() throws Exception {
+        LoteETL sinHechos = new LoteETL("ps_etl_indicadores", LocalDate.of(2026, 10, 18), TipoEjecucion.PROGRAMADA,
+                LocalDate.of(2026, 10, 18).atTime(2, 0));
+        sinHechos.publicar(0, 0, LocalDate.of(2026, 10, 18).atTime(2, 5));
+        lotes.saveAndFlush(sinHechos);
+        jdbc.update("INSERT INTO analitica.valor_indicador (indicador_codigo, id_lote, anio, numero_periodo, alcance, "
+                + "valor, fecha_corte) VALUES ('INDICE_MOROSIDAD', ?, 2026, 10, 'TOTAL', 14.8, DATE '2026-10-18')",
+                sinHechos.getIdLote());
+
+        mockMvc.perform(get(RUTA).param("anio", "2026").param("numeroPeriodo", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fechaCorte").value("2026-10-18"))
+                .andExpect(jsonPath("$.total.indice").value(14.8))
+                .andExpect(jsonPath("$.total.montoEmitido").value(nullValue()))
+                .andExpect(jsonPath("$.total.montoVencidoNoPagado").value(nullValue()));
+    }
+
+    @Test
+    void calculaLasCargasPublicadasQueAunNoTienenElIndice() {
+        LoteETL publicada = loteConMuestraDeControl(true);
+        LoteETL enCurso = loteConMuestraDeControl(false);
+
+        assertThat(indiceMorosidadService.calcularCargasPendientes())
+                .contains(publicada.getIdLote())
+                .doesNotContain(enCurso.getIdLote());
+        assertThat(valoresGuardados(publicada)).isEqualTo(5);
+        assertThat(valoresGuardados(enCurso)).isZero();
+        assertThat(indiceMorosidadService.calcularCargasPendientes()).isEmpty();
     }
 
     @Test
@@ -190,7 +231,8 @@ class IndiceMorosidadControllerTest {
 
     private long predio(String seudonimo, String zona) {
         return jdbc.queryForObject("INSERT INTO analitica.dim_predio (seudonimo_predio, zona, tipo_predio) "
-                + "VALUES (?, ?, 'URBANO') RETURNING id_predio", Long.class, seudonimo, zona);
+                + "VALUES (?, ?, 'URBANO') ON CONFLICT (seudonimo_predio) DO UPDATE SET zona = EXCLUDED.zona "
+                + "RETURNING id_predio", Long.class, seudonimo, zona);
     }
 
     private void cuota(LoteETL lote, long idPredio, String tributo, int anio, int cuota, String vence,

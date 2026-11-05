@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
+import PaginacionTabla from '../components/PaginacionTabla.jsx'
+import VisualizacionReporte from '../components/VisualizacionReporte.jsx'
 import { fecha, moneda } from '../utils/formato.js'
-import { CRITERIOS_PRICOS, etiquetaCriterioPricos, etiquetaTipoDocumento, porcentaje, validarPricos } from '../utils/reportes.js'
-import { generarReportePricos } from '../services/reporteService.js'
+import { CRITERIOS_PRICOS, etiquetaCriterioPricos, etiquetaTipoDocumento, paginarFilas, porcentaje, validarPricos } from '../utils/reportes.js'
+import { exportarReportePricos, generarReportePricos } from '../services/reporteService.js'
 import './Reportes.css'
 
 const GRUPOS = [
@@ -63,6 +66,13 @@ const COLUMNAS_NUMERICAS = new Set([
   'deudaActualArbitrios',
   'porcentajeDescuentoArbitrios',
 ])
+
+const SERIES = [
+  { id: 'baseImponible', etiqueta: 'Base imponible', valor: (fila) => fila.baseImponible },
+  { id: 'emisionTotal', etiqueta: 'Emisión total', valor: (fila) => Number(fila.emisionPredial || 0) + Number(fila.emisionArbitrios || 0) },
+  { id: 'deudaAnterior', etiqueta: 'Deuda de años anteriores', valor: (fila) => Number(fila.deudaAnteriorPredial || 0) + Number(fila.deudaAnteriorArbitrios || 0) },
+  { id: 'deudaActual', etiqueta: 'Deuda con el año de corte', valor: (fila) => Number(fila.deudaActualPredial || 0) + Number(fila.deudaActualArbitrios || 0) },
+]
 
 const COLUMNAS_ANCHAS = new Set(['razonSocial', 'domicilioFiscal', 'via', 'correo'])
 
@@ -142,7 +152,16 @@ function desplazarColumnas(ref, direccion) {
   grid.scrollBy({ left: direccion * Math.max(180, grid.clientWidth * 0.75), behavior: 'smooth' })
 }
 
-function ResumenPricos({ datos }) {
+function descargar({ blob, nombre }) {
+  const url = URL.createObjectURL(blob)
+  const enlace = document.createElement('a')
+  enlace.href = url
+  enlace.download = nombre
+  enlace.click()
+  URL.revokeObjectURL(url)
+}
+
+function ResumenPricos({ datos, paginacion }) {
   return <>
     <section className="reporte-resumen" aria-label="Resumen del reporte">
       <article className="pcard"><span className="pl">Fecha de corte</span><strong>{fecha(datos.fechaCorte)}</strong></article>
@@ -150,11 +169,14 @@ function ResumenPricos({ datos }) {
       <article className="pcard"><span className="pl">Contribuyentes mostrados</span><strong>{datos.filas.length}</strong></article>
       <article className="pcard"><span className="pl">Criterio</span><strong className="reporte-resumen-texto">{etiquetaCriterioPricos(datos.criterio)}</strong></article>
     </section>
-    <div className="reporte-aplicados">
-      <strong>Filtros aplicados:</strong>
-      <span>Criterio: {etiquetaCriterioPricos(datos.criterio)}</span>
-      <span>Límite: {datos.limite}</span>
-      <span>Carga ETL: #{datos.idLote}</span>
+    <div className="reporte-tabla-barra">
+      <div className="reporte-aplicados">
+        <strong>Filtros aplicados:</strong>
+        <span>Criterio: {etiquetaCriterioPricos(datos.criterio)}</span>
+        <span>Límite: {datos.limite}</span>
+        <span>Carga ETL: #{datos.idLote}</span>
+      </div>
+      {paginacion}
     </div>
   </>
 }
@@ -182,13 +204,19 @@ function TablaPricos({ filas, columnas, grupos, anioCorte }) {
   </div>
 }
 
-export default function ReportePricos({ titulo, onCambiarReporte }) {
+export default function ReportePricos({ titulo, onCambiarReporte, puedePersonalizar }) {
   const [criterio, setCriterio] = useState(CRITERIOS_PRICOS[0].valor)
   const [limite, setLimite] = useState('10')
   const [aplicado, setAplicado] = useState({ criterio: CRITERIOS_PRICOS[0].valor, limite: '10' })
   const [errores, setErrores] = useState({})
   const [resultado, setResultado] = useState({ cargando: true, datos: null, error: null })
   const [columnasVisibles, setColumnasVisibles] = useState(COLUMNAS_PRICOS)
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
+  const [exportando, setExportando] = useState('')
+  const [errorAccion, setErrorAccion] = useState(null)
+  const [tipoGrafica, setTipoGrafica] = useState('TABLA')
+  const [serie, setSerie] = useState('baseImponible')
   const [desbordeColumnas, setDesbordeColumnas] = useState({ izquierda: false, derecha: false })
   const consultaActiva = useRef(null)
   const grupoColumnasRef = useRef(null)
@@ -217,6 +245,7 @@ export default function ReportePricos({ titulo, onCambiarReporte }) {
       if (controlador.signal.aborted) return
       setResultado({ cargando: false, datos, error: null })
       setAplicado({ criterio: criterioSolicitado, limite: String(limiteSolicitado) })
+      setPagina(1)
     } catch (error) {
       if (!controlador.signal.aborted) setResultado({ cargando: false, datos: null, error })
     }
@@ -262,6 +291,12 @@ export default function ReportePricos({ titulo, onCambiarReporte }) {
   const mostrarAvisoCambios = hayCambios && !resultado.cargando
   const columnasPredeterminadas = columnasVisibles.length === COLUMNAS_PRICOS.length
 
+  useEffect(() => {
+    if (!resultado.datos || !hayCambios) return undefined
+    const temporizador = window.setTimeout(() => ejecutar(criterio, limite), 450)
+    return () => window.clearTimeout(temporizador)
+  }, [criterio, limite, hayCambios, resultado.datos, ejecutar])
+
   function consultar(evento) {
     evento?.preventDefault()
     ejecutar(criterio, limite)
@@ -280,7 +315,42 @@ export default function ReportePricos({ titulo, onCambiarReporte }) {
     setColumnasVisibles(COLUMNAS_PRICOS)
   }
 
+  async function exportar(formato) {
+    setExportando(formato)
+    setErrorAccion(null)
+    try {
+      descargar(await exportarReportePricos({ ...aplicado, columnas: columnasOrdenadas }, formato))
+    } catch (error) {
+      setErrorAccion(error)
+    } finally {
+      setExportando('')
+    }
+  }
+
+  function abrirConfiguracion({ vista, reporte }) {
+    const criterioVista = vista.filtros?.criterio || CRITERIOS_PRICOS[0].valor
+    const limiteVista = String(vista.filtros?.limite || 10)
+    const columnasVista = (vista.columnasVisibles || []).filter((columna) => COLUMNAS_PRICOS.includes(columna))
+    setCriterio(criterioVista)
+    setLimite(limiteVista)
+    setAplicado({ criterio: criterioVista, limite: limiteVista })
+    setColumnasVisibles(columnasVista.length ? columnasVista : COLUMNAS_PRICOS)
+    setTipoGrafica(vista.tipoGrafica || 'TABLA')
+    setSerie(vista.series?.find((item) => SERIES.some((opcion) => opcion.id === item)) || 'baseImponible')
+    setResultado({ cargando: false, datos: reporte, error: null })
+    setPagina(1)
+  }
+
   const errorGeneral = resultado.error
+  const paginacion = paginarFilas(resultado.datos?.filas, pagina, tamanio)
+  const configuracionVista = {
+    tipoGrafica,
+    filtros: { criterio: aplicado.criterio, limite: Number(aplicado.limite) },
+    columnasVisibles: columnasOrdenadas,
+    ordenColumnas: COLUMNAS_PRICOS,
+    orden: '',
+    series: [serie],
+  }
 
   return <div className="reportes" aria-busy={resultado.cargando}>
     <section className="pcard reporte-configuracion" aria-labelledby="configuracion-pricos">
@@ -288,7 +358,7 @@ export default function ReportePricos({ titulo, onCambiarReporte }) {
         <div className="reporte-configuracion-cab">
           <div>
             <h2 id="configuracion-pricos">Criterio y personalización</h2>
-            <p className="hint">El reporte se calcula sobre la última carga publicada del ETL. Define el criterio y el límite; se aplicarán al pulsar “Generar reporte”.</p>
+            <p className="hint">Genera la primera consulta; después el criterio y el límite se actualizarán automáticamente.</p>
           </div>
           <div className="reporte-configuracion-acciones">
             <button className="btn" type="button" onClick={onCambiarReporte}>Cambiar reporte</button>
@@ -298,7 +368,7 @@ export default function ReportePricos({ titulo, onCambiarReporte }) {
 
         <div className={`reporte-cambios-pendientes-wrap${mostrarAvisoCambios ? ' reporte-cambios-pendientes-wrap--visible' : ''}`} aria-hidden={!mostrarAvisoCambios}>
           <div className="reporte-cambios-pendientes-interior">
-            <p className="reporte-cambios-pendientes" role="status">Hay cambios en el criterio o el límite sin aplicar. Pulsa “Generar reporte” para verlos.</p>
+            <p className="reporte-cambios-pendientes" role="status">Actualizando el reporte con el nuevo criterio…</p>
           </div>
         </div>
 
@@ -373,6 +443,8 @@ export default function ReportePricos({ titulo, onCambiarReporte }) {
       </form>
     </section>
 
+    <GestionVistasReporte tipo="PRICOS" configuracion={configuracionVista} habilitado={Boolean(resultado.datos)} onAbrir={abrirConfiguracion} />
+
     <div aria-live="polite">
       {resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la última carga publicada del ETL…</div>}
       {errorGeneral && <div className="alert" role="alert">
@@ -387,12 +459,13 @@ export default function ReportePricos({ titulo, onCambiarReporte }) {
         <div>
           <h2 id="resultado-pricos">{titulo || 'Reporte de PRICOS'}</h2>
           <p className="hint">Información oficial a la fecha de corte de la última carga publicada del ETL.</p>
-        </div>
+        </div><div className="reporte-config-exportar"><button className="btn" type="button" onClick={() => exportar('EXCEL')} disabled={Boolean(exportando)}>{exportando === 'EXCEL' ? 'Exportando…' : 'Exportar Excel'}</button><button className="btn" type="button" onClick={() => exportar('PDF')} disabled={Boolean(exportando)}>{exportando === 'PDF' ? 'Exportando…' : 'Exportar PDF'}</button></div>
       </div>
-      <ResumenPricos datos={resultado.datos} />
+      <ResumenPricos datos={resultado.datos} paginacion={resultado.datos.filas.length > 0 && tipoGrafica === 'TABLA' ? <PaginacionTabla id="pricos" totalRegistros={resultado.datos.filas.length} pagina={paginacion.pagina} tamanio={paginacion.tamanio} onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} /> : null} />
+      {errorAccion && <div className="alert" role="alert">{errorAccion.message}</div>}
       {resultado.datos.filas.length === 0
         ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes en la carga del ETL para este criterio.</p></div>
-        : <TablaPricos filas={resultado.datos.filas} columnas={columnasOrdenadas} grupos={gruposVisibles} anioCorte={resultado.datos.fechaCorte?.slice(0, 4)} />}
+        : puedePersonalizar ? <VisualizacionReporte tipo={tipoGrafica} onCambiarTipo={setTipoGrafica} serie={serie} onCambiarSerie={setSerie} series={SERIES} tipos={['TABLA', 'BARRAS', 'CIRCULAR']} filas={resultado.datos.filas} tabla={<TablaPricos filas={paginacion.filas} columnas={columnasOrdenadas} grupos={gruposVisibles} anioCorte={resultado.datos.fechaCorte?.slice(0, 4)} />} /> : <TablaPricos filas={paginacion.filas} columnas={columnasOrdenadas} grupos={gruposVisibles} anioCorte={resultado.datos.fechaCorte?.slice(0, 4)} />}
     </section>}
   </div>
 }

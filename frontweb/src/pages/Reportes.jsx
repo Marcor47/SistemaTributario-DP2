@@ -1,9 +1,13 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Reorder } from 'framer-motion'
-import { fecha, fechaHora, moneda } from '../utils/formato.js'
-import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
-import { abrirVista, descargarReporte, eliminarVista, exportarVista, generarReporte, guardarVista, listarVistas, listarZonas, obtenerCatalogoReportes } from '../services/reporteService.js'
-import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
+import { fecha, moneda } from '../utils/formato.js'
+import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, opcionesZona, paginarFilas, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
+import { descargarReporte, generarReporte, listarZonas, obtenerCatalogoReportes } from '../services/reporteService.js'
+import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
+import PaginacionTabla from '../components/PaginacionTabla.jsx'
+import VisualizacionReporte from '../components/VisualizacionReporte.jsx'
+import { useSesionInterna } from '../context/sesionInterna.js'
+import ReporteBuenosPagadores from './ReporteBuenosPagadores.jsx'
 import ReportePricos from './ReportePricos.jsx'
 import './Reportes.css'
 
@@ -23,6 +27,11 @@ const COLUMNAS_DETALLE_MOROSOS = ['anio', 'codigoPredio', 'zona', 'tributo', 'pe
 const ETIQUETAS = { codigo: 'Código', nombre: 'Contribuyente', razonSocial: 'Razón social', regimen: 'Régimen', tipoPersona: 'Tipo persona', tipoDocumento: 'Tipo doc.', numeroDocumento: 'Documento', via: 'Vía', numero: 'N°', departamento: 'Dpto', interior: 'Interior', manzana: 'Mz', lote: 'Lote', distrito: 'Distrito', condicion: 'Condición', correo: 'Email', telefonos: 'Teléfonos', zonas: 'Zonas', deudaSinBeneficio: 'Deuda sin beneficio', deudaVencida: 'Deuda vencida', cuotasVencidas: 'Cuotas vencidas', nombreEtapa: 'Etapa', emitidoAnio: 'Emitido', pagadoAnio: 'Pagado', porcentajePagado: '% pagado', cuotasPagadasATiempo: 'Cuotas a tiempo' }
 const ETIQUETAS_CABECERA = { ...ETIQUETAS, numeroDocumento: 'N° doc.', deudaVencida: 'Total con beneficio', deudaSinBeneficio: 'Total sin beneficio' }
 const ETIQUETAS_DETALLE = { anio: 'Año', codigoPredio: 'Predio', zona: 'Zona', tributo: 'Tributo', periodo: 'Cuota', fechaVencimiento: 'Vencimiento', diasVencido: 'Días vencido', etapaCobranza: 'Etapa', montoSinBeneficio: 'Sin beneficio', montoConBeneficio: 'Con beneficio' }
+const SERIES_MOROSOS = [
+  { id: 'deudaVencida', etiqueta: 'Deuda vencida', valor: (fila) => fila.deudaVencida ?? fila.montoTotal ?? 0 },
+  { id: 'montoSinBeneficio', etiqueta: 'Deuda sin beneficio', valor: (fila) => fila.montoSinBeneficio ?? fila.deudaSinBeneficio ?? fila.detalleDeuda?.reduce((suma, item) => suma + Number(item.montoSinBeneficio || 0), 0) ?? 0 },
+  { id: 'montoConBeneficio', etiqueta: 'Deuda con beneficio', valor: (fila) => fila.montoConBeneficio ?? fila.deudaVencida ?? fila.detalleDeuda?.reduce((suma, item) => suma + Number(item.montoConBeneficio || 0), 0) ?? 0 },
+]
 const COLUMNAS_MONTO_MOROSOS = new Set(['deudaVencida', 'deudaSinBeneficio'])
 const COLUMNAS_MONTO_DETALLE = new Set(['montoSinBeneficio', 'montoConBeneficio'])
 
@@ -36,8 +45,25 @@ function opcionesDesdeMorosos(filas) {
   }
 }
 
+function lineasAnualesMorosos(filas, serie) {
+  const categorias = [...new Set(filas.flatMap((fila) => (fila.detalleDeuda || []).map((item) => item.anio)))].sort((a, b) => Number(a) - Number(b))
+  const campo = serie === 'montoSinBeneficio' ? 'montoSinBeneficio' : 'montoConBeneficio'
+  const detalles = Object.fromEntries(categorias.map((anio) => [anio, filas.map((fila) => ({
+    codigo: fila.codigo,
+    nombre: fila.razonSocial || fila.nombre || fila.codigo,
+    monto: (fila.detalleDeuda || []).filter((item) => item.anio === anio).reduce((suma, item) => suma + Number(item[campo] || 0), 0),
+  })).filter((item) => item.monto > 0).sort((a, b) => b.monto - a.monto)]))
+  const valores = categorias.map((anio) => detalles[anio].reduce((suma, item) => suma + item.monto, 0))
+  return {
+    categorias,
+    valores,
+    detalles,
+    resumenes: categorias.map((anio, indice) => ({ total: valores[indice], cantidad: detalles[anio].length, promedio: detalles[anio].length ? valores[indice] / detalles[anio].length : 0, maximo: detalles[anio][0]?.monto || 0 })),
+  }
+}
+
 function graficaVisible(tipo) {
-  return tipo === 'TABLA' ? 'TABLA' : 'BARRAS'
+  return ['TABLA', 'BARRAS', 'LINEAS', 'CIRCULAR'].includes(tipo) ? tipo : 'TABLA'
 }
 
 function medirDesborde(elemento) {
@@ -172,13 +198,15 @@ function claseDetalle(columna) {
   return undefined
 }
 
-function TablaCabeceraMorosos({ datos, columnas, columnasDetalle, orden, mostrarDetalle }) {
+function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle, mostrarDetalle }) {
+  const [filaDetalle, setFilaDetalle] = useState(null)
+  const [paginaDetalle, setPaginaDetalle] = useState(1)
+  const [tamanioDetalle, setTamanioDetalle] = useState(10)
   const columnasPedidas = columnas?.length ? columnas : COLUMNAS.MOROSOS
   const columnasFiltradas = columnasPedidas.filter((columna) => COLUMNAS.MOROSOS.includes(columna))
   const visibles = columnasFiltradas.length ? columnasFiltradas : COLUMNAS.MOROSOS
   const detallePedidas = columnasDetalle?.length ? columnasDetalle : COLUMNAS_DETALLE_MOROSOS
   const detalleFiltradas = detallePedidas.filter((columna) => COLUMNAS_DETALLE_MOROSOS.includes(columna))
-  const filas = filasOrdenadas(datos.filas, orden)
   const anioDesde = Number(datos.filtrosAplicados?.anioDesde ?? 1900)
   const anioHasta = Number(datos.filtrosAplicados?.anioHasta ?? ANIO_ACTUAL)
   const mostrarAnio = anioDesde !== anioHasta
@@ -186,10 +214,31 @@ function TablaCabeceraMorosos({ datos, columnas, columnasDetalle, orden, mostrar
     ? (detalleFiltradas.length ? detalleFiltradas : COLUMNAS_DETALLE_MOROSOS)
       .filter((columna) => columna !== 'anio' || mostrarAnio)
     : []
-  return <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`${datos.titulo} en tabla cabecera`}>
-    <table className="tabla reporte-tabla reporte-tabla-cabecera">
+  if (mostrarDetalle && filaDetalle) {
+    const obligaciones = detalleObligaciones(filaDetalle, anioDesde, anioHasta)
+    const paginacionDetalle = paginarFilas(obligaciones, paginaDetalle, tamanioDetalle)
+    return <section className="reporte-detalle-vista" aria-labelledby="titulo-detalle-moroso">
+      <div className="reporte-detalle-vista__cab">
+        <div><p className="reporte-detalle-vista__ruta">Reporte de morosos / Detalle</p><h3 id="titulo-detalle-moroso">{filaDetalle.razonSocial || filaDetalle.nombre}</h3><p className="hint">Código {filaDetalle.codigo} · {obligaciones.length} obligaciones vencidas</p></div>
+        <button className="btn" type="button" onClick={() => { setFilaDetalle(null); setPaginaDetalle(1) }}>Volver a contribuyentes</button>
+      </div>
+      <div className="reporte-tabla-barra reporte-tabla-barra--solo-paginacion"><PaginacionTabla id="detalle-moroso" totalRegistros={obligaciones.length} pagina={paginacionDetalle.pagina} tamanio={paginacionDetalle.tamanio} onCambiarPagina={setPaginaDetalle} onCambiarTamanio={(valor) => { setTamanioDetalle(valor); setPaginaDetalle(1) }} /></div>
+      <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`Obligaciones vencidas de ${filaDetalle.razonSocial || filaDetalle.nombre}`}>
+        <table className="tabla reporte-tabla reporte-tabla-detalle">
+          <caption className="sr-only">Detalle de obligaciones de {filaDetalle.razonSocial || filaDetalle.nombre}</caption>
+          <thead><tr>{detalleVisibles.map((columna) => <th key={columna} scope="col" className={claseDetalle(columna)}>{ETIQUETAS_DETALLE[columna]}</th>)}</tr></thead>
+          <tbody>{paginacionDetalle.filas.map((item, indice) => <tr key={`${item.anio}-${item.tributo}-${item.periodo}-${item.codigoPredio}-${indice}`}>
+            {detalleVisibles.map((columna) => { const valor = valorDetalle(item, columna); return <td key={columna} className={claseDetalle(columna)}>{columna === 'montoConBeneficio' ? <strong>{valor}</strong> : valor}</td> })}
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </section>
+  }
+  return <>
+    <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`${datos.titulo} en tabla cabecera`}><table className="tabla reporte-tabla reporte-tabla-cabecera">
       <caption className="sr-only">Cabecera de reporte de morosos</caption>
       <thead><tr>
+        {mostrarDetalle && <th scope="col" className="reporte-col-accion">Detalle</th>}
         {visibles.map((columna) => <th key={columna} scope="col" className={claseCabecera(columna)}>{ETIQUETAS_CABECERA[columna]}</th>)}
       </tr></thead>
       <tbody>
@@ -197,37 +246,22 @@ function TablaCabeceraMorosos({ datos, columnas, columnasDetalle, orden, mostrar
           const obligaciones = detalleObligaciones(fila, anioDesde, anioHasta)
           return <Fragment key={fila.codigo}>
             <tr className="reporte-fila-contribuyente">
+              {mostrarDetalle && <td className="reporte-col-accion">
+                {obligaciones.length > 0 && detalleVisibles.length > 0
+                  ? <button className="btn reporte-detalle-btn" type="button" onClick={() => { setFilaDetalle(fila); setPaginaDetalle(1) }}>Ver detalle</button>
+                  : <span className="hint">Sin detalle</span>}
+              </td>}
               {visibles.map((columna) => {
                 const valor = valorCabecera(fila, columna)
                 const esMonto = COLUMNAS_MONTO_MOROSOS.has(columna)
                 return <td key={columna} className={claseCabecera(columna)}>{esMonto ? <strong>{valor}</strong> : valor}</td>
               })}
             </tr>
-            {obligaciones.length > 0 && detalleVisibles.length > 0 && <tr className="reporte-fila-detalle">
-              <td colSpan={visibles.length}>
-                <div className="reporte-detalle">
-                  <table className="tabla reporte-tabla-detalle">
-                    <caption className="sr-only">Detalle de obligaciones de {fila.razonSocial || fila.nombre}</caption>
-                    <thead><tr>
-                      {detalleVisibles.map((columna) => <th key={columna} scope="col" className={claseDetalle(columna)}>{ETIQUETAS_DETALLE[columna]}</th>)}
-                    </tr></thead>
-                    <tbody>
-                      {obligaciones.map((item, indice) => <tr key={`${item.anio}-${item.tributo}-${item.periodo}-${item.codigoPredio}-${indice}`}>
-                        {detalleVisibles.map((columna) => {
-                          const valor = valorDetalle(item, columna)
-                          return <td key={columna} className={claseDetalle(columna)}>{columna === 'montoConBeneficio' ? <strong>{valor}</strong> : valor}</td>
-                        })}
-                      </tr>)}
-                    </tbody>
-                  </table>
-                </div>
-              </td>
-            </tr>}
           </Fragment>
         })}
       </tbody>
-    </table>
-  </div>
+    </table></div>
+  </>
 }
 
 function TablaPricos({ filas }) {
@@ -243,20 +277,15 @@ function TablaPersonalizada({ datos, columnas, orden }) {
   return <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`${datos.titulo} en tabla`}><table className="tabla reporte-tabla"><caption className="sr-only">{datos.titulo}</caption><thead><tr>{columnas.map((columna) => <th key={columna} scope="col">{ETIQUETAS[columna] || columna}</th>)}</tr></thead><tbody>{filas.map((fila) => <tr key={fila.codigo}>{columnas.map((columna) => <td key={columna}>{valorColumna(fila, columna)}</td>)}</tr>)}</tbody></table></div>
 }
 
-function TablaReporte({ datos, columnas, columnasDetalle, orden }) {
-  if (datos.tipoReporte === 'MOROSOS') return <TablaCabeceraMorosos datos={datos} columnas={datos.__columnas || columnas} columnasDetalle={columnasDetalle} orden={datos.__orden || orden} mostrarDetalle={datos.__mostrarDetalle !== false} />
+function TablaReporte({ datos, filas, columnas, columnasDetalle, orden }) {
+  if (datos.tipoReporte === 'MOROSOS') return <TablaCabeceraMorosos datos={datos} filas={filas} columnas={datos.__columnas || columnas} columnasDetalle={columnasDetalle} mostrarDetalle={datos.__mostrarDetalle !== false} />
   if (datos.__columnas?.length) return <TablaPersonalizada datos={datos} columnas={datos.__columnas} orden={datos.__orden} />
   if (columnas?.length) return <TablaPersonalizada datos={datos} columnas={columnas} orden={orden} />
   const Tabla = datos.tipoReporte === 'PRICOS' ? TablaPricos : TablaBuenosPagadores
   return <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`${datos.titulo} en tabla`}><Tabla filas={datos.filas} /></div>
 }
 
-function BarrasReporte({ datos }) {
-  const maximo = Math.max(...datos.filas.map((fila) => metricaReporte(datos.tipoReporte, fila)), 0)
-  return <ol className="reporte-barras" aria-label={`${datos.titulo} en barras`}>{datos.filas.map((fila) => { const valor = metricaReporte(datos.tipoReporte, fila); return <li key={fila.codigo}><div className="reporte-barra-etiqueta"><span><strong>{fila.nombre}</strong><small>Código {fila.codigo}</small></span><strong>{moneda(valor)}</strong></div><div className="reporte-barra" aria-hidden="true"><span style={{ width: `${maximo ? (valor / maximo) * 100 : 0}%` }} /></div></li> })}</ol>
-}
-
-function Resumen({ datos }) {
+function Resumen({ datos, paginacion }) {
   const filtros = datos.filtrosAplicados || {}
   const esMorosos = datos.tipoReporte === 'MOROSOS'
   const desde = filtros.anioDesde ?? 1900
@@ -268,7 +297,7 @@ function Resumen({ datos }) {
     ? `Beneficio: ${etiquetaBeneficio(filtros.beneficio)}`
     : null
   const aplicados = [rango, filtros.zona && `Zona: ${filtros.zona}`, filtros.tributo && `Tributo: ${etiquetaTributo(filtros.tributo)}`, filtros.regimen && `Régimen: ${filtros.regimen}`, filtros.tipoDocumento && `Tipo doc.: ${etiquetaTipoDocumento(filtros.tipoDocumento)}`, filtros.etapa && `Etapa: ${etiquetaEtapa(filtros.etapa)}`, beneficio, filtros.montoMinimo != null && `Monto mínimo: ${moneda(filtros.montoMinimo)}`].filter(Boolean)
-  return <><section className="reporte-resumen" aria-label="Resumen del reporte"><article className="pcard"><span className="pl">Fecha de corte</span><strong>{fecha(datos.fechaCorte)}</strong></article><article className="pcard"><span className="pl">Contribuyentes</span><strong>{datos.resumen.cantidad}</strong></article><article className="pcard"><span className="pl">{datos.resumen.conceptoMonto}</span><strong>{moneda(datos.resumen.montoTotal)}</strong></article>{datos.resumen.umbralPrico != null && <article className="pcard"><span className="pl">Umbral PRICO</span><strong>{moneda(datos.resumen.umbralPrico)}</strong></article>}</section><div className="reporte-aplicados"><strong>Filtros aplicados:</strong>{aplicados.length ? aplicados.map((filtro) => <span key={filtro}>{filtro}</span>) : <span>Sin filtros adicionales</span>}</div></>
+  return <><section className="reporte-resumen" aria-label="Resumen del reporte"><article className="pcard"><span className="pl">Fecha de corte</span><strong>{fecha(datos.fechaCorte)}</strong></article><article className="pcard"><span className="pl">Contribuyentes</span><strong>{datos.resumen.cantidad}</strong></article><article className="pcard"><span className="pl">{datos.resumen.conceptoMonto}</span><strong>{moneda(datos.resumen.montoTotal)}</strong></article>{datos.resumen.umbralPrico != null && <article className="pcard"><span className="pl">Umbral PRICO</span><strong>{moneda(datos.resumen.umbralPrico)}</strong></article>}</section><div className="reporte-tabla-barra"><div className="reporte-aplicados"><strong>Filtros aplicados:</strong>{aplicados.length ? aplicados.map((filtro) => <span key={filtro}>{filtro}</span>) : <span>Sin filtros adicionales</span>}</div>{paginacion}</div></>
 }
 
 function FiltroZona({ valor, zonas, cargando, error, errorCampo, onCambio }) {
@@ -288,13 +317,18 @@ function FiltroZona({ valor, zonas, cargando, error, errorCampo, onCambio }) {
 }
 
 export default function Reportes() {
+  const { sesion } = useSesionInterna()
+  const puedePersonalizar = sesion?.permisos?.includes('REPORTES:PERSONALIZAR') || sesion?.rol === 'GERENCIA'
   const [catalogo, setCatalogo] = useState({ cargando: true, datos: [], error: null, revision: 0 })
   const [seleccion, setSeleccion] = useState('')
   const [filtros, setFiltros] = useState(FILTROS_INICIALES)
   const [filtrosAplicados, setFiltrosAplicados] = useState(FILTROS_INICIALES)
   const [errores, setErrores] = useState({})
   const [resultado, setResultado] = useState({ cargando: false, datos: null, error: null })
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
   const [grafica, setGrafica] = useState('TABLA')
+  const [serie, setSerie] = useState('deudaVencida')
   const [columnas, setColumnas] = useState([])
   const [columnasDetalle, setColumnasDetalle] = useState([])
   const [ordenColumnas, setOrdenColumnas] = useState([])
@@ -308,13 +342,10 @@ export default function Reportes() {
   const [ordenAplicado, setOrdenAplicado] = useState('')
   const [detalleActivo, setDetalleActivo] = useState(true)
   const [detalleActivoAplicado, setDetalleActivoAplicado] = useState(true)
-  const [vistas, setVistas] = useState([])
-  const [nombreVista, setNombreVista] = useState('')
   const [accionError, setAccionError] = useState(null)
-  const [confirmacion, setConfirmacion] = useState(null)
-  const [procesandoConfirmacion, setProcesandoConfirmacion] = useState(false)
   const [zonas, setZonas] = useState({ tipo: '', datos: [], error: null })
   const consultaActiva = useRef(null)
+  const consultarActual = useRef(null)
   const arrastreColumnas = useRef(false)
   const arrastreDetalle = useRef(false)
   const grupoColumnasRef = useRef(null)
@@ -350,7 +381,6 @@ export default function Reportes() {
     .every((clave) => String(filtros[clave] ?? '') === String(FILTROS_INICIALES[clave] ?? ''))
   const filtrosCambiados = Object.keys(FILTROS_INICIALES)
     .some((clave) => String(filtros[clave] ?? '') !== String(filtrosAplicados[clave] ?? ''))
-  const vistasDelReporte = seleccion ? vistas.filter((vista) => vista.tipoReporte === seleccion) : []
   const hayCambiosSinAplicar = filtrosCambiados
     || columnasEfectivas.join('|') !== columnasAplicadasEfectivas.join('|')
     || ordenColumnasEfectivas.join('|') !== ordenColumnasAplicadasEfectivas.join('|')
@@ -438,7 +468,6 @@ export default function Reportes() {
   }, [seleccion])
 
   useEffect(() => () => consultaActiva.current?.abort(), [])
-  useEffect(() => { listarVistas().then(setVistas).catch(() => {}) }, [])
 
   function elegir(nuevo) {
     consultaActiva.current?.abort()
@@ -453,6 +482,7 @@ export default function Reportes() {
         }
       : limpios
     setSeleccion(nuevo)
+    setPagina(1)
     setFiltros(filtrosNuevo)
     setFiltrosAplicados({ ...filtrosNuevo })
     setErrores({}); setResultado({ cargando: false, datos: null, error: null }); setGrafica('TABLA')
@@ -461,7 +491,7 @@ export default function Reportes() {
     setColumnasAplicadas([]); setOrdenColumnasAplicadas(COLUMNAS[nuevo] || [])
     setColumnasDetalleAplicadas([]); setOrdenColumnasDetalleAplicadas(nuevo === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])
     setDetalleActivo(true); setDetalleActivoAplicado(true)
-    setOrden(''); setOrdenAplicado(''); setNombreVista('')
+    setOrden(''); setOrdenAplicado('')
     if (nuevo === 'MOROSOS' && siguiente) cargarMorososInicial(siguiente, filtrosNuevo)
   }
 
@@ -472,6 +502,7 @@ export default function Reportes() {
     setFiltrosAplicados({ ...FILTROS_INICIALES })
     setErrores({})
     setResultado({ cargando: false, datos: null, error: null })
+    setPagina(1)
     setColumnas([])
     setColumnasDetalle([])
     setOrdenColumnas([])
@@ -485,13 +516,10 @@ export default function Reportes() {
     setOrden('')
     setOrdenAplicado('')
     setGrafica('TABLA')
-    setNombreVista('')
     setAccionError(null)
   }
 
-  async function abrirConfiguracion(vistaGuardada) {
-    try {
-      const datos = await abrirVista(vistaGuardada.idVista)
+  function abrirConfiguracion(datos) {
       const columnasDisponiblesVista = COLUMNAS[datos.vista.tipoReporte] || []
       const columnasValidas = (datos.vista.columnasVisibles || []).filter((columna) => columnasDisponiblesVista.includes(columna))
       const columnasVista = columnasValidas.length ? columnasValidas : columnasDisponiblesVista
@@ -526,89 +554,15 @@ export default function Reportes() {
         filtrosVista.beneficio = filtrosVista.beneficio || 'AMBOS'
         setOpcionesMorosos((actual) => actual.regimenes.length ? actual : opcionesDesdeMorosos(datos.reporte.filas))
       }
-      setSeleccion(datos.vista.tipoReporte); setFiltros(filtrosVista); setFiltrosAplicados({ ...filtrosVista }); setGrafica(graficaVisible(datos.vista.tipoGrafica))
+      setSeleccion(datos.vista.tipoReporte); setFiltros(filtrosVista); setFiltrosAplicados({ ...filtrosVista }); setGrafica(graficaVisible(datos.vista.tipoGrafica)); setSerie(datos.vista.series?.find((item) => SERIES_MOROSOS.some((opcion) => opcion.id === item)) || 'deudaVencida')
       setColumnas(columnasVistaOrdenadas); setOrdenColumnas(ordenMain)
       setColumnasDetalle(columnasDetalleVistaOrdenadas); setOrdenColumnasDetalle(ordenDetalle)
       setColumnasAplicadas(columnasVistaOrdenadas); setOrdenColumnasAplicadas(ordenMain)
       setColumnasDetalleAplicadas(columnasDetalleVistaOrdenadas); setOrdenColumnasDetalleAplicadas(ordenDetalle)
       setDetalleActivo(tieneDetalle); setDetalleActivoAplicado(tieneDetalle)
-      setOrden(datos.vista.orden || ''); setOrdenAplicado(datos.vista.orden || ''); setNombreVista(datos.vista.nombre || '')
+      setOrden(datos.vista.orden || ''); setOrdenAplicado(datos.vista.orden || '')
       setResultado({ cargando: false, datos: datos.reporte, error: null })
-    } catch (error) { setAccionError(error) }
-  }
-
-  async function guardarConfiguracion() {
-    const nombre = nombreVista.trim()
-    if (!nombre || !resultado.datos) return
-    const existente = vistasDelReporte.find((vista) => vista.nombre === nombre)
-    if (existente) {
-      setConfirmacion({ tipo: 'sobrescribir', nombre })
-      return
-    }
-    await ejecutarGuardado(nombre)
-  }
-
-  async function ejecutarGuardado(nombre) {
-    setProcesandoConfirmacion(true)
-    try {
-      const guardada = await guardarVista(seleccion, {
-        nombre,
-        tipoGrafica: grafica,
-        filtros: resultado.datos.filtrosAplicados,
-        columnasVisibles: columnasAplicadasEfectivas,
-        columnasDetalleVisibles: detalleActivoAplicado ? columnasDetalleAplicadasEfectivas : [],
-        ordenColumnas: ordenColumnasAplicadasEfectivas,
-        ordenColumnasDetalle: detalleActivoAplicado ? ordenColumnasDetalleAplicadasEfectivas : [],
-        orden: ordenAplicado,
-      })
-      setVistas((actual) => actual.some((vista) => vista.idVista === guardada.idVista)
-        ? actual.map((vista) => vista.idVista === guardada.idVista ? guardada : vista)
-        : [guardada, ...actual])
-      setNombreVista(''); setAccionError(null); setConfirmacion(null)
-    } catch (error) {
-      setAccionError(error); setConfirmacion(null)
-    } finally {
-      setProcesandoConfirmacion(false)
-    }
-  }
-
-  function seleccionarVista(nombre) {
-    const vista = vistasDelReporte.find((item) => item.nombre === nombre)
-    if (vista) abrirConfiguracion(vista)
-  }
-
-  async function exportarVistaGuardada(vista, formato) {
-    try {
-      const { blob, nombre } = await exportarVista(vista.idVista, formato)
-      const url = URL.createObjectURL(blob)
-      const enlace = document.createElement('a')
-      enlace.href = url; enlace.download = nombre; enlace.click()
-      URL.revokeObjectURL(url)
-    } catch (error) { setAccionError(error) }
-  }
-
-  function eliminarVistaGuardada(vista) {
-    setConfirmacion({ tipo: 'eliminar', vista })
-  }
-
-  async function ejecutarEliminacion(vista) {
-    setProcesandoConfirmacion(true)
-    try {
-      await eliminarVista(vista.idVista)
-      setVistas((actual) => actual.filter((item) => item.idVista !== vista.idVista))
-      if (nombreVista === vista.nombre) setNombreVista('')
-      setAccionError(null); setConfirmacion(null)
-    } catch (error) {
-      setAccionError(error); setConfirmacion(null)
-    } finally {
-      setProcesandoConfirmacion(false)
-    }
-  }
-
-  function confirmarAccion() {
-    if (!confirmacion || procesandoConfirmacion) return
-    if (confirmacion.tipo === 'sobrescribir') ejecutarGuardado(confirmacion.nombre)
-    else ejecutarEliminacion(confirmacion.vista)
+      setPagina(1)
   }
 
   async function exportar(formato) {
@@ -702,6 +656,7 @@ export default function Reportes() {
         setDetalleActivoAplicado(detalleActivo)
         setOrdenAplicado(orden)
         setResultado({ cargando: false, datos, error: null })
+        setPagina(1)
         if (reporte.tipo === 'MOROSOS' && !opcionesMorosos.regimenes.length) {
           setOpcionesMorosos(opcionesDesdeMorosos(datos.filas))
         }
@@ -710,21 +665,49 @@ export default function Reportes() {
       if (!controlador.signal.aborted) setResultado({ cargando: false, datos: null, error })
     }
   }
+  useEffect(() => { consultarActual.current = consultar })
+
+  useEffect(() => {
+    if (!resultado.datos || !filtrosCambiados) return undefined
+    const temporizador = window.setTimeout(() => consultarActual.current?.(null, filtros), 450)
+    return () => window.clearTimeout(temporizador)
+  }, [filtros, filtrosCambiados, resultado.datos])
 
   const disponibles = new Set(filtrosDisponibles(reporte))
   const errorGeneral = resultado.error
   const reintentarCatalogo = () => setCatalogo((actual) => ({ ...actual, cargando: true, error: null, revision: actual.revision + 1 }))
   const tiposDocumentoVisibles = opcionesMorosos.tiposDocumento.length ? opcionesMorosos.tiposDocumento : TIPOS_DOCUMENTO
   const etapasVisibles = opcionesMorosos.etapas.length ? opcionesMorosos.etapas : ETAPAS_COBRANZA
+  const filasOrdenadasReporte = resultado.datos ? filasOrdenadas(resultado.datos.filas, resultado.datos.__orden || ordenAplicado) : []
+  const lineasMorosos = lineasAnualesMorosos(filasOrdenadasReporte, serie)
+  const paginacion = paginarFilas(filasOrdenadasReporte, pagina, tamanio)
   const zonasDisponibles = zonas.tipo === seleccion ? zonas.datos : []
   const cargandoZonas = Boolean(seleccion) && zonas.tipo !== seleccion
   const errorZonas = zonas.tipo === seleccion ? zonas.error : null
+  const configuracionVista = {
+    tipoGrafica: grafica,
+    filtros: resultado.datos?.filtrosAplicados || filtrosAplicados,
+    columnasVisibles: columnasAplicadasEfectivas,
+    columnasDetalleVisibles: detalleActivoAplicado ? columnasDetalleAplicadasEfectivas : [],
+    ordenColumnas: ordenColumnasAplicadasEfectivas,
+    ordenColumnasDetalle: detalleActivoAplicado ? ordenColumnasDetalleAplicadasEfectivas : [],
+    orden: ordenAplicado,
+    series: [serie],
+  }
   return <div className="reportes" aria-busy={catalogo.cargando || resultado.cargando}>
     {catalogo.cargando && <div className="pcard reporte-estado" role="status">Cargando el catálogo de reportes…</div>}
     {catalogo.error && <div className="alert" role="alert"><strong>No se pudo cargar el catálogo.</strong><p>{catalogo.error.message}</p><button className="btn" type="button" onClick={reintentarCatalogo}>Reintentar</button></div>}
     {!catalogo.cargando && !catalogo.error && catalogo.datos.length === 0 && <section className="pcard reporte-estado" role="status"><h2>Sin reportes disponibles</h2><p>Tu perfil no tiene reportes habilitados en este momento.</p></section>}
     {catalogo.datos.length > 0 && !reporte && <section className="pcard reporte-catalogo reporte-catalogo--entrada" aria-labelledby="catalogo-reportes"><h2 id="catalogo-reportes">Selecciona un reporte</h2><p className="hint">El catálogo muestra únicamente los reportes habilitados para tu perfil.</p><div className="reporte-opciones" role="radiogroup" aria-label="Catálogo de reportes">{catalogo.datos.map((item) => <button key={item.tipo} type="button" className="reporte-opcion" role="radio" aria-checked="false" onClick={() => elegir(item.tipo)}><strong>{item.titulo}</strong><span>{item.descripcion}</span></button>)}</div></section>}
-    {reporte && seleccion === 'PRICOS' && <ReportePricos titulo={reporte.titulo} onCambiarReporte={cambiarReporte} />}
+    {reporte && seleccion === 'PRICOS' && <ReportePricos titulo={reporte.titulo} onCambiarReporte={cambiarReporte} puedePersonalizar={puedePersonalizar} />}
+    {reporte && seleccion === 'BUENOS_PAGADORES' && <ReporteBuenosPagadores
+      titulo={reporte.titulo}
+      puedePersonalizar={puedePersonalizar}
+      zonas={zonasDisponibles}
+      cargandoZonas={cargandoZonas}
+      errorZonas={errorZonas}
+      onCambiarReporte={cambiarReporte}
+    />}
     {reporte && seleccion === 'MOROSOS' && <>
       <section className="pcard reporte-configuracion" aria-labelledby="configuracion-reporte">
         <form className="reporte-configuracion-form" onSubmit={consultar} noValidate>
@@ -971,83 +954,11 @@ export default function Reportes() {
             </fieldset>
           </div>
 
-          <div className="reporte-config-acciones">
-            <div className="reporte-config-guardar">
-              <div className="fld reporte-campo-vista">
-                <label htmlFor="reporte-nombre-vista">Nombre de la vista</label>
-                <div className="reporte-campo-vista-fila">
-                  <input id="reporte-nombre-vista" placeholder="Ej. Morosos zona 2" value={nombreVista} onChange={(e) => setNombreVista(e.target.value)} />
-                  <select
-                    className="reporte-vista-selector"
-                    aria-label="Seleccionar una vista guardada"
-                    value=""
-                    onChange={(e) => seleccionarVista(e.target.value)}
-                    disabled={vistasDelReporte.length === 0}
-                  >
-                    <option value="">{vistasDelReporte.length ? 'Seleccionar vista…' : 'Sin vistas guardadas'}</option>
-                    {vistasDelReporte.map((vista) => <option key={vista.idVista} value={vista.nombre}>{vista.nombre}</option>)}
-                  </select>
-                </div>
-              </div>
-              <button className="btn" type="button" onClick={guardarConfiguracion} disabled={!resultado.datos || !nombreVista.trim() || columnasEfectivas.length === 0}>Guardar vista</button>
-            </div>
-            <div className="reporte-config-exportar">
-              <button className="btn" type="button" onClick={() => exportar('EXCEL')} disabled={!resultado.datos}>Exportar Excel</button>
-              <button className="btn" type="button" onClick={() => exportar('PDF')} disabled={!resultado.datos}>Exportar PDF</button>
-            </div>
-          </div>
-
-          <section className="reporte-vistas-guardadas" aria-labelledby="vistas-guardadas-titulo">
-            <h3 id="vistas-guardadas-titulo">Vistas guardadas</h3>
-            {vistasDelReporte.length === 0
-              ? <p className="hint">Aún no hay vistas guardadas para este reporte.</p>
-              : <div className="tabla-scroll" tabIndex="0" role="region" aria-label="Vistas guardadas">
-                  <table className="tabla reporte-vistas-tabla">
-                    <caption className="sr-only">Vistas guardadas del reporte actual</caption>
-                    <thead><tr>
-                      <th scope="col">Nombre</th>
-                      <th scope="col" className="num">Columnas reporte</th>
-                      <th scope="col" className="num">Columnas detalle</th>
-                      <th scope="col">Fecha de creación</th>
-                      <th scope="col">Acciones</th>
-                    </tr></thead>
-                    <tbody>
-                      {vistasDelReporte.map((vista) => <tr key={vista.idVista}>
-                        <th scope="row">{vista.nombre}</th>
-                        <td className="num">{vista.columnasVisibles?.length ?? 0}</td>
-                        <td className="num">{vista.columnasDetalleVisibles?.length ?? 0}</td>
-                        <td>{fechaHora(vista.fechaCreacion)}</td>
-                        <td>
-                          <div className="reporte-vistas-acciones">
-                            <button className="btn" type="button" onClick={() => abrirConfiguracion(vista)}>Utilizar</button>
-                            <button className="btn" type="button" onClick={() => exportarVistaGuardada(vista, 'EXCEL')}>Excel</button>
-                            <button className="btn" type="button" onClick={() => exportarVistaGuardada(vista, 'PDF')}>PDF</button>
-                            <button className="btn peligro" type="button" onClick={() => eliminarVistaGuardada(vista)}>Eliminar</button>
-                          </div>
-                        </td>
-                      </tr>)}
-                    </tbody>
-                  </table>
-                </div>}
-          </section>
-          {!resultado.datos && <p className="hint reporte-config-ayuda">Genera el reporte para habilitar “Guardar vista” y la exportación.</p>}
-          {accionError && <div className="alert" role="alert">{accionError.message}</div>}
         </form>
       </section>
+      <GestionVistasReporte tipo="MOROSOS" configuracion={configuracionVista} habilitado={Boolean(resultado.datos)} onAbrir={abrirConfiguracion} />
       <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : errorGeneral.codigo === 'SIN_CARGA_ETL' ? 'El ETL no tiene una carga publicada.' : errorGeneral.codigo === 'ETL_SIN_CORRESPONDENCIA' ? 'El ETL no tiene correspondencia con SAMNET.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}</div>
-      {resultado.datos && <section className="reporte-resultados" aria-labelledby="resultado-reporte"><div className="reporte-resultados-cab"><div><h2 id="resultado-reporte">{resultado.datos.titulo}</h2><p className="hint">Información oficial a la fecha de corte indicada.</p></div></div><Resumen datos={resultado.datos} />{resultado.datos.filas.length === 0 ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes que cumplan los criterios seleccionados.</p></div> : grafica === 'TABLA' ? <TablaReporte datos={resultado.datos} columnasDetalle={columnasDetalleAplicadasEfectivas} /> : <BarrasReporte datos={resultado.datos} />}</section>}
+      {resultado.datos && <section className="reporte-resultados" aria-labelledby="resultado-reporte"><div className="reporte-resultados-cab"><div><h2 id="resultado-reporte">{resultado.datos.titulo}</h2><p className="hint">Información oficial a la fecha de corte indicada.</p></div><div className="reporte-config-exportar"><button className="btn" type="button" onClick={() => exportar('EXCEL')}>Exportar Excel</button><button className="btn" type="button" onClick={() => exportar('PDF')}>Exportar PDF</button></div></div>{accionError && <div className="alert" role="alert">{accionError.message}</div>}<Resumen datos={resultado.datos} paginacion={resultado.datos.filas.length > 0 && grafica === 'TABLA' ? <PaginacionTabla id="morosos" totalRegistros={resultado.datos.filas.length} pagina={paginacion.pagina} tamanio={paginacion.tamanio} onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} /> : null} />{resultado.datos.filas.length === 0 ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes que cumplan los criterios seleccionados.</p></div> : puedePersonalizar ? <VisualizacionReporte tipo={grafica} onCambiarTipo={setGrafica} serie={serie} onCambiarSerie={setSerie} series={SERIES_MOROSOS} tipos={['TABLA', 'BARRAS', 'LINEAS', 'CIRCULAR']} filas={filasOrdenadasReporte} lineas={lineasMorosos} descripcion={grafica === 'LINEAS' ? `Evolución anual agregada de ${resultado.datos.filas.length} contribuyentes. Selecciona un año para consultar su detalle.` : undefined} tabla={<TablaReporte datos={resultado.datos} filas={paginacion.filas} columnasDetalle={columnasDetalleAplicadasEfectivas} />} /> : <TablaReporte datos={resultado.datos} filas={paginacion.filas} columnasDetalle={columnasDetalleAplicadasEfectivas} />}</section>}
     </>}
-    <ModalConfirmacion
-      abierto={Boolean(confirmacion)}
-      titulo={confirmacion?.tipo === 'eliminar' ? 'Eliminar vista' : 'Sobrescribir vista'}
-      mensaje={confirmacion?.tipo === 'eliminar'
-        ? <>¿Eliminar la vista <strong>{confirmacion?.vista?.nombre}</strong>? Esta acción no se puede deshacer.</>
-        : <>Ya existe una vista llamada <strong>{confirmacion?.nombre}</strong>. Si continúas, se reemplazará su configuración actual.</>}
-      textoConfirmar={confirmacion?.tipo === 'eliminar' ? 'Eliminar' : 'Sobrescribir'}
-      peligro={confirmacion?.tipo === 'eliminar'}
-      procesando={procesandoConfirmacion}
-      onConfirmar={confirmarAccion}
-      onCerrar={() => { if (!procesandoConfirmacion) setConfirmacion(null) }}
-    />
   </div>
 }

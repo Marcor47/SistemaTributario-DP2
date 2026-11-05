@@ -81,12 +81,13 @@ public class ReporteService {
     private final Clock reloj;
     private final LoteETLRepository lotes;
     private final CarteraEtlService carteraEtl;
+    private final ReportePricosService reportePricos;
 
     public ReporteService(SamnetGateway samnet, RestriccionReporteRepository restricciones,
             SolicitudReporteRepository solicitudes, VistaReporteRepository vistas,
             ReporteExportador exportador, UsuarioRepository usuarios,
             ParametroConfiguracionRepository parametros, JsonMapper json, Clock reloj,
-            LoteETLRepository lotes, CarteraEtlService carteraEtl) {
+            LoteETLRepository lotes, CarteraEtlService carteraEtl, ReportePricosService reportePricos) {
         this.samnet = samnet;
         this.restricciones = restricciones;
         this.solicitudes = solicitudes;
@@ -98,6 +99,7 @@ public class ReporteService {
         this.reloj = reloj;
         this.lotes = lotes;
         this.carteraEtl = carteraEtl;
+        this.reportePricos = reportePricos;
     }
 
     /* Catálogo sin los reportes que el rol tiene restringidos por completo. */
@@ -288,6 +290,7 @@ public class ReporteService {
                     "El reporte de morosos usa el rango anioDesde/anioHasta.");
         }
         validarRango(filtros);
+        validarConfiguracionPricos(tipo, filtros);
 
         List<String> columnas = peticion.columnasVisibles();
         if (columnas == null || columnas.isEmpty()) {
@@ -314,14 +317,16 @@ public class ReporteService {
             VistaReporte vista = vistaExistente.get();
             vista.actualizar(nombreLimpio, tipoGrafica, serializar(filtros), serializar(columnas),
                     serializar(columnasDetalle), serializar(ordenColumnas),
-                    serializar(ordenColumnasDetalle), peticion.orden());
+                    serializar(ordenColumnasDetalle), peticion.series() != null ? serializar(peticion.series()) : null,
+                    peticion.orden());
             vistas.save(vista);
             return mapearVista(vista);
         }
 
         VistaReporte vista = new VistaReporte(tipo, usuario, nombreLimpio, tipoGrafica,
                 serializar(filtros), serializar(columnas), serializar(columnasDetalle),
-                serializar(ordenColumnas), serializar(ordenColumnasDetalle), peticion.orden(),
+                serializar(ordenColumnas), serializar(ordenColumnasDetalle),
+                peticion.series() != null ? serializar(peticion.series()) : null, peticion.orden(),
                 LocalDateTime.now(reloj));
         vistas.save(vista);
         return mapearVista(vista);
@@ -348,7 +353,9 @@ public class ReporteService {
         Usuario usuario = usuario(nombreUsuario);
         VistaReporte vista = vistaPropia(idVista, usuario);
         FiltrosReporte filtros = parsearFiltros(vista.getFiltros());
-        ReporteRespuesta<?> reporte = ejecutarReporte(vista.getTipoReporte(), filtros, usuario, FormatoExportacion.NINGUNO);
+        Object reporte = vista.getTipoReporte() == TipoReporte.PRICOS && filtros.criterio() != null
+                ? reportePricos.generar(nombreUsuario, filtros.criterio(), filtros.limite(), FormatoExportacion.NINGUNO)
+                : ejecutarReporte(vista.getTipoReporte(), filtros, usuario, FormatoExportacion.NINGUNO);
         return new VistaEjecutadaRespuesta<>(mapearVista(vista), reporte);
     }
 
@@ -373,6 +380,7 @@ public class ReporteService {
                         "El reporte de morosos usa el rango anioDesde/anioHasta.");
             }
             validarRango(peticion.filtros());
+            validarConfiguracionPricos(vista.getTipoReporte(), peticion.filtros());
             filtrosJson = serializar(peticion.filtros());
         }
 
@@ -408,7 +416,8 @@ public class ReporteService {
         }
 
         vista.actualizar(nuevoNombre, peticion.tipoGrafica(), filtrosJson, columnasJson, columnasDetalleJson,
-                ordenColumnasJson, ordenColumnasDetalleJson, peticion.orden());
+                ordenColumnasJson, ordenColumnasDetalleJson,
+                peticion.series() != null ? serializar(peticion.series()) : vista.getSeries(), peticion.orden());
         return mapearVista(vista);
     }
 
@@ -432,7 +441,7 @@ public class ReporteService {
         List<String> detalle = tipo == TipoReporte.MOROSOS && columnasDetalle != null
                 ? columnasDetalle : List.of();
         validarColumnasDetalle(detalle);
-        ReporteRespuesta<?> reporte = ejecutarReporte(tipo, filtros, usuario, formato);
+        ReporteRespuesta<?> reporte = reporteExportable(tipo, filtros, usuario, formato);
         return exportador.exportar(reporte, formato, columnas, detalle, orden, usuario.getNombreCompleto());
     }
 
@@ -447,9 +456,44 @@ public class ReporteService {
         FiltrosReporte filtros = parsearFiltros(vista.getFiltros());
         List<String> columnas = parsearColumnas(vista.getColumnasVisibles(), vista.getTipoReporte());
         List<String> columnasDetalle = parsearColumnasDetalle(vista.getColumnasDetalleVisibles());
-        ReporteRespuesta<?> reporte = ejecutarReporte(vista.getTipoReporte(), filtros, usuario, formato);
+        ReporteRespuesta<?> reporte = reporteExportable(vista.getTipoReporte(), filtros, usuario, formato);
         return exportador.exportar(reporte, formato, columnas, columnasDetalle, vista.getOrden(),
                 usuario.getNombreCompleto());
+    }
+
+    private ReporteRespuesta<?> reporteExportable(TipoReporte tipo, FiltrosReporte filtros, Usuario usuario,
+            FormatoExportacion formato) {
+        if (tipo != TipoReporte.PRICOS || filtros.criterio() == null) {
+            return ejecutarReporte(tipo, filtros, usuario, formato);
+        }
+        ReportePricosRespuesta datos = reportePricos.generar(usuario.getNombreUsuario(), filtros.criterio(),
+                filtros.limite(), formato);
+        BigDecimal monto = datos.filas().stream().map(fila -> filtros.criterio() == CriterioPricos.BASE_IMPONIBLE
+                ? nuloACero(fila.baseImponible())
+                : deudaTotal(fila)).reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new ReporteRespuesta<>(TipoReporte.PRICOS, "Reporte de PRICOS", datos.fechaCorte(), filtros,
+                new Resumen(datos.filas().size(), filtros.criterio() == CriterioPricos.BASE_IMPONIBLE
+                        ? "Base imponible" : "Deuda total", monto, null), datos.filas());
+    }
+
+    private static BigDecimal deudaTotal(ReportePricosRespuesta.FilaPricos fila) {
+        BigDecimal anteriorPredial = fila.deudaAniosAnteriores() != null ? fila.deudaAniosAnteriores().predial() : null;
+        BigDecimal anteriorArbitrios = fila.deudaAniosAnteriores() != null ? fila.deudaAniosAnteriores().arbitrios() : null;
+        BigDecimal actualPredial = fila.deudaAnioCorte() != null ? fila.deudaAnioCorte().predial() : null;
+        BigDecimal actualArbitrios = fila.deudaAnioCorte() != null ? fila.deudaAnioCorte().arbitrios() : null;
+        return nuloACero(anteriorPredial).add(nuloACero(anteriorArbitrios))
+                .add(nuloACero(actualPredial)).add(nuloACero(actualArbitrios));
+    }
+
+    private static BigDecimal nuloACero(BigDecimal valor) {
+        return valor != null ? valor : BigDecimal.ZERO;
+    }
+
+    private static void validarConfiguracionPricos(TipoReporte tipo, FiltrosReporte filtros) {
+        if (tipo != TipoReporte.PRICOS || filtros.criterio() == null) return;
+        if (filtros.limite() == null || filtros.limite() < 1 || filtros.limite() > 200) {
+            throw new DatoInvalidoException("LIMITE_INVALIDO", "El límite de PRICOS debe estar entre 1 y 200.");
+        }
     }
 
     private VistaReporte vistaPropia(Long idVista, Usuario usuario) {
@@ -470,6 +514,7 @@ public class ReporteService {
                 parsearColumnasDetalle(vista.getColumnasDetalleVisibles()),
                 parsearLista(vista.getOrdenColumnas(), parsearColumnas(vista.getColumnasVisibles(), vista.getTipoReporte())),
                 parsearLista(vista.getOrdenColumnasDetalle(), parsearColumnasDetalle(vista.getColumnasDetalleVisibles())),
+                parsearLista(vista.getSeries(), List.of()),
                 vista.getOrden(),
                 vista.getFechaCreacion()
         );

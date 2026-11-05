@@ -85,6 +85,12 @@ public class ReportePricosService {
 
     @Transactional
     public ReportePricosRespuesta generar(String nombreUsuario, CriterioPricos criterio, int limite) {
+        return generar(nombreUsuario, criterio, limite, FormatoExportacion.NINGUNO);
+    }
+
+    @Transactional
+    public ReportePricosRespuesta generar(String nombreUsuario, CriterioPricos criterio, int limite,
+            FormatoExportacion formato) {
         Usuario usuario = usuarioRepository.findByNombreUsuario(nombreUsuario).orElseThrow(() ->
                 new NoAutenticadoException("SESION_REQUERIDA", "Inicie sesión como usuario interno."));
         exigirAcceso(usuario);
@@ -135,7 +141,7 @@ public class ReportePricosService {
         }
 
         solicitudReporteRepository.save(new SolicitudReporte(TipoReporte.PRICOS, usuario, LocalDateTime.now(reloj),
-                "{\"criterio\":\"" + criterio + "\",\"limite\":" + limite + "}", FormatoExportacion.NINGUNO));
+                "{\"criterio\":\"" + criterio + "\",\"limite\":" + limite + "}", formato));
         return new ReportePricosRespuesta(lote.getIdLote(), fechaCorte, criterio, limite, candidatos.size(), filas);
     }
 

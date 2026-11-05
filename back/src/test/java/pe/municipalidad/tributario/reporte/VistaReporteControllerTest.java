@@ -77,6 +77,7 @@ class VistaReporteControllerTest {
                   },
                   "columnasVisibles": ["codigo", "nombre", "deudaVencida", "nombreEtapa"],
                   "columnasDetalleVisibles": ["codigoPredio", "tributo", "montoConBeneficio"],
+                  "series": ["deudaVencida"],
                   "orden": "deudaVencida:desc"
                 }
                 """;
@@ -96,6 +97,7 @@ class VistaReporteControllerTest {
                 .andExpect(jsonPath("$.filtros.montoMinimo").value(1000))
                 .andExpect(jsonPath("$.columnasVisibles", contains("codigo", "nombre", "deudaVencida", "nombreEtapa")))
                 .andExpect(jsonPath("$.columnasDetalleVisibles", contains("codigoPredio", "tributo", "montoConBeneficio")))
+                .andExpect(jsonPath("$.series", contains("deudaVencida")))
                 .andExpect(jsonPath("$.orden").value("deudaVencida:desc"))
                 .andExpect(jsonPath("$.fechaCreacion", notNullValue()));
     }
@@ -136,6 +138,40 @@ class VistaReporteControllerTest {
                 .andExpect(jsonPath("$.reporte.filas[*].codigo", contains("080245", "021390", "045067", "014502")))
                 .andExpect(jsonPath("$.reporte.filas[0].emitidoAnio").value(96564.60))
                 .andExpect(jsonPath("$.reporte.filas[0].porcentajePagado").value(100.00));
+    }
+
+    @Test
+    void vistaPricosConservaCriterioLimiteYPermiteExportarColumnasHu037() throws Exception {
+        MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_pricos_hu007");
+        String guardarJson = """
+                {
+                  "nombre": "PRICOS por deuda",
+                  "tipoGrafica": "TABLA",
+                  "filtros": { "criterio": "DEUDA_TOTAL", "limite": 2 },
+                  "columnasVisibles": ["codigo", "razonSocial", "baseImponible", "deudaActualPredial"],
+                  "ordenColumnas": ["codigo", "razonSocial", "baseImponible", "deudaActualPredial"]
+                }
+                """;
+
+        String guardado = mvc.perform(post("/api/reportes/PRICOS/vistas").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(guardarJson).session(sesion))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.filtros.criterio").value("DEUDA_TOTAL"))
+                .andExpect(jsonPath("$.filtros.limite").value(2))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        Number idVista = com.jayway.jsonpath.JsonPath.read(guardado, "$.idVista");
+
+        mvc.perform(get("/api/reportes/vistas/" + idVista + "/abrir").session(sesion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reporte.criterio").value("DEUDA_TOTAL"))
+                .andExpect(jsonPath("$.reporte.limite").value(2))
+                .andExpect(jsonPath("$.reporte.filas", hasSize(2)));
+
+        mvc.perform(get("/api/reportes/vistas/" + idVista + "/exportar")
+                        .param("formato", "EXCEL").session(sesion))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
     }
 
     @Test

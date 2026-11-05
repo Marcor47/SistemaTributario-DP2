@@ -5,6 +5,6 @@ package pe.municipalidad.tributario.reporte;
  */
 public record VistaEjecutadaRespuesta<T>(
         VistaReporteRespuesta vista,
-        ReporteRespuesta<T> reporte) {
+        T reporte) {
 }
 
