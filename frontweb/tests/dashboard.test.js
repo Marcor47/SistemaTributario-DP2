@@ -8,6 +8,8 @@ import {
   esPeriodoActual,
   explicarDesvio,
   filtrarAlertasDelPeriodo,
+  filtrarAlertasPorFiltros,
+  periodoCubre,
   formatearDesvio,
   formatearPorcentaje,
   formatearValorIndicador,
@@ -157,4 +159,52 @@ test('HU039: presenta el alcance, el sentido y la fecha de generación', () => {
   assert.equal(fechaHora('2026-10-18 02:08:00'), '18/10/2026 02:08')
   assert.equal(fechaHora('2026-10-18'), '18/10/2026')
   assert.equal(fechaHora(null), '—')
+})
+
+test('HU039: el periodo de una alerta cubre el mes del dashboard', () => {
+  assert.equal(periodoCubre('2026-11', 2026, 11), true)
+  assert.equal(periodoCubre('2026-11', 2026, 12), false)
+  assert.equal(periodoCubre('2026-T4', 2026, 10), true)
+  assert.equal(periodoCubre('2026-T4', 2026, 11), true)
+  assert.equal(periodoCubre('2026-T4', 2026, 12), true)
+  assert.equal(periodoCubre('2026-T4', 2026, 9), false)
+  assert.equal(periodoCubre('2026-T4', 2027, 11), false)
+  assert.equal(periodoCubre('2026', 2026, 1), true)
+  assert.equal(periodoCubre('2026', 2027, 1), false)
+  assert.equal(periodoCubre(null, 2026, 11), false)
+})
+
+test('HU039: filtra alertas por los filtros del dashboard y conserva las TOTAL', () => {
+  const alertas = [
+    { ...ALERTA_MOROSIDAD, idAlerta: 1, periodo: '2026-T4', alcance: 'TOTAL', valorAlcance: null },
+    { ...ALERTA_MOROSIDAD, idAlerta: 2, periodo: '2026-T4', alcance: 'ZONA', valorAlcance: 'Z2' },
+    { ...ALERTA_MOROSIDAD, idAlerta: 3, periodo: '2026-T4', alcance: 'ZONA', valorAlcance: 'Z1' },
+    { ...ALERTA_RECAUDACION, idAlerta: 4, periodo: '2026-T3', alcance: 'TOTAL', valorAlcance: null },
+    { ...ALERTA_MOROSIDAD, idAlerta: 5, periodo: '2026-T4', alcance: 'SEGMENTO', valorAlcance: 'Alto riesgo' },
+  ]
+
+  assert.deepEqual(
+    filtrarAlertasPorFiltros(alertas, {}, { periodo: '2026-11' }).map((alerta) => alerta.idAlerta),
+    [1, 2, 3, 5],
+  )
+  assert.deepEqual(
+    filtrarAlertasPorFiltros(alertas, {}, { periodo: '2026-08' }).map((alerta) => alerta.idAlerta),
+    [4],
+  )
+  assert.deepEqual(
+    filtrarAlertasPorFiltros(alertas, { zona: 'Z2' }, { periodo: '2026-11' }).map((alerta) => alerta.idAlerta),
+    [1, 2],
+  )
+  assert.deepEqual(
+    filtrarAlertasPorFiltros(alertas, { indicadorCodigo: 'PORC_RECAUDACION_EMISION' }, { periodo: '2026-08' })
+      .map((alerta) => alerta.idAlerta),
+    [4],
+  )
+  assert.deepEqual(
+    filtrarAlertasPorFiltros(alertas, { idSegmento: 7 }, {
+      periodo: '2026-11',
+      segmentos: [{ idSegmento: 7, nombre: 'Alto riesgo' }],
+    }).map((alerta) => alerta.idAlerta),
+    [1, 5],
+  )
 })
