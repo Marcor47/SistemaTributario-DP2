@@ -79,26 +79,32 @@ class ReporteControllerTest {
                 .andExpect(jsonPath("$.tipoReporte").value("MOROSOS"))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
                 .andExpect(jsonPath("$.filtrosAplicados.anio").value(nullValue()))
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067", "058934", "061177")))
+                /* Orden por deuda vencida: el moroso 021390 (desde agosto de 2025, 11 predios), luego la inmobiliaria
+                   (3.ª cuota del predial 2026). */
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "080245", "058934", "061177", "045067")))
                 .andExpect(jsonPath("$.filas[0].nombre").value("INVERSIONES COSTA AZUL S.A.C."))
                 .andExpect(jsonPath("$.filas[0].tipoDocumento").value("RUC"))
                 .andExpect(jsonPath("$.filas[0].numeroDocumento").value("20456781239"))
                 .andExpect(jsonPath("$.filas[0].domicilioFiscal").value("Jr. Los Precursores 220, San Miguel"))
                 .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2", "Z3")))
-                .andExpect(jsonPath("$.filas[0].deudaVencida").value(17007.68))
-                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(26))
-                .andExpect(jsonPath("$.filas[0].vencimientoMasAntiguo").value("2025-12-31"))
-                .andExpect(jsonPath("$.filas[0].diasVencido").value(292))
+                /* Predial: 3.ª y 4.ª cuota de 2025 (2 x S/ 8 723,75) y 3 cuotas de 2026 (3 x S/ 9 237,50). */
+                .andExpect(jsonPath("$.filas[0].deudaVencida").value(61046.00))
+                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(159))
+                .andExpect(jsonPath("$.filas[0].vencimientoMasAntiguo").value("2025-08-29"))
+                .andExpect(jsonPath("$.filas[0].diasVencido").value(416))
                 .andExpect(jsonPath("$.filas[0].etapaCobranza").value("COACTIVA"))
                 .andExpect(jsonPath("$.filas[0].nombreEtapa").value("Exigible en vía coactiva"))
                 .andExpect(jsonPath("$.filas[0].deudaPorTributo", hasSize(2)))
                 .andExpect(jsonPath("$.filas[0].deudaPorTributo[0].tributo").value("ARBITRIOS"))
-                .andExpect(jsonPath("$.filas[0].deudaPorTributo[0].monto").value(13975.04))
+                .andExpect(jsonPath("$.filas[0].deudaPorTributo[0].monto").value(15886.00))
+                .andExpect(jsonPath("$.filas[0].deudaPorTributo[1].monto").value(45160.00))
+                .andExpect(jsonPath("$.filas[1].deudaVencida").value(20681.85))
+                .andExpect(jsonPath("$.filas[1].etapaCobranza").value("MORA_TEMPRANA"))
                 .andExpect(jsonPath("$.filas[2].etapaCobranza").value("VALOR_EMITIDO"))
                 .andExpect(jsonPath("$.filas[3].etapaCobranza").value("MORA_TEMPRANA"))
-                .andExpect(jsonPath("$.resumen.cantidad").value(4))
+                .andExpect(jsonPath("$.resumen.cantidad").value(5))
                 .andExpect(jsonPath("$.resumen.conceptoMonto").value("Deuda vencida"))
-                .andExpect(jsonPath("$.resumen.montoTotal").value(19520.16))
+                .andExpect(jsonPath("$.resumen.montoTotal").value(83606.75))
                 .andExpect(jsonPath("$.resumen.umbralPrico").value(nullValue()));
     }
 
@@ -123,7 +129,7 @@ class ReporteControllerTest {
                         .param("beneficio", "SIN_BENEFICIO")
                         .session(gerencia))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.resumen.cantidad").value(4));
+                .andExpect(jsonPath("$.resumen.cantidad").value(5));
     }
 
     @Test
@@ -148,13 +154,14 @@ class ReporteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filtrosAplicados.zona").value("Z2"))
                 .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "058934", "061177")))
-                .andExpect(jsonPath("$.filas[0].deudaVencida").value(8197.84))
-                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(11))
-                .andExpect(jsonPath("$.filas[1].deudaVencida").value(401.12));
+                /* Arbitrios de sus 4 predios de Z2, de agosto de 2025 a setiembre de 2026. */
+                .andExpect(jsonPath("$.filas[0].deudaVencida").value(6230.90))
+                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(56))
+                .andExpect(jsonPath("$.filas[1].deudaVencida").value(600.84));
 
         mvc.perform(get("/api/reportes/MOROSOS").param("montoMinimo", "1000").session(gerencia))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")));
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "080245", "058934")));
     }
 
     @Test
@@ -163,11 +170,11 @@ class ReporteControllerTest {
         mvc.perform(get("/api/reportes/MOROSOS").param("regimen", "general").session(gerencia))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filtrosAplicados.regimen").value("GENERAL"))
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067", "058934", "061177")));
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "080245", "058934", "061177", "045067")));
 
         mvc.perform(get("/api/reportes/MOROSOS").param("tipoDocumento", "RUC").session(gerencia))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")));
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "080245", "045067")));
 
         mvc.perform(get("/api/reportes/MOROSOS").param("etapa", "COACTIVA").session(gerencia))
                 .andExpect(status().isOk())
@@ -184,14 +191,15 @@ class ReporteControllerTest {
         mvc.perform(get("/api/reportes/PRICOS").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filtrosAplicados.anio").value(2026))
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")))
+                .andExpect(jsonPath("$.filas[*].codigo", contains("080245", "021390", "045067", "014502")))
                 .andExpect(jsonPath("$.filas[0].tipoPersona").value("JURIDICA"))
-                .andExpect(jsonPath("$.filas[0].emitidoAnio").value(14747.76))
-                .andExpect(jsonPath("$.filas[0].pagadoAnio").value(0))
-                .andExpect(jsonPath("$.filas[0].deudaVencida").value(17007.68))
-                .andExpect(jsonPath("$.filas[1].emitidoAnio").value(2145.12))
+                .andExpect(jsonPath("$.filas[0].emitidoAnio").value(97087.08))
+                .andExpect(jsonPath("$.filas[1].emitidoAnio").value(50709.80))
+                .andExpect(jsonPath("$.filas[1].pagadoAnio").value(0))
+                .andExpect(jsonPath("$.filas[1].deudaVencida").value(61046.00))
+                .andExpect(jsonPath("$.filas[2].emitidoAnio").value(13424.00))
                 .andExpect(jsonPath("$.resumen.conceptoMonto").value("Monto emitido en 2026"))
-                .andExpect(jsonPath("$.resumen.montoTotal").value(16892.88))
+                .andExpect(jsonPath("$.resumen.montoTotal").value(163721.20))
                 .andExpect(jsonPath("$.resumen.umbralPrico").value(2000));
     }
 
@@ -199,10 +207,10 @@ class ReporteControllerTest {
     void pricosDeOtroAnio() throws Exception {
         mvc.perform(get("/api/reportes/PRICOS").param("anio", "2025").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")))
-                .andExpect(jsonPath("$.filas[0].emitidoAnio").value(17479.84))
-                .andExpect(jsonPath("$.filas[0].pagadoAnio").value(15219.92))
-                .andExpect(jsonPath("$.filas[0].porcentajePagado").value(87.07));
+                .andExpect(jsonPath("$.filas[*].codigo", contains("080245", "021390", "045067", "014502")))
+                .andExpect(jsonPath("$.filas[1].emitidoAnio").value(47694.56))
+                .andExpect(jsonPath("$.filas[1].pagadoAnio").value(24680.91))
+                .andExpect(jsonPath("$.filas[1].porcentajePagado").value(51.75));
     }
 
     @Test
@@ -212,7 +220,7 @@ class ReporteControllerTest {
 
         mvc.perform(get("/api/reportes/PRICOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390")))
+                .andExpect(jsonPath("$.filas[*].codigo", contains("080245", "021390", "045067")))
                 .andExpect(jsonPath("$.resumen.umbralPrico").value(4000));
     }
 
@@ -221,15 +229,16 @@ class ReporteControllerTest {
         mvc.perform(get("/api/reportes/BUENOS_PAGADORES").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filas[*].codigo", contains("014502", "033218")))
-                .andExpect(jsonPath("$.filas[0].cuotasPagadasATiempo").value(4))
-                .andExpect(jsonPath("$.filas[0].pagadoAnio").value(893.80))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1")))
-                .andExpect(jsonPath("$.resumen.montoTotal").value(1385.40));
+                /* 014502 pagó todo 2026 por adelantado: 3 cuotas de predial y 18 de arbitrios ya exigibles. */
+                .andExpect(jsonPath("$.filas[0].cuotasPagadasATiempo").value(21))
+                .andExpect(jsonPath("$.filas[0].pagadoAnio").value(2500.32))
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2")))
+                .andExpect(jsonPath("$.resumen.montoTotal").value(2972.40));
     }
 
     @Test
     void unPagoFueraDePlazoDejaDeSerBuenPagador() throws Exception {
-        jdbc.update("UPDATE samnet.pago SET fecha_pago = DATE '2026-07-15' WHERE id_pago = 'REC-033218-2026-2'");
+        jdbc.update("UPDATE samnet.pago SET fecha_pago = DATE '2026-07-15' WHERE id_pago = 'REC-033218-20260220'");
 
         mvc.perform(get("/api/reportes/BUENOS_PAGADORES").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
@@ -242,7 +251,7 @@ class ReporteControllerTest {
 
         mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filas[*].codigo", contains("045067")));
+                .andExpect(jsonPath("$.filas[*].codigo", contains("080245", "045067")));
     }
 
     @Test

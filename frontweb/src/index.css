@@ -553,3 +553,13 @@ input::placeholder {
   .morosidad-filtros .fld { max-width: 100%; flex: 1 1 100%; }
 }
 
+/* Listas largas de predios: buscador y paginación (ficha, estado de cuenta y consulta de predios). */
+.filtros-predios { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 18px; margin: 10px 0 4px; }
+.filtros-predios .fld { display: flex; flex-direction: column; gap: 4px; min-width: 240px; }
+.filtros-predios input[type="search"] { padding: 9px 12px; border: 1px solid var(--borde-fuerte); border-radius: 10px; font: inherit; }
+.filtros-predios .check { display: flex; align-items: center; gap: 6px; }
+.paginacion { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; margin-top: 14px; }
+
+@media (max-width: 640px) {
+  .filtros-predios .fld { min-width: 0; width: 100%; }
+}

@@ -44,32 +44,41 @@ public class RegularidadPagoService {
 
         int anioEvaluado = (anio != null) ? anio : LocalDate.now(reloj).getYear();
 
+        LocalDate fechaCorte = LocalDate.now(reloj);
         List<Obligacion> cuotas = samnet.obtenerEstadoCuenta(codigo).desglosar(null, anioEvaluado);
         int totalCuotas = cuotas.size();
+        /* Solo cuentan las cuotas que ya vencieron: una que aún no vence no es incumplimiento. */
+        List<Obligacion> exigibles = cuotas.stream()
+                .filter(o -> o.getFechaVencimiento().isBefore(fechaCorte))
+                .toList();
 
-        if (totalCuotas == 0) {
+        if (exigibles.isEmpty()) {
             return new RegularidadPagoRespuesta(
                     contribuyente.getCodigoContribuyente(),
                     contribuyente.getNombreRazonSocial(),
                     anioEvaluado,
+                    totalCuotas,
+                    0,
                     0,
                     0,
                     0,
                     BigDecimal.ZERO.setScale(2),
                     "SIN_EMISIONES",
-                    "No se registran cuotas emitidas para el contribuyente en el anio " + anioEvaluado + "."
+                    totalCuotas == 0
+                            ? "No se registran cuotas emitidas para el contribuyente en el anio " + anioEvaluado + "."
+                            : "Ninguna cuota del anio " + anioEvaluado + " ha vencido todavia."
             );
         }
 
-        // Una cuota se considera pagada a tiempo si su saldo es 0 (montoPagado >= montoEmitido)
-        int cuotasPagadas = (int) cuotas.stream()
-                .filter(o -> o.saldo().signum() <= 0)
+        /* A tiempo: cancelada sin pagos posteriores a su vencimiento (Obligacion.pagadaATiempo). */
+        int cuotasPagadas = (int) exigibles.stream().filter(Obligacion::pagadaATiempo).count();
+        int cuotasConAtraso = (int) exigibles.stream()
+                .filter(o -> o.saldo().signum() <= 0 && !o.pagadaATiempo())
                 .count();
+        int cuotasPendientesOVencidas = exigibles.size() - cuotasPagadas - cuotasConAtraso;
 
-        int cuotasPendientesOVencidas = totalCuotas - cuotasPagadas;
-
-        BigDecimal porcentaje = BigDecimal.valueOf((double) cuotasPagadas / totalCuotas * 100)
-                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal porcentaje = BigDecimal.valueOf(cuotasPagadas * 100L)
+                .divide(BigDecimal.valueOf(exigibles.size()), 2, RoundingMode.HALF_UP);
 
         String segmentoSugerido;
         if (porcentaje.compareTo(BigDecimal.valueOf(100)) >= 0) {
@@ -82,15 +91,18 @@ public class RegularidadPagoService {
             segmentoSugerido = "MOROSO";
         }
 
-        String observacion = String.format("%d de %d cuotas pagadas a tiempo (%s%%).",
-                cuotasPagadas, totalCuotas, porcentaje);
+        String observacion = String.format(
+                "%d de %d cuotas exigibles pagadas a tiempo (%s%%); %d pagadas con atraso y %d impagas.",
+                cuotasPagadas, exigibles.size(), porcentaje, cuotasConAtraso, cuotasPendientesOVencidas);
 
         return new RegularidadPagoRespuesta(
                 contribuyente.getCodigoContribuyente(),
                 contribuyente.getNombreRazonSocial(),
                 anioEvaluado,
                 totalCuotas,
+                exigibles.size(),
                 cuotasPagadas,
+                cuotasConAtraso,
                 cuotasPendientesOVencidas,
                 porcentaje,
                 segmentoSugerido,

@@ -84,10 +84,10 @@ class ReporteMorososZonaTest {
                 .andExpect(jsonPath("$.filas[0].domicilioFiscalDesglosado.numero").value("220"))
                 .andExpect(jsonPath("$.filas[0].domicilioFiscalDesglosado.distrito").value("SAN MIGUEL"))
                 // La muestra se calcula a la fecha de corte del último lote publicado de cobranza.
-                // Con filtro de zona solo se suman los arbitrios de los predios de Z2.
-                .andExpect(jsonPath("$.filas[0].deudaVencida").value(6930.08))
-                .andExpect(jsonPath("$.filas[0].deudaSinBeneficio").value(6930.08))
-                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(10))
+                /* 2026 de 021390 en Z2: enero a setiembre de arbitrios de sus 4 predios de esa zona (36 cuotas). */
+                .andExpect(jsonPath("$.filas[0].deudaVencida").value(4047.75))
+                .andExpect(jsonPath("$.filas[0].deudaSinBeneficio").value(4047.75))
+                .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(36))
                 .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2", "Z3")));
     }
 
@@ -108,11 +108,11 @@ class ReporteMorososZonaTest {
                         .param("zona", "Z1")
                         .session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "045067")))
-                .andExpect(jsonPath("$.filas[1].razonSocial").value("CENTRO EDUCATIVO SOL DE LIMA E.I.R.L."))
-                .andExpect(jsonPath("$.filas[1].regimen").value("GENERAL"))
-                .andExpect(jsonPath("$.filas[1].domicilioFiscalDesglosado.via").value("Av. Faro Azul"))
-                .andExpect(jsonPath("$.filas[1].deudaSinBeneficio", notNullValue()));
+                .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "080245", "045067")))
+                .andExpect(jsonPath("$.filas[2].razonSocial").value("CENTRO EDUCATIVO SOL DE LIMA E.I.R.L."))
+                .andExpect(jsonPath("$.filas[2].regimen").value("GENERAL"))
+                .andExpect(jsonPath("$.filas[2].domicilioFiscalDesglosado.via").value("Av. Faro Azul"))
+                .andExpect(jsonPath("$.filas[2].deudaSinBeneficio", notNullValue()));
     }
 
     @Test

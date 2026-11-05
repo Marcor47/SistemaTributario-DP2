@@ -133,9 +133,9 @@ class VistaReporteControllerTest {
                 .andExpect(jsonPath("$.vista.columnasVisibles", hasSize(5)))
                 .andExpect(jsonPath("$.reporte.tipoReporte").value("PRICOS"))
                 .andExpect(jsonPath("$.reporte.filtrosAplicados.anio").value(2025))
-                .andExpect(jsonPath("$.reporte.filas[*].codigo", contains("021390", "045067")))
-                .andExpect(jsonPath("$.reporte.filas[0].emitidoAnio").value(17479.84))
-                .andExpect(jsonPath("$.reporte.filas[0].porcentajePagado").value(87.07));
+                .andExpect(jsonPath("$.reporte.filas[*].codigo", contains("080245", "021390", "045067", "014502")))
+                .andExpect(jsonPath("$.reporte.filas[0].emitidoAnio").value(96564.60))
+                .andExpect(jsonPath("$.reporte.filas[0].porcentajePagado").value(100.00));
     }
 
     @Test

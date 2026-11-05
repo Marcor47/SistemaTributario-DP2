@@ -8,7 +8,8 @@ import pe.municipalidad.tributario.gestiontributaria.Titularidad;
 
 /*
  * HU001 (revisión del Sprint 1): predio del que el contribuyente es titular, con su condición y porcentaje de
- * propiedad. En copropiedad cada titular ve su propia parte.
+ * propiedad. En copropiedad cada titular ve su propia parte. baseImponible (autovalúo) y zona son la base del
+ * Impuesto Predial y de los arbitrios.
  */
 public record PredioContribuyenteRespuesta(
         String codigoPredio,
@@ -17,6 +18,8 @@ public record PredioContribuyenteRespuesta(
         String usoPredio,
         TipoPredio tipoPredio,
         BigDecimal areaTerreno,
+        BigDecimal baseImponible,
+        String zona,
         LocalDate fechaAdquisicion,
         String condicionPropiedad,
         BigDecimal porcentajePropiedad) {
@@ -33,6 +36,8 @@ public record PredioContribuyenteRespuesta(
                 predio.getUsoPredio(),
                 predio.getTipoPredio(),
                 predio.getAreaTerreno(),
+                predio.getBaseImponible(),
+                predio.getZona(),
                 predio.getFechaAdquisicion(),
                 titularidad.condicionPropiedad(),
                 titularidad.porcentajePropiedad());

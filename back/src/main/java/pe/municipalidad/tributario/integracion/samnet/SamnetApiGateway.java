@@ -40,8 +40,12 @@ import pe.municipalidad.tributario.gestiontributaria.Predio;
 import pe.municipalidad.tributario.gestiontributaria.TipoBeneficio;
 import pe.municipalidad.tributario.gestiontributaria.TipoPredio;
 import pe.municipalidad.tributario.gestiontributaria.Titularidad;
+import pe.municipalidad.tributario.obligacion.MontoServicio;
 import pe.municipalidad.tributario.obligacion.Obligacion;
+import pe.municipalidad.tributario.obligacion.ServicioArbitrio;
 import pe.municipalidad.tributario.obligacion.Tributo;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 
 /*
  * Implementación de SamnetGateway que invoca los SP de Rentas (funciones samnet.ps_*). Hoy esos SP son
@@ -93,6 +97,17 @@ public class SamnetApiGateway implements SamnetGateway {
     @Override
     public List<String> obtenerZonas() {
         return invocar(() -> jdbc.queryForList("SELECT zona FROM samnet.ps_zonas()", String.class));
+    }
+
+    @Override
+    public List<Predio> buscarPredios(String texto) {
+        List<Map<String, Object>> filas = invocar(() -> jdbc.queryForList(
+                "SELECT * FROM samnet.ps_buscarpredios(?)", texto));
+        Map<String, List<Map<String, Object>>> porPredio = new LinkedHashMap<>();
+        for (Map<String, Object> fila : filas) {
+            porPredio.computeIfAbsent((String) fila.get("codigo_predio"), k -> new ArrayList<>()).add(fila);
+        }
+        return porPredio.values().stream().map(SamnetApiGateway::predioDesde).toList();
     }
 
     @Override
@@ -307,7 +322,24 @@ public class SamnetApiGateway implements SamnetGateway {
                     .subtract(rs.getBigDecimal("insoluto")),
             rs.getBigDecimal("porcentaje_descuento"),
             rs.getString("etapa_cobranza") == null ? null : EtapaCobranza.valueOf(rs.getString("etapa_cobranza")),
-            fecha(rs, "fecha_etapa"));
+            fecha(rs, "fecha_etapa"),
+            servicios(rs.getString("servicios")),
+            fecha(rs, "fecha_ultimo_pago"));
+
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    /* El SP entrega el detalle por servicio de una cuota de arbitrios como JSON; el Impuesto Predial no tiene. */
+    private static List<MontoServicio> servicios(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        List<MontoServicio> servicios = new ArrayList<>();
+        for (JsonNode nodo : JSON.readTree(json)) {
+            servicios.add(new MontoServicio(ServicioArbitrio.valueOf(nodo.get("servicio").asString()),
+                    nodo.get("monto").decimalValue().setScale(2)));
+        }
+        return servicios;
+    }
 
     private static Predio predioDesde(List<Map<String, Object>> filas) {
         Map<String, Object> f = filas.getFirst();

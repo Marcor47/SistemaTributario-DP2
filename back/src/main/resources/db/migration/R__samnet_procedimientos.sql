@@ -72,17 +72,63 @@ LANGUAGE sql STABLE AS $$
     ORDER BY d.es_vigente DESC, d.anio DESC;
 $$;
 
+-- Auditoría 2026-11: búsqueda parcial de predios por código predial, dirección o titular (código, nombre o
+-- documento), para listas largas. Una fila por titular, con su nombre y documento.
+CREATE OR REPLACE FUNCTION samnet.ps_buscarpredios(p_texto VARCHAR)
+RETURNS TABLE (
+    codigo_predio VARCHAR, numero_catastral VARCHAR, ubicacion VARCHAR, uso_predio VARCHAR,
+    tipo_predio VARCHAR, area_terreno NUMERIC, base_imponible NUMERIC, fecha_adquisicion DATE,
+    fecha_baja DATE, zona VARCHAR, contribuyente_codigo VARCHAR, condicion_propiedad VARCHAR,
+    porcentaje_propiedad NUMERIC)
+LANGUAGE sql STABLE AS $$
+    WITH coincidentes AS (
+        SELECT DISTINCT p.codigo_predio
+        FROM samnet.predio p
+        LEFT JOIN samnet.predio_titular t ON t.codigo_predio = p.codigo_predio
+        LEFT JOIN samnet.contribuyente c ON c.codigo = t.contribuyente_codigo
+        WHERE upper(p.codigo_predio) LIKE '%' || upper(p_texto) || '%'
+           OR upper(p.ubicacion) LIKE '%' || upper(p_texto) || '%'
+           OR upper(coalesce(p.numero_catastral, '')) LIKE '%' || upper(p_texto) || '%'
+           OR c.codigo = p_texto
+           OR upper(c.nombre) LIKE '%' || upper(p_texto) || '%'
+           OR c.numero_documento = p_texto
+    )
+    SELECT p.codigo_predio, p.numero_catastral, p.ubicacion, p.uso_predio, p.tipo_predio, p.area_terreno,
+           p.base_imponible, p.fecha_adquisicion, p.fecha_baja, p.zona, t.contribuyente_codigo,
+           t.condicion_propiedad, t.porcentaje_propiedad
+    FROM samnet.predio p
+    JOIN coincidentes k ON k.codigo_predio = p.codigo_predio
+    LEFT JOIN samnet.predio_titular t ON t.codigo_predio = p.codigo_predio
+    ORDER BY p.codigo_predio, t.contribuyente_codigo;
+$$;
+
+-- Al agregar el desglose por servicio cambian las columnas: PostgreSQL exige eliminar la versión anterior.
+DROP FUNCTION IF EXISTS samnet.ps_ctacte(VARCHAR);
+DROP FUNCTION IF EXISTS samnet.ps_obligacion(BIGINT);
+DROP FUNCTION IF EXISTS samnet.fn_obligaciones(VARCHAR, BIGINT);
+
 -- Columnas comunes de una obligación con su insoluto y la etapa de cobranza más reciente (RF-004, RF-014).
+-- servicios: detalle de una cuota de arbitrios por servicio, en JSON ([] para el Impuesto Predial).
+-- fecha_ultimo_pago: para saber si se pagó a tiempo (HU010); es nula si nunca se pagó o la canceló un beneficio.
 CREATE OR REPLACE FUNCTION samnet.fn_obligaciones(p_contribuyente VARCHAR, p_id_obligacion BIGINT)
 RETURNS TABLE (
     id_obligacion BIGINT, contribuyente_codigo VARCHAR, codigo_predio VARCHAR, tributo VARCHAR,
     anio INTEGER, cuota INTEGER, fecha_vencimiento DATE, monto_emitido NUMERIC, monto_pagado NUMERIC,
-    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE)
+    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE, servicios TEXT,
+    fecha_ultimo_pago DATE)
 LANGUAGE sql STABLE AS $$
     SELECT o.id, o.contribuyente_codigo, o.codigo_predio, o.tributo, o.anio, o.numero_cuota,
            o.fecha_vencimiento, o.monto_emitido, o.monto_pagado,
            o.monto_emitido - o.monto_pagado - o.monto_descontado,
-           o.porcentaje_descuento, s.etapa, s.fecha_inicio
+           o.porcentaje_descuento, s.etapa, s.fecha_inicio,
+           coalesce((SELECT jsonb_agg(jsonb_build_object('servicio', os.servicio, 'monto', os.monto)
+                                      ORDER BY os.servicio)
+                     FROM samnet.obligacion_servicio os
+                     WHERE os.id_obligacion = o.id), '[]'::jsonb)::TEXT,
+           (SELECT max(pg.fecha_pago)
+            FROM samnet.pago_obligacion po
+            JOIN samnet.pago pg ON pg.id_pago = po.id_pago
+            WHERE po.id_obligacion = o.id)
     FROM samnet.obligacion o
     LEFT JOIN LATERAL (
         SELECT sc.etapa, sc.fecha_inicio
@@ -93,7 +139,7 @@ LANGUAGE sql STABLE AS $$
     ) s ON TRUE
     WHERE (p_contribuyente IS NULL OR o.contribuyente_codigo = p_contribuyente)
       AND (p_id_obligacion IS NULL OR o.id = p_id_obligacion)
-    ORDER BY o.anio, o.numero_cuota, o.tributo;
+    ORDER BY o.anio, o.fecha_vencimiento, o.tributo DESC, o.codigo_predio, o.numero_cuota;
 $$;
 
 -- RF-004 / RF-018: cuenta corriente del contribuyente (obligaciones por tributo y periodo).
@@ -101,7 +147,8 @@ CREATE OR REPLACE FUNCTION samnet.ps_ctacte(p_codigo VARCHAR)
 RETURNS TABLE (
     id_obligacion BIGINT, contribuyente_codigo VARCHAR, codigo_predio VARCHAR, tributo VARCHAR,
     anio INTEGER, cuota INTEGER, fecha_vencimiento DATE, monto_emitido NUMERIC, monto_pagado NUMERIC,
-    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE)
+    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE, servicios TEXT,
+    fecha_ultimo_pago DATE)
 LANGUAGE sql STABLE AS $$
     SELECT * FROM samnet.fn_obligaciones(p_codigo, NULL);
 $$;
@@ -111,7 +158,8 @@ CREATE OR REPLACE FUNCTION samnet.ps_obligacion(p_id_obligacion BIGINT)
 RETURNS TABLE (
     id_obligacion BIGINT, contribuyente_codigo VARCHAR, codigo_predio VARCHAR, tributo VARCHAR,
     anio INTEGER, cuota INTEGER, fecha_vencimiento DATE, monto_emitido NUMERIC, monto_pagado NUMERIC,
-    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE)
+    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE, servicios TEXT,
+    fecha_ultimo_pago DATE)
 LANGUAGE sql STABLE AS $$
     SELECT * FROM samnet.fn_obligaciones(NULL, p_id_obligacion);
 $$;

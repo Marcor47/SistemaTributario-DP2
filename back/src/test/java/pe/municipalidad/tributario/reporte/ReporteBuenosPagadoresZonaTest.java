@@ -86,14 +86,15 @@ class ReporteBuenosPagadoresZonaTest {
                 .andExpect(jsonPath("$.filas[0].tipoDocumento").value("DNI"))
                 .andExpect(jsonPath("$.filas[0].numeroDocumento").value("41028765"))
                 .andExpect(jsonPath("$.filas[0].domicilioFiscal").value("Av. La Marina 1450, San Miguel"))
-                .andExpect(jsonPath("$.filas[0].montoEmitidoPredial").value(392.40))
-                .andExpect(jsonPath("$.filas[0].montoEmitidoArbitrios").value(501.40))
-                .andExpect(jsonPath("$.filas[0].montoPagadoPredial").value(392.40))
-                .andExpect(jsonPath("$.filas[0].montoPagadoArbitrios").value(501.40))
-                .andExpect(jsonPath("$.filas[0].totalEmitido").value(893.80))
-                .andExpect(jsonPath("$.filas[0].totalPagado").value(893.80))
-                .andExpect(jsonPath("$.filas[0].cuotasPagadasATiempo").value(4))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1")));
+                /* 2026 de 014502: predial S/ 1 368,00 (2 predios) y arbitrios S/ 1 132,32, pagados en febrero. */
+                .andExpect(jsonPath("$.filas[0].montoEmitidoPredial").value(1368.00))
+                .andExpect(jsonPath("$.filas[0].montoEmitidoArbitrios").value(1132.32))
+                .andExpect(jsonPath("$.filas[0].montoPagadoPredial").value(1368.00))
+                .andExpect(jsonPath("$.filas[0].montoPagadoArbitrios").value(1132.32))
+                .andExpect(jsonPath("$.filas[0].totalEmitido").value(2500.32))
+                .andExpect(jsonPath("$.filas[0].totalPagado").value(2500.32))
+                .andExpect(jsonPath("$.filas[0].cuotasPagadasATiempo").value(21))
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2")));
     }
 
     @Test
@@ -117,11 +118,12 @@ class ReporteBuenosPagadoresZonaTest {
                 .andExpect(jsonPath("$.filas[0].razonSocial").value("RAMOS QUISPE, VÍCTOR HUGO"))
                 .andExpect(jsonPath("$.filas[0].regimen").value("PENSIONISTA"))
                 .andExpect(jsonPath("$.filas[0].domicilioFiscal").value("Calle Bahía 88, San Miguel"))
-                .andExpect(jsonPath("$.filas[0].montoEmitidoPredial").value(215.82))
-                .andExpect(jsonPath("$.filas[0].montoEmitidoArbitrios").value(275.78))
-                .andExpect(jsonPath("$.filas[0].montoPagadoPredial").value(215.82))
-                .andExpect(jsonPath("$.filas[0].montoPagadoArbitrios").value(275.78))
-                .andExpect(jsonPath("$.filas[0].totalPagado").value(491.60));
+                /* Pensionista con un solo predio de vivienda: deduce 50 UIT y no paga predial; solo arbitrios. */
+                .andExpect(jsonPath("$.filas[0].montoEmitidoPredial").value(0))
+                .andExpect(jsonPath("$.filas[0].montoEmitidoArbitrios").value(472.08))
+                .andExpect(jsonPath("$.filas[0].montoPagadoPredial").value(0))
+                .andExpect(jsonPath("$.filas[0].montoPagadoArbitrios").value(472.08))
+                .andExpect(jsonPath("$.filas[0].totalPagado").value(472.08));
     }
 
     @Test
@@ -152,9 +154,9 @@ class ReporteBuenosPagadoresZonaTest {
                     "Domicilio Fiscal", "Emitido Predial (S/)", "Emitido Arbitrios (S/)",
                     "Pagado Predial (S/)", "Pagado Arbitrios (S/)");
             assertThat(hoja.getRow(6).getCell(cabeceras.indexOf("Emitido Predial (S/)"))
-                    .getNumericCellValue()).isEqualTo(392.40);
+                    .getNumericCellValue()).isEqualTo(1368.00);
             assertThat(hoja.getRow(6).getCell(cabeceras.indexOf("Pagado Arbitrios (S/)"))
-                    .getNumericCellValue()).isEqualTo(501.40);
+                    .getNumericCellValue()).isEqualTo(1132.32);
         }
     }
 
@@ -178,7 +180,7 @@ class ReporteBuenosPagadoresZonaTest {
         try (var documento = Loader.loadPDF(pdf)) {
             String texto = new PDFTextStripper().getText(documento);
             assertThat(texto).contains("Emitido Predial", "Emitido Arbitrios", "Pagado Predial",
-                    "Pagado Arbitrios", "392.40", "501.40", "014502");
+                    "Pagado Arbitrios", "1368.00", "1132.32", "014502");
         }
     }
 

@@ -25,30 +25,21 @@ import pe.municipalidad.tributario.auth.DemoMunicipalAuthClient;
 import pe.municipalidad.tributario.auth.LoginLimiter;
 import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 import pe.municipalidad.tributario.formularios.FormularioService;
-import pe.municipalidad.tributario.predios.PredioGateway;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-@SpringBootTest(properties = "tributario.niubiz.mode=simulado")
+/* El perfil local aplica también las semillas de datos-demo: se usa una base propia para no contaminar la común. */
+@SpringBootTest(properties = { "tributario.niubiz.mode=simulado", "tributario.test.base=perfil_local" })
 @ActiveProfiles("local")
 @AutoConfigureMockMvc
 @Import(PostgresEmbebidoConfig.class)
 class FeatureTests {
     @Autowired MockMvc mvc;
-    @Autowired PredioGateway predios;
     @Autowired FormularioService formularios;
     @Autowired VersionPlantillaRepository repository;
-
-    @Test
-    void buscaPredioPorCodigoOTitularYDevuelveListaVaciaSiNoExiste() {
-        assertEquals("DEM-001", predios.buscar("dem-001").getFirst().codPredio());
-        assertEquals("DEM-001", predios.buscar("contribuyente de prueba").getFirst().codPredio());
-        assertEquals(2, predios.buscar("SOCIO DE PRUEBA").getFirst().contribuyentes().size());
-        assertTrue(predios.buscar("inexistente").isEmpty());
-    }
 
     @Test
     void loginNoDevuelvePasswordYBloqueaTrasCincoFallos() {
@@ -109,15 +100,6 @@ class FeatureTests {
 
     @Test
     void contratosHttpRequierenPermisoYPermitenConsultaPublicacionYDescarga() throws Exception {
-        mvc.perform(get("/api/predios").param("consulta", "DEM-001"))
-                .andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/predios").param("consulta", "DEM-001")
-                .with(user("analista").authorities(new SimpleGrantedAuthority("PREDIOS:CONSULTAR"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$[0].codPredio").value("DEM-001"));
-        mvc.perform(get("/api/predios").param("consulta", "ninguno")
-                .with(user("analista").authorities(new SimpleGrantedAuthority("PREDIOS:CONSULTAR"))))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
-
         MockMultipartFile archivo = new MockMultipartFile("archivo", "oficial.pdf", "application/pdf",
                 "%PDF-1.4\ncontenido".getBytes(StandardCharsets.US_ASCII));
         mvc.perform(multipart("/api/formularios").file(archivo).param("codigo", "FORM_HTTP")

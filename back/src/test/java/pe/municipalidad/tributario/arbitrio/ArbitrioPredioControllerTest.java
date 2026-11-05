@@ -41,8 +41,13 @@ class ArbitrioPredioControllerTest {
     @MockitoSpyBean
     private SamnetGateway samnet;
 
+    /*
+     * 021390-01: comercio de 420 m² en la zona Z2. Arbitrios 2025 por mes: barrido 16,20 + recolección 41,50 x 2,10
+     * (área / 200 m²) = 87,15 + parques 10,80 + serenazgo 34,20 = 148,35; en 2026 se reajustan 3 %: 152,82.
+     * Pagó hasta julio de 2025; de agosto de 2025 a setiembre de 2026 están vencidas y octubre a diciembre pendientes.
+     */
     @Test
-    void devuelveLasCuotasConMontoYEstadoDePago() throws Exception {
+    void devuelveLasCuotasMensualesConSusServiciosEstadoEInteres() throws Exception {
         mvc.perform(get("/api/predios/021390-01/arbitrios").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.predio.codigoPredio").value("021390-01"))
@@ -50,41 +55,51 @@ class ArbitrioPredioControllerTest {
                 .andExpect(jsonPath("$.predio.titulares", hasSize(1)))
                 .andExpect(jsonPath("$.predio.titulares[0].codigoContribuyente").value("021390"))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
-                .andExpect(jsonPath("$.cuotas", hasSize(6)))
-                .andExpect(jsonPath("$.cuotas[0].periodo").value("2025-T1"))
-                .andExpect(jsonPath("$.cuotas[0].emitido").value(1196.00))
-                .andExpect(jsonPath("$.cuotas[0].saldo").value(0.00))
+                .andExpect(jsonPath("$.cuotas", hasSize(24)))
+                .andExpect(jsonPath("$.cuotas[0].periodo").value("2025-01"))
+                .andExpect(jsonPath("$.cuotas[0].fechaVencimiento").value("2025-02-28"))
+                .andExpect(jsonPath("$.cuotas[0].emitido").value(148.35))
                 .andExpect(jsonPath("$.cuotas[0].estado").value("PAGADA"))
-                .andExpect(jsonPath("$.cuotas[0].diasVencida").value(0))
-                .andExpect(jsonPath("$.cuotas[3].periodo").value("2025-T4"))
-                .andExpect(jsonPath("$.cuotas[3].saldo").value(1267.76))
-                .andExpect(jsonPath("$.cuotas[3].estado").value("VENCIDA"))
-                .andExpect(jsonPath("$.cuotas[3].diasVencida").value(292))
-                .andExpect(jsonPath("$.resumen.cuotasPagadas").value(3))
-                .andExpect(jsonPath("$.resumen.cuotasVencidas").value(3))
-                .andExpect(jsonPath("$.resumen.cuotasPendientes").value(0))
-                .andExpect(jsonPath("$.resumen.totalSaldo").value(3875.04));
+                .andExpect(jsonPath("$.cuotas[0].servicios", hasSize(4)))
+                .andExpect(jsonPath("$.cuotas[0].servicios[?(@.servicio == 'RECOLECCION_RESIDUOS')].monto")
+                        .value(87.15))
+                .andExpect(jsonPath("$.cuotas[7].periodo").value("2025-08"))
+                .andExpect(jsonPath("$.cuotas[7].estado").value("VENCIDA"))
+                .andExpect(jsonPath("$.cuotas[7].diasVencida").value(416))
+                .andExpect(jsonPath("$.cuotas[7].interesMoratorio").value(18.51))
+                .andExpect(jsonPath("$.cuotas[12].emitido").value(152.82))
+                .andExpect(jsonPath("$.resumen.cuotasPagadas").value(7))
+                .andExpect(jsonPath("$.resumen.cuotasVencidas").value(14))
+                .andExpect(jsonPath("$.resumen.cuotasPendientes").value(3))
+                .andExpect(jsonPath("$.resumen.totalSaldo").value(2575.59))
+                .andExpect(jsonPath("$.resumen.porServicio", hasSize(4)))
+                .andExpect(jsonPath("$.resumen.porServicio[0].servicio").value("BARRIDO_CALLES"))
+                .andExpect(jsonPath("$.resumen.porServicio[0].emitido").value(394.68));
     }
 
     @Test
     void soloIncluyeArbitriosDelPredioPedido() throws Exception {
         mvc.perform(get("/api/predios/014502-01/arbitrios").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.cuotas", hasSize(6)))
+                .andExpect(jsonPath("$.cuotas", hasSize(24)))
                 .andExpect(jsonPath("$.cuotas[*].codigoContribuyente").value(org.hamcrest.Matchers.everyItem(
                         org.hamcrest.Matchers.is("014502"))))
-                .andExpect(jsonPath("$.resumen.cuotasPagadas").value(6))
+                .andExpect(jsonPath("$.resumen.cuotasPagadas").value(24))
                 .andExpect(jsonPath("$.resumen.totalSaldo").value(0));
     }
 
+    /* En copropiedad al 50 % cada titular tiene su mitad de cada cuota; 058934 dejó de pagar en 2026. */
     @Test
-    void conCopropiedadIncluyeLasCuotasDeCadaTitular() throws Exception {
+    void conCopropiedadCadaTitularTieneSuParteDeLaCuota() throws Exception {
         mvc.perform(get("/api/predios/058934-01/arbitrios").session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.predio.titulares", hasSize(2)))
-                .andExpect(jsonPath("$.cuotas", hasSize(12)))
-                .andExpect(jsonPath("$.resumen.cuotasPagadas").value(8))
-                .andExpect(jsonPath("$.resumen.cuotasVencidas").value(4));
+                .andExpect(jsonPath("$.cuotas", hasSize(48)))
+                .andExpect(jsonPath("$.cuotas[0].emitido").value(21.60))
+                .andExpect(jsonPath("$.cuotas[1].emitido").value(21.60))
+                .andExpect(jsonPath("$.resumen.cuotasPagadas").value(27))
+                .andExpect(jsonPath("$.resumen.cuotasVencidas").value(15))
+                .andExpect(jsonPath("$.resumen.cuotasPendientes").value(6));
     }
 
     @Test

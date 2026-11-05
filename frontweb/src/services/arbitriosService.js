@@ -3,8 +3,8 @@ import { pedir } from './api.js'
 // HU005: el código predial admite hasta 20 caracteres según el contrato del backend.
 const MAX_CODIGO_PREDIO = 20
 
-// Detalle de arbitrios de un predio. Los arbitrios se manejan como un solo tributo
-// ARBITRIOS; la API no entrega el desglose de limpieza, parques y seguridad.
+// Detalle de arbitrios de un predio, mes a mes, con lo que corresponde a cada servicio (barrido, recolección,
+// parques y jardines, serenazgo) y el interés moratorio de las cuotas vencidas.
 export async function obtenerArbitriosPredio(codigoPredio, { signal } = {}) {
   const codigo = String(codigoPredio ?? '').trim()
   if (!codigo || codigo.length > MAX_CODIGO_PREDIO) {

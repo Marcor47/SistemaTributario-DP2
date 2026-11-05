@@ -1,3 +1,4 @@
+import { SERVICIOS, TRIBUTO_ARBITRIOS, TRIBUTO_PREDIAL, montoServicio, nombreMes } from './estadoCuenta.js'
 import { normalizar } from './formato.js'
 
 const importe = (valor) => Number.isFinite(Number(valor)) ? Number(valor) : 0
@@ -25,19 +26,8 @@ export function resumirCuenta(filas) {
     deuda: redondear(total.deuda + fila.deuda),
     vencido: redondear(total.vencido + (fila.estado === 'Vencida' ? fila.deuda : 0)),
     vigente: redondear(total.vigente + (fila.estado === 'Pendiente' ? fila.deuda : 0)),
-  }), { emitido: 0, pagado: 0, deuda: 0, vencido: 0, vigente: 0 })
-}
-
-// Subtotales visibles por tributo; conserva las obligaciones individuales para el pago y la trazabilidad.
-export function resumirTributos(filas) {
-  const porTributo = new Map()
-  for (const fila of filas) {
-    if (!porTributo.has(fila.tributo)) porTributo.set(fila.tributo, [])
-    porTributo.get(fila.tributo).push(fila)
-  }
-  return [...porTributo].map(([tributo, obligaciones]) => ({
-    tributo, cantidad: obligaciones.length, ...resumirCuenta(obligaciones),
-  }))
+    interes: redondear(total.interes + importe(fila.interesMoratorio)),
+  }), { emitido: 0, pagado: 0, deuda: 0, vencido: 0, vigente: 0, interes: 0 })
 }
 
 export function filtrarCuenta(filas, { anio = '', tributo = '', estado = '', texto = '', vista = 'obligaciones' } = {}) {
@@ -47,18 +37,34 @@ export function filtrarCuenta(filas, { anio = '', tributo = '', estado = '', tex
     && normalizar(`${fila.tributo} ${fila.periodo}`).includes(normalizar(texto)))
 }
 
-const CONCEPTOS_TRIMESTRALES = new Set(['Impuesto Predial', 'Arbitrios Municipales'])
+// El Impuesto Predial va por cuota (4 al año) y los arbitrios por mes: una fila por cuota de predial y una por mes de
+// arbitrios que suma todos los predios del contribuyente. Se conservan los IDs originales para pagar.
+function claveDe(fila) {
+  if (fila.tributoCodigo === TRIBUTO_PREDIAL) return `predial:${fila.anio}-${fila.cuota}`
+  if (fila.tributoCodigo === TRIBUTO_ARBITRIOS) return `arbitrios:${fila.anio}-${fila.cuota}`
+  return `obligacion:${fila.id}`
+}
 
-// Agrupa los conceptos del mismo trimestre y conserva los IDs originales para pagos.
+function tituloDe(fila) {
+  if (fila.tributoCodigo === TRIBUTO_PREDIAL) return 'Impuesto Predial'
+  if (fila.tributoCodigo === TRIBUTO_ARBITRIOS) return 'Arbitrios municipales'
+  return fila.tributo
+}
+
+function etiquetaDe(fila) {
+  if (fila.tributoCodigo === TRIBUTO_PREDIAL) return `${fila.cuota}.ª cuota ${fila.anio}`
+  if (fila.tributoCodigo === TRIBUTO_ARBITRIOS) return `${nombreMes(fila.cuota)} ${fila.anio}`
+  return fila.periodo
+}
+
 export function agruparCuentaPorPeriodo(filas) {
   const grupos = new Map()
   for (const fila of filas) {
-    const esTrimestral = /^\d{4}-T[1-4]$/.test(fila.periodo || '') && CONCEPTOS_TRIMESTRALES.has(fila.tributo)
-    const clave = esTrimestral ? `trimestre:${fila.periodo}` : `obligacion:${fila.id}`
+    const clave = claveDe(fila)
     if (!grupos.has(clave)) {
       grupos.set(clave, {
-        id: clave, titulo: esTrimestral ? 'Tributos municipales' : fila.tributo,
-        periodo: fila.periodo, anio: fila.anio, esTrimestral, conceptos: [],
+        id: clave, titulo: tituloDe(fila), etiqueta: etiquetaDe(fila), periodo: fila.periodo, anio: fila.anio,
+        tieneDetalle: fila.tributoCodigo === TRIBUTO_ARBITRIOS, conceptos: [],
       })
     }
     grupos.get(clave).conceptos.push(fila)
@@ -69,9 +75,13 @@ export function agruparCuentaPorPeriodo(filas) {
     const estado = totales.deuda === 0 ? 'Pagada'
       : grupo.conceptos.some((fila) => fila.estado === 'Vencida' && fila.deuda > 0) ? 'Vencida' : 'Pendiente'
     return {
-      ...grupo, emitido: totales.emitido, pagado: totales.pagado, deuda: totales.deuda, estado,
-      fechaVencimiento: vencimientos.length === 1 ? vencimientos[0] : null,
+      ...grupo, emitido: totales.emitido, pagado: totales.pagado, deuda: totales.deuda, interes: totales.interes,
+      estado, fechaVencimiento: vencimientos.length === 1 ? vencimientos[0] : null,
       idsPendientes: grupo.conceptos.filter((fila) => fila.deuda > 0).map((fila) => fila.id),
+      porServicio: SERVICIOS.map((servicio) => ({
+        ...servicio,
+        monto: redondear(grupo.conceptos.reduce((total, fila) => total + importe(montoServicio(fila, servicio.codigo)), 0)),
+      })).filter((servicio) => servicio.monto > 0),
     }
   })
 }
@@ -80,6 +90,6 @@ export function filtrarPeriodos(grupos, { anio = '', estado = '', texto = '', vi
   return grupos.filter((grupo) => (!anio || String(grupo.anio) === String(anio))
     && (!estado || grupo.estado === estado)
     && (vista !== 'pagos' || grupo.pagado > 0)
-    && normalizar(`${grupo.titulo} ${grupo.periodo} ${grupo.conceptos.map((fila) => fila.tributo).join(' ')}`)
+    && normalizar(`${grupo.titulo} ${grupo.etiqueta} ${grupo.periodo} ${grupo.conceptos.map((fila) => `${fila.tributo} ${fila.codigoPredio ?? ''}`).join(' ')}`)
       .includes(normalizar(texto)))
 }

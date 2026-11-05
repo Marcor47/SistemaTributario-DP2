@@ -99,28 +99,30 @@ class ReportePricosControllerTest {
                 .andExpect(jsonPath("$.idLote").value(idLoteSeed))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
                 .andExpect(jsonPath("$.criterio").value("BASE_IMPONIBLE"))
-                .andExpect(jsonPath("$.filas[0].posicion").value(1))
-                .andExpect(jsonPath("$.filas[0].codigo").value("021390"))
-                .andExpect(jsonPath("$.filas[0].razonSocial").value("INVERSIONES COSTA AZUL S.A.C."))
-                .andExpect(jsonPath("$.filas[0].regimen").value("GENERAL"))
-                .andExpect(jsonPath("$.filas[0].documento.tipo").value("RUC"))
-                .andExpect(jsonPath("$.filas[0].documento.numero").value("20456781239"))
-                .andExpect(jsonPath("$.filas[0].domicilioFiscal.direccion").value("Jr. Los Precursores 220, San Miguel"))
-                .andExpect(jsonPath("$.filas[0].domicilioFiscal.via").value("Jr. Los Precursores"))
-                .andExpect(jsonPath("$.filas[0].domicilioFiscal.numero").value("220"))
-                .andExpect(jsonPath("$.filas[0].domicilioFiscal.distrito").value("SAN MIGUEL"))
-                .andExpect(jsonPath("$.filas[0].baseImponible").value(4270000.0))
-                .andExpect(jsonPath("$.filas[0].emisionAnioCorte.predial").value(2040.48))
-                .andExpect(jsonPath("$.filas[0].emisionAnioCorte.arbitrios").value(12707.28))
-                .andExpect(jsonPath("$.filas[0].deudaAniosAnteriores.predial").value(992.16))
-                .andExpect(jsonPath("$.filas[0].deudaAniosAnteriores.arbitrios").value(1267.76))
-                .andExpect(jsonPath("$.filas[0].deudaAnioCorte.predial").value(2040.48))
-                .andExpect(jsonPath("$.filas[0].deudaAnioCorte.arbitrios").value(12707.28))
-                .andExpect(jsonPath("$.filas[0].deudaAnioCorte.porcentajeDescuentoArbitrios").value(0.0))
-                .andExpect(jsonPath("$.filas[0].condicion").value("HABIDO"))
-                .andExpect(jsonPath("$.filas[0].tipoPersona").value("JURIDICA"))
-                .andExpect(jsonPath("$.filas[0].correo").value("cobranzas@costaazul.test"))
-                .andExpect(jsonPath("$.filas[0].telefonos").value("014500202"));
+                .andExpect(jsonPath("$.filas[1].posicion").value(2))
+                .andExpect(jsonPath("$.filas[1].codigo").value("021390"))
+                .andExpect(jsonPath("$.filas[1].razonSocial").value("INVERSIONES COSTA AZUL S.A.C."))
+                .andExpect(jsonPath("$.filas[1].regimen").value("GENERAL"))
+                .andExpect(jsonPath("$.filas[1].documento.tipo").value("RUC"))
+                .andExpect(jsonPath("$.filas[1].documento.numero").value("20456781239"))
+                .andExpect(jsonPath("$.filas[1].domicilioFiscal.direccion").value("Jr. Los Precursores 220, San Miguel"))
+                .andExpect(jsonPath("$.filas[1].domicilioFiscal.via").value("Jr. Los Precursores"))
+                .andExpect(jsonPath("$.filas[1].domicilioFiscal.numero").value("220"))
+                .andExpect(jsonPath("$.filas[1].domicilioFiscal.distrito").value("SAN MIGUEL"))
+                /* Sus 11 predios suman S/ 3 860 000. En 2025 dejó impagas la 3.ª y 4.ª cuota del predial y agosto a
+                   diciembre de arbitrios; en 2026 no pagó nada (vencido al corte: 3 cuotas y enero a setiembre). */
+                .andExpect(jsonPath("$.filas[1].baseImponible").value(3860000.0))
+                .andExpect(jsonPath("$.filas[1].emisionAnioCorte.predial").value(36950.00))
+                .andExpect(jsonPath("$.filas[1].emisionAnioCorte.arbitrios").value(13759.80))
+                .andExpect(jsonPath("$.filas[1].deudaAniosAnteriores.predial").value(17447.50))
+                .andExpect(jsonPath("$.filas[1].deudaAniosAnteriores.arbitrios").value(5566.15))
+                .andExpect(jsonPath("$.filas[1].deudaAnioCorte.predial").value(27712.50))
+                .andExpect(jsonPath("$.filas[1].deudaAnioCorte.arbitrios").value(10319.85))
+                .andExpect(jsonPath("$.filas[1].deudaAnioCorte.porcentajeDescuentoArbitrios").value(0.0))
+                .andExpect(jsonPath("$.filas[1].condicion").value("HABIDO"))
+                .andExpect(jsonPath("$.filas[1].tipoPersona").value("JURIDICA"))
+                .andExpect(jsonPath("$.filas[1].correo").value("cobranzas@costaazul.test"))
+                .andExpect(jsonPath("$.filas[1].telefonos").value("014500202"));
     }
 
     @Test
@@ -132,12 +134,11 @@ class ReportePricosControllerTest {
                 .andExpect(jsonPath("$.limite").value(4))
                 .andExpect(jsonPath("$.totalContribuyentes", greaterThanOrEqualTo(5)))
                 .andExpect(jsonPath("$.filas", hasSize(4)))
-                .andExpect(jsonPath("$.filas[0].codigo").value("021390"))
-                .andExpect(jsonPath("$.filas[0].baseImponible").value(4270000.0))
-                .andExpect(jsonPath("$.filas[1].codigo").value("045067"))
-                .andExpect(jsonPath("$.filas[1].baseImponible").value(1250000.0))
-                .andExpect(jsonPath("$.filas[2].codigo").value("058934"))
-                .andExpect(jsonPath("$.filas[3].codigo").value("061177"));
+                /* La inmobiliaria suma 31 predios; el centro educativo, uno solo de S/ 1 250 000. */
+                .andExpect(jsonPath("$.filas[0].codigo").value("080245"))
+                .andExpect(jsonPath("$.filas[1].codigo").value("021390"))
+                .andExpect(jsonPath("$.filas[2].codigo").value("045067"))
+                .andExpect(jsonPath("$.filas[2].baseImponible").value(1250000.0));
     }
 
     @Test

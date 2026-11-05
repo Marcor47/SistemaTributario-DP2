@@ -56,21 +56,20 @@ class PagosBeneficiosControllerTest {
                 .andExpect(jsonPath("$.contribuyente.numeroDocumento").value("20456781239"))
                 .andExpect(jsonPath("$.contribuyente.nombre").value("INVERSIONES COSTA AZUL S.A.C."))
                 .andExpect(jsonPath("$.fechaCorte").value("2026-10-19"))
-                .andExpect(jsonPath("$.pagos", hasSize(4)))
-                .andExpect(jsonPath("$.pagos[0].idPago").value("REC-021390-2025-4"))
-                .andExpect(jsonPath("$.pagos[0].fechaPago").value("2025-12-26"))
-                .andExpect(jsonPath("$.pagos[0].canal").value("EN_LINEA"))
-                .andExpect(jsonPath("$.pagos[0].montoPagado").value(2240.00))
-                .andExpect(jsonPath("$.pagos[0].montoCorrespondiente").value(2240.00))
+                /* Pagó hasta julio de 2025, en 8 visitas; la última cubrió julio de arbitrios de sus 11 predios. */
+                .andExpect(jsonPath("$.pagos", hasSize(8)))
+                .andExpect(jsonPath("$.pagos[0].idPago").value("REC-021390-20250729"))
+                .andExpect(jsonPath("$.pagos[0].fechaPago").value("2025-07-29"))
+                .andExpect(jsonPath("$.pagos[0].canal").value("VENTANILLA"))
+                .andExpect(jsonPath("$.pagos[0].montoPagado").value(1113.23))
+                .andExpect(jsonPath("$.pagos[0].montoCorrespondiente").value(1113.23))
                 .andExpect(jsonPath("$.pagos[0].diferencia").value(0))
                 .andExpect(jsonPath("$.pagos[0].beneficioAplicado").value(nullValue()))
-                .andExpect(jsonPath("$.pagos[1].idPago").value("REC-021390-2025-3"))
-                .andExpect(jsonPath("$.pagos[1].canal").value("VENTANILLA"))
-                .andExpect(jsonPath("$.pagos[1].montoPagado").value(4413.28))
                 .andExpect(jsonPath("$.pagos[2].canal").value("EN_LINEA"))
-                .andExpect(jsonPath("$.resumen.cantidadPagos").value(4))
+                .andExpect(jsonPath("$.pagos[2].montoPagado").value(8723.75))
+                .andExpect(jsonPath("$.resumen.cantidadPagos").value(8))
                 .andExpect(jsonPath("$.resumen.pagosConBeneficio").value(0))
-                .andExpect(jsonPath("$.resumen.totalPagado").value(15219.92));
+                .andExpect(jsonPath("$.resumen.totalPagado").value(24680.91));
     }
 
     @Test
@@ -79,7 +78,7 @@ class PagosBeneficiosControllerTest {
                         .session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.contribuyente.codigo").value("021390"))
-                .andExpect(jsonPath("$.pagos", hasSize(4)));
+                .andExpect(jsonPath("$.pagos", hasSize(8)));
     }
 
     @Test
@@ -87,10 +86,10 @@ class PagosBeneficiosControllerTest {
         mvc.perform(get("/api/contribuyentes/pagos-beneficios").param("consulta", "021390")
                         .session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.estadoCuenta.totalEmitido").value(32227.60))
-                .andExpect(jsonPath("$.estadoCuenta.totalPagado").value(15219.92))
-                .andExpect(jsonPath("$.estadoCuenta.totalDeuda").value(17007.68))
-                .andExpect(jsonPath("$.estadoCuenta.obligacionesVencidas").value(26));
+                .andExpect(jsonPath("$.estadoCuenta.totalEmitido").value(98404.36))
+                .andExpect(jsonPath("$.estadoCuenta.totalPagado").value(24680.91))
+                .andExpect(jsonPath("$.estadoCuenta.totalDeuda").value(73723.45))
+                .andExpect(jsonPath("$.estadoCuenta.obligacionesVencidas").value(159));
     }
 
     @Test

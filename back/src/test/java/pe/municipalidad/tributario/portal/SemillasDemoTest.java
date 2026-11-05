@@ -25,6 +25,7 @@ import pe.municipalidad.tributario.soporte.PostgresEmbebidoConfig;
 /** Misma instalación de semillas que recibirá un compañero al arrancar el perfil local desde una BD vacía. */
 @SpringBootTest(properties = {
         "spring.flyway.locations=classpath:db/migration,classpath:db/datos-prueba,classpath:db/datos-demo",
+        "tributario.test.base=semillas_demo",
         "tributario.niubiz.mode=sandbox", "tributario.niubiz.username=", "tributario.niubiz.password="
 })
 @AutoConfigureMockMvc
