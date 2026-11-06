@@ -31,6 +31,9 @@
 .reporte-config-campos { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 12px; }
 .reporte-config-campos .fld { flex: 1 1 190px; min-width: 0; }
 .reporte-config-campos .fld input, .reporte-config-campos .fld select { width: 100%; }
+.reporte-toggle-detalle { display: flex; flex-direction: column; gap: 4px; }
+.reporte-check { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--texto); font-weight: 600; cursor: pointer; }
+.reporte-toggle-detalle .reporte-check input { width: auto; margin: 0; accent-color: var(--marino); }
 .fld-etiqueta { color: var(--marino-osc); font-size: 14.5px; font-weight: 700; }
 .reporte-columnas { flex: 1 1 100%; min-width: 0; min-inline-size: 0; margin: 0; padding: 0; border: 0; }
 .reporte-columnas-grupo { position: relative; width: fit-content; max-width: 100%; overflow: hidden; border: 1px solid var(--borde-fuerte); border-radius: 10px; background: var(--superficie); }

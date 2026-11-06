@@ -1,0 +1,101 @@
+/* HU031: revisión, aprobación y publicación de segmentos. */
+.segmentos { min-width: 0; }
+.segmentos-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.segmentos-cabecera h2 { margin: 0 0 6px; }
+.segmentos-cabecera .hint { max-width: 85ch; }
+
+.segmentos-seccion-cab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.segmentos-seccion-cab h2 { margin: 0 0 4px; }
+
+.segmentos-grupo {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--borde);
+}
+.segmentos-grupo:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.segmentos-grupo__cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.segmentos-grupo__cab h3 {
+  margin: 0 0 4px;
+  color: var(--marino-osc);
+  font-size: 18px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.segmentos-grupo__cab h3 span {
+  color: var(--texto-atenuado);
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.segmentos-tabla { min-width: 760px; }
+.segmentos-tabla td { vertical-align: top; }
+.segmentos-tabla th[scope="row"] { color: var(--marino-osc); white-space: nowrap; }
+
+.segmento-variables summary {
+  color: var(--marino);
+  cursor: pointer;
+  font-weight: 700;
+}
+.segmento-variables summary:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.segmento-variables pre {
+  max-width: 360px;
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  border: 1px solid #E3ECF5;
+  border-radius: 8px;
+  background: #F7FAFD;
+  color: var(--texto-secundario);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.segmentos-comparacion {
+  margin-top: 14px;
+  padding: 12px 14px;
+  border: 1px solid #E3ECF5;
+  border-radius: 10px;
+  background: #F7FAFD;
+}
+.segmentos-comparacion p { margin: 0; }
+.segmentos-comparacion p + p { margin-top: 6px; }
+
+.segmentos-acciones { display: flex; justify-content: flex-end; margin-top: 14px; }
+
+.segmentos-historial > summary {
+  cursor: pointer;
+  color: var(--marino-osc);
+  font-weight: 700;
+}
+.segmentos-historial[open] > summary { margin-bottom: 8px; }
+
+.segmentos .alert .btn { margin-top: 10px; }
+
+@media (max-width: 600px) {
+  .segmentos-cabecera { flex-direction: column; }
+  .segmentos-cabecera .btn { width: 100%; }
+  .segmentos-seccion-cab { align-items: flex-start; }
+  .segmentos-acciones .btn { width: 100%; }
+  .segmentos-tabla { min-width: 640px; }
+}

@@ -198,7 +198,7 @@ function claseDetalle(columna) {
   return undefined
 }
 
-function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle }) {
+function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle, mostrarDetalle }) {
   const [filaDetalle, setFilaDetalle] = useState(null)
   const [paginaDetalle, setPaginaDetalle] = useState(1)
   const [tamanioDetalle, setTamanioDetalle] = useState(10)
@@ -210,9 +210,11 @@ function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle }) {
   const anioDesde = Number(datos.filtrosAplicados?.anioDesde ?? 1900)
   const anioHasta = Number(datos.filtrosAplicados?.anioHasta ?? ANIO_ACTUAL)
   const mostrarAnio = anioDesde !== anioHasta
-  const detalleVisibles = (detalleFiltradas.length ? detalleFiltradas : COLUMNAS_DETALLE_MOROSOS)
-    .filter((columna) => columna !== 'anio' || mostrarAnio)
-  if (filaDetalle) {
+  const detalleVisibles = mostrarDetalle
+    ? (detalleFiltradas.length ? detalleFiltradas : COLUMNAS_DETALLE_MOROSOS)
+      .filter((columna) => columna !== 'anio' || mostrarAnio)
+    : []
+  if (mostrarDetalle && filaDetalle) {
     const obligaciones = detalleObligaciones(filaDetalle, anioDesde, anioHasta)
     const paginacionDetalle = paginarFilas(obligaciones, paginaDetalle, tamanioDetalle)
     return <section className="reporte-detalle-vista" aria-labelledby="titulo-detalle-moroso">
@@ -236,7 +238,7 @@ function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle }) {
     <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`${datos.titulo} en tabla cabecera`}><table className="tabla reporte-tabla reporte-tabla-cabecera">
       <caption className="sr-only">Cabecera de reporte de morosos</caption>
       <thead><tr>
-        <th scope="col" className="reporte-col-accion">Detalle</th>
+        {mostrarDetalle && <th scope="col" className="reporte-col-accion">Detalle</th>}
         {visibles.map((columna) => <th key={columna} scope="col" className={claseCabecera(columna)}>{ETIQUETAS_CABECERA[columna]}</th>)}
       </tr></thead>
       <tbody>
@@ -244,11 +246,11 @@ function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle }) {
           const obligaciones = detalleObligaciones(fila, anioDesde, anioHasta)
           return <Fragment key={fila.codigo}>
             <tr className="reporte-fila-contribuyente">
-              <td className="reporte-col-accion">
+              {mostrarDetalle && <td className="reporte-col-accion">
                 {obligaciones.length > 0 && detalleVisibles.length > 0
                   ? <button className="btn reporte-detalle-btn" type="button" onClick={() => { setFilaDetalle(fila); setPaginaDetalle(1) }}>Ver detalle</button>
                   : <span className="hint">Sin detalle</span>}
-              </td>
+              </td>}
               {visibles.map((columna) => {
                 const valor = valorCabecera(fila, columna)
                 const esMonto = COLUMNAS_MONTO_MOROSOS.has(columna)
@@ -276,7 +278,7 @@ function TablaPersonalizada({ datos, columnas, orden }) {
 }
 
 function TablaReporte({ datos, filas, columnas, columnasDetalle, orden }) {
-  if (datos.tipoReporte === 'MOROSOS') return <TablaCabeceraMorosos datos={datos} filas={filas} columnas={datos.__columnas || columnas} columnasDetalle={columnasDetalle} />
+  if (datos.tipoReporte === 'MOROSOS') return <TablaCabeceraMorosos datos={datos} filas={filas} columnas={datos.__columnas || columnas} columnasDetalle={columnasDetalle} mostrarDetalle={datos.__mostrarDetalle !== false} />
   if (datos.__columnas?.length) return <TablaPersonalizada datos={datos} columnas={datos.__columnas} orden={datos.__orden} />
   if (columnas?.length) return <TablaPersonalizada datos={datos} columnas={columnas} orden={orden} />
   const Tabla = datos.tipoReporte === 'PRICOS' ? TablaPricos : TablaBuenosPagadores
@@ -338,6 +340,8 @@ export default function Reportes() {
   const [opcionesMorosos, setOpcionesMorosos] = useState({ regimenes: [], tiposDocumento: [], etapas: [] })
   const [orden, setOrden] = useState('')
   const [ordenAplicado, setOrdenAplicado] = useState('')
+  const [detalleActivo, setDetalleActivo] = useState(true)
+  const [detalleActivoAplicado, setDetalleActivoAplicado] = useState(true)
   const [accionError, setAccionError] = useState(null)
   const [zonas, setZonas] = useState({ tipo: '', datos: [], error: null })
   const consultaActiva = useRef(null)
@@ -382,6 +386,7 @@ export default function Reportes() {
     || ordenColumnasEfectivas.join('|') !== ordenColumnasAplicadasEfectivas.join('|')
     || columnasDetalleEfectivas.join('|') !== columnasDetalleAplicadasEfectivas.join('|')
     || ordenColumnasDetalleEfectivas.join('|') !== ordenColumnasDetalleAplicadasEfectivas.join('|')
+    || detalleActivo !== detalleActivoAplicado
     || orden !== ordenAplicado
   const mostrarAvisoCambios = hayCambiosSinAplicar && !resultado.cargando
 
@@ -410,7 +415,7 @@ export default function Reportes() {
       window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', actualizar)
     }
-  }, [seleccion, columnasEfectivas.length, columnasDetalleEfectivas.length,
+  }, [seleccion, columnasEfectivas.length, columnasDetalleEfectivas.length, detalleActivo,
     actualizarDesbordeColumnas, actualizarDesbordeDetalle])
 
   async function cargarMorososInicial(reporteMorosos, filtrosIniciales = FILTROS_INICIALES) {
@@ -424,12 +429,15 @@ export default function Reportes() {
       const detalleIniciales = COLUMNAS_DETALLE_MOROSOS
       datos.__columnas = columnasIniciales
       datos.__orden = ''
+      datos.__mostrarDetalle = true
       if (controlador.signal.aborted) return
       setFiltrosAplicados({ ...filtrosIniciales })
       setColumnasAplicadas(columnasIniciales)
       setOrdenColumnasAplicadas(columnasIniciales)
       setColumnasDetalleAplicadas(detalleIniciales)
       setOrdenColumnasDetalleAplicadas(detalleIniciales)
+      setDetalleActivo(true)
+      setDetalleActivoAplicado(true)
       setOrdenAplicado('')
       setResultado({ cargando: false, datos, error: null })
       setOpcionesMorosos(opcionesDesdeMorosos(datos.filas))
@@ -482,6 +490,7 @@ export default function Reportes() {
     setColumnasDetalle([]); setOrdenColumnasDetalle(nuevo === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])
     setColumnasAplicadas([]); setOrdenColumnasAplicadas(COLUMNAS[nuevo] || [])
     setColumnasDetalleAplicadas([]); setOrdenColumnasDetalleAplicadas(nuevo === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])
+    setDetalleActivo(true); setDetalleActivoAplicado(true)
     setOrden(''); setOrdenAplicado('')
     if (nuevo === 'MOROSOS' && siguiente) cargarMorososInicial(siguiente, filtrosNuevo)
   }
@@ -502,6 +511,8 @@ export default function Reportes() {
     setColumnasDetalleAplicadas([])
     setOrdenColumnasAplicadas([])
     setOrdenColumnasDetalleAplicadas([])
+    setDetalleActivo(true)
+    setDetalleActivoAplicado(true)
     setOrden('')
     setOrdenAplicado('')
     setGrafica('TABLA')
@@ -520,6 +531,9 @@ export default function Reportes() {
 
       const detalleDisponiblesVista = datos.vista.tipoReporte === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : []
       const detalleValidas = (datos.vista.columnasDetalleVisibles || []).filter((columna) => detalleDisponiblesVista.includes(columna))
+      const detalleGuardado = datos.vista.columnasDetalleVisibles
+      const tieneDetalle = datos.vista.tipoReporte === 'MOROSOS'
+        && (detalleGuardado == null || detalleGuardado.length > 0)
       const columnasDetalleVista = detalleValidas.length ? detalleValidas : detalleDisponiblesVista
       const ordenGuardadoDetalle = (datos.vista.ordenColumnasDetalle || []).filter((columna) => detalleDisponiblesVista.includes(columna))
       const ordenDetalleBase = ordenGuardadoDetalle.length ? ordenGuardadoDetalle : columnasDetalleVista
@@ -528,6 +542,7 @@ export default function Reportes() {
       const columnasDetalleVistaOrdenadas = ordenDetalle.filter((columna) => visiblesDetalle.has(columna))
 
       datos.reporte.__columnas = columnasVistaOrdenadas; datos.reporte.__orden = datos.vista.orden || ''
+      datos.reporte.__mostrarDetalle = tieneDetalle
       const filtrosVista = { ...FILTROS_INICIALES, ...datos.vista.filtros }
       if (datos.vista.tipoReporte === 'MOROSOS') {
         if ((!filtrosVista.anioDesde || !filtrosVista.anioHasta) && filtrosVista.periodo) {
@@ -544,6 +559,7 @@ export default function Reportes() {
       setColumnasDetalle(columnasDetalleVistaOrdenadas); setOrdenColumnasDetalle(ordenDetalle)
       setColumnasAplicadas(columnasVistaOrdenadas); setOrdenColumnasAplicadas(ordenMain)
       setColumnasDetalleAplicadas(columnasDetalleVistaOrdenadas); setOrdenColumnasDetalleAplicadas(ordenDetalle)
+      setDetalleActivo(tieneDetalle); setDetalleActivoAplicado(tieneDetalle)
       setOrden(datos.vista.orden || ''); setOrdenAplicado(datos.vista.orden || '')
       setResultado({ cargando: false, datos: datos.reporte, error: null })
       setPagina(1)
@@ -555,7 +571,7 @@ export default function Reportes() {
       const parametros = parametrosReporte(reporte, filtrosAplicados)
       parametros.set('formato', formato)
       columnasAplicadasEfectivas.forEach((columna) => parametros.append('columnas', columna))
-      if (seleccion === 'MOROSOS') columnasDetalleAplicadasEfectivas.forEach((columna) => parametros.append('columnasDetalle', columna))
+      if (seleccion === 'MOROSOS' && detalleActivoAplicado) columnasDetalleAplicadasEfectivas.forEach((columna) => parametros.append('columnasDetalle', columna))
       if (ordenAplicado) parametros.set('orden', ordenAplicado)
       const { blob, nombre } = await descargarReporte(`/reportes/${encodeURIComponent(seleccion)}/exportar?${parametros}`)
       const url = URL.createObjectURL(blob); const enlace = document.createElement('a'); enlace.href = url; enlace.download = nombre; enlace.click(); URL.revokeObjectURL(url)
@@ -630,12 +646,14 @@ export default function Reportes() {
       const datos = await generarReporte(reporte, filtrosSolicitados, { signal: controlador.signal })
       datos.__columnas = columnasEfectivas
       datos.__orden = orden
+      datos.__mostrarDetalle = detalleActivo
       if (!controlador.signal.aborted) {
         setFiltrosAplicados({ ...filtrosSolicitados })
         setColumnasAplicadas(columnasEfectivas)
         setOrdenColumnasAplicadas(ordenColumnasEfectivas)
         setColumnasDetalleAplicadas(columnasDetalleEfectivas)
         setOrdenColumnasDetalleAplicadas(ordenColumnasDetalleEfectivas)
+        setDetalleActivoAplicado(detalleActivo)
         setOrdenAplicado(orden)
         setResultado({ cargando: false, datos, error: null })
         setPagina(1)
@@ -670,9 +688,9 @@ export default function Reportes() {
     tipoGrafica: grafica,
     filtros: resultado.datos?.filtrosAplicados || filtrosAplicados,
     columnasVisibles: columnasAplicadasEfectivas,
-    columnasDetalleVisibles: columnasDetalleAplicadasEfectivas,
+    columnasDetalleVisibles: detalleActivoAplicado ? columnasDetalleAplicadasEfectivas : [],
     ordenColumnas: ordenColumnasAplicadasEfectivas,
-    ordenColumnasDetalle: ordenColumnasDetalleAplicadasEfectivas,
+    ordenColumnasDetalle: detalleActivoAplicado ? ordenColumnasDetalleAplicadasEfectivas : [],
     orden: ordenAplicado,
     series: [serie],
   }
@@ -802,6 +820,18 @@ export default function Reportes() {
                     {(ORDENES[seleccion] || ORDENES.MOROSOS).map(([valor, etiqueta]) => <option key={valor} value={valor}>{etiqueta}</option>)}
                   </select>
                 </div>
+                {seleccion === 'MOROSOS' && <div className="fld reporte-toggle-detalle">
+                  <span className="fld-etiqueta">Detalle de la mora</span>
+                  <label className="reporte-check" htmlFor="reporte-detalle">
+                    <input
+                      id="reporte-detalle"
+                      type="checkbox"
+                      checked={detalleActivo}
+                      onChange={(e) => setDetalleActivo(e.target.checked)}
+                    />
+                    Incluir en pantalla y exportación
+                  </label>
+                </div>}
                 <fieldset className="reporte-columnas">
                   <legend>Columnas visibles</legend>
                   <div className="reporte-fila-restablecer">
@@ -860,7 +890,7 @@ export default function Reportes() {
                       Restablecer columnas
                     </button>
                   </div>
-                  {seleccion === 'MOROSOS' && <>
+                  {seleccion === 'MOROSOS' && detalleActivo && <>
                     <p className="reporte-columnas-subtitulo">Columnas del detalle</p>
                     <div className="reporte-fila-restablecer">
                       <div
