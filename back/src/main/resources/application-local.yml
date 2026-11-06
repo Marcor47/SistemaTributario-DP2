@@ -7,3 +7,8 @@ server:
     session:
       cookie:
         secure: false
+
+tributario:
+  seguridad:
+    # frontweb (Vite) y frontmobile en navegador (Expo web)
+    cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:8081}
