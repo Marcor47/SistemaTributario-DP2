@@ -1,0 +1,5 @@
+# Copiar como .asistente-local.properties dentro de back/ (Git lo ignora).
+# Servicio de lenguaje que usa el Asistente IA de la plataforma analítica. Sin LLM_URL, el asistente aparece como no
+# disponible y el resto de la plataforma funciona con normalidad.
+LLM_URL=
+LLM_TOKEN=

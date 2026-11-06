@@ -188,7 +188,7 @@ class VistaReporteControllerTest {
         String vista2 = """
                 {
                   "nombre": "Vista PRICOS B",
-                  "tipoGrafica": "CIRCULAR",
+                  "tipoGrafica": "TABLA",
                   "columnasVisibles": ["codigo", "nombre", "emitidoAnio"]
                 }
                 """;
@@ -233,7 +233,7 @@ class VistaReporteControllerTest {
         String actualizarJson = """
                 {
                   "nombre": "Vista Modificada",
-                  "tipoGrafica": "LINEAS",
+                  "tipoGrafica": "BARRAS",
                   "columnasVisibles": ["codigo", "nombre", "cuotasPagadasATiempo", "pagadoAnio"],
                   "orden": "pagadoAnio:desc"
                 }
@@ -247,7 +247,7 @@ class VistaReporteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idVista").value(idVista))
                 .andExpect(jsonPath("$.nombre").value("Vista Modificada"))
-                .andExpect(jsonPath("$.tipoGrafica").value("LINEAS"))
+                .andExpect(jsonPath("$.tipoGrafica").value("BARRAS"))
                 .andExpect(jsonPath("$.columnasVisibles", hasSize(4)))
                 .andExpect(jsonPath("$.orden").value("pagadoAnio:desc"));
     }
