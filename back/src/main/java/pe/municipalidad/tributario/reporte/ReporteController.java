@@ -32,6 +32,7 @@ import pe.municipalidad.tributario.seguridad.SesionInterna;
  * HU006, HU007, HU018 y HU038: controlador de reportes de Seguimiento institucional para la Gerencia de Rentas.
  * HU006: catálogo y generación de reportes sin soporte de TI (back/HU006_API.md).
  * HU007: guardar, gestionar y exportar vistas personalizadas a Excel o PDF (back/HU007_API.md).
+ * HU032: opciones predefinidas para personalizar gráficas, series y filtros (back/HU032_API.md).
  * HU018: reporte de contribuyentes morosos por zona y periodo (RF-024 adaptado).
  * HU038: reporte de buenos pagadores por zona y periodo (RF-051).
  */
@@ -127,6 +128,16 @@ public class ReporteController {
         Integer periodoEfectivo = periodo != null ? periodo : anio;
         return servicio.generarBuenosPagadoresPorZona(
                 new FiltrosReporte(periodoEfectivo, zona, tributo, montoMinimo, periodoEfectivo), usuario);
+    }
+
+    /* ===== HU032: Opciones predefinidas para personalizar la visualización (back/HU032_API.md) ===== */
+
+    @GetMapping("/{tipo}/opciones-visualizacion")
+    public OpcionesVisualizacionRespuesta opcionesVisualizacion(
+            @PathVariable TipoReporte tipo,
+            HttpServletRequest request) {
+        String usuario = sesion.conRol(request, ROLES_REPORTES);
+        return servicio.opcionesVisualizacion(tipo, usuario);
     }
 
     /* ===== HU007: Vistas personalizadas de reporte ===== */
