@@ -25,6 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 import pe.municipalidad.tributario.contribuyente.DomicilioFiscal;
+import pe.municipalidad.tributario.contribuyente.TipoDocumento;
+import pe.municipalidad.tributario.obligacion.Tributo;
 import pe.municipalidad.tributario.etl.EstadoLote;
 import pe.municipalidad.tributario.etl.LoteETL;
 import pe.municipalidad.tributario.etl.LoteETLRepository;
@@ -122,12 +124,148 @@ public class ReporteService {
             throw new AccesoDenegadoException("REPORTE_RESTRINGIDO",
                     "Su rol no tiene acceso al " + tipo.getTitulo().toLowerCase() + ".");
         }
+        return zonasVisibles(tipo, acceso);
+    }
+
+    private List<String> zonasVisibles(TipoReporte tipo, Acceso acceso) {
         List<String> disponibles = tipo == TipoReporte.MOROSOS
                 ? carteraEtl.zonas(cargaMorosos())
                 : samnet.obtenerZonas();
         return disponibles.stream()
                 .filter(acceso::puedeVerZona)
                 .toList();
+    }
+
+    /* ===== HU032: Personalización acotada de la visualización (RF-008, RF-044) ===== */
+
+    /*
+     * Opciones predefinidas con que el usuario puede personalizar el reporte: tipos de gráfica, series y filtros con
+     * sus valores o rangos. Sin el permiso REPORTES:PERSONALIZAR solo se ofrece la tabla.
+     */
+    @Transactional(readOnly = true)
+    public OpcionesVisualizacionRespuesta opcionesVisualizacion(TipoReporte tipo, String nombreUsuario) {
+        Usuario usuario = usuario(nombreUsuario);
+        Acceso acceso = accesoDe(usuario, tipo);
+        if (!acceso.puedeVerReporte()) {
+            throw new AccesoDenegadoException("REPORTE_RESTRINGIDO",
+                    "Su rol no tiene acceso al " + tipo.getTitulo().toLowerCase() + ".");
+        }
+        OpcionesVisualizacion.Configuracion configuracion = OpcionesVisualizacion.de(tipo);
+        boolean puedePersonalizar = puedePersonalizar(usuario);
+        List<TipoGrafica> tiposGrafica = puedePersonalizar ? configuracion.tiposGrafica() : List.of(TipoGrafica.TABLA);
+        List<OpcionesVisualizacionRespuesta.Serie> series = configuracion.series().stream()
+                .map(serie -> new OpcionesVisualizacionRespuesta.Serie(serie.id(), serie.etiqueta(), serie.formato()))
+                .toList();
+        List<OpcionesVisualizacionRespuesta.Filtro> filtros = configuracion.filtros().stream()
+                .map(nombre -> opcionFiltro(nombre, tipo, acceso))
+                .toList();
+        return new OpcionesVisualizacionRespuesta(tipo, puedePersonalizar, tiposGrafica, series, filtros,
+                new OpcionesVisualizacionRespuesta.PorDefecto(TipoGrafica.TABLA, configuracion.seriePorDefecto()));
+    }
+
+    private OpcionesVisualizacionRespuesta.Filtro opcionFiltro(String nombre, TipoReporte tipo, Acceso acceso) {
+        int anioActual = LocalDate.now(reloj).getYear();
+        return switch (nombre) {
+            case "anioDesde", "anioHasta" -> new OpcionesVisualizacionRespuesta.Filtro(nombre,
+                    OpcionesVisualizacionRespuesta.TipoFiltro.ANIO, null,
+                    OpcionesVisualizacion.ANIO_MINIMO_RANGO_MOROSOS, anioActual);
+            case "anio", "periodo" -> new OpcionesVisualizacionRespuesta.Filtro(nombre,
+                    OpcionesVisualizacionRespuesta.TipoFiltro.ANIO, null, OpcionesVisualizacion.ANIO_MINIMO, anioActual);
+            case "zona" -> new OpcionesVisualizacionRespuesta.Filtro(nombre,
+                    OpcionesVisualizacionRespuesta.TipoFiltro.LISTA, zonasParaOpciones(tipo, acceso), null, null);
+            case "tributo" -> filtroLista(nombre, Tributo.values());
+            case "tipoDocumento" -> filtroLista(nombre, TipoDocumento.values());
+            case "etapa" -> filtroLista(nombre, EtapaCobranza.values());
+            case "beneficio" -> filtroLista(nombre, FiltroBeneficio.values());
+            case "criterio" -> filtroLista(nombre, CriterioPricos.values());
+            case "regimen" -> new OpcionesVisualizacionRespuesta.Filtro(nombre,
+                    OpcionesVisualizacionRespuesta.TipoFiltro.TEXTO, null, null, null);
+            case "montoMinimo" -> new OpcionesVisualizacionRespuesta.Filtro(nombre,
+                    OpcionesVisualizacionRespuesta.TipoFiltro.MONTO, null, 0, null);
+            case "limite" -> new OpcionesVisualizacionRespuesta.Filtro(nombre,
+                    OpcionesVisualizacionRespuesta.TipoFiltro.ENTERO, null,
+                    OpcionesVisualizacion.LIMITE_PRICOS_MINIMO, OpcionesVisualizacion.LIMITE_PRICOS_MAXIMO);
+            default -> throw new IllegalStateException("Filtro sin opciones definidas: " + nombre);
+        };
+    }
+
+    private static OpcionesVisualizacionRespuesta.Filtro filtroLista(String nombre, Enum<?>[] valores) {
+        return new OpcionesVisualizacionRespuesta.Filtro(nombre, OpcionesVisualizacionRespuesta.TipoFiltro.LISTA,
+                Arrays.stream(valores).map(Enum::name).toList(), null, null);
+    }
+
+    /* Sin una carga publicada del ETL de cobranza, morosos aún no tiene zonas que ofrecer. */
+    private List<String> zonasParaOpciones(TipoReporte tipo, Acceso acceso) {
+        try {
+            return zonasVisibles(tipo, acceso);
+        } catch (ReglaNegocioException ex) {
+            LOG.warn("No hay zonas disponibles para las opciones del {}: {}", tipo, ex.getMessage());
+            return List.of();
+        }
+    }
+
+    private static boolean puedePersonalizar(Usuario usuario) {
+        return usuario.tienePermiso("REPORTES", "PERSONALIZAR");
+    }
+
+    /*
+     * Valida la gráfica y las series contra las opciones del reporte y devuelve las series a guardar (sin repetidas).
+     * Una gráfica distinta de la tabla requiere REPORTES:PERSONALIZAR; si no trae series se usa la serie por defecto.
+     */
+    private List<String> validarPersonalizacion(TipoReporte tipo, TipoGrafica tipoGrafica, List<String> series,
+            Usuario usuario) {
+        OpcionesVisualizacion.Configuracion configuracion = OpcionesVisualizacion.de(tipo);
+        if (tipoGrafica != TipoGrafica.TABLA && !puedePersonalizar(usuario)) {
+            throw new AccesoDenegadoException("PERSONALIZACION_NO_PERMITIDA",
+                    "Su rol no puede personalizar la gráfica de los reportes.");
+        }
+        if (!configuracion.admiteGrafica(tipoGrafica)) {
+            throw new DatoInvalidoException("GRAFICA_NO_PERMITIDA",
+                    "La gráfica " + tipoGrafica + " no está disponible para el " + tipo.getTitulo().toLowerCase() + ".");
+        }
+        List<String> seriesValidas = series == null ? List.of() : series.stream().distinct().toList();
+        for (String serie : seriesValidas) {
+            if (configuracion.serie(serie).isEmpty()) {
+                throw new DatoInvalidoException("SERIE_NO_PERMITIDA",
+                        "La serie '" + serie + "' no está disponible para el " + tipo.getTitulo().toLowerCase() + ".");
+            }
+        }
+        if (seriesValidas.isEmpty() && tipoGrafica != TipoGrafica.TABLA) {
+            return List.of(configuracion.seriePorDefecto());
+        }
+        return seriesValidas;
+    }
+
+    /* Los filtros guardados deben aplicar al reporte y estar dentro de los rangos que ofrece la HU032. */
+    private void validarFiltrosPersonalizados(TipoReporte tipo, FiltrosReporte filtros, Acceso acceso) {
+        if (tipo != TipoReporte.MOROSOS && (filtros.regimen() != null || filtros.tipoDocumento() != null
+                || filtros.etapa() != null || filtros.beneficio() != FiltroBeneficio.AMBOS)) {
+            throw new DatoInvalidoException("FILTRO_NO_APLICABLE",
+                    "Los filtros de régimen, tipo de documento, etapa y beneficio solo aplican al reporte de morosos.");
+        }
+        if (tipo != TipoReporte.PRICOS && (filtros.criterio() != null || filtros.limite() != null)) {
+            throw new DatoInvalidoException("FILTRO_NO_APLICABLE",
+                    "Los filtros de criterio y límite solo aplican al reporte de PRICOS.");
+        }
+        int anioActual = LocalDate.now(reloj).getYear();
+        validarAnio("anio", filtros.anio(), OpcionesVisualizacion.ANIO_MINIMO, anioActual);
+        validarAnio("periodo", filtros.periodo(), OpcionesVisualizacion.ANIO_MINIMO, anioActual);
+        validarAnio("anioDesde", filtros.anioDesde(), OpcionesVisualizacion.ANIO_MINIMO_RANGO_MOROSOS, anioActual);
+        validarAnio("anioHasta", filtros.anioHasta(), OpcionesVisualizacion.ANIO_MINIMO_RANGO_MOROSOS, anioActual);
+        if (filtros.montoMinimo() != null && filtros.montoMinimo().signum() < 0) {
+            throw new DatoInvalidoException("MONTO_INVALIDO", "El monto mínimo no puede ser negativo.");
+        }
+        if (filtros.zona() != null && !acceso.puedeVerZona(filtros.zona())) {
+            throw new AccesoDenegadoException("ZONA_RESTRINGIDA",
+                    "Su rol no tiene acceso a la zona " + filtros.zona() + ".");
+        }
+    }
+
+    private static void validarAnio(String filtro, Integer anio, int minimo, int maximo) {
+        if (anio != null && (anio < minimo || anio > maximo)) {
+            throw new DatoInvalidoException("ANIO_FUERA_DE_RANGO",
+                    "El filtro " + filtro + " debe estar entre " + minimo + " y " + maximo + ".");
+        }
     }
 
     @Transactional
@@ -291,6 +429,7 @@ public class ReporteService {
         }
         validarRango(filtros);
         validarConfiguracionPricos(tipo, filtros);
+        validarFiltrosPersonalizados(tipo, filtros, acceso);
 
         List<String> columnas = peticion.columnasVisibles();
         if (columnas == null || columnas.isEmpty()) {
@@ -312,13 +451,14 @@ public class ReporteService {
         validarColumnasDetalle(ordenColumnasDetalle);
 
         TipoGrafica tipoGrafica = peticion.tipoGrafica() != null ? peticion.tipoGrafica() : TipoGrafica.TABLA;
+        List<String> series = validarPersonalizacion(tipo, tipoGrafica, peticion.series(), usuario);
+        String seriesJson = series.isEmpty() ? null : serializar(series);
 
         if (vistaExistente.isPresent()) {
             VistaReporte vista = vistaExistente.get();
             vista.actualizar(nombreLimpio, tipoGrafica, serializar(filtros), serializar(columnas),
                     serializar(columnasDetalle), serializar(ordenColumnas),
-                    serializar(ordenColumnasDetalle), peticion.series() != null ? serializar(peticion.series()) : null,
-                    peticion.orden());
+                    serializar(ordenColumnasDetalle), seriesJson, peticion.orden());
             vistas.save(vista);
             return mapearVista(vista);
         }
@@ -326,8 +466,7 @@ public class ReporteService {
         VistaReporte vista = new VistaReporte(tipo, usuario, nombreLimpio, tipoGrafica,
                 serializar(filtros), serializar(columnas), serializar(columnasDetalle),
                 serializar(ordenColumnas), serializar(ordenColumnasDetalle),
-                peticion.series() != null ? serializar(peticion.series()) : null, peticion.orden(),
-                LocalDateTime.now(reloj));
+                seriesJson, peticion.orden(), LocalDateTime.now(reloj));
         vistas.save(vista);
         return mapearVista(vista);
     }
@@ -381,6 +520,8 @@ public class ReporteService {
             }
             validarRango(peticion.filtros());
             validarConfiguracionPricos(vista.getTipoReporte(), peticion.filtros());
+            validarFiltrosPersonalizados(vista.getTipoReporte(), peticion.filtros(),
+                    accesoDe(usuario, vista.getTipoReporte()));
             filtrosJson = serializar(peticion.filtros());
         }
 
@@ -415,9 +556,17 @@ public class ReporteService {
             ordenColumnasDetalleJson = serializar(ordenDetalle);
         }
 
+        String seriesJson = vista.getSeries();
+        if (peticion.tipoGrafica() != null || peticion.series() != null) {
+            TipoGrafica tipoGrafica = peticion.tipoGrafica() != null ? peticion.tipoGrafica() : vista.getTipoGrafica();
+            List<String> seriesPedidas = peticion.series() != null
+                    ? peticion.series() : seriesGuardadas(vista);
+            List<String> series = validarPersonalizacion(vista.getTipoReporte(), tipoGrafica, seriesPedidas, usuario);
+            seriesJson = series.isEmpty() ? vista.getSeries() : serializar(series);
+        }
+
         vista.actualizar(nuevoNombre, peticion.tipoGrafica(), filtrosJson, columnasJson, columnasDetalleJson,
-                ordenColumnasJson, ordenColumnasDetalleJson,
-                peticion.series() != null ? serializar(peticion.series()) : vista.getSeries(), peticion.orden());
+                ordenColumnasJson, ordenColumnasDetalleJson, seriesJson, peticion.orden());
         return mapearVista(vista);
     }
 
@@ -514,10 +663,22 @@ public class ReporteService {
                 parsearColumnasDetalle(vista.getColumnasDetalleVisibles()),
                 parsearLista(vista.getOrdenColumnas(), parsearColumnas(vista.getColumnasVisibles(), vista.getTipoReporte())),
                 parsearLista(vista.getOrdenColumnasDetalle(), parsearColumnasDetalle(vista.getColumnasDetalleVisibles())),
-                parsearLista(vista.getSeries(), List.of()),
+                seriesGuardadas(vista),
                 vista.getOrden(),
                 vista.getFechaCreacion()
         );
+    }
+
+    /* HU032: las vistas guardadas antes de la validación pueden tener series que ya no se ofrecen; se ignoran. */
+    private List<String> seriesGuardadas(VistaReporte vista) {
+        OpcionesVisualizacion.Configuracion configuracion = OpcionesVisualizacion.de(vista.getTipoReporte());
+        List<String> guardadas = parsearLista(vista.getSeries(), List.of());
+        List<String> conocidas = guardadas.stream().filter(serie -> configuracion.serie(serie).isPresent()).toList();
+        if (conocidas.size() != guardadas.size()) {
+            LOG.warn("La vista {} tiene series no disponibles para {} que se ignoran: {}",
+                    vista.getIdVista(), vista.getTipoReporte(), guardadas);
+        }
+        return conocidas;
     }
 
     private List<String> parsearLista(String valorJson, List<String> valorPorDefecto) {
