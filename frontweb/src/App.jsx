@@ -1,5 +1,7 @@
+import { useState, useCallback } from 'react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import MenuLateral from './components/MenuLateral.jsx'
+import BarraSuperior from './components/BarraSuperior.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -12,9 +14,13 @@ import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Reclamos from './pages/Reclamos.jsx'
+import ResumenEjecutivo from './pages/ResumenEjecutivo.jsx'
 import GestionReclamos from './pages/GestionReclamos.jsx'
+import Reportes from './pages/Reportes.jsx'
 import Constancia from './pages/Constancia.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
+import InicioPortal from './pages/InicioPortal.jsx'
+import InicioGestion from './pages/InicioGestion.jsx'
 import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
 import LoginInterno from './pages/LoginInterno.jsx'
 import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
@@ -30,15 +36,20 @@ const moduloDeRuta = (pathname, seccion) => MODULOS
 /**
  * Layout exclusivo para el Portal del Ciudadano (Servicios en Línea).
  * Solo muestra los módulos de la sección 'portal' en el menú lateral.
- * Cabecera: "Portal del Ciudadano · Servicios en Línea"
  */
 function LayoutPortal() {
   const { pathname } = useLocation()
   const modulo = moduloDeRuta(pathname, 'portal')
+  const [menuVisible, setMenuVisible] = useState(true)
+  const toggleMenu = useCallback(() => setMenuVisible((v) => !v), [])
+
   return (
-    <div className="app">
-      <MenuLateral solo="portal" />
+    <div className={`app${menuVisible ? '' : ' app--sin-menu'}`}>
+      <MenuLateral solo="portal" visible={menuVisible} onToggle={toggleMenu} />
       <div className="contenido">
+        <BarraSuperior
+          seccion="portal"
+        />
         {modulo && (
           <header className="pagina-cab">
             <p className="pagina-cab__ruta">Portal del Ciudadano · Servicios en Línea · {modulo.texto}</p>
@@ -61,17 +72,23 @@ function LayoutPortal() {
 /**
  * Layout para los módulos internos de funcionarios (Gestión Municipal).
  * Solo muestra los módulos de la sección 'gestion' en el menú lateral.
- * Cabecera: "Sistema de Gestión Tributaria"
  */
 function LayoutGestion() {
   const { pathname } = useLocation()
   const modulo = moduloDeRuta(pathname, 'gestion')
   const esDashboard = pathname.startsWith('/dashboard')
   const esMetas = pathname.startsWith('/metas')
+  const esReportes = pathname.startsWith('/reportes')
+  const [menuVisible, setMenuVisible] = useState(true)
+  const toggleMenu = useCallback(() => setMenuVisible((v) => !v), [])
+
   return (
-    <div className="app">
-      <MenuLateral solo="gestion" />
+    <div className={`app${menuVisible ? '' : ' app--sin-menu'}`}>
+      <MenuLateral solo="gestion" visible={menuVisible} onToggle={toggleMenu} />
       <div className="contenido">
+        <BarraSuperior
+          seccion="gestion"
+        />
         {modulo && (
           <header className="pagina-cab">
             <p className="pagina-cab__ruta">Sistema de Gestión Tributaria · {modulo.texto}</p>
@@ -79,7 +96,7 @@ function LayoutGestion() {
             <p className="pagina-cab__desc">{modulo.descripcion}</p>
           </header>
         )}
-        <main className={`pmain${esDashboard ? ' pmain--dashboard' : ''}${esMetas ? ' pmain--metas' : ''}`}>
+        <main className={`pmain${esDashboard ? ' pmain--dashboard' : ''}${esMetas ? ' pmain--metas' : ''}${esReportes ? ' pmain--reportes' : ''}`}>
           <Outlet />
         </main>
         <footer className="pie">
@@ -108,6 +125,8 @@ export default function App() {
           {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
           <Route element={<RutaContribuyente />}>
             <Route element={<LayoutPortal />}>
+              <Route path="/portal/inicio" element={<InicioPortal />} />
+              <Route path="/portal" element={<Navigate to="/portal/inicio" replace />} />
               <Route path="/estado-cuenta" element={<EstadoCuentaPortal />} />
               <Route path="/portal/estado-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
               <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
@@ -118,7 +137,9 @@ export default function App() {
 
         {/* Rutas de funcionarios (Gestión Municipal) */}
         <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
-          <Route path="/dashboard" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
+          <Route path="/gestion/inicio" element={<InicioGestion />} />
+          <Route path="/gestion" element={<Navigate to="/gestion/inicio" replace />} />
+          <Route path="/dashboard" element={<RutaInternaProtegida permiso="DASHBOARD:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
@@ -126,6 +147,8 @@ export default function App() {
           <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
           <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
+          <Route path="/resumen-ejecutivo" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><ResumenEjecutivo /></RutaInternaProtegida>} />
+          <Route path="/reportes" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Reportes /></RutaInternaProtegida>} />
           <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />
           <Route path="/gestion/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:GESTIONAR"><GestionReclamos modo="gestion" /></RutaInternaProtegida>} />
           <Route path="/reclamos/asignados" element={<RutaInternaProtegida permiso="RECLAMOS:ATENDER"><GestionReclamos modo="asignados" /></RutaInternaProtegida>} />

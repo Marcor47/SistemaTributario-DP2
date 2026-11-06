@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useAuth } from '../context/AuthContext.jsx'
+import { useSesionInterna } from '../context/sesionInterna.js'
 import { AccesoDenegado, AccesoRestringido, VerificandoAcceso } from './AccesoInterno.jsx'
 import { obtenerDeclaracionJurada } from '../services/declaracionJuradaService.js'
 import { ROLES_CONSULTA_PREDIO, tieneRolInterno } from '../utils/roles.js'
@@ -129,12 +129,11 @@ const TITULOS_ERROR = {
 }
 
 export default function DeclaracionJuradaPanel({ codigoPredio }) {
-  const { sesion, limpiarSesion } = useAuth()
+  const { sesion, cargando, setSesion } = useSesionInterna()
   const [intento, setIntento] = useState(0)
   const [expirada, setExpirada] = useState(false)
   const [consulta, setConsulta] = useState({ datos: null, error: null, ocupado: true })
 
-  const esInterno = sesion.tipo === 'interno'
   const tieneRol = tieneRolInterno(sesion, ROLES_CONSULTA_PREDIO)
 
   useEffect(() => {
@@ -152,7 +151,7 @@ export default function DeclaracionJuradaPanel({ codigoPredio }) {
         if (error.estado === 401) {
           // La sesión interna dura 15 minutos; se limpia el contexto y se pide reingresar.
           setExpirada(true)
-          limpiarSesion()
+          setSesion(null)
           setConsulta({ datos: null, error: null, ocupado: false })
           return
         }
@@ -160,18 +159,18 @@ export default function DeclaracionJuradaPanel({ codigoPredio }) {
       })
 
     return () => { activo = false; controlador.abort() }
-  }, [codigoPredio, intento, tieneRol, limpiarSesion])
+  }, [codigoPredio, intento, tieneRol, setSesion])
 
   function recargar() {
     setConsulta({ datos: null, error: null, ocupado: true })
     setIntento((valor) => valor + 1)
   }
 
-  if (sesion.estado === 'cargando') {
+  if (cargando) {
     return <VerificandoAcceso mensaje="Verificando el acceso a la declaración jurada…" />
   }
 
-  if (!esInterno) {
+  if (!sesion) {
     return (
       <AccesoRestringido
         titulo={`Declaración jurada del predio ${codigoPredio}`}
@@ -186,7 +185,7 @@ export default function DeclaracionJuradaPanel({ codigoPredio }) {
     return (
       <AccesoDenegado
         titulo="Acceso denegado"
-        usuario={sesion.usuario}
+        usuario={sesion}
         descripcion={`La declaración jurada del predio ${codigoPredio} solo la consulta el personal autorizado.`}
         rolesPermitidos={ROLES_CONSULTA_PREDIO}
       />

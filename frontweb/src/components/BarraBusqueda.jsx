@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
-export default function BarraBusqueda({ etiqueta, placeholder, onBuscar, onLimpiar, ocupado }) {
-  const [texto, setTexto] = useState('')
+export default function BarraBusqueda({ etiqueta, placeholder, onBuscar, onLimpiar, ocupado, valorInicial = '' }) {
+  const [texto, setTexto] = useState(valorInicial)
 
   function enviar(e) {
     e.preventDefault()

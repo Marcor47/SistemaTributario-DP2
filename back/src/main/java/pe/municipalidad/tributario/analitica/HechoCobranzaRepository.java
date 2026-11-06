@@ -25,4 +25,52 @@ public interface HechoCobranzaRepository extends JpaRepository<HechoCobranza, Lo
             """)
     List<MontosMorosidad> sumarCuotasExigibles(@Param("idLote") Long idLote, @Param("anio") int anio,
             @Param("fechaCorte") LocalDate fechaCorte);
+
+    /* HU008: cargas publicadas que traen hechos y aún no tienen valores del indicador indicado. */
+    @Query("""
+            select distinct l.idLote from HechoCobranza h join h.lote l
+            where l.estado = pe.municipalidad.tributario.etl.EstadoLote.PUBLICADO
+              and not exists (select 1 from ValorIndicador v
+                              where v.lote = l and v.indicador.codigo = :indicadorCodigo)
+            order by l.idLote
+            """)
+    List<Long> buscarLotesPublicadosSinIndicador(@Param("indicadorCodigo") String indicadorCodigo);
+
+    /*
+     * Hechos vencidos que aún tienen saldo sin beneficio (emitido - pagado > 0). Incluye las cuotas que un
+     * beneficio dejó en cero para que el detalle coincida con ps_reportecartera; la deuda solo sumará las que
+     * conservan insoluto. El contribuyente y el predio se traen en la misma consulta.
+     */
+    @Query("""
+            select h from HechoCobranza h
+              join fetch h.contribuyente c
+              join fetch h.predio p
+            where h.lote.idLote = :idLote
+              and h.fechaVencimiento < :fechaCorte
+              and h.montoEmitido > h.montoPagado
+            order by c.seudonimoContribuyente, h.tributo, h.anio, h.cuota
+            """)
+    List<HechoCobranza> buscarVencidasConSaldo(@Param("idLote") Long idLote,
+            @Param("fechaCorte") LocalDate fechaCorte);
+
+    /*
+     * HU037: todos los hechos de una carga, incluidos los pagados, porque PRICOS necesita la emisión del año
+     * aunque la cuota ya esté cancelada. El contribuyente y el predio se traen en la misma consulta.
+     */
+    @Query("""
+            select h from HechoCobranza h
+              join fetch h.contribuyente c
+              join fetch h.predio p
+            where h.lote.idLote = :idLote
+            order by c.seudonimoContribuyente, h.anio, h.tributo, h.cuota
+            """)
+    List<HechoCobranza> buscarPorLote(@Param("idLote") Long idLote);
+
+    /* HU018: zonas disponibles en una carga, para el selector del reporte de morosos. */
+    @Query("""
+            select distinct p.zona from HechoCobranza h join h.predio p
+            where h.lote.idLote = :idLote
+            order by p.zona
+            """)
+    List<String> listarZonas(@Param("idLote") Long idLote);
 }

@@ -9,6 +9,8 @@ const CONDICIONES_PROPIEDAD = {
   COPROPIETARIO: 'Copropietario',
 }
 
+export const FILTROS_ARBITRIOS_INICIALES = { anio: '', estado: '' }
+
 export function estadoArbitrio(estado) {
   return ESTADOS_ARBITRIO[estado] ?? { etiqueta: estado || 'Sin estado', clase: 'neutro' }
 }
@@ -16,6 +18,32 @@ export function estadoArbitrio(estado) {
 export function etiquetaCondicion(condicion) {
   if (!condicion) return '—'
   return CONDICIONES_PROPIEDAD[String(condicion).toUpperCase()] ?? condicion
+}
+
+/* Opciones de año (de más reciente a más antiguo) y de estado presentes en las cuotas. */
+export function opcionesDeArbitrios(cuotas = []) {
+  const anios = [...new Set(cuotas.map((cuota) => cuota.anio).filter((anio) => anio != null))]
+    .sort((a, b) => Number(b) - Number(a))
+
+  const presentes = new Set(cuotas.map((cuota) => cuota.estado).filter(Boolean))
+  const estados = Object.entries(ESTADOS_ARBITRIO)
+    .filter(([valor]) => presentes.has(valor))
+    .map(([valor, { etiqueta }]) => ({ valor, etiqueta }))
+
+  // Un estado fuera del catálogo se muestra al final con su propio valor, sin inventar etiqueta.
+  for (const valor of presentes) {
+    if (!ESTADOS_ARBITRIO[valor]) estados.push({ valor, etiqueta: valor })
+  }
+
+  return { anios, estados }
+}
+
+/* Aplica los filtros de año y estado con lógica AND; un filtro vacío no restringe. */
+export function filtrarCuotas(cuotas = [], filtros = {}) {
+  return cuotas.filter((cuota) => (
+    (!filtros.anio || String(cuota.anio) === String(filtros.anio))
+    && (!filtros.estado || cuota.estado === filtros.estado)
+  ))
 }
 
 /*

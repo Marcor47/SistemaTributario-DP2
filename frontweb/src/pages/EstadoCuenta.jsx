@@ -1,98 +1,43 @@
 import { useEffect, useRef, useState } from 'react'
 import { buscarCoincidencias } from '../services/contribuyenteService.js'
 import { obtenerEstadoCuenta } from '../services/cuentaService.js'
-import { TRIBUTOS } from '../mocks/cuentas.js'
+import DetalleCuenta from '../components/DetalleCuenta.jsx'
 import { MINIMO_BUSQUEDA, TIPOS_DOCUMENTO, limpiarDocumento, validarDocumento } from '../utils/documento.js'
-import { fecha, moneda } from '../utils/formato.js'
 
-const suma = (filas, campo) => filas.reduce((a, f) => a + f[campo], 0)
+const TIPO_CODIGO = { maximo: 20, ayuda: 'Código de contribuyente. Puedes buscar con parte del código.' }
 
-function Estado({ valor }) {
-  const clase = valor === 'Pagada' ? 'ok' : valor === 'Vencida' ? 'critico' : 'aviso'
-  const icono = valor === 'Pagada' ? '✓' : valor === 'Vencida' ? '!' : '…'
-  return <span className={`estado ${clase}`}><span aria-hidden="true">{icono}</span> {valor}</span>
+function limpiarBusqueda(valor, tipo) {
+  return tipo === 'CODIGO'
+    ? String(valor ?? '').replace(/[^a-zA-Z0-9-]/g, '').toUpperCase().slice(0, TIPO_CODIGO.maximo)
+    : limpiarDocumento(valor, tipo)
 }
 
+function validarBusqueda(tipo, valor) {
+  if (tipo === 'CODIGO') return valor.length < MINIMO_BUSQUEDA ? `Ingresa al menos ${MINIMO_BUSQUEDA} caracteres del código.` : ''
+  return validarDocumento(tipo, valor)
+}
+
+// Si la cuenta no se pudo cargar, el contribuyente sigue seleccionado (ficha, pagos, cobranza) y el error se muestra
+// solo en la pestaña del estado de cuenta.
 function Cuenta({ cuenta }) {
-  const { contribuyente: c, filas, fechaCorte, desactualizado } = cuenta
-  return (
-    <>
-      <section className="pcard" aria-label="Contribuyente">
-        <h2>{c.nombre}</h2>
-        <p className="hint">Código {c.codigo} · {c.tipoDoc} {c.doc}</p>
-        <p className="corte"><strong>Fecha de corte:</strong> {fecha(fechaCorte)}</p>
-        {desactualizado && (
-          <div className="alert" role="alert">
-            <strong>El servicio de cuenta corriente no responde. </strong>
-            Se muestra la última información disponible, con fecha de corte {fecha(fechaCorte)}.
-          </div>
-        )}
-        {filas.length === 0 ? (
-          <div className="info" role="status">
-            No hay información de estado de cuenta disponible para este contribuyente en la demostración.
-          </div>
-        ) : (
-          <div className="resumen">
-            <div><span className="pl">Emitido</span><strong>{moneda(suma(filas, 'emitido'))}</strong></div>
-            <div><span className="pl">Pagado</span><strong>{moneda(suma(filas, 'pagado'))}</strong></div>
-            <div className={suma(filas, 'deuda') > 0 ? 'deuda' : ''}>
-              <span className="pl">Deuda total</span><strong>{moneda(suma(filas, 'deuda'))}</strong>
-            </div>
-          </div>
-        )}
+  if (cuenta.error) {
+    return (
+      <section className="pcard" aria-label="Estado de cuenta">
+        <h2>{cuenta.contribuyente.nombre}</h2>
+        <div className="alert" role="alert">{cuenta.error}</div>
       </section>
-
-      {filas.length > 0 && TRIBUTOS.map((tributo) => {
-        const delTributo = filas.filter((f) => f.tributo === tributo)
-        return (
-          <section className="pcard" key={tributo} aria-label={tributo}>
-            <h2>{tributo}</h2>
-            <table className="tabla">
-              <thead>
-                <tr>
-                  <th>Periodo</th>
-                  <th className="num">Emitido</th>
-                  <th className="num">Pagado</th>
-                  <th className="num">Deuda</th>
-                  <th>Estado</th>
-                </tr>
-              </thead>
-              <tbody>
-                {delTributo.map((f) => (
-                  <tr key={f.id}>
-                    <td>{f.periodo}</td>
-                    <td className="num">{moneda(f.emitido)}</td>
-                    <td className="num">{moneda(f.pagado)}</td>
-                    <td className="num">{moneda(f.deuda)}</td>
-                    <td><Estado valor={f.estado} /></td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <th>Total</th>
-                  <th className="num">{moneda(suma(delTributo, 'emitido'))}</th>
-                  <th className="num">{moneda(suma(delTributo, 'pagado'))}</th>
-                  <th className="num">{moneda(suma(delTributo, 'deuda'))}</th>
-                  <th />
-                </tr>
-              </tfoot>
-            </table>
-          </section>
-        )
-      })}
-    </>
-  )
+    )
+  }
+  return <DetalleCuenta key={cuenta.contribuyente.codigo} cuenta={cuenta} />
 }
 
-export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle }) {
+export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle, permitirCodigo = false }) {
   const [tipoDocumento, setTipoDocumento] = useState('DNI')
   const [documento, setDocumento] = useState('')
   const [consulta, setConsulta] = useState('')
   const [lista, setLista] = useState(null) // coincidencias; null = aún no se busca
   const [cuenta, setCuenta] = useState(null)
   const [ocupado, setOcupado] = useState(false)
-  const [servicioCaido, setServicioCaido] = useState(false)
   const [error, setError] = useState('')
   const [errorDocumento, setErrorDocumento] = useState('')
   const [abierto, setAbierto] = useState(false)
@@ -103,7 +48,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
   const buscarDocumentoRef = useRef(null)
   const documentoSeleccionado = useRef(null)
 
-  const tipo = TIPOS_DOCUMENTO[tipoDocumento]
+  const tipo = tipoDocumento === 'CODIGO' ? TIPO_CODIGO : TIPOS_DOCUMENTO[tipoDocumento]
 
   function actualizarCuenta(nuevaCuenta) {
     setCuenta(nuevaCuenta)
@@ -113,7 +58,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
   async function buscarDocumento(tipoDocumentoBuscado, numero) {
     const actual = ++solicitud.current
     setOcupado(true)
-    setConsulta(`${tipoDocumentoBuscado} ${numero}`)
+    setConsulta(`${tipoDocumentoBuscado === 'CODIGO' ? 'código' : tipoDocumentoBuscado} ${numero}`)
     actualizarCuenta(null)
     setLista(null)
     setAbierto(false)
@@ -149,7 +94,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
       return undefined
     }
     if (documento.length < MINIMO_BUSQUEDA) return undefined
-    if (validarDocumento(tipoDocumento, documento)) return undefined
+    if (validarBusqueda(tipoDocumento, documento)) return undefined
 
     const timer = setTimeout(() => {
       temporizador.current = null
@@ -175,9 +120,14 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
     setCargandoCuenta(true)
     setError('')
     try {
-      actualizarCuenta(await obtenerEstadoCuenta(contribuyente, { servicioCaido }))
-    } catch {
-      setError('No se pudo obtener el estado de cuenta. Intenta nuevamente.')
+      actualizarCuenta(await obtenerEstadoCuenta(contribuyente))
+    } catch (err) {
+      actualizarCuenta({
+        contribuyente,
+        error: err.estado === 403
+          ? 'Tu rol no tiene permiso para consultar estados de cuenta.'
+          : err.message || 'No se pudo obtener el estado de cuenta. Intenta nuevamente.',
+      })
     } finally {
       setCargandoCuenta(false)
     }
@@ -185,9 +135,10 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
 
   function seleccionarCoincidencia(contribuyente) {
     cancelarPendiente()
-    if (contribuyente.doc !== documento) {
-      documentoSeleccionado.current = contribuyente.doc
-      setDocumento(contribuyente.doc)
+    const valorSeleccionado = tipoDocumento === 'CODIGO' ? contribuyente.codigo : contribuyente.doc
+    if (valorSeleccionado !== documento) {
+      documentoSeleccionado.current = valorSeleccionado
+      setDocumento(valorSeleccionado)
     }
     setErrorDocumento('')
     setAbierto(false)
@@ -242,8 +193,8 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
 
   function buscar(e) {
     if (e) e.preventDefault()
-    const numero = limpiarDocumento(documento, tipoDocumento)
-    const problema = validarDocumento(tipoDocumento, numero)
+    const numero = limpiarBusqueda(documento, tipoDocumento)
+    const problema = validarBusqueda(tipoDocumento, numero)
     if (problema) {
       setErrorDocumento(problema)
       return
@@ -253,7 +204,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
   }
 
   function cambiarDocumento(e) {
-    const numero = limpiarDocumento(e.target.value, tipoDocumento)
+    const numero = limpiarBusqueda(e.target.value, tipoDocumento)
     documentoSeleccionado.current = null
     cancelarPendiente()
     setDocumento(numero)
@@ -262,7 +213,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
     setActivo(-1)
     setConsulta('')
     setError('')
-    setErrorDocumento(numero.length >= MINIMO_BUSQUEDA ? validarDocumento(tipoDocumento, numero) : '')
+    setErrorDocumento(numero.length >= MINIMO_BUSQUEDA ? validarBusqueda(tipoDocumento, numero) : '')
     actualizarCuenta(null)
   }
 
@@ -302,28 +253,29 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
       <form className="filters-separados" onSubmit={buscar} role="search">
         <div className="filters-header">
           <h3>Buscar contribuyente</h3>
-          <p className="hint">Busca por tipo y número de documento para consultar su ficha, predios, estado de cuenta y cobranza.</p>
+          <p className="hint">{permitirCodigo ? 'Busca por código de contribuyente o documento para consultar su información, pagos y beneficios.' : 'Busca por tipo y número de documento para consultar su ficha, predios, estado de cuenta y cobranza.'}</p>
         </div>
         <div className="filters-fields">
           <div className="fld fld-tipo-doc">
-            <label htmlFor="tipo-documento">Tipo de documento</label>
+            <label htmlFor="tipo-documento">{permitirCodigo ? 'Buscar por' : 'Tipo de documento'}</label>
             <select id="tipo-documento" value={tipoDocumento} onChange={cambiarTipo} disabled={cargandoCuenta}>
               <option value="DNI">DNI</option>
               <option value="RUC">RUC</option>
               <option value="CE">CE</option>
+              {permitirCodigo && <option value="CODIGO">Código</option>}
             </select>
           </div>
           <div className="fld fld-numero-doc">
-            <label htmlFor="numero-documento">Número de documento</label>
+            <label htmlFor="numero-documento">{tipoDocumento === 'CODIGO' ? 'Código de contribuyente' : 'Número de documento'}</label>
             <div className="documento-combobox" onBlur={cerrarSiSale}>
               <input
                 id="numero-documento"
                 type="text"
-                inputMode={tipoDocumento === 'CE' ? 'text' : 'numeric'}
+                inputMode={tipoDocumento === 'CE' || tipoDocumento === 'CODIGO' ? 'text' : 'numeric'}
                 autoComplete="off"
                 maxLength={tipo.maximo}
                 value={documento}
-                placeholder={tipoDocumento === 'CE' ? 'Ej. 001234567' : tipoDocumento === 'RUC' ? 'Ej. 20456781239' : 'Ej. 41028765'}
+                placeholder={tipoDocumento === 'CODIGO' ? 'Ej. 021390' : tipoDocumento === 'CE' ? 'Ej. 001234567' : tipoDocumento === 'RUC' ? 'Ej. 20456781239' : 'Ej. 41028765'}
                 role="combobox"
                 aria-autocomplete="list"
                 aria-expanded={abierto}
@@ -337,7 +289,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
                 onChange={cambiarDocumento}
               />
               {abierto && lista?.length > 0 && (
-                <ul id="coincidencias-documento" className="documento-opciones" role="listbox" aria-label="Coincidencias de documento">
+                <ul id="coincidencias-documento" className="documento-opciones" role="listbox" aria-label="Coincidencias de contribuyentes">
                   {lista.map((c, indice) => (
                     <li
                       id={`coincidencia-${c.codigo}`}
@@ -350,7 +302,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
                       onClick={() => seleccionarCoincidencia(c)}
                     >
                       <strong>{c.nombre}</strong>
-                      <span className="hint">{c.tipoDoc} {c.doc}</span>
+                      <span className="hint">{permitirCodigo && `Código ${c.codigo} · `}{c.tipoDoc} {c.doc}</span>
                     </li>
                   ))}
                 </ul>
@@ -372,17 +324,12 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
         </div>
       </form>
 
-      <label className="demo-opcion">
-        <input type="checkbox" checked={servicioCaido} onChange={(e) => setServicioCaido(e.target.checked)} />
-        Simular que el servicio de cuenta corriente no responde (solo demostración)
-      </label>
-
       {(ocupado || cargandoCuenta) && <p className="hint" role="status">Consultando SAMNET…</p>}
       {error && <div className="alert" role="alert">{error}</div>}
 
       {!ocupado && !cargandoCuenta && lista === null && (
         <div className="info">
-          Busca un contribuyente por DNI, RUC o carné de extranjería. La búsqueda admite parte del número de documento.
+          {permitirCodigo ? 'Busca un contribuyente por código, DNI, RUC o carné de extranjería. Puedes buscar con parte del código o documento.' : 'Busca un contribuyente por DNI, RUC o carné de extranjería. La búsqueda admite parte del número de documento.'}
         </div>
       )}
 

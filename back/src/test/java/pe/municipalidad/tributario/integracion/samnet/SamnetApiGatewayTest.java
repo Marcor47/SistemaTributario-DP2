@@ -61,6 +61,11 @@ class SamnetApiGatewayTest {
     }
 
     @Test
+    void listaLasZonasDeLosPredios() {
+        assertThat(samnet.obtenerZonas()).containsExactly("Z1", "Z2", "Z3");
+    }
+
+    @Test
     void devuelveLaDeclaracionJuradaVigentePrimero() {
         List<DeclaracionJurada> declaraciones = samnet.obtenerDeclaracionJurada("014502-01");
 
@@ -74,8 +79,15 @@ class SamnetApiGatewayTest {
         EstadoCuenta estadoCuenta = samnet.obtenerEstadoCuenta("021390");
 
         assertThat(estadoCuenta.obtenerFechaCorte()).isEqualTo(LocalDate.of(2026, 10, 19));
-        assertThat(estadoCuenta.getObligaciones()).hasSize(12);
-        assertThat(estadoCuenta.getTotalDeuda()).isEqualByComparingTo("6907.68");
+        /* 8 cuotas de predial (2025 y 2026) y 258 de arbitrios mensuales de sus 11 predios. */
+        assertThat(estadoCuenta.getObligaciones()).hasSize(266);
+        assertThat(estadoCuenta.getTotalDeuda()).isEqualByComparingTo("73723.45");
+        assertThat(estadoCuenta.getObligaciones()).filteredOn(o -> o.getTributo().name().equals("ARBITRIOS"))
+                .allSatisfy(o -> {
+                    assertThat(o.getServicios()).hasSize(4);
+                    assertThat(o.getServicios().stream().map(s -> s.monto()).reduce(BigDecimal.ZERO, BigDecimal::add))
+                            .isEqualByComparingTo(o.getMontoEmitido());
+                });
         assertThat(estadoCuenta.getPagos()).isNotEmpty();
         assertThat(estadoCuenta.getPagos()).allSatisfy(p -> assertThat(p.diferencia()).isZero());
     }

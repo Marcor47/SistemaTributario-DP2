@@ -16,7 +16,6 @@ SELECT c.codigo, public.crypt(a.clave, public.gen_salt('bf', 12)), TRUE
 FROM accesos a
 JOIN samnet.contribuyente c ON c.codigo = a.codigo AND c.numero_documento = a.documento
 WHERE c.estado = 'ACTIVO'
-  AND NOT EXISTS (
-      SELECT 1 FROM samnet.credencial_web w WHERE w.contribuyente_codigo = c.codigo
-  )
-ON CONFLICT (contribuyente_codigo) DO NOTHING;
+ON CONFLICT (contribuyente_codigo) DO UPDATE
+SET clave_hash = EXCLUDED.clave_hash, habilitada = TRUE;
+

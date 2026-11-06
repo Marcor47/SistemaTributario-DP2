@@ -29,7 +29,33 @@
 .arb-nota { margin-top: 18px; font-size: 13px; }
 .arb-error p { margin: 8px 0 16px; }
 
+.arb-resumen-nota { margin-top: 10px; font-size: 13px; }
+
+.arb-filtros {
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px;
+  margin: 16px 0 4px;
+}
+.arb-filtros .fld { flex: 1 1 170px; min-width: 150px; }
+.arb-filtros .fld.arb-tamano { flex: 0 0 150px; min-width: 150px; }
+.arb-limpiar { flex: 0 0 auto; }
+
+.arb-paginacion {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 12px; margin-top: 18px;
+}
+.arb-conteo-texto { margin: 0; color: var(--texto-atenuado); font-size: 14px; }
+.arb-paginacion__controles { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.arb-pagina { font-size: 14px; color: var(--texto-atenuado); white-space: nowrap; }
+.arb-cuotas-vacio { padding: 24px 16px; margin: 12px 0 0; text-align: center; color: var(--texto-atenuado); }
+
 @media (max-width: 600px) {
   .arb-predio { grid-template-columns: minmax(0, 1fr); }
   .arb-cabecera { align-items: flex-start; }
+  .arb-filtros .fld, .arb-filtros .fld.arb-tamano { flex-basis: 100%; min-width: 0; }
+  .arb-paginacion__controles { justify-content: space-between; }
 }
+
+.arb-servicios { display: flex; flex-wrap: wrap; gap: 8px 28px; margin: 12px 0 0; }
+.arb-servicios > div { display: flex; flex-direction: column; gap: 2px; }
+.arb-servicios dt { font-size: 13px; font-weight: 700; color: var(--texto-atenuado); }
+.arb-servicios dd { margin: 0; font-variant-numeric: tabular-nums; }

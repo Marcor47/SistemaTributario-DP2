@@ -6,7 +6,8 @@ fecha de corte de hoy. Cada generación queda registrada (RF-059) y se aplican l
 
 ## Acceso
 
-Solo usuarios internos con rol `GERENCIA`, `ANALISTA_RENTAS` o `ADMINISTRADOR`. Se usa la sesión interna:
+Solo usuarios internos con rol `GERENCIA` o `ANALISTA_RENTAS`. El Administrador del Sistema conserva únicamente
+las funciones de administración de usuarios. Se usa la sesión interna:
 
 1. `POST /api/auth/interno/login` con `{"nombreUsuario": "...", "clave": "..."}` devuelve `200` y deja la
    cookie de sesión (el front debe enviar `credentials: 'include'`). En desarrollo: `analista` / `analista123`.
@@ -38,7 +39,7 @@ cada uno. La pantalla debe armar el selector y los filtros con esta respuesta.
     "tipo": "MOROSOS",
     "titulo": "Reporte de morosos",
     "descripcion": "Contribuyentes con cuotas vencidas impagas a la fecha de corte, con su deuda y etapa de cobranza.",
-    "filtros": ["zona", "tributo", "montoMinimo"]
+    "filtros": ["anioDesde", "anioHasta", "zona", "tributo", "regimen", "tipoDocumento", "etapa", "beneficio", "montoMinimo"]
   },
   {
     "tipo": "PRICOS",
@@ -55,10 +56,27 @@ cada uno. La pantalla debe armar el selector y los filtros con esta respuesta.
 ]
 ```
 
+### Catálogo de zonas
+
+```
+GET /api/reportes/zonas?tipo=MOROSOS
+```
+
+Devuelve las zonas disponibles para el tipo de reporte, ya filtradas por las restricciones del rol. La pantalla
+las usa para el selector de zona.
+
+```json
+["Z1", "Z2", "Z3"]
+```
+
+- `tipo` es obligatorio y debe ser `MOROSOS`, `PRICOS` o `BUENOS_PAGADORES`.
+- Si el rol tiene restringido el reporte completo, responde `403` `REPORTE_RESTRINGIDO`.
+- Si SAMNET no responde, responde `503` `SAMNET_NO_DISPONIBLE`.
+
 ## 2. Generar un reporte
 
 ```
-GET /api/reportes/{tipo}?anio=&zona=&tributo=&montoMinimo=
+GET /api/reportes/{tipo}?anio=&anioDesde=&anioHasta=&zona=&tributo=&regimen=&tipoDocumento=&etapa=&beneficio=&montoMinimo=
 ```
 
 `tipo`: `MOROSOS`, `PRICOS` o `BUENOS_PAGADORES` (el `tipo` del catálogo). Todos los filtros son opcionales:
@@ -66,8 +84,14 @@ GET /api/reportes/{tipo}?anio=&zona=&tributo=&montoMinimo=
 | Filtro | Valores | Efecto |
 | --- | --- | --- |
 | `anio` | `2000`-`2100`. Por defecto, el año de la fecha de corte | Año de lo emitido, lo pagado y la puntualidad. **No aplica a morosos**: su deuda es de todos los años. |
+| `anioDesde` | `1900`-`2100` | Año inicial del rango de deuda vencida en morosos. Por defecto `1900`. |
+| `anioHasta` | `1900`-`2100` | Año final del rango. Por defecto el año de la fecha de corte. |
+| `beneficio` | `AMBOS`, `CON_BENEFICIO` o `SIN_BENEFICIO` | Solo morosos: obligaciones con beneficio, sin beneficio o ambas. Por defecto `AMBOS`. |
 | `zona` | `Z1`, `Z2`, ... (se ignoran espacios y mayúsculas) | Solo contribuyentes con algún predio en esa zona. |
 | `tributo` | `IMPUESTO_PREDIAL` o `ARBITRIOS` | Los montos y cuotas se calculan solo con ese tributo. |
+| `regimen` | Texto (máx. 40) | Solo morosos: régimen del contribuyente, sin distinguir mayúsculas. |
+| `tipoDocumento` | `DNI`, `RUC` o `CE` | Solo morosos: tipo de documento del contribuyente. |
+| `etapa` | `MORA_TEMPRANA`, `CAMPANA`, `VALOR_EMITIDO`, `ESPERA_LEGAL` o `COACTIVA` | Solo morosos: etapa más avanzada de su deuda vencida. |
 | `montoMinimo` | Soles, `>= 0` | Mínimo del monto principal: deuda vencida (morosos), monto emitido (PRICOS) o monto pagado (buenos pagadores). |
 
 ### Respuesta 200 (estructura común)
@@ -176,6 +200,17 @@ o anterior) y **no tienen deuda vencida** de ningún año. Orden: mayor monto pa
 - Si el rol tiene restringidas algunas zonas, esas filas ya no llegan. La pantalla no tiene que filtrarlas.
 - Exportar a Excel o PDF no está en esta HU: el registro de la solicitud se guarda con formato `NINGUNO`.
 - Los arbitrios se manejan como un solo tributo (ver `HU005_API.md`).
+
+## Fuente de los datos
+
+El reporte de morosos se calcula **siempre** sobre la última carga publicada de `ps_etl_cobranza`:
+
+- Los montos, cuotas y antigüedad salen de `analitica.hecho_cobranza`.
+- La identidad (nombre, documento, domicilio y contacto) y la etapa de cobranza se completan desde SAMNET usando `maestros.correspondencia_origen`; cada reidentificación queda auditada (RNF-018).
+- Si no hay una carga publicada con hechos, responde `422` `SIN_CARGA_ETL`.
+- Si la carga no tiene correspondencia con SAMNET, responde `422` `ETL_SIN_CORRESPONDENCIA`.
+
+El reporte informa en `fechaCorte` la fecha de la carga usada. El perfil `local` incluye una carga simulada en `db/datos-prueba`; la carga real la produce el proceso ETL.
 
 ## Datos de prueba
 

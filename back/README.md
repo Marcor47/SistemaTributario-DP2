@@ -1,5 +1,8 @@
 # Backend tributario
 
+Para probar el dashboard HU011 y el buzón móvil HU019 con datos incluidos al iniciar el perfil
+`local`, consulta [DEMOSTRACION_LOCAL.md](DEMOSTRACION_LOCAL.md).
+
 ## Portal del contribuyente (HU014, HU022 y HU046)
 
 El contrato corregido de pago total y beneficios de HU022 está en [HU022_API.md](HU022_API.md).
@@ -17,14 +20,15 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 | `GET /api/estado-cuenta/{codigo}` y `/contribuyentes?q=...` | Rutas anteriores: ahora requieren sesión y solo devuelven la cuenta propia. |
 | `POST /api/portal/pagos` | Crear una orden por toda la deuda pendiente con body `{}`. Una lista `obligaciones` opcional solo se acepta si coincide con el conjunto completo. |
 | `GET /api/portal/pagos/{id}` | Consultar el estado del pago propio. |
-| `POST /api/portal/pagos/{id}/confirmacion` | Consultar la pasarela servidor a servidor y registrar el pago autorizado en PostgreSQL. Repetirlo no crea otro pago. |
+| `POST /api/portal/pagos/{id}/confirmacion` | En sandbox, autorizar con el `transactionToken` del checkout servidor a servidor y registrar solo el pago autorizado en PostgreSQL. Repetir una orden ya confirmada no crea otro pago. |
 | `GET /api/portal/solicitudes-predio/requisitos?tipoTramite=REGISTRO&tipoPredio=URBANO` | Consultar los documentos requeridos. |
 | `POST /api/portal/solicitudes-predio` | Enviar formulario multipart con `tipoTramite`, `tipoPredio`, `codigoPredio` opcional, `requisitoIds` y `archivos` en el mismo orden. |
 | `GET /api/portal/solicitudes-predio`, `GET /api/portal/solicitudes-predio/{id}` | Consultar solicitudes propias. |
 | `GET /api/portal/solicitudes-predio/{id}/adjuntos/{idAdjunto}` | Descargar un adjunto de una solicitud propia. |
 
-Los pagos usan `NiubizSimuladoGateway`: quedan identificados como `dePrueba`, no mueven dinero
-real, pero sí actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
+Los pagos usan Niubiz sandbox por defecto; la configuración está en [NIUBIZ_SANDBOX.md](NIUBIZ_SANDBOX.md).
+El simulador requiere `NIUBIZ_MODE=simulado` explícito. Ambos modos se identifican como `dePrueba`,
+no mueven dinero real y actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
 el total pendiente con beneficios asignados explícitamente por SAMNET a cada obligación. Si
 la asignación no se puede verificar, se deriva a ventanilla. Si la deuda o los beneficios cambian
 después de crear la orden, la confirmación devuelve `409 SALDO_CAMBIO`.
@@ -38,6 +42,20 @@ sin esa clave no se aceptan archivos. Genera una clave de desarrollo en PowerShe
 $bytes = New-Object byte[] 32
 [System.Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
 $env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
+```
+
+En Windows PowerShell 5.1 el método `Fill` no existe; usa esta variante:
+
+```powershell
+$bytes = New-Object byte[] 32
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$env:PREDIO_FILES_KEY = [Convert]::ToBase64String($bytes)
+```
+
+`$env:` solo dura en esa terminal. Para conservarla en tu usuario de Windows (abre una terminal nueva después):
+
+```powershell
+[Environment]::SetEnvironmentVariable('PREDIO_FILES_KEY', $env:PREDIO_FILES_KEY, 'User')
 ```
 
 Conserva la misma clave para poder leer los archivos ya guardados. No la subas al repositorio.
@@ -132,8 +150,32 @@ En `frontweb` utiliza `VITE_AUTH_DEMO=false` y el backend con su perfil normal.
 Las claves publicadas aquí son solo para los datos sintéticos de desarrollo;
 excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno real.
 
+### Carga ETL simulada para reportes
+
+El perfil `local` y los tests cargan `db/datos-prueba/R__datos_prueba_10_etl_cobranza.sql`, que simula
+una carga publicada de `ps_etl_cobranza` con fecha de corte `2026-10-19`. Llena `analitica.lote_etl`,
+`dim_contribuyente`, `dim_predio`, `hecho_cobranza` y `maestros.correspondencia_origen` a partir de los
+datos sintéticos de `samnet.*`. Los reportes de morosos y PRICOS se calculan siempre sobre esa carga; la
+carga real la producirá el proceso ETL. El archivo no se aplica en producción porque `db/datos-prueba` no
+está en las ubicaciones de Flyway del perfil normal.
+
 Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
 `tributario.integracion.autenticacion-simulada.documento` y `.clave`.
+
+## Constancia de No Adeudo en local
+
+`GET /api/constancias/deuda` consulta la deuda del contribuyente autenticado y devuelve el total y
+las obligaciones pendientes. Crear o firmar una solicitud requiere una consulta actual con saldo cero.
+El perfil `local` habilita el recorrido simulado de S/ 10.00 con `POST /api/constancias/{id}/orden`,
+`GET /api/constancias/{id}/orden`, `POST /api/constancias/{id}/pago` y
+`POST /api/constancias/{id}/emitir`. Los pasos se controlan en el servidor y la deuda se consulta
+de nuevo antes de cada operación posterior a la firma. El pago se hace solo con la pasarela simulada.
+
+La emisión guarda el PDF y un registro de buzón en PostgreSQL. `GET /api/constancias/buzon` lista
+las constancias propias y `GET /api/constancias/buzon/{id}/descarga` descarga el PDF propio. El
+documento y las firmas son de prueba, sin validez legal; la revisión es automática con un actor
+técnico simulado, no una aprobación real de un operador municipal. La tarifa de prueba se configura
+en `tributario.constancia.demo.derecho` y la funcionalidad está deshabilitada fuera de `local`.
 
 ## Integraciones pendientes
 

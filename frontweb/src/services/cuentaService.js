@@ -1,23 +1,10 @@
-import { FECHA_CORTE, FECHA_CORTE_ANTERIOR, generarCuenta } from '../mocks/cuentas.js'
+import { pedir } from './api.js'
 
-// HU004 sigue con datos ficticios. La búsqueda y los datos de identidad vienen de la API.
-const RETRASO_MS = 250
-const esperar = () => new Promise((r) => setTimeout(r, RETRASO_MS))
-
-// `servicioCaido` solo existe para la demostración del flujo alterno: cuando el
-// servicio de cuenta corriente no responde se devuelve la última información
-// disponible, con su fecha de corte y marcada como desactualizada.
-export async function obtenerEstadoCuenta(contribuyente, { servicioCaido = false } = {}) {
-  await esperar()
+// HU004: estado de cuenta desde SAMNET por la ruta interna del analista. Si SAMNET no responde, el backend entrega
+// la última copia con su fecha de corte y desactualizado = true.
+export async function obtenerEstadoCuenta(contribuyente) {
   if (!contribuyente?.codigo) throw new Error('No se recibió el contribuyente.')
-  const fechaCorte = servicioCaido ? FECHA_CORTE_ANTERIOR : FECHA_CORTE
-  return {
-    contribuyente,
-    fechaCorte,
-    desactualizado: servicioCaido,
-    filas: generarCuenta(contribuyente.codigo, fechaCorte),
-  }
+  return pedir(`/contribuyentes/${encodeURIComponent(contribuyente.codigo)}/estado-cuenta`)
 }
 
 export { obtenerEstadoCuentaPortal, obtenerHistorialPagosPortal } from './portalCuentaService.js'
-

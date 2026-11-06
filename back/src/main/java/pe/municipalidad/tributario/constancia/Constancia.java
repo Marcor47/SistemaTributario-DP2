@@ -49,6 +49,9 @@ public class Constancia {
     @Column(name = "es_de_prueba", nullable = false)
     private boolean esDePrueba;
 
+    @Column(name = "contenido_pdf")
+    private byte[] contenidoPdf;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_trabajador_emisor")
     private Usuario trabajadorEmisor;
@@ -58,7 +61,7 @@ public class Constancia {
 
     public Constancia(String numeroConstancia, SolicitudConstancia solicitud, VersionPlantilla versionPlantilla,
             LocalDateTime fechaEmision, String prediosIncluidos, String rangoFechas, String archivoPdf,
-            boolean esDePrueba, Usuario trabajadorEmisor) {
+            boolean esDePrueba, Usuario trabajadorEmisor, byte[] contenidoPdf) {
         this.numeroConstancia = numeroConstancia;
         this.solicitud = solicitud;
         this.versionPlantilla = versionPlantilla;
@@ -68,6 +71,7 @@ public class Constancia {
         this.archivoPdf = archivoPdf;
         this.esDePrueba = esDePrueba;
         this.trabajadorEmisor = trabajadorEmisor;
+        this.contenidoPdf = contenidoPdf.clone();
     }
 
     public String getNumeroConstancia() {
@@ -96,6 +100,10 @@ public class Constancia {
 
     public String getArchivoPdf() {
         return archivoPdf;
+    }
+
+    public byte[] getContenidoPdf() {
+        return contenidoPdf == null ? null : contenidoPdf.clone();
     }
 
     public boolean isEsDePrueba() {

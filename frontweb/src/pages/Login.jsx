@@ -37,7 +37,7 @@ export default function Login() {
     try {
       await iniciarSesion(codigo.trim(), clave)
       establecerSesion({ tipo: 'contribuyente', usuario: { codigoContribuyente: codigo.trim() } })
-      const destino = ubicacion.state?.from || '/estado-cuenta'
+      const destino = ubicacion.state?.from || '/portal/inicio'
       navegar(destino, { replace: true })
     } catch (err) {
       setError(err.message)

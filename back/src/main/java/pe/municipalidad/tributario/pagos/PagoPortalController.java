@@ -24,7 +24,8 @@ public class PagoPortalController {
     @PostMapping
     public ResponseEntity<PagoRespuesta> iniciar(@RequestBody(required = false) PagoSolicitud solicitud,
             HttpServletRequest request) {
-        PagoRespuesta respuesta = servicio.iniciar(SesionContribuyente.codigoContribuyente(request), solicitud);
+        PagoRespuesta respuesta = servicio.iniciar(SesionContribuyente.codigoContribuyente(request), solicitud,
+                request.getRemoteAddr());
         return ResponseEntity.created(URI.create("/api/portal/pagos/" + respuesta.idTransaccion())).body(respuesta);
     }
 
@@ -34,7 +35,9 @@ public class PagoPortalController {
     }
 
     @PostMapping("/{id}/confirmacion")
-    public PagoRespuesta confirmar(@PathVariable Long id, HttpServletRequest request) {
-        return servicio.confirmar(SesionContribuyente.codigoContribuyente(request), id);
+    public PagoRespuesta confirmar(@PathVariable Long id, @RequestBody(required = false) ConfirmacionPago solicitud,
+            HttpServletRequest request) {
+        return servicio.confirmar(SesionContribuyente.codigoContribuyente(request), id,
+                solicitud == null ? null : solicitud.transactionToken());
     }
 }

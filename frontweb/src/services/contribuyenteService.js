@@ -6,23 +6,26 @@ import { CONTRIBUYENTES } from '../mocks/predios.js'
 // Cambiar a true para volver a usar los datos ficticios cuando la API no esté disponible.
 const USAR_MOCKS_CONTRIBUYENTES = false
 
-// HU001/HU004: coincidencias por documento para el selector de la pantalla.
-// El backend busca de forma parcial; se filtra por tipo y número para no mezclar
-// coincidencias de códigos o nombres que contengan el mismo texto.
+// HU001/HU004/HU048: coincidencias por documento o código para el selector.
+// El backend busca de forma parcial; se filtra por el criterio elegido para no
+// mezclar coincidencias de códigos, documentos o nombres con el mismo texto.
 export async function buscarCoincidencias(tipoDocumento, numeroDocumento) {
   const numero = String(numeroDocumento ?? '').replace(/\s/g, '').toUpperCase()
   if (!numero) return []
+  const coincide = (c) => tipoDocumento === 'CODIGO'
+    ? String(c.codigo).toUpperCase().includes(numero)
+    : c.tipoDoc === tipoDocumento && String(c.doc).toUpperCase().includes(numero)
 
   try {
     const encontrados = await pedir(`/contribuyentes/buscar?q=${encodeURIComponent(numero)}`)
     return encontrados
-      .filter((c) => c.tipoDoc === tipoDocumento && String(c.doc).toUpperCase().includes(numero))
+      .filter(coincide)
       .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
   } catch (err) {
     // Fallback demo: si el backend no tiene sesión o no está disponible, buscar en datos ficticios
     if (USAR_MOCKS_CONTRIBUYENTES && (MODO_DEMO || err.estado === 401 || err.codigo === 'SIN_CONEXION')) {
       return CONTRIBUYENTES
-        .filter((c) => c.tipoDoc === tipoDocumento && String(c.doc).toUpperCase().includes(numero))
+        .filter(coincide)
         .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
     }
     throw err

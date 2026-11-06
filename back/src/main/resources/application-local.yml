@@ -1,6 +1,8 @@
 spring:
+  config:
+    import: optional:file:./back/.niubiz-sandbox-local.properties,optional:file:./.niubiz-sandbox-local.properties
   flyway:
-    locations: classpath:db/migration,classpath:db/datos-prueba
+    locations: classpath:db/migration,classpath:db/datos-prueba,classpath:db/datos-demo
 
 server:
   servlet:
@@ -9,6 +11,12 @@ server:
         secure: false
 
 tributario:
+  indicadores:
+    morosidad:
+      calcular-al-iniciar: true
+  constancia:
+    demo:
+      habilitado: true
+      derecho: 10.00
   seguridad:
-    # frontweb (Vite) y frontmobile en navegador (Expo web)
     cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:8081}

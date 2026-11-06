@@ -6,6 +6,14 @@ export const icono = (children) => (
 
 export const MODULOS = [
   {
+    ruta: '/portal/inicio',
+    texto: 'Inicio',
+    titulo: 'Bienvenido a Servicios en Línea',
+    descripcion: 'Accede a tus consultas y trámites municipales desde un solo lugar.',
+    seccion: 'portal',
+    icono: icono(<><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></>),
+  },
+  {
     ruta: '/estado-cuenta',
     texto: 'Estado de cuenta',
     titulo: 'Mi estado de cuenta',
@@ -35,12 +43,20 @@ export const MODULOS = [
     icono: icono(<><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M12 15.5v.01" /></>),
   },
   {
+    ruta: '/gestion/inicio',
+    texto: 'Inicio',
+    titulo: 'Panel de inicio institucional',
+    descripcion: 'Accede a los módulos y herramientas autorizadas según tu rol institucional.',
+    seccion: 'gestion',
+    icono: icono(<><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></>),
+  },
+  {
     ruta: '/dashboard',
     texto: 'Dashboard',
     titulo: 'Dashboard de Rentas',
-    descripcion: 'Revisa las alertas activas por desvío de meta y apoya la toma de decisiones de la Gerencia de Rentas.',
+    descripcion: 'Consulta recaudación, morosidad, metas y segmentos por periodo, zona y tributo.',
     seccion: 'gestion',
-    permiso: 'ALERTAS:CONSULTAR',
+    permiso: 'DASHBOARD:CONSULTAR',
     icono: icono(
       <>
         <rect x="3" y="3" width="7" height="9" rx="1" />
@@ -72,7 +88,7 @@ export const MODULOS = [
     ruta: '/contribuyentes',
     texto: 'Contribuyentes',
     titulo: 'Consulta de contribuyentes',
-    descripcion: 'Busca por documento o nombre y revisa la ficha, el estado de cuenta y la regularidad de pago.',
+    descripcion: 'Busca por código o documento y revisa la ficha, el estado de cuenta, los pagos y beneficios del contribuyente.',
     seccion: 'gestion',
     permiso: 'CONTRIBUYENTES:CONSULTAR',
     icono: icono(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></>),
@@ -123,6 +139,15 @@ export const MODULOS = [
     icono: icono(<><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></>),
   },
   {
+    ruta: '/reportes',
+    texto: 'Reportes',
+    titulo: 'Reportes tributarios',
+    descripcion: 'Genera reportes de morosos, principales contribuyentes y buenos pagadores con la información disponible a la fecha de corte.',
+    seccion: 'gestion',
+    permiso: 'REPORTES:CONSULTAR',
+    icono: icono(<><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /><path d="M4 6l6-3 6 6 5-4" /></>),
+  },
+  {
     ruta: '/morosidad',
     texto: 'Morosidad',
     titulo: 'Índice de Morosidad',
@@ -131,9 +156,18 @@ export const MODULOS = [
     permiso: 'INDICADORES:CONSULTAR',
     icono: icono(<><path d="M3 3v18h18" /><path d="M18 8l-6 6-3-3-5 5" /></>),
   },
+  {
+    ruta: '/resumen-ejecutivo',
+    texto: 'Resumen ejecutivo',
+    titulo: 'Resumen ejecutivo con IA',
+    descripcion: 'Genera el resumen del periodo con un modelo local a partir de los indicadores calculados, revísalo y descárgalo.',
+    seccion: 'gestion',
+    permiso: 'INDICADORES:CONSULTAR',
+    icono: icono(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>),
+  },
 ]
 
 export function rutaInicialGestion(sesion) {
-  return MODULOS.find((modulo) => modulo.seccion === 'gestion' && sesion?.permisos?.includes(modulo.permiso))?.ruta
-    || '/gestion/sin-acceso'
+  if (!sesion) return '/gestion/login'
+  return '/gestion/inicio'
 }

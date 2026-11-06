@@ -51,6 +51,20 @@ public class VistaReporte {
     @Column(name = "columnas_visibles", nullable = false, columnDefinition = "text")
     private String columnasVisibles;
 
+    /* Columnas del detalle en su orden, en JSON. */
+    @Column(name = "columnas_detalle_visibles", columnDefinition = "text")
+    private String columnasDetalleVisibles;
+
+    /* Orden completo de todas las columnas, incluidas las ocultas, en JSON. */
+    @Column(name = "orden_columnas", columnDefinition = "text")
+    private String ordenColumnas;
+
+    @Column(name = "orden_columnas_detalle", columnDefinition = "text")
+    private String ordenColumnasDetalle;
+
+    @Column(name = "series", columnDefinition = "text")
+    private String series;
+
     @Column(name = "orden", length = 250)
     private String orden;
 
@@ -61,22 +75,53 @@ public class VistaReporte {
     }
 
     public VistaReporte(TipoReporte tipoReporte, Usuario usuario, String nombre, TipoGrafica tipoGrafica,
-            String filtros, String columnasVisibles, String orden, LocalDateTime fechaCreacion) {
+            String filtros, String columnasVisibles, String columnasDetalleVisibles, String ordenColumnas,
+            String ordenColumnasDetalle, String series, String orden, LocalDateTime fechaCreacion) {
         this.tipoReporte = tipoReporte;
         this.usuario = usuario;
         this.nombre = nombre;
         this.tipoGrafica = tipoGrafica;
         this.filtros = filtros;
         this.columnasVisibles = columnasVisibles;
+        this.columnasDetalleVisibles = columnasDetalleVisibles;
+        this.ordenColumnas = ordenColumnas;
+        this.ordenColumnasDetalle = ordenColumnasDetalle;
+        this.series = series;
         this.orden = orden;
         this.fechaCreacion = fechaCreacion;
     }
 
-    public void actualizar(TipoGrafica tipoGrafica, String filtros, String columnasVisibles, String orden) {
-        this.tipoGrafica = tipoGrafica;
-        this.filtros = filtros;
-        this.columnasVisibles = columnasVisibles;
+    public void actualizar(String nombre, TipoGrafica tipoGrafica, String filtros, String columnasVisibles,
+            String columnasDetalleVisibles, String ordenColumnas, String ordenColumnasDetalle, String series, String orden) {
+        if (nombre != null && !nombre.isBlank()) {
+            this.nombre = nombre;
+        }
+        if (tipoGrafica != null) {
+            this.tipoGrafica = tipoGrafica;
+        }
+        if (filtros != null) {
+            this.filtros = filtros;
+        }
+        if (columnasVisibles != null) {
+            this.columnasVisibles = columnasVisibles;
+        }
+        if (columnasDetalleVisibles != null) {
+            this.columnasDetalleVisibles = columnasDetalleVisibles;
+        }
+        if (ordenColumnas != null) {
+            this.ordenColumnas = ordenColumnas;
+        }
+        if (ordenColumnasDetalle != null) {
+            this.ordenColumnasDetalle = ordenColumnasDetalle;
+        }
+        if (series != null) this.series = series;
         this.orden = orden;
+    }
+
+    public void actualizar(TipoGrafica tipoGrafica, String filtros, String columnasVisibles,
+            String columnasDetalleVisibles, String ordenColumnas, String ordenColumnasDetalle, String series, String orden) {
+        actualizar(null, tipoGrafica, filtros, columnasVisibles, columnasDetalleVisibles, ordenColumnas,
+                ordenColumnasDetalle, series, orden);
     }
 
     public boolean perteneceA(Usuario otro) {
@@ -109,6 +154,22 @@ public class VistaReporte {
 
     public String getColumnasVisibles() {
         return columnasVisibles;
+    }
+
+    public String getColumnasDetalleVisibles() {
+        return columnasDetalleVisibles;
+    }
+
+    public String getOrdenColumnas() {
+        return ordenColumnas;
+    }
+
+    public String getOrdenColumnasDetalle() {
+        return ordenColumnasDetalle;
+    }
+
+    public String getSeries() {
+        return series;
     }
 
     public String getOrden() {

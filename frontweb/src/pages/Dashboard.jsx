@@ -1,146 +1,136 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import BarraFiltros from '../components/dashboard/BarraFiltros.jsx'
 import CardsNumericos from '../components/dashboard/CardsNumericos.jsx'
-import CardsPrincipales from '../components/dashboard/CardsPrincipales.jsx'
-import PanelAlertasDesvio from '../components/dashboard/PanelAlertasDesvio.jsx'
-import SkeletonAlertas from '../components/dashboard/SkeletonAlertas.jsx'
-import { listarAlertasDesvio } from '../services/alertaDesvioService.js'
-import { listarIndicadores } from '../services/metaService.js'
-import { fecha } from '../utils/formato.js'
-import { filtrarAlertasDelPeriodo, resumirAlertas } from '../utils/alertas.js'
+import AlertasDashboard from './AlertasDashboard.jsx'
+import { obtenerDashboard, obtenerFiltrosDashboard } from '../services/dashboardService.js'
+import { useSesionInterna } from '../context/sesionInterna.js'
+import { fecha, moneda } from '../utils/formato.js'
+import { formatearPorcentaje, formatearValorIndicador } from '../utils/alertas.js'
 import './Dashboard.css'
 
-const FILTROS_INICIALES = { indicadorCodigo: '' }
+const INICIALES = { anio: '', numeroPeriodo: '', zona: '', idSegmento: '', tributo: '' }
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
-export default function Dashboard() {
-  const [indicadores, setIndicadores] = useState([])
-  const [filtros, setFiltros] = useState(FILTROS_INICIALES)
+export default function DashboardEjecutivo() {
+  const { sesion } = useSesionInterna()
+  const [filtros, setFiltros] = useState(INICIALES)
   const [revision, setRevision] = useState(0)
-  const [estado, setEstado] = useState({ cargando: true, alertas: [], error: null })
-
-  useEffect(() => {
-    let activo = true
-    listarIndicadores()
-      .then((resultado) => { if (activo) setIndicadores(Array.isArray(resultado) ? resultado : []) })
-      .catch(() => { if (activo) setIndicadores([]) })
-    return () => { activo = false }
-  }, [])
-
+  const [estado, setEstado] = useState({ cargando: true, datos: null, opciones: null, error: null })
   useEffect(() => {
     const controlador = new AbortController()
-    listarAlertasDesvio({ signal: controlador.signal })
-      .then((alertas) => {
-        if (!controlador.signal.aborted) {
-          setEstado({ cargando: false, alertas: Array.isArray(alertas) ? alertas : [], error: null })
-        }
-      })
-      .catch((error) => {
-        if (!controlador.signal.aborted) setEstado({ cargando: false, alertas: [], error })
-      })
+    Promise.all([
+      obtenerDashboard(filtros, { signal: controlador.signal }),
+      obtenerFiltrosDashboard({ signal: controlador.signal }),
+    ]).then(([datos, opciones]) => {
+      if (!controlador.signal.aborted) setEstado({ cargando: false, datos, opciones, error: null })
+    }).catch((error) => {
+      if (!controlador.signal.aborted) setEstado((anterior) => ({ ...anterior, cargando: false, datos: null, error }))
+    })
     return () => controlador.abort()
-  }, [revision])
+  }, [filtros, revision])
 
-  function cambiarFiltro(campo, valor) {
-    setFiltros((actual) => ({ ...actual, [campo]: valor }))
+  function cambiar(campo, valor) {
+    setEstado((anterior) => ({ ...anterior, cargando: true, error: null }))
+    setFiltros((anterior) => ({ ...anterior, [campo]: valor }))
   }
-
   function actualizar(evento) {
     evento?.preventDefault()
-    setEstado({ cargando: true, alertas: [], error: null })
-    setRevision((actual) => actual + 1)
+    setEstado((anterior) => ({ ...anterior, cargando: true, error: null }))
+    setRevision((valor) => valor + 1)
   }
-
-  const alertasVigentes = filtrarAlertasDelPeriodo(estado.alertas)
-  const alertasConcluidas = estado.alertas.length - alertasVigentes.length
-  const alertasVisibles = filtros.indicadorCodigo
-    ? alertasVigentes.filter((alerta) => alerta.indicadorCodigo === filtros.indicadorCodigo)
-    : alertasVigentes
-  const { total, indicadores: indicadoresEnDesvio, ultimaCorte } = resumirAlertas(alertasVisibles)
-
-  const metricas = [
-    {
-      id: 'alertas',
-      etiqueta: 'Alertas vigentes',
-      valor: total,
-      detalle: total === 1 ? 'Indicador fuera de meta' : 'Indicadores fuera de meta',
-    },
-    {
-      id: 'indicadores',
-      etiqueta: 'Indicadores en desvío',
-      valor: indicadoresEnDesvio,
-      detalle: 'Con meta configurada y umbral superado',
-    },
-    {
-      id: 'corte',
-      etiqueta: 'Corte de las alertas',
-      valor: ultimaCorte ? fecha(ultimaCorte) : '—',
-      detalle: 'Fecha de corte de las alertas mostradas',
-      variante: 'fecha',
-    },
-  ]
-
-  const mensajeVacio = estado.alertas.length === 0
-    ? 'No hay alertas de desvío registradas. Cuando una carga publicada deje un indicador fuera de su meta, aparecerá aquí.'
-    : filtros.indicadorCodigo
-      ? 'El indicador seleccionado no tiene alertas en el periodo vigente. Las alertas de periodos concluidos no se muestran en el dashboard.'
-      : `No hay alertas de desvío en el periodo vigente.${alertasConcluidas > 0 ? ` Se omitieron ${alertasConcluidas} ${alertasConcluidas === 1 ? 'alerta' : 'alertas'} de periodos concluidos.` : ''}`
+  const { datos, opciones, cargando, error } = estado
+  const resumen = datos?.resumen
+  const metricas = resumen ? [
+    { id: 'recaudado', etiqueta: 'Recaudación', valor: moneda(resumen.montoRecaudado), detalle: `${formatearPorcentaje(resumen.porcentajeRecaudacion)} de la emisión` },
+    { id: 'emitido', etiqueta: 'Monto emitido', valor: moneda(resumen.montoEmitido), detalle: `Obligaciones exigibles al ${fecha(datos.fechaCorte)}` },
+    { id: 'morosidad', etiqueta: 'Índice de morosidad', valor: formatearPorcentaje(resumen.indiceMorosidad), detalle: `${moneda(resumen.montoVencidoNoPagado)} vencidos sin pagar` },
+  ] : []
 
   return (
-    <div className="dashboard" aria-busy={estado.cargando}>
+    <div className="dashboard" aria-busy={cargando}>
       <div className="dashboard-filtros-sticky">
-        <BarraFiltros
-          filtros={filtros}
-          indicadores={indicadores}
-          onCambiarFiltro={cambiarFiltro}
-          onActualizar={actualizar}
-          cargando={estado.cargando}
-        />
+        <form className="filters dashboard-filtros dashboard-filtros--ejecutivo" onSubmit={actualizar} aria-label="Filtrar dashboard ejecutivo">
+          <Filtro campo="anio" titulo="Año" valor={filtros.anio} onCambiar={cambiar}>
+            <option value="">Última carga</option>
+            {opciones?.anios.map((anio) => <option key={anio} value={anio}>{anio}</option>)}
+          </Filtro>
+          <Filtro campo="numeroPeriodo" titulo="Periodo" valor={filtros.numeroPeriodo} onCambiar={cambiar}>
+            <option value="">Según corte</option>
+            {MESES.map((mes, i) => <option key={mes} value={i + 1}>{mes}</option>)}
+          </Filtro>
+          <Filtro campo="zona" titulo="Zona" valor={filtros.zona} onCambiar={cambiar}>
+            <option value="">Todas</option>
+            {opciones?.zonas.map((zona) => <option key={zona}>{zona}</option>)}
+          </Filtro>
+          <Filtro campo="idSegmento" titulo="Segmento" valor={filtros.idSegmento} onCambiar={cambiar}>
+            <option value="">Todos</option>
+            {opciones?.segmentos.map((s) => <option key={s.idSegmento} value={s.idSegmento}>{s.nombre}</option>)}
+          </Filtro>
+          <Filtro campo="tributo" titulo="Tributo" valor={filtros.tributo} onCambiar={cambiar}>
+            <option value="">Todos</option>
+            {opciones?.tributos.map((t) => <option key={t.codigo} value={t.codigo}>{t.descripcion}</option>)}
+          </Filtro>
+          <button className="btn primary" disabled={cargando}>{cargando ? 'Consultando…' : 'Actualizar'}</button>
+        </form>
       </div>
-
       <div className="dashboard-contenido">
-        {estado.error && (
-          <div className="alert" role="alert">
-            <strong>No se pudieron consultar las alertas de desvío.</strong>
-            <p>{estado.error.message || 'Ocurrió un error inesperado. Intenta nuevamente.'}</p>
-            {estado.error.detalles?.length > 0 && (
-              <ul>{estado.error.detalles.map((detalle) => <li key={detalle}>{detalle}</li>)}</ul>
-            )}
-            <button className="btn" type="button" onClick={actualizar}>Reintentar</button>
+        {cargando && <CardsNumericos cargando />}
+        {!cargando && error && <section className="pcard" role="status">
+          <h2>{error.codigo === 'SIN_CARGA_ETL' ? 'Aún no hay una carga publicada' : 'No se pudo consultar el dashboard'}</h2>
+          <p>{error.message}</p><button className="btn" onClick={actualizar}>Reintentar</button>
+        </section>}
+        {!cargando && datos && <>
+          <p className="dashboard-nota">Periodo: <strong>{datos.periodo}</strong> · Última carga: <strong>{fecha(datos.fechaCorteCarga)}</strong> · Corte de consulta: <strong>{fecha(datos.fechaCorte)}</strong></p>
+          <CardsNumericos metricas={metricas} />
+          {Number(resumen.montoEmitido) === 0 && <p role="status" className="dashboard-nota">No hay obligaciones exigibles para los filtros seleccionados. Los porcentajes sin base se muestran como «—».</p>}
+          <div className="dashboard-rejilla">
+            <section className="pcard">
+              <h2>Recaudación frente a emisión</h2>
+              <Barras filas={[
+                { nombre: 'Emisión', valor: resumen.montoEmitido },
+                { nombre: 'Recaudación', valor: resumen.montoRecaudado },
+              ]} formato={moneda} />
+            </section>
+            <section className="pcard">
+              <h2>Avance frente a metas</h2>
+              {datos.avanceMetas.length === 0 && <p className="hint">No hay metas comparables para este periodo y combinación de filtros.</p>}
+              {datos.avanceMetas.map((meta) => <div className="dashboard-meta" key={meta.indicadorCodigo}>
+                <strong>{meta.indicador}</strong>
+                <p>{formatearValorIndicador(meta.valorObservado, meta.unidadMedida)} / meta {formatearValorIndicador(meta.valorMeta, meta.unidadMedida)}</p>
+                <p className="hint">{formatearPorcentaje(meta.porcentajeAvance)} del valor meta · {meta.cumpleMeta == null ? 'Sin valor observado' : meta.cumpleMeta ? 'Meta cumplida' : 'Meta pendiente'}</p>
+                {meta.sentido === 'DESCENDENTE' && <p className="hint">Un valor menor indica mejor resultado.</p>}
+              </div>)}
+            </section>
+            <section className="pcard">
+              <h2>Recaudación por tributo</h2>
+              <Barras filas={datos.porTributo.map((t) => ({ nombre: t.descripcion, valor: t.montoRecaudado }))} formato={moneda} />
+            </section>
+            <section className="pcard">
+              <h2>Distribución por segmento</h2>
+              <Barras filas={datos.porSegmento.map((s) => ({ nombre: s.nombre, valor: s.contribuyentes }))} formato={(n) => `${n} contribuyentes`} />
+              <p className="hint">Incluye solo asignaciones a segmentos publicados.</p>
+            </section>
           </div>
-        )}
-
-        {estado.cargando && (
-          <>
-            <CardsNumericos cargando />
-            <SkeletonAlertas />
-          </>
-        )}
-
-        {!estado.cargando && !estado.error && alertasVisibles.length === 0 && (
-          <section className="pcard dashboard-vacio" role="status">
-            <h2>{estado.alertas.length === 0 ? 'Sin alertas de desvío' : 'Sin alertas en el periodo vigente'}</h2>
-            <p>{mensajeVacio}</p>
-            <div className="dashboard-vacio__acciones">
-              <button className="btn" type="button" onClick={actualizar}>Actualizar</button>
-              <Link className="btn" to="/metas">Revisar metas</Link>
-            </div>
+          <section className="pcard"><h2>Resultados por zona</h2>
+            <div className="dashboard-tabla"><table><thead><tr><th>Zona</th><th>Emitido</th><th>Recaudado</th><th>Recaudación / emisión</th><th>Morosidad</th></tr></thead><tbody>
+              {datos.porZona.map((z) => <tr key={z.zona}><th scope="row">{z.zona}</th><td>{moneda(z.montoEmitido)}</td><td>{moneda(z.montoRecaudado)}</td><td>{formatearPorcentaje(z.porcentajeRecaudacion)}</td><td>{formatearPorcentaje(z.indiceMorosidad)}</td></tr>)}
+            </tbody></table></div>
           </section>
-        )}
-
-        {!estado.cargando && !estado.error && alertasVisibles.length > 0 && (
-          <>
-            <CardsNumericos metricas={metricas} />
-            <CardsPrincipales>
-              <PanelAlertasDesvio
-                alertas={alertasVisibles}
-                total={total}
-                alertasConcluidas={alertasConcluidas}
-              />
-            </CardsPrincipales>
-          </>
-        )}
+        </>}
       </div>
+      {sesion?.permisos?.includes('ALERTAS:CONSULTAR') && <details className="dashboard-alertas"><summary>Alertas de desvío de metas · periodo vigente</summary><AlertasDashboard /></details>}
     </div>
   )
+}
+
+function Filtro({ campo, titulo, valor, onCambiar, children }) {
+  return <div className="fld"><label htmlFor={`ejecutivo-${campo}`}>{titulo}</label><select id={`ejecutivo-${campo}`} value={valor} onChange={(e) => onCambiar(campo, e.target.value)}>{children}</select></div>
+}
+
+function Barras({ filas, formato }) {
+  const maximo = Math.max(0, ...filas.map((f) => Number(f.valor)))
+  if (filas.length === 0) return <p className="hint">No hay datos para los filtros seleccionados.</p>
+  return <ul className="dashboard-barras">{filas.map((fila) => <li key={fila.nombre}>
+    <div><span>{fila.nombre}</span><strong>{formato(fila.valor)}</strong></div>
+    <div className="dashboard-barra" aria-hidden="true"><span style={{ width: `${maximo ? Number(fila.valor) / maximo * 100 : 0}%` }} /></div>
+  </li>)}</ul>
 }
