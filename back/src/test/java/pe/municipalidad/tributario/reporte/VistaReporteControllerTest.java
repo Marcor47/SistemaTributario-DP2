@@ -71,7 +71,7 @@ class VistaReporteControllerTest {
                   "nombre": "Morosos Zona 2 con Arbitrios",
                   "tipoGrafica": "BARRAS",
                   "filtros": {
-                    "zona": "Z2",
+                    "zona": "Maranga",
                     "tributo": "ARBITRIOS",
                     "montoMinimo": 1000
                   },
@@ -92,7 +92,7 @@ class VistaReporteControllerTest {
                 .andExpect(jsonPath("$.tipoReporte").value("MOROSOS"))
                 .andExpect(jsonPath("$.nombre").value("Morosos Zona 2 con Arbitrios"))
                 .andExpect(jsonPath("$.tipoGrafica").value("BARRAS"))
-                .andExpect(jsonPath("$.filtros.zona").value("Z2"))
+                .andExpect(jsonPath("$.filtros.zona").value("Maranga"))
                 .andExpect(jsonPath("$.filtros.tributo").value("ARBITRIOS"))
                 .andExpect(jsonPath("$.filtros.montoMinimo").value(1000))
                 .andExpect(jsonPath("$.columnasVisibles", contains("codigo", "nombre", "deudaVencida", "nombreEtapa")))
@@ -365,7 +365,7 @@ class VistaReporteControllerTest {
 
         byte[] contenido = mvc.perform(get("/api/reportes/MOROSOS/exportar")
                         .param("formato", "EXCEL")
-                        .param("zona", "Z2")
+                        .param("zona", "Maranga")
                         .param("tributo", "ARBITRIOS")
                         .session(sesion))
                 .andExpect(status().isOk())

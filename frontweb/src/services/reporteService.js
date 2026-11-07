@@ -23,6 +23,11 @@ export function generarReportePricos({ criterio, limite }, { signal } = {}) {
   return pedir(`/reportes/pricos${consulta}`, { signal }).catch(controlarSesion)
 }
 
+// Tributos y años con cuotas emitidas en la BD: opciones de los filtros de tributo y año.
+export function obtenerOpcionesReporte({ signal } = {}) {
+  return pedir('/reportes/opciones', { signal }).catch(controlarSesion)
+}
+
 export function listarZonas(tipo, { signal } = {}) {
   return pedir(`/reportes/zonas?tipo=${encodeURIComponent(tipo)}`, { signal }).catch(controlarSesion)
 }

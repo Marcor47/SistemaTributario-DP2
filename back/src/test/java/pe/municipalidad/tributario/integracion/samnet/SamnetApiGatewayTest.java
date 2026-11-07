@@ -62,7 +62,7 @@ class SamnetApiGatewayTest {
 
     @Test
     void listaLasZonasDeLosPredios() {
-        assertThat(samnet.obtenerZonas()).containsExactly("Z1", "Z2", "Z3");
+        assertThat(samnet.obtenerZonas()).containsExactly("Costanera", "Maranga", "Pando");
     }
 
     @Test
@@ -115,7 +115,7 @@ class SamnetApiGatewayTest {
     void registraUnPredioNuevoConSuTitular() {
         Predio nuevo = new Predio(null, "150136-010-001", "Av. Libertad 500, San Miguel", "Vivienda",
                 TipoPredio.URBANO, new BigDecimal("100.00"), new BigDecimal("150000.00"), LocalDate.of(2026, 9, 1),
-                null, "Z1", List.of(new Titularidad("014502", "PROPIETARIO", new BigDecimal("100"))));
+                null, "Costanera", List.of(new Titularidad("014502", "PROPIETARIO", new BigDecimal("100"))));
 
         String codigo = samnet.registrarPredio(nuevo, "014502");
 

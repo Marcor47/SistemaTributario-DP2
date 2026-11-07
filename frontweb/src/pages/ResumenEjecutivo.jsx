@@ -1,13 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { descargarResumen, generarResumen, marcarRevisado } from '../services/resumenEjecutivoService.js'
+import { obtenerPeriodosMorosidad } from '../services/morosidadService.js'
 import {
   ETIQUETAS_ESTADO, MAXIMO_PALABRAS, MESES, armarPeriodo, contarPalabras, formatoPeriodo, formatoValor,
   verificarCifras,
 } from '../utils/resumenEjecutivo.js'
 import './ConsultasTributarias.css'
 import './ResumenEjecutivo.css'
-
-const ANIOS = Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - i)
 
 // El navegador guarda el archivo; no se envía nada a ningún servidor.
 function guardarArchivo({ nombreArchivo, contenido }) {
@@ -20,7 +19,23 @@ function guardarArchivo({ nombreArchivo, contenido }) {
 }
 
 export default function ResumenEjecutivo() {
-  const [filtros, setFiltros] = useState({ anio: String(ANIOS[0]), mes: '' })
+  const [filtros, setFiltros] = useState({ anio: '', mes: '' })
+  const [periodos, setPeriodos] = useState([])
+
+  // Solo se ofrecen los periodos con indicadores calculados en una carga publicada.
+  useEffect(() => {
+    const controlador = new AbortController()
+    obtenerPeriodosMorosidad({ signal: controlador.signal })
+      .then((lista) => {
+        if (controlador.signal.aborted) return
+        setPeriodos(lista)
+        setFiltros((actual) => (actual.anio || !lista.length ? actual : { anio: String(lista[0].anio), mes: '' }))
+      })
+      .catch(() => { if (!controlador.signal.aborted) setPeriodos([]) })
+    return () => controlador.abort()
+  }, [])
+
+  const mesesDelAnio = periodos.find((periodo) => String(periodo.anio) === filtros.anio)?.meses ?? []
   const [resumen, setResumen] = useState(null)
   const [trabajando, setTrabajando] = useState(null) // 'generar' | 'revisar' | 'descargar'
   const [error, setError] = useState(null)
@@ -60,14 +75,14 @@ export default function ResumenEjecutivo() {
         <div className="fld">
           <label htmlFor="resumen-anio">Año</label>
           <select id="resumen-anio" value={filtros.anio} onChange={(e) => setFiltros({ anio: e.target.value, mes: '' })}>
-            {ANIOS.map((anio) => <option key={anio}>{anio}</option>)}
+            {periodos.map(({ anio }) => <option key={anio}>{anio}</option>)}
           </select>
         </div>
         <div className="fld">
           <label htmlFor="resumen-mes">Mes</label>
           <select id="resumen-mes" value={filtros.mes} onChange={(e) => setFiltros({ ...filtros, mes: e.target.value })} required>
             <option value="">Elige el mes</option>
-            {MESES.map((mes, i) => <option key={mes} value={i + 1}>{mes}</option>)}
+            {mesesDelAnio.map((mes) => <option key={mes} value={mes}>{MESES[mes - 1]}</option>)}
           </select>
         </div>
         <button className="btn primary" type="submit" disabled={trabajando !== null || !filtros.mes}>
@@ -90,13 +105,6 @@ export default function ResumenEjecutivo() {
       )}
 
       {resumen && <>
-        {resumen.demo && (
-          <div className="info" role="note">
-            <strong>Datos ficticios de demostración.</strong> El servicio de resúmenes no está disponible: este texto no lo
-            generó el modelo de lenguaje y no se guarda en el servidor.
-          </div>
-        )}
-
         <section className="pcard" aria-labelledby="resumen-titulo">
           <div className="consulta-cabecera">
             <div>

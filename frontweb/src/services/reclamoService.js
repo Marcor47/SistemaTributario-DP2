@@ -1,21 +1,10 @@
 import { pedir } from './api.js'
-import { MODO_DEMO } from './authService.js'
-import { RECLAMOS_DEMO } from '../mocks/reclamos.js'
-import { aFechaHoraLocal, validarReclamo } from '../utils/reclamos.js'
+import { validarReclamo } from '../utils/reclamos.js'
 
 // HU050 / RF-064: registro y seguimiento de reclamos.
 //   POST /api/reclamos        { tipoReclamo, referencia, fechaHoraIncidente, comentario } -> reclamo creado
 //   GET  /api/reclamos/mios   -> reclamos del usuario autenticado, con su estado y sus derivaciones
 // El tipo de reclamante (CONTRIBUYENTE o TRABAJADOR) lo toma el servidor de la sesión, no del cuerpo.
-let reclamosDemo = RECLAMOS_DEMO.map(copiar)
-
-function copiar(reclamo) {
-  return { ...reclamo, derivaciones: reclamo.derivaciones.map((d) => ({ ...d })) }
-}
-
-const esperar = () => new Promise((resolve) => setTimeout(resolve, 250))
-const usarDatosDemo = () => MODO_DEMO
-
 async function obtenerCsrf() {
   const token = await pedir('/auth/interno/csrf')
   return { [token.headerName]: token.token, 'Content-Type': 'application/json' }
@@ -29,22 +18,16 @@ async function enviarProtegido(ruta, cuerpo = null) {
   })
 }
 
-export function reiniciarReclamosDemo() {
-  reclamosDemo = RECLAMOS_DEMO.map(copiar)
-}
-
-// Devuelve { reclamos, demo }; demo indica que los datos son ficticios y no se guardan en el servidor.
-export async function listarMisReclamos(demo = usarDatosDemo()) {
-  if (!demo) return { reclamos: await pedir('/reclamos/mios'), demo: false }
-  await esperar()
-  return { reclamos: reclamosDemo.map(copiar), demo: true }
+// Reclamos del usuario autenticado, leídos siempre del servidor.
+export async function listarMisReclamos() {
+  return { reclamos: await pedir('/reclamos/mios') }
 }
 
 // Orden descendente por fecha de registro, como se espera ver "lo último primero".
 export const ordenarReclamos = (reclamos) =>
   [...reclamos].sort((a, b) => String(b.fechaRegistro).localeCompare(String(a.fechaRegistro)))
 
-export async function registrarReclamo(datos, demo, reclamante = 'TRABAJADOR', ahora = new Date()) {
+export async function registrarReclamo(datos, reclamante = 'TRABAJADOR', ahora = new Date()) {
   const errores = validarReclamo(datos, reclamante, ahora)
   if (Object.keys(errores).length > 0) {
     throw Object.assign(new Error('Revisa los datos del reclamo.'), { codigo: 'RECLAMO_INVALIDO', errores })
@@ -58,23 +41,7 @@ export async function registrarReclamo(datos, demo, reclamante = 'TRABAJADOR', a
     comentario: datos.comentario.trim(),
   }
 
-  if (!demo) return pedir('/reclamos', { method: 'POST', headers: await obtenerCsrf(), body: JSON.stringify(cuerpo) })
-
-  await esperar()
-  const siguiente = reclamosDemo.reduce((mayor, r) => Math.max(mayor, r.idReclamo), 0) + 1
-  const creado = {
-    idReclamo: siguiente,
-    numeroReclamo: `REC-${ahora.getFullYear()}-${String(siguiente).padStart(6, '0')}`,
-    tipoReclamante: reclamante,
-    ...cuerpo,
-    estado: 'ENVIADO',
-    fechaRegistro: `${aFechaHoraLocal(ahora)}:00`,
-    respuesta: null,
-    fechaRespuesta: null,
-    derivaciones: [],
-  }
-  reclamosDemo = [creado, ...reclamosDemo]
-  return copiar(creado)
+  return pedir('/reclamos', { method: 'POST', headers: await obtenerCsrf(), body: JSON.stringify(cuerpo) })
 }
 
 export const cancelarReclamo = (idReclamo) => enviarProtegido(`/reclamos/mios/${idReclamo}/cancelar`)

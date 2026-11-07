@@ -169,14 +169,14 @@ export default function Constancia() {
       {cargando && <p className="hint" role="status">Comprobando la sesión…</p>}
       {sinSesion && <div className="alert" role="alert">Inicia sesión con tu cuenta de contribuyente para continuar. <Link to="/login">Ir al inicio de sesión</Link>.</div>}
       {error && <div className="alert" role="alert">{error}</div>}
-      {sesion?.esDemo && <div className="info" role="note">Sesión de demostración: esta solicitud y su firma son ficticias y solo se guardan en este navegador.</div>}
 
       {sesion && !cargando && (
         <>
           <section className="pcard">
             <h2>Tu solicitud</h2>
             <p className="hint">Contribuyente: <strong>{sesion.codigoContribuyente}</strong>. Solo puedes consultar y firmar solicitudes de tu cuenta.</p>
-            {(!solicitud || solicitudCerrada) && <button className="btn primary" type="button" onClick={nuevaSolicitud} disabled={ocupado}>{ocupado ? 'Creando…' : 'Iniciar nueva solicitud'}</button>}
+            {/* Una solicitud ya firmada no bloquea iniciar otra: el servidor decide si se permite (SOLICITUD_EN_CURSO). */}
+            {(!solicitud || solicitudCerrada || !pendienteFirma) && <button className="btn primary" type="button" onClick={nuevaSolicitud} disabled={ocupado}>{ocupado ? 'Creando…' : 'Iniciar nueva solicitud'}</button>}
             {solicitud && (
               <div className="constancia-resumen">
                 <div><span>Número</span><strong>{solicitud.idSolicitud}</strong></div>
@@ -207,7 +207,7 @@ export default function Constancia() {
                   </div>
                   {vistaPrevia && <pre className="constancia-vista">{vistaPrevia}</pre>}
                   {documento.documentoDePrueba && <button className="btn primary" type="button" onClick={firmarDePrueba} disabled={ocupado}>Firmar en modo de prueba</button>}
-                  {!sesion.esDemo && <form className="constancia-firma" onSubmit={firmarConArchivo}>
+                  <form className="constancia-firma" onSubmit={firmarConArchivo}>
                     <h3>Enviar una firma y certificado</h3>
                     <p className="hint">Si cuentas con una firma generada para este documento, adjunta el archivo de firma y la información del certificado.</p>
                     <div className="fld">
@@ -219,7 +219,7 @@ export default function Constancia() {
                       <textarea id="certificado-firma" value={certificado} onChange={(evento) => setCertificado(evento.target.value)} maxLength={16384} disabled={ocupado} required />
                     </div>
                     <button className="btn" type="submit" disabled={ocupado}>Enviar firma</button>
-                  </form>}
+                  </form>
                 </>
               )}
             </section>

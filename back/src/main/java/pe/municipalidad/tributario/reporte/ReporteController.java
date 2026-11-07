@@ -57,6 +57,11 @@ public class ReporteController {
         return servicio.catalogo(sesion.conRol(request, ROLES_REPORTES));
     }
 
+    @GetMapping("/opciones")
+    public ReporteService.OpcionesReporte opciones(HttpServletRequest request) {
+        return servicio.opciones(sesion.conRol(request, ROLES_REPORTES));
+    }
+
     @GetMapping("/zonas")
     public List<String> zonas(@RequestParam TipoReporte tipo, HttpServletRequest request) {
         return servicio.zonas(tipo, sesion.conRol(request, ROLES_REPORTES));

@@ -67,7 +67,7 @@ class PersonalizacionReporteControllerTest {
                 .andExpect(jsonPath("$.filtros[?(@.nombre == 'anioHasta')].tipo", contains("ANIO")))
                 .andExpect(jsonPath("$.filtros[?(@.nombre == 'anioHasta')].minimo", contains(1900)))
                 .andExpect(jsonPath("$.filtros[?(@.nombre == 'anioHasta')].maximo", contains(2026)))
-                .andExpect(jsonPath("$.filtros[?(@.nombre == 'zona')].valores[*]", contains("Z1", "Z2", "Z3")))
+                .andExpect(jsonPath("$.filtros[?(@.nombre == 'zona')].valores[*]", contains("Costanera", "Maranga", "Pando")))
                 .andExpect(jsonPath("$.filtros[?(@.nombre == 'tributo')].valores[*]",
                         contains("IMPUESTO_PREDIAL", "ARBITRIOS")))
                 .andExpect(jsonPath("$.filtros[?(@.nombre == 'beneficio')].valores[*]",
@@ -106,11 +106,11 @@ class PersonalizacionReporteControllerTest {
 
     @Test
     void lasZonasOfrecidasRespetanLaRestriccionDelRol() throws Exception {
-        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Z2");
+        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Maranga");
 
         mvc.perform(get("/api/reportes/MOROSOS/opciones-visualizacion").session(sesion(NombreRol.GERENCIA, "g_op_zona")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filtros[?(@.nombre == 'zona')].valores[*]", contains("Z1", "Z3")));
+                .andExpect(jsonPath("$.filtros[?(@.nombre == 'zona')].valores[*]", contains("Costanera", "Pando")));
     }
 
     @Test
@@ -139,7 +139,7 @@ class PersonalizacionReporteControllerTest {
                 {
                   "nombre": "Morosos en líneas",
                   "tipoGrafica": "LINEAS",
-                  "filtros": { "anioDesde": 2024, "anioHasta": 2026, "zona": "Z1", "beneficio": "SIN_BENEFICIO" },
+                  "filtros": { "anioDesde": 2024, "anioHasta": 2026, "zona": "Costanera", "beneficio": "SIN_BENEFICIO" },
                   "columnasVisibles": ["codigo", "nombre", "deudaSinBeneficio"],
                   "series": ["montoSinBeneficio", "montoSinBeneficio"]
                 }
@@ -239,10 +239,10 @@ class PersonalizacionReporteControllerTest {
 
     @Test
     void zonaRestringidaAlRolDevuelve403() throws Exception {
-        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Z2");
+        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Maranga");
 
         guardar("MOROSOS", sesion(NombreRol.GERENCIA, "g_zona"), """
-                { "nombre": "Zona 2", "filtros": { "zona": "Z2" }, "columnasVisibles": ["codigo"] }
+                { "nombre": "Zona 2", "filtros": { "zona": "Maranga" }, "columnasVisibles": ["codigo"] }
                 """)
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.codigo").value("ZONA_RESTRINGIDA"));

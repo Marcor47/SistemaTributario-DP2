@@ -140,6 +140,44 @@ class IndiceMorosidadControllerTest {
     }
 
     @Test
+    void losPeriodosDelFiltroSonLosQueTienenIndicePublicado() throws Exception {
+        calcular(loteConMuestraDeControl(true)).andExpect(status().isOk());
+        calcular(loteConMuestraDeControl(false)).andExpect(status().isOk());
+
+        mockMvc.perform(get(RUTA + "/periodos"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].anio").value(2026))
+                .andExpect(jsonPath("$[0].numeroPeriodo").value(10));
+    }
+
+    @Test
+    void enEneroSinCuotasVencidasDelAnioSeMideElEjercicioAnterior() throws Exception {
+        LocalDate corteEnero = LocalDate.of(2026, 1, 31);
+        LoteETL lote = new LoteETL("ps_etl_cobranza", corteEnero, TipoEjecucion.PROGRAMADA, corteEnero.atTime(2, 0));
+        lote.publicar(3, 3, corteEnero.atTime(2, 5));
+        lotes.saveAndFlush(lote);
+        jdbc.update("INSERT INTO analitica.dim_contribuyente (seudonimo_contribuyente, tipo_persona) "
+                + "VALUES ('SEUD-CONTROL-HU008', 'NATURAL') ON CONFLICT DO NOTHING");
+        long predio = predio("SEUD-PREDIO-HU008-1", "Z01");
+        cuota(lote, predio, "IMPUESTO_PREDIAL", 2025, 4, "2025-11-28", "400", "100", "VENCIDA");
+        cuota(lote, predio, "ARBITRIOS", 2025, 12, "2025-12-31", "100", "0", "PAGADA");
+        cuota(lote, predio, "ARBITRIOS", 2026, 1, "2026-02-27", "60", "60", "PENDIENTE");
+
+        calcular(lote)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.periodo").value("2026-01"))
+                .andExpect(jsonPath("$.anioCuotas").value(2025))
+                .andExpect(jsonPath("$.total.montoEmitido").value(500.0))
+                .andExpect(jsonPath("$.total.indice").value(20.0));
+
+        mockMvc.perform(get(RUTA).param("anio", "2026").param("numeroPeriodo", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.anioCuotas").value(2025))
+                .andExpect(jsonPath("$.total.montoVencidoNoPagado").value(100.0));
+    }
+
+    @Test
     void recalcularElMismoLoteActualizaLosValoresSinDuplicarlos() throws Exception {
         LoteETL lote = loteConMuestraDeControl(true);
         calcular(lote);

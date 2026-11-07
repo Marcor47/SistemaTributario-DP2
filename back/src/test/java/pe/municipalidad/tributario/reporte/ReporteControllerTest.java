@@ -86,7 +86,7 @@ class ReporteControllerTest {
                 .andExpect(jsonPath("$.filas[0].tipoDocumento").value("RUC"))
                 .andExpect(jsonPath("$.filas[0].numeroDocumento").value("20456781239"))
                 .andExpect(jsonPath("$.filas[0].domicilioFiscal").value("Jr. Los Precursores 220, San Miguel"))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2", "Z3")))
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Costanera", "Maranga", "Pando")))
                 /* Predial: 3.ª y 4.ª cuota de 2025 (2 x S/ 8 723,75) y 3 cuotas de 2026 (3 x S/ 9 237,50). */
                 .andExpect(jsonPath("$.filas[0].deudaVencida").value(61046.00))
                 .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(159))
@@ -149,12 +149,12 @@ class ReporteControllerTest {
     @Test
     void morososPorZonaTributoYMontoMinimo() throws Exception {
         MockHttpSession gerencia = sesion(NombreRol.GERENCIA);
-        mvc.perform(get("/api/reportes/MOROSOS").param("zona", " z2 ").param("tributo", "ARBITRIOS")
+        mvc.perform(get("/api/reportes/MOROSOS").param("zona", " maranga ").param("tributo", "ARBITRIOS")
                         .session(gerencia))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.filtrosAplicados.zona").value("Z2"))
+                .andExpect(jsonPath("$.filtrosAplicados.zona").value("maranga"))
                 .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "058934", "061177")))
-                /* Arbitrios de sus 4 predios de Z2, de agosto de 2025 a setiembre de 2026. */
+                /* Arbitrios de sus 4 predios de Maranga, de agosto de 2025 a setiembre de 2026. */
                 .andExpect(jsonPath("$.filas[0].deudaVencida").value(6230.90))
                 .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(56))
                 .andExpect(jsonPath("$.filas[1].deudaVencida").value(600.84));
@@ -232,7 +232,7 @@ class ReporteControllerTest {
                 /* 014502 pagó todo 2026 por adelantado: 3 cuotas de predial y 18 de arbitrios ya exigibles. */
                 .andExpect(jsonPath("$.filas[0].cuotasPagadasATiempo").value(21))
                 .andExpect(jsonPath("$.filas[0].pagadoAnio").value(2500.32))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2")))
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Costanera", "Maranga")))
                 .andExpect(jsonPath("$.resumen.montoTotal").value(2972.40));
     }
 
@@ -247,7 +247,7 @@ class ReporteControllerTest {
 
     @Test
     void laRestriccionPorZonaDelRolQuitaEsasFilas() throws Exception {
-        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Z2");
+        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Maranga");
 
         mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
@@ -258,16 +258,24 @@ class ReporteControllerTest {
     void elCatalogoDeZonasDevuelveLasZonasDisponibles() throws Exception {
         mvc.perform(get("/api/reportes/zonas").param("tipo", "MOROSOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", contains("Z1", "Z2", "Z3")));
+                .andExpect(jsonPath("$", contains("Costanera", "Maranga", "Pando")));
+    }
+
+    @Test
+    void lasOpcionesDeTributoYAnioSalenDeLasCuotasEmitidas() throws Exception {
+        mvc.perform(get("/api/reportes/opciones").session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.tributos", contains("IMPUESTO_PREDIAL", "ARBITRIOS")))
+                .andExpect(jsonPath("$.anios", contains(2026, 2025)));
     }
 
     @Test
     void elCatalogoDeZonasRespetaLaRestriccionDelRol() throws Exception {
-        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Z2");
+        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.ZONA, "Maranga");
 
         mvc.perform(get("/api/reportes/zonas").param("tipo", "MOROSOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", contains("Z1", "Z3")));
+                .andExpect(jsonPath("$", contains("Costanera", "Pando")));
     }
 
     @Test
@@ -290,7 +298,7 @@ class ReporteControllerTest {
 
     @Test
     void cadaGeneracionQuedaRegistradaConSusFiltros() throws Exception {
-        mvc.perform(get("/api/reportes/PRICOS").param("zona", "Z1").session(sesion(NombreRol.GERENCIA)))
+        mvc.perform(get("/api/reportes/PRICOS").param("zona", "Costanera").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk());
 
         List<String> filtros = jdbc.queryForList("SELECT s.filtros_aplicados FROM operativo.solicitud_reporte s"
@@ -298,7 +306,7 @@ class ReporteControllerTest {
                 + " WHERE u.nombre_usuario = 'usuario_gerencia' AND s.tipo_reporte = 'PRICOS'"
                 + " AND s.formato_exportacion = 'NINGUNO'", String.class);
         assertThat(filtros).hasSize(1);
-        assertThat(filtros.getFirst()).contains("\"anio\":2026").contains("\"zona\":\"Z1\"");
+        assertThat(filtros.getFirst()).contains("\"anio\":2026").contains("\"zona\":\"Costanera\"");
     }
 
     @Test

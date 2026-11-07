@@ -66,6 +66,22 @@ class FeatureTests {
     }
 
     @Test
+    void retirarUnFormularioLoQuitaDelCatalogoYConservaSusVersiones() {
+        byte[] pdf = "%PDF-1.4\nretiro".getBytes(StandardCharsets.US_ASCII);
+        FormularioService.Resumen publicado = formularios.publicar("FORM_RETIRO", "Formulario a retirar",
+                "Descripción del formulario", "retiro.pdf", pdf);
+        assertEquals("Descripción del formulario", publicado.descripcion());
+        assertEquals("PDF", publicado.formato());
+
+        formularios.retirar("FORM_RETIRO");
+
+        assertTrue(formularios.vigentes().stream().noneMatch(f -> f.codigo().equals("FORM_RETIRO")));
+        assertEquals(1, repository.findByPlantillaCodigo("FORM_RETIRO").size());
+        assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
+                () -> formularios.retirar("FORM_RETIRO")).getStatusCode());
+    }
+
+    @Test
     void publicaNuevaVersionYConservaHistorial() {
         byte[] primera = "%PDF-1.4\nprimera".getBytes(StandardCharsets.US_ASCII);
         byte[] segunda = "%PDF-1.4\nsegunda".getBytes(StandardCharsets.US_ASCII);

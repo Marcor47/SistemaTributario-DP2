@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { obtenerRegularidad, tieneDatosRegularidad } from '../services/regularidadService.js'
+import { obtenerRegularidad } from '../services/regularidadService.js'
 import { fecha, moneda } from '../utils/formato.js'
 
 function FichaRegularidad({ ficha, ocupado, onAnio }) {
@@ -12,7 +12,7 @@ function FichaRegularidad({ ficha, ocupado, onAnio }) {
     <>
       <section className="pcard" aria-label="Ficha del contribuyente">
         <h2>{contribuyente.nombre}</h2>
-        <p className="hint">Código {contribuyente.codigo} · {contribuyente.tipoDoc} {contribuyente.doc}</p>
+        <p className="hint">Código {contribuyente.codigo}{contribuyente.tipoDoc ? ` · ${contribuyente.tipoDoc} ${contribuyente.doc}` : ''}</p>
         <p className="corte"><strong>Fecha de corte:</strong> {fecha(ficha.fechaCorte)}</p>
         <div className="fld selector-anio">
           <label htmlFor="anio-regularidad">Año de la regularidad</label>
@@ -32,7 +32,7 @@ function FichaRegularidad({ ficha, ocupado, onAnio }) {
             {porcentaje !== null && (
               <progress className="barra-regularidad" max="100" value={porcentaje} aria-label={`Regularidad de pago: ${valor}`} />
             )}
-            <span className="hint">{ficha.aTiempo} de {ficha.emitidas} cuotas emitidas</span>
+            <span className="hint">{ficha.aTiempo} de {ficha.exigibles} cuotas vencidas ({ficha.emitidas} emitidas en el año)</span>
           </div>
           <div><span className="pl">Pagadas con atraso</span><strong>{ficha.conAtraso}</strong></div>
           <div className={ficha.vencidasSinPagar ? 'deuda' : ''}><span className="pl">Vencidas sin pagar</span><strong>{ficha.vencidasSinPagar}</strong></div>
@@ -44,8 +44,9 @@ function FichaRegularidad({ ficha, ocupado, onAnio }) {
           <li className="regularidad-baja"><span aria-hidden="true" />Baja: menos de 50 %</li>
         </ul>
         <p className="hint formula-regularidad">
-          Cuotas pagadas hasta su fecha de vencimiento ÷ cuotas emitidas del año × 100.
-          Se cuenta cada tributo y cuota por separado. Pagar después del vencimiento no cuenta como pago a tiempo.
+          Cuotas pagadas hasta su fecha de vencimiento ÷ cuotas del año que ya vencieron × 100.
+          Se cuenta cada tributo y cuota por separado. Pagar después del vencimiento no cuenta como pago a tiempo,
+          y una cuota que aún no vence no cuenta en contra.
         </p>
       </section>
 
@@ -80,38 +81,29 @@ export default function RegularidadPago({ contribuyente }) {
   const [ocupado, setOcupado] = useState(true)
   const [error, setError] = useState('')
   const solicitud = useRef(0)
-  const disponible = tieneDatosRegularidad(contribuyente.codigo)
 
   useEffect(() => {
-    if (!disponible) return undefined
     let activo = true
-    obtenerRegularidad(contribuyente.codigo)
+    obtenerRegularidad(contribuyente)
       .then((resultado) => { if (activo) setFicha(resultado) })
       .catch(() => { if (activo) setError('No se pudo consultar la regularidad. Intenta nuevamente.') })
       .finally(() => { if (activo) setOcupado(false) })
     return () => { activo = false }
-  }, [contribuyente.codigo, disponible])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contribuyente.codigo])
 
   async function cargarFicha(anio) {
     const actual = ++solicitud.current
     setOcupado(true)
     setError('')
     try {
-      const resultado = await obtenerRegularidad(contribuyente.codigo, anio)
+      const resultado = await obtenerRegularidad(contribuyente, anio)
       if (actual === solicitud.current) setFicha(resultado)
     } catch {
       if (actual === solicitud.current) setError('No se pudo obtener el indicador. Intenta nuevamente.')
     } finally {
       if (actual === solicitud.current) setOcupado(false)
     }
-  }
-
-  if (!disponible) {
-    return (
-      <div className="info" role="status">
-        No hay información de regularidad de pago disponible para este contribuyente en la demostración.
-      </div>
-    )
   }
 
   return (

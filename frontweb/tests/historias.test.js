@@ -1,96 +1,97 @@
 import assert from 'node:assert/strict'
-import { Buffer } from 'node:buffer'
-import { readFile } from 'node:fs/promises'
 import test from 'node:test'
-import { generarCuenta } from '../src/mocks/cuentas.js'
-import { calcularRegularidad, generarRegularidad } from '../src/mocks/regularidad.js'
-import { FORMULARIOS } from '../src/mocks/formularios.js'
-import { obtenerRegularidad, tieneDatosRegularidad } from '../src/services/regularidadService.js'
-import { descargarFormulario, obtenerFormularios } from '../src/services/formularioService.js'
+import { normalizarRegularidad, obtenerRegularidad } from '../src/services/regularidadService.js'
+import {
+  agregarFormulario, descargarFormulario, eliminarFormulario, obtenerFormularios, tipoDeCodigo,
+} from '../src/services/formularioService.js'
 
-test('HU010: cuenta pagos anticipados y al vencimiento, y conserva cuotas futuras en el denominador', () => {
-  const filas = [
-    { id: 'anticipada', periodo: '2026-T1', tributo: 'Predial', emitido: 100, pagado: 100, fechaVencimiento: '2026-03-31', fechaPago: '2026-03-25' },
-    { id: 'puntual', periodo: '2026-T1', tributo: 'Limpieza', emitido: 100, pagado: 100, fechaVencimiento: '2026-03-31', fechaPago: '2026-03-31' },
-    { id: 'atrasada', periodo: '2026-T1', tributo: 'Parques', emitido: 100, pagado: 100, fechaVencimiento: '2026-03-31', fechaPago: '2026-04-02' },
-    { id: 'impaga', periodo: '2026-T2', tributo: 'Predial', emitido: 100, pagado: 0, fechaVencimiento: '2026-06-30', fechaPago: null },
-    { id: 'futura', periodo: '2026-T4', tributo: 'Predial', emitido: 100, pagado: 0, fechaVencimiento: '2026-12-31', fechaPago: null },
-    { id: 'otro-anio', periodo: '2025-T1', tributo: 'Predial', emitido: 100, pagado: 100, fechaVencimiento: '2025-03-31', fechaPago: '2025-03-31' },
-  ]
-  const resultado = calcularRegularidad(filas, 2026, '2026-10-19')
-  assert.equal(resultado.emitidas, 5)
-  assert.equal(resultado.aTiempo, 2)
-  assert.equal(resultado.porcentaje, 40)
-  assert.equal(resultado.conAtraso, 1)
-  assert.equal(resultado.vencidasSinPagar, 1)
-  assert.equal(resultado.porVencer, 1)
-  assert.equal(filas[0].estado, undefined, 'El cálculo no modifica las cuotas de origen')
-})
+const json = (cuerpo, estado = 200) => new Response(JSON.stringify(cuerpo), { status: estado })
 
-test('HU010: un pago parcial o posterior a la fecha de corte no cuenta como cuota pagada a tiempo', () => {
-  const resultado = calcularRegularidad([
-    { id: 'parcial', periodo: '2026-T1', tributo: 'Predial', emitido: 100, pagado: 50, fechaVencimiento: '2026-03-31', fechaPago: '2026-03-01' },
-    { id: 'posterior', periodo: '2026-T4', tributo: 'Predial', emitido: 100, pagado: 100, fechaVencimiento: '2026-12-31', fechaPago: '2026-12-01' },
-  ], 2026, '2026-10-19')
-  assert.equal(resultado.aTiempo, 0)
-  assert.equal(resultado.porcentaje, 0)
-})
+/* HU010: la regularidad la calcula el backend; el front solo la presenta. */
+const regularidad = {
+  codigoContribuyente: '033218', nombreContribuyente: 'RAMOS QUISPE, VÍCTOR HUGO', anio: 2025,
+  totalCuotasEmitidas: 3, cuotasExigibles: 2, cuotasPagadasATiempo: 1, cuotasPagadasConAtraso: 1,
+  cuotasPendientesOVencidas: 0, porcentajeRegularidad: 50, segmentoSugerido: 'IRREGULAR', observacion: '1 de 2',
+  fechaCorte: '2025-10-19', aniosDisponibles: [2026, 2025],
+  cuotas: [
+    { idObligacion: 1, periodo: '2025-01', tributo: 'ARBITRIOS', fechaVencimiento: '2025-02-28', fechaPago: '2025-02-20', emitido: 40, estado: 'A_TIEMPO' },
+    { idObligacion: 2, periodo: '2025-03', tributo: 'ARBITRIOS', fechaVencimiento: '2025-03-31', fechaPago: '2025-04-10', emitido: 40, estado: 'CON_ATRASO' },
+    { idObligacion: 3, periodo: '2025-12', tributo: 'ARBITRIOS', fechaVencimiento: '2025-12-31', fechaPago: null, emitido: 40, estado: 'POR_VENCER' },
+  ],
+}
 
-test('HU010: diferencia un año sin cuotas de una regularidad de cero', () => {
-  assert.equal(generarRegularidad('033218', 2024).porcentaje, null)
-  assert.equal(generarRegularidad('021390', 2026).porcentaje, 0)
-  assert.equal(generarRegularidad('033218', 2026).porcentaje, 50)
-  assert.equal(generarRegularidad('014502', 2026).porcentaje, 100)
-})
-
-test('HU010: un contribuyente real sin datos ficticios no rompe la ficha', () => {
-  assert.equal(tieneDatosRegularidad('072405'), false)
-  assert.equal(tieneDatosRegularidad('072845'), true)
-  assert.deepEqual(generarCuenta('072405', '2026-10-19'), [])
-})
-
-test('HU010: el servicio devuelve la ficha correcta y valida contribuyente y año', async () => {
-  const ficha = await obtenerRegularidad('033218', 2025)
+test('HU010: la ficha usa los años, totales y cuotas que devuelve el servidor', () => {
+  const ficha = normalizarRegularidad(regularidad, { codigo: '033218', tipoDoc: 'DNI', doc: '09215430' })
+  assert.deepEqual(ficha.aniosDisponibles, [2026, 2025])
+  assert.equal(ficha.porcentaje, 50)
+  assert.equal(ficha.exigibles, 2)
+  assert.equal(ficha.porVencer, 1)
+  assert.deepEqual(ficha.cuotas.map((c) => c.estado), ['A tiempo', 'Con atraso', 'Por vencer'])
+  assert.equal(ficha.cuotas[0].tributo, 'Arbitrios Municipales')
   assert.equal(ficha.contribuyente.doc, '09215430')
+})
+
+test('HU010: un año sin cuotas vencidas no se muestra como regularidad cero', () => {
+  const ficha = normalizarRegularidad({ ...regularidad, cuotasExigibles: 0, porcentajeRegularidad: 0 }, { codigo: '033218' })
+  assert.equal(ficha.porcentaje, null)
+})
+
+test('HU010: consulta el endpoint real con el año elegido', async (t) => {
+  const urls = []
+  t.mock.method(globalThis, 'fetch', async (url) => { urls.push(String(url)); return json(regularidad) })
+  const ficha = await obtenerRegularidad({ codigo: '033218' }, 2025)
+  assert.ok(urls[0].endsWith('/contribuyentes/033218/regularidad?anio=2025'))
   assert.equal(ficha.anio, 2025)
-  assert.equal(ficha.emitidas, 8)
-  await assert.rejects(obtenerRegularidad('inexistente'), /No se encontró/)
-  await assert.rejects(obtenerRegularidad('033218', 2030), /año solicitado/)
 })
 
-test('HU049: el catálogo publica una sola versión vigente por documento y permite buscar sin tildes', async () => {
+/* HU049: el catálogo de formularios vive en la BD. */
+const catalogo = [
+  { codigo: 'FO-002', nombre: 'Declaración Jurada de Predio', version: 3, fechaPublicacion: '2026-10-15T14:00:00Z',
+    descripcion: 'Datos del predio.', formato: 'Word (.docx)', archivo: 'FO-002-v3.docx' },
+  { codigo: 'PL-001', nombre: 'Constancia de No Adeudo', version: 2, fechaPublicacion: '2026-10-19T14:00:00Z',
+    descripcion: null, formato: 'Word (.docx)', archivo: 'PL-001-v2.docx' },
+]
+
+test('HU049: el catálogo se lee del servidor y permite buscar sin tildes', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => json(catalogo))
   const documentos = await obtenerFormularios()
-  assert.equal(documentos.length, 4)
-  assert.equal(new Set(documentos.map((item) => item.codigo)).size, 4)
-  const constancia = documentos.find((item) => item.codigo === 'PL-001')
-  assert.equal(constancia.version, 2)
-  assert.equal(constancia.fechaPublicacion, '2026-10-19')
+  assert.equal(documentos.length, 2)
+  assert.equal(documentos.find((d) => d.codigo === 'PL-001').tipo, 'Plantilla')
+  assert.equal(documentos.find((d) => d.codigo === 'FO-002').fechaPublicacion, '2026-10-15')
   assert.equal((await obtenerFormularios('declaracion jurada'))[0].codigo, 'FO-002')
-  assert.equal((await obtenerFormularios('PL-001')).length, 1)
   assert.deepEqual(await obtenerFormularios('documento inexistente'), [])
+  assert.equal(tipoDeCodigo('FO-010'), 'Formulario')
 })
 
-test('HU049: una nueva publicación sustituye a la anterior y bloquea su descarga', async () => {
-  const constancia = FORMULARIOS.find((item) => item.codigo === 'PL-001')
-  constancia.versiones.push({ numero: 3, fechaPublicacion: '2026-10-21', archivo: 'constancia-no-adeudo-v3.docx' })
-  try {
-    const [vigente] = await obtenerFormularios('PL-001')
-    assert.equal(vigente.version, 3)
-    assert.equal(vigente.fechaPublicacion, '2026-10-21')
-    await assert.rejects(descargarFormulario('PL-001', 2), /La versión cambió/)
-    assert.equal(constancia.versiones[0].fechaPublicacion, '2026-09-01', 'Se conserva el registro de publicaciones anteriores')
-  } finally {
-    constancia.versiones.pop()
-  }
+test('HU049: solo se descarga la versión vigente', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (url) => (String(url).endsWith('/descarga')
+    ? new Response(new Blob(['PK']), { status: 200 })
+    : json(catalogo)))
+  const { nombre } = await descargarFormulario('PL-001', 2)
+  assert.equal(nombre, 'PL-001-v2.docx')
+  await assert.rejects(descargarFormulario('PL-001', 1), /La versión cambió/)
   await assert.rejects(descargarFormulario('inexistente', 1), /no está disponible/)
 })
 
-test('HU049: cada versión vigente tiene un archivo Word descargable', async () => {
-  for (const documento of FORMULARIOS) {
-    const vigente = documento.versiones.at(-1)
-    const archivo = await readFile(new URL(`../public/formularios/${vigente.archivo}`, import.meta.url))
-    assert.equal(archivo.subarray(0, 2).toString(), 'PK')
-    assert.ok(archivo.includes(Buffer.from('[Content_Types].xml')))
-    assert.ok(archivo.includes(Buffer.from('word/document.xml')))
-  }
+test('HU049: publicar asigna el siguiente código y envía el archivo con CSRF', async (t) => {
+  const envios = []
+  t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
+    const ruta = String(url)
+    if (ruta.endsWith('/auth/interno/csrf')) return json({ headerName: 'X-XSRF-TOKEN', token: 't' })
+    if (opciones.method === 'POST') {
+      envios.push(opciones)
+      return json({ ...catalogo[0], codigo: opciones.body.get('codigo'), nombre: opciones.body.get('nombre'), version: 1 }, 201)
+    }
+    if (opciones.method === 'DELETE') { envios.push(opciones); return new Response(null, { status: 204 }) }
+    return json(catalogo)
+  })
+  const archivo = new File(['PK'], 'nueva.docx')
+  const nuevo = await agregarFormulario({ nombre: 'Nueva solicitud', tipo: 'Formulario', descripcion: '', archivo })
+  assert.equal(nuevo.codigo, 'FO-003')
+  assert.equal(envios[0].headers['X-XSRF-TOKEN'], 't')
+  assert.equal(envios[0].body.get('archivo').name, 'nueva.docx')
+  await eliminarFormulario('FO-003')
+  assert.equal(envios[1].method, 'DELETE')
+  await assert.rejects(agregarFormulario({ nombre: 'X', tipo: 'Formulario', descripcion: '', archivo: new File(['x'], 'a.txt') }),
+    /Word \(.docx\) o PDF/)
 })

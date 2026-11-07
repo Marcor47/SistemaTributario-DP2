@@ -232,7 +232,7 @@ class ReportePricosControllerTest {
         Long idPredio = jdbc.queryForObject("""
                 INSERT INTO analitica.dim_predio
                     (seudonimo_predio, zona, uso_predio, tipo_predio, base_imponible)
-                VALUES ('pricos-predio-sin-correspondencia', 'Z1', 'Comercio', 'URBANO', 99999999.00)
+                VALUES ('pricos-predio-sin-correspondencia', 'Costanera', 'Comercio', 'URBANO', 99999999.00)
                 RETURNING id_predio
                 """, Long.class);
         jdbc.update("""

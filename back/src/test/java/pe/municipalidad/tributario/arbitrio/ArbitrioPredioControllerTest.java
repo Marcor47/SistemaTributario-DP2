@@ -42,7 +42,7 @@ class ArbitrioPredioControllerTest {
     private SamnetGateway samnet;
 
     /*
-     * 021390-01: comercio de 420 m² en la zona Z2. Arbitrios 2025 por mes: barrido 16,20 + recolección 41,50 x 2,10
+     * 021390-01: comercio de 420 m² en la zona Maranga. Arbitrios 2025 por mes: barrido 16,20 + recolección 41,50 x 2,10
      * (área / 200 m²) = 87,15 + parques 10,80 + serenazgo 34,20 = 148,35; en 2026 se reajustan 3 %: 152,82.
      * Pagó hasta julio de 2025; de agosto de 2025 a setiembre de 2026 están vencidas y octubre a diciembre pendientes.
      */

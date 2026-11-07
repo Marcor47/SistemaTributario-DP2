@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { descargarResumen, generarResumen, marcarRevisado } from '../src/services/resumenEjecutivoService.js'
-import { INDICADORES_DEMO, redactarResumenDemo } from '../src/mocks/resumenEjecutivo.js'
 import {
-  MAXIMO_PALABRAS, armarPeriodo, contarPalabras, esPeriodoValido, formatoPeriodo, formatoValor, nombreArchivo,
+  armarPeriodo, contarPalabras, esPeriodoValido, formatoPeriodo, formatoValor, nombreArchivo,
   verificarCifras,
 } from '../src/utils/resumenEjecutivo.js'
 
-const indicadores = INDICADORES_DEMO['2026-10']
+const indicadores = [
+  { codigo: 'INDICE_MOROSIDAD', nombre: 'Índice de morosidad', valor: 14.8, unidad: 'PORCENTAJE' },
+  { codigo: 'PORC_RECAUDACION_EMISION', nombre: 'Recaudación respecto de la emisión', valor: 72, unidad: 'PORCENTAJE' },
+]
 const sinConexion = () => { throw new TypeError('fetch failed') }
 const json = (cuerpo, estado = 200) => new Response(JSON.stringify(cuerpo), { status: estado })
 
@@ -44,16 +46,6 @@ test('HU017: los montos en soles también se verifican', () => {
   assert.equal(verificarCifras('Se recaudó S/ 900.10 en el mes.', montos)[0].respaldada, false)
 })
 
-test('HU017: el texto de demostración tiene menos de 300 palabras y todas sus cifras tienen respaldo', () => {
-  for (const [periodo, valores] of Object.entries(INDICADORES_DEMO)) {
-    const texto = redactarResumenDemo(formatoPeriodo(periodo), valores)
-    assert.ok(contarPalabras(texto) <= MAXIMO_PALABRAS)
-    const cifras = verificarCifras(texto, valores)
-    assert.equal(cifras.length, valores.length)
-    assert.ok(cifras.every((cifra) => cifra.respaldada))
-  }
-})
-
 test('HU017: los valores se muestran con dos decimales y el símbolo de porcentaje', () => {
   assert.match(formatoValor({ valor: 14.8, unidad: 'PORCENTAJE' }), /^14[.,]80 %$/)
   assert.equal(formatoValor({ valor: null, unidad: 'PORCENTAJE' }), 'No disponible')
@@ -71,7 +63,6 @@ test('HU017: genera el resumen en el servidor con el periodo elegido', async (t)
   assert.ok(pedidos[0].url.endsWith('/resumenes-ejecutivos'))
   assert.deepEqual(pedidos[0].cuerpo, { periodo: '2026-10' })
   assert.equal(resumen.idResumen, 7)
-  assert.equal(resumen.demo, false)
 })
 
 test('HU017: un periodo mal formado no llega al servidor', async (t) => {
@@ -85,35 +76,27 @@ test('HU017: los errores del servidor distintos de «no disponible» se conserva
   await assert.rejects(generarResumen('2026-10'), { codigo: 'SIN_INDICADORES', estado: 422 })
 })
 
-test('HU017: sin conexión usa datos ficticios y avisa que lo son', async (t) => {
+test('HU017: sin conexión se informa el error; no se inventa un resumen', async (t) => {
   t.mock.method(globalThis, 'fetch', sinConexion)
-  const resumen = await generarResumen('2026-10', new Date('2026-11-03T09:00:00Z'))
-  assert.equal(resumen.demo, true)
-  assert.equal(resumen.estado, 'GENERADO')
-  assert.equal(resumen.periodo, '2026-10')
-  assert.equal(resumen.fechaGeneracion, '2026-11-03T09:00:00')
-  assert.equal(resumen.indicadoresUsados.length, 3)
+  await assert.rejects(generarResumen('2026-10'), { codigo: 'SIN_CONEXION' })
 })
 
-test('HU017: un periodo sin indicadores calculados no genera resumen', async (t) => {
-  t.mock.method(globalThis, 'fetch', sinConexion)
+test('HU017: si el servicio aún no existe en el servidor se avisa que no está disponible', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => json({ codigo: 'RUTA_NO_ENCONTRADA', mensaje: 'La ruta no existe.' }, 404))
+  await assert.rejects(generarResumen('2026-10'), { codigo: 'SERVICIO_NO_DISPONIBLE', estado: 404 })
+})
+
+test('HU017: un periodo sin indicadores calculados conserva el error del servidor', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => json({ codigo: 'PERIODO_SIN_INDICADORES', mensaje: 'Sin indicadores.' }, 422))
   await assert.rejects(generarResumen('2020-01'), { codigo: 'PERIODO_SIN_INDICADORES', estado: 422 })
 })
 
-test('HU017: no se descarga un resumen sin revisar y sí uno revisado', async (t) => {
-  t.mock.method(globalThis, 'fetch', sinConexion)
-  const generado = await generarResumen('2026-09')
-  await assert.rejects(descargarResumen(generado), { codigo: 'RESUMEN_SIN_REVISAR' })
-
-  const revisado = await marcarRevisado(generado)
-  assert.equal(revisado.estado, 'REVISADO')
-  assert.equal(generado.estado, 'GENERADO', 'La revisión no modifica el resumen de origen')
-  const archivo = await descargarResumen(revisado)
-  assert.equal(archivo.nombreArchivo, 'resumen-ejecutivo-2026-09.txt')
-  assert.equal(archivo.contenido, generado.texto)
+test('HU017: no se descarga un resumen sin revisar', async () => {
+  await assert.rejects(descargarResumen({ idResumen: 7, periodo: '2026-09', estado: 'GENERADO' }),
+    { codigo: 'RESUMEN_SIN_REVISAR' })
 })
 
-test('HU017: revisa y descarga en el servidor cuando el resumen no es ficticio', async (t) => {
+test('HU017: revisa y descarga en el servidor', async (t) => {
   const urls = []
   t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
     urls.push(`${opciones.method ?? 'GET'} ${new URL(url).pathname}`)
@@ -121,9 +104,8 @@ test('HU017: revisa y descarga en el servidor cuando el resumen no es ficticio',
       ? json({ texto: 'Texto revisado.' })
       : json({ idResumen: 7, periodo: '2026-10', texto: 'Texto revisado.', estado: 'REVISADO', indicadoresUsados: [] })
   })
-  const revisado = await marcarRevisado({ idResumen: 7, periodo: '2026-10', estado: 'GENERADO', demo: false })
+  const revisado = await marcarRevisado({ idResumen: 7, periodo: '2026-10', estado: 'GENERADO' })
   assert.equal(revisado.estado, 'REVISADO')
-  assert.equal(revisado.demo, false)
   const archivo = await descargarResumen(revisado)
   assert.equal(archivo.contenido, 'Texto revisado.')
   assert.deepEqual(urls, ['POST /api/resumenes-ejecutivos/7/revision', 'GET /api/resumenes-ejecutivos/7/descarga'])

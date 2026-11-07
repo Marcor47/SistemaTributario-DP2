@@ -49,7 +49,7 @@ class SemillasDemoTest {
         mvc.perform(get("/api/dashboard/filtros").session(interna)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.zonas").isNotEmpty()).andExpect(jsonPath("$.segmentos", hasSize(3)))
                 .andExpect(jsonPath("$.anios[0]").value(2026));
-        mvc.perform(get("/api/dashboard").session(interna).param("zona", "Z2").param("tributo", "ARBITRIOS")
+        mvc.perform(get("/api/dashboard").session(interna).param("zona", "Maranga").param("tributo", "ARBITRIOS")
                 .param("anio", "2026").param("numeroPeriodo", "11"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.porZona", hasSize(1)))
                 .andExpect(jsonPath("$.porTributo", hasSize(1)));

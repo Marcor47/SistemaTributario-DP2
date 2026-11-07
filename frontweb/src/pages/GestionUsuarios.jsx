@@ -14,7 +14,6 @@ export default function GestionUsuarios() {
   const { sesion } = useSesionInterna()
   const [usuarios, setUsuarios] = useState([])
   const [roles, setRoles] = useState([])
-  const [demo, setDemo] = useState(false)
   const [consulta, setConsulta] = useState('')
   const [cargando, setCargando] = useState(true)
   const [errorCarga, setErrorCarga] = useState('')
@@ -33,7 +32,6 @@ export default function GestionUsuarios() {
         if (!activo) return
         setUsuarios(datos.usuarios)
         setRoles(datos.roles)
-        setDemo(datos.demo)
       })
       .catch((err) => { if (activo) setErrorCarga(err.message || 'No se pudo cargar la lista de usuarios.') })
       .finally(() => { if (activo) setCargando(false) })
@@ -74,7 +72,6 @@ export default function GestionUsuarios() {
 
       <BarraBusqueda etiqueta="Buscar usuario" placeholder="Nombre, usuario, correo o rol" onBuscar={(valor) => setConsulta(valor.trim())} onLimpiar={() => setConsulta('')} ocupado={cargando} />
 
-      {demo && <div className="alert" role="note"><strong>Datos ficticios de demostración.</strong> Los cambios de rol se aplican solo en esta pantalla y se pierden al recargar.</div>}
       {errorCarga && <div className="alert" role="alert">{errorCarga}</div>}
       {aviso && <div className="info" role="status" aria-live="polite">{aviso}</div>}
 
@@ -119,7 +116,7 @@ export default function GestionUsuarios() {
       )}
 
       {dialogo?.tipo === 'crear' && <Dialogo tituloId="titulo-crear-usuario" onCerrar={cerrar}><CrearUsuario roles={roles} onCreado={usuarioCreado} onCerrar={cerrar} /></Dialogo>}
-      {dialogo?.tipo === 'rol' && <Dialogo tituloId="titulo-cambiar-rol" onCerrar={cerrar}><CambiarRol usuario={dialogo.usuario} roles={roles} demo={demo} onCambiado={rolCambiado} onCerrar={cerrar} /></Dialogo>}
+      {dialogo?.tipo === 'rol' && <Dialogo tituloId="titulo-cambiar-rol" onCerrar={cerrar}><CambiarRol usuario={dialogo.usuario} roles={roles} onCambiado={rolCambiado} onCerrar={cerrar} /></Dialogo>}
     </div>
   )
 }
@@ -203,7 +200,7 @@ function CrearUsuario({ roles, onCreado, onCerrar }) {
   )
 }
 
-function CambiarRol({ usuario, roles, demo, onCambiado, onCerrar }) {
+function CambiarRol({ usuario, roles, onCambiado, onCerrar }) {
   const [nuevoRol, setNuevoRol] = useState('')
   const [motivo, setMotivo] = useState('')
   const [errorRol, setErrorRol] = useState('')
@@ -226,7 +223,7 @@ function CambiarRol({ usuario, roles, demo, onCambiado, onCerrar }) {
     setGuardando(true)
     setError('')
     try {
-      const resultado = await cambiarRol(usuario, nuevoRol, motivo, demo)
+      const resultado = await cambiarRol(usuario, nuevoRol, motivo)
       onCambiado(resultado.usuario, resultado.registro)
     } catch (err) { setConfirmando(false); setError(err.message || 'No se pudo cambiar el rol.') } finally { setGuardando(false) }
   }

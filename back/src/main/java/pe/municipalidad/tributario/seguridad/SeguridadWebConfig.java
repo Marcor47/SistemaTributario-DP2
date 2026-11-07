@@ -58,6 +58,7 @@ public class SeguridadWebConfig {
                         .requestMatchers(HttpMethod.GET, "/api/admin/roles").hasAuthority("ROLES:LISTAR")
                         .requestMatchers(HttpMethod.PUT, "/api/admin/usuarios/*/rol").hasAuthority("ROLES:CAMBIAR")
                         .requestMatchers(HttpMethod.POST, "/api/formularios").hasAuthority("FORMULARIOS:PUBLICAR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/formularios/**").hasAuthority("FORMULARIOS:PUBLICAR")
                         .requestMatchers(HttpMethod.GET, "/api/formularios/**").hasAuthority("FORMULARIOS:CONSULTAR")
                         .requestMatchers(HttpMethod.POST, "/api/indicadores/morosidad/calculos")
                                 .hasAuthority("INDICADORES:CALCULAR")

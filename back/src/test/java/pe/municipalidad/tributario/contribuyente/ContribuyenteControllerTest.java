@@ -48,7 +48,7 @@ class ContribuyenteControllerTest {
                 .andExpect(jsonPath("$.predios", hasSize(2)))
                 .andExpect(jsonPath("$.predios[0].codigoPredio").value("014502-01"))
                 .andExpect(jsonPath("$.predios[0].baseImponible").value(185000.0))
-                .andExpect(jsonPath("$.predios[0].zona").value("Z1"))
+                .andExpect(jsonPath("$.predios[0].zona").value("Costanera"))
                 .andExpect(jsonPath("$.predios[1].codigoPredio").value("014502-02"))
                 .andExpect(jsonPath("$.predios[0].numeroCatastral").value("150136-001-014"))
                 .andExpect(jsonPath("$.predios[0].ubicacion").value("Av. La Marina 1450, San Miguel"))

@@ -7,7 +7,6 @@ import {
   listarReclamosGestion,
   ordenarReclamos,
   registrarReclamo,
-  reiniciarReclamosDemo,
   responderReclamo,
 } from '../src/services/reclamoService.js'
 import { aFechaHoraLocal, estadoReclamo, tiposPara, validarReclamo } from '../src/utils/reclamos.js'
@@ -63,35 +62,40 @@ test('HU050: aFechaHoraLocal da el formato del campo datetime-local', () => {
   assert.equal(aFechaHoraLocal(new Date(2026, 0, 5, 7, 4)), '2026-01-05T07:04')
 })
 
-test('HU050: el modo demostración explícito lista reclamos ficticios con estado y derivaciones', async () => {
-  reiniciarReclamosDemo()
-  const { reclamos, demo } = await listarMisReclamos(true)
-  assert.equal(demo, true)
-  assert.equal(reclamos.length, 2)
-  assert.ok(reclamos.some((r) => r.estado === 'EN_REVISION' && r.derivaciones.length === 1))
-  assert.ok(reclamos.some((r) => r.estado === 'APROBADO_CON_RESPUESTA' && r.respuesta))
+test('HU050: mis reclamos se leen siempre del servidor', async (t) => {
+  const urls = []
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    urls.push(String(url))
+    return new Response(JSON.stringify([{ idReclamo: 1, estado: 'EN_REVISION', derivaciones: [] }]))
+  })
+  const { reclamos } = await listarMisReclamos()
+  assert.ok(urls[0].endsWith('/reclamos/mios'))
+  assert.equal(reclamos.length, 1)
 })
 
-test('HU050: registrar un reclamo en demostración lo deja ENVIADO con número y lo agrega a la lista', async () => {
-  reiniciarReclamosDemo()
-  const creado = await registrarReclamo(valido, true, 'TRABAJADOR', AHORA)
+test('HU050: registrar un reclamo lo envía al servidor con CSRF y fecha en segundos', async (t) => {
+  const envios = []
+  t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
+    if (String(url).endsWith('/auth/interno/csrf')) {
+      return new Response(JSON.stringify({ headerName: 'X-XSRF-TOKEN', token: 't' }))
+    }
+    envios.push(opciones)
+    return new Response(JSON.stringify({ idReclamo: 3, estado: 'ENVIADO' }), { status: 201 })
+  })
+  const creado = await registrarReclamo(valido, 'TRABAJADOR', AHORA)
   assert.equal(creado.estado, 'ENVIADO')
-  assert.equal(creado.numeroReclamo, 'REC-2026-000003')
-  assert.equal(creado.fechaHoraIncidente, '2026-10-28T09:00:00')
-  assert.equal(creado.fechaRegistro, '2026-10-28T15:30:00')
-  assert.deepEqual(creado.derivaciones, [])
-  const { reclamos } = await listarMisReclamos(true)
-  assert.equal(reclamos.length, 3)
-  reiniciarReclamosDemo()
+  assert.equal(envios[0].method, 'POST')
+  assert.equal(envios[0].headers['X-XSRF-TOKEN'], 't')
+  assert.equal(JSON.parse(envios[0].body).fechaHoraIncidente, '2026-10-28T09:00:00')
 })
 
-test('HU050: un reclamo inválido no se registra y devuelve los errores por campo', async () => {
-  reiniciarReclamosDemo()
+test('HU050: un reclamo inválido no llega al servidor y devuelve los errores por campo', async (t) => {
+  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => new Response('{}'))
   await assert.rejects(
-    () => registrarReclamo({ ...valido, comentario: '' }, true, 'TRABAJADOR', AHORA),
+    () => registrarReclamo({ ...valido, comentario: '' }, 'TRABAJADOR', AHORA),
     (err) => err.codigo === 'RECLAMO_INVALIDO' && Boolean(err.errores.comentario),
   )
-  assert.equal((await listarMisReclamos(true)).reclamos.length, 2)
+  assert.equal(fetchSimulado.mock.callCount(), 0)
 })
 
 test('HU050: la lista se ordena con el reclamo más reciente primero', () => {

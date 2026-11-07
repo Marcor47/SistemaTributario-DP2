@@ -1,6 +1,8 @@
 package pe.municipalidad.tributario.regularidad;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
 
 /**
  * HU010 - DTO de respuesta para el calculo de regularidad de pago del contribuyente.
@@ -22,6 +24,23 @@ public record RegularidadPagoRespuesta(
         int cuotasPendientesOVencidas,
         BigDecimal porcentajeRegularidad,
         String segmentoSugerido,
-        String observacion
+        String observacion,
+        LocalDate fechaCorte,
+        /* Años con cuotas emitidas en la cuenta del contribuyente, del más reciente al más antiguo. */
+        List<Integer> aniosDisponibles,
+        /* Cuotas del año con su estado, para el detalle de la ficha. */
+        List<CuotaRegularidad> cuotas
 ) {
+
+    /* estado: A_TIEMPO, CON_ATRASO, VENCIDA_SIN_PAGAR o POR_VENCER. */
+    public record CuotaRegularidad(
+            Long idObligacion,
+            String periodo,
+            String tributo,
+            String codigoPredio,
+            LocalDate fechaVencimiento,
+            LocalDate fechaPago,
+            BigDecimal emitido,
+            String estado) {
+    }
 }
