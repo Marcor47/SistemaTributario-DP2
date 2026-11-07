@@ -72,18 +72,18 @@ public class IndiceMorosidadService {
         LocalDate fechaCorte = lote.getFechaCorte();
         int anio = fechaCorte.getYear();
         int numeroPeriodo = fechaCorte.getMonthValue();
-        List<MontosMorosidad> grupos = hechoCobranzaRepository.sumarCuotasExigibles(idLote, anio, fechaCorte);
-        if (grupos.isEmpty()) {
+        Exigibles exigibles = cuotasExigibles(idLote, fechaCorte);
+        if (exigibles.grupos().isEmpty()) {
             throw new ReglaNegocioException("SIN_CUOTAS_EXIGIBLES",
-                    "El lote " + idLote + " no tiene cuotas de " + anio + " vencidas al " + fechaCorte
-                            + ": no se puede calcular el índice de morosidad.");
+                    "El lote " + idLote + " no tiene cuotas de " + anio + " ni de " + (anio - 1) + " vencidas al "
+                            + fechaCorte + ": no se puede calcular el índice de morosidad.");
         }
 
         Map<ClaveValor, ValorIndicador> existentes = valorIndicadorRepository.buscarPorLote(idLote).stream()
                 .filter(valor -> valor.getIndicador().getCodigo().equals(CODIGO_INDICADOR))
                 .collect(Collectors.toMap(ClaveValor::de, Function.identity()));
         Calculo calculo = new Calculo(indicador, lote, anio, numeroPeriodo, existentes);
-        Agregado agregado = Agregado.de(grupos);
+        Agregado agregado = Agregado.de(exigibles.grupos());
 
         DetalleMorosidad total = calculo.registrar(AlcanceIndicador.TOTAL, null, agregado.total()).orElse(null);
         List<DetalleMorosidad> detallePorTributo = new ArrayList<>();
@@ -98,8 +98,18 @@ public class IndiceMorosidadService {
                 ? alertaDesvioService.evaluarLote(idLote)
                 : null;
         return new CalculoMorosidadRespuesta(lote.getIdLote(), fechaCorte, anio, numeroPeriodo,
-                indicador.getPeriodicidad().etiqueta(anio, numeroPeriodo), total, detallePorTributo,
-                detallePorZona, evaluacion);
+                indicador.getPeriodicidad().etiqueta(anio, numeroPeriodo), exigibles.anioCuotas(), total,
+                detallePorTributo, detallePorZona, evaluacion);
+    }
+
+    /* Periodos con índice publicado: las opciones de año y mes de la consulta salen de aquí, no de una lista fija. */
+    public List<PeriodoMorosidad> periodosPublicados() {
+        return valorIndicadorRepository.buscarPeriodosPublicados(CODIGO_INDICADOR).stream()
+                .map(fila -> new PeriodoMorosidad((Integer) fila[0], (Integer) fila[1]))
+                .toList();
+    }
+
+    public record PeriodoMorosidad(int anio, int numeroPeriodo) {
     }
 
     /* Sin año ni periodo, devuelve el índice de la última carga publicada. */
@@ -118,35 +128,54 @@ public class IndiceMorosidadService {
                 .toList();
 
         /* Los montos base salen de los hechos de la misma carga; una carga sin hechos no los tiene. */
-        Agregado agregado = Agregado.de(hechoCobranzaRepository.sumarCuotasExigibles(
-                referencia.getLote().getIdLote(), referencia.getAnio(), referencia.getLote().getFechaCorte()));
+        Exigibles exigibles = cuotasExigibles(referencia.getLote().getIdLote(), referencia.getLote().getFechaCorte());
+        Agregado agregado = Agregado.de(exigibles.grupos());
         ValorPorAlcance total = delPeriodo.stream()
                 .filter(valor -> valor.getAlcance() == AlcanceIndicador.TOTAL)
                 .map(valor -> valorPorAlcance(valor, agregado.vacio() ? null : agregado.total()))
                 .findFirst()
                 .orElse(null);
         return new IndiceMorosidadRespuesta(referencia.getLote().getIdLote(), referencia.getFechaCorte(),
-                referencia.getAnio(), referencia.getNumeroPeriodo(), referencia.etiquetaPeriodo(), total,
+                referencia.getAnio(), referencia.getNumeroPeriodo(), referencia.etiquetaPeriodo(),
+                agregado.vacio() ? null : exigibles.anioCuotas(), total,
                 valoresDe(delPeriodo, AlcanceIndicador.TRIBUTO, agregado.porTributo()),
                 valoresDe(delPeriodo, AlcanceIndicador.ZONA, agregado.porZona()));
     }
 
     /*
      * Calcula el índice en las cargas publicadas que traen hechos y aún no lo tienen, por ejemplo las que se
-     * cargaron antes de existir este cálculo. Omite las que no tienen cuotas exigibles en el año de corte.
+     * cargaron antes de existir este cálculo. Omite las que no tienen cuotas exigibles.
      */
     @Transactional
     public List<Long> calcularCargasPendientes() {
         List<Long> calculadas = new ArrayList<>();
         for (Long idLote : hechoCobranzaRepository.buscarLotesPublicadosSinIndicador(CODIGO_INDICADOR)) {
             LoteETL lote = loteETLRepository.findById(idLote).orElseThrow();
-            LocalDate fechaCorte = lote.getFechaCorte();
-            if (!hechoCobranzaRepository.sumarCuotasExigibles(idLote, fechaCorte.getYear(), fechaCorte).isEmpty()) {
+            if (!cuotasExigibles(idLote, lote.getFechaCorte()).grupos().isEmpty()) {
                 calcularParaLote(idLote);
                 calculadas.add(idLote);
             }
         }
         return calculadas;
+    }
+
+    /*
+     * Cuotas exigibles del año de corte. En enero y febrero aún no vence ninguna cuota del año (la primera de
+     * predial y los arbitrios de enero y febrero vencen a fin de febrero): entonces se mide el ejercicio anterior.
+     */
+    private Exigibles cuotasExigibles(Long idLote, LocalDate fechaCorte) {
+        int anio = fechaCorte.getYear();
+        List<MontosMorosidad> grupos = hechoCobranzaRepository.sumarCuotasExigibles(idLote, anio, fechaCorte);
+        if (grupos.isEmpty()) {
+            List<MontosMorosidad> anterior = hechoCobranzaRepository.sumarCuotasExigibles(idLote, anio - 1, fechaCorte);
+            if (!anterior.isEmpty()) {
+                return new Exigibles(anio - 1, anterior);
+            }
+        }
+        return new Exigibles(anio, grupos);
+    }
+
+    private record Exigibles(int anioCuotas, List<MontosMorosidad> grupos) {
     }
 
     private static List<ValorPorAlcance> valoresDe(List<ValorIndicador> valores, AlcanceIndicador alcance,

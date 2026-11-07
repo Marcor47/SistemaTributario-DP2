@@ -38,7 +38,8 @@ public record FiltrosReporte(Integer anio, String zona, Tributo tributo, BigDeci
     }
 
     public FiltrosReporte {
-        zona = zona == null || zona.isBlank() ? null : zona.strip().toUpperCase(Locale.ROOT);
+        /* Las zonas son nombres de sectores (p. ej. Maranga); se comparan sin distinguir mayúsculas. */
+        zona = zona == null || zona.isBlank() ? null : zona.strip();
         regimen = regimen == null || regimen.isBlank() ? null : regimen.strip().toUpperCase(Locale.ROOT);
         if (anio == null && periodo != null) {
             anio = periodo;

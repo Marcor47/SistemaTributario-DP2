@@ -14,6 +14,8 @@ public record IndiceMorosidadRespuesta(
         int anio,
         int numeroPeriodo,
         String periodo,
+        /* Año de las cuotas medidas (el de corte o el anterior en enero y febrero); null sin hechos. */
+        Integer anioCuotas,
         ValorPorAlcance total,
         List<ValorPorAlcance> porTributo,
         List<ValorPorAlcance> porZona) {

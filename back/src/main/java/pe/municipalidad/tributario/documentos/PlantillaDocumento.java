@@ -49,6 +49,11 @@ public class PlantillaDocumento {
         this.nombre = nuevoNombre;
     }
 
+    /* La descripción es opcional; una vacía se guarda como null. */
+    public void describir(String nuevaDescripcion) {
+        this.descripcion = nuevaDescripcion == null || nuevaDescripcion.isBlank() ? null : nuevaDescripcion.strip();
+    }
+
     public Long getIdPlantilla() {
         return idPlantilla;
     }

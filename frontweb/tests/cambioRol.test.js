@@ -1,18 +1,19 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
-import { USUARIOS_DEMO } from '../src/mocks/usuarios.js'
 import {
   cambiarRol,
   cargarUsuariosYRoles,
   construirRegistroCambio,
-  reiniciarUsuariosDemo,
 } from '../src/services/usuarioAdminService.js'
+
+const OPERADOR = { idUsuario: 5, nombreUsuario: 'ventanilla1', nombreCompleto: 'Operador de Ventanilla', rol: 'VENTANILLA' }
+const ADMINISTRADOR = { idUsuario: 1, nombreUsuario: 'admin', nombreCompleto: 'Administrador', rol: 'ADMINISTRADOR' }
 import { etiquetaRol } from '../src/utils/roles.js'
 
 test('HU035: el registro del cambio guarda usuario, fecha y rol anterior', () => {
   const ahora = new Date('2026-10-28T15:30:00Z')
-  const registro = construirRegistroCambio(USUARIOS_DEMO[4], 'TERMINALISTA', '  Rotación de puesto  ', ahora)
+  const registro = construirRegistroCambio(OPERADOR, 'TERMINALISTA', '  Rotación de puesto  ', ahora)
   assert.equal(registro.nombreUsuario, 'ventanilla1')
   assert.equal(registro.rolAnterior, 'VENTANILLA')
   assert.equal(registro.rolNuevo, 'TERMINALISTA')
@@ -20,13 +21,19 @@ test('HU035: el registro del cambio guarda usuario, fecha y rol anterior', () =>
   assert.equal(registro.fecha, '2026-10-28T15:30:00.000Z')
 })
 
-test('HU035: sin backend se cargan usuarios y los siete roles ficticios', async () => {
-  reiniciarUsuariosDemo()
+test('HU035: usuarios y roles se leen siempre del servidor', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (url) => Response.json(String(url).endsWith('/roles')
+    ? [{ nombre: 'ADMINISTRADOR' }, { nombre: 'GESTOR_RECLAMOS' }]
+    : [OPERADOR, ADMINISTRADOR]))
   const datos = await cargarUsuariosYRoles()
-  assert.equal(datos.demo, true)
-  assert.equal(datos.usuarios.length, USUARIOS_DEMO.length)
-  assert.equal(datos.roles.length, 7)
+  assert.equal(datos.usuarios.length, 2)
   assert.ok(datos.roles.some((r) => r.nombre === 'GESTOR_RECLAMOS'))
+  assert.equal('demo' in datos, false)
+})
+
+test('HU035: sin conexión se informa el error en lugar de mostrar usuarios ficticios', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => { throw new TypeError('fetch failed') })
+  await assert.rejects(() => cargarUsuariosYRoles(), { codigo: 'SIN_CONEXION' })
 })
 
 test('HU035: una sesión vencida no se reemplaza con usuarios ficticios', async () => {
@@ -49,10 +56,10 @@ test('HU035: el cambio real de rol envía cookie y token CSRF', async () => {
     if (String(url).endsWith('/auth/interno/csrf')) {
       return Response.json({ headerName: 'X-XSRF-TOKEN', token: 'csrf-prueba' })
     }
-    return Response.json({ ...USUARIOS_DEMO[4], rol: 'ANALISTA_RENTAS' })
+    return Response.json({ ...OPERADOR, rol: 'ANALISTA_RENTAS' })
   }
   try {
-    const { usuario } = await cambiarRol(USUARIOS_DEMO[4], 'ANALISTA_RENTAS', 'Ascenso', false)
+    const { usuario } = await cambiarRol(OPERADOR, 'ANALISTA_RENTAS', 'Ascenso')
     assert.equal(usuario.rol, 'ANALISTA_RENTAS')
     assert.equal(solicitudes[1].opciones.method, 'PUT')
     assert.equal(solicitudes[1].opciones.credentials, 'include')
@@ -62,22 +69,9 @@ test('HU035: el cambio real de rol envía cookie y token CSRF', async () => {
   }
 })
 
-test('HU035: cambiar el rol en demostración actualiza al usuario y devuelve el registro', async () => {
-  reiniciarUsuariosDemo()
-  const { usuarios } = await cargarUsuariosYRoles()
-  const objetivo = usuarios.find((u) => u.nombreUsuario === 'ventanilla1')
-  const { usuario, registro } = await cambiarRol(objetivo, 'ANALISTA_RENTAS', 'Ascenso', true)
-  assert.equal(usuario.rol, 'ANALISTA_RENTAS')
-  assert.equal(registro.rolAnterior, 'VENTANILLA')
-  const otraVez = await cargarUsuariosYRoles()
-  assert.equal(otraVez.usuarios.find((u) => u.idUsuario === objetivo.idUsuario).rol, 'ANALISTA_RENTAS')
-  assert.equal(objetivo.rol, 'VENTANILLA', 'El usuario de origen no se modifica')
-  reiniciarUsuariosDemo()
-})
-
 test('HU035: rechaza el mismo rol y la falta de rol', async () => {
-  await assert.rejects(() => cambiarRol(USUARIOS_DEMO[0], 'ADMINISTRADOR', '', true), { codigo: 'ROL_IDENTICO' })
-  await assert.rejects(() => cambiarRol(USUARIOS_DEMO[0], '', '', true), { codigo: 'ROL_REQUERIDO' })
+  await assert.rejects(() => cambiarRol(ADMINISTRADOR, 'ADMINISTRADOR', ''), { codigo: 'ROL_IDENTICO' })
+  await assert.rejects(() => cambiarRol(ADMINISTRADOR, '', ''), { codigo: 'ROL_REQUERIDO' })
 })
 
 test('HU035: las etiquetas de rol usan el nombre que conoce el usuario de Rentas', () => {

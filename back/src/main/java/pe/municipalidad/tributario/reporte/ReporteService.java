@@ -115,6 +115,16 @@ public class ReporteService {
                 .toList();
     }
 
+    /* Tributos y años con cuotas emitidas en SAMNET: las opciones de los filtros salen de los datos. */
+    @Transactional(readOnly = true)
+    public OpcionesReporte opciones(String nombreUsuario) {
+        usuario(nombreUsuario);
+        return new OpcionesReporte(samnet.obtenerTributos(), samnet.obtenerAniosEmision());
+    }
+
+    public record OpcionesReporte(List<String> tributos, List<Integer> anios) {
+    }
+
     /* HU018: zonas visibles para el rol en el reporte indicado, para el selector de la pantalla. */
     @Transactional(readOnly = true)
     public List<String> zonas(TipoReporte tipo, String nombreUsuario) {
@@ -335,7 +345,8 @@ public class ReporteService {
         List<Cartera> carteras = agrupar(datosCartera, aplicados).stream()
                 .filter(cartera -> contribuyentesPuntuales == null
                         || contribuyentesPuntuales.contains(cartera.codigo()))
-                .filter(cartera -> aplicados.zona() == null || cartera.zonas().contains(aplicados.zona()))
+                .filter(cartera -> aplicados.zona() == null
+                        || cartera.zonas().stream().anyMatch(zona -> zona.equalsIgnoreCase(aplicados.zona())))
                 .filter(cartera -> cartera.zonas().stream().allMatch(acceso::puedeVerZona))
                 .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.regimen() == null
                         || aplicados.regimen().equalsIgnoreCase(regimenDe(cartera)))

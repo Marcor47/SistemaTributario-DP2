@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { obtenerMorosidad } from '../services/morosidadService.js'
+import { obtenerMorosidad, obtenerPeriodosMorosidad } from '../services/morosidadService.js'
 import { etiquetaTributo, porcentaje } from '../utils/morosidad.js'
 import { fecha, moneda } from '../utils/formato.js'
 import './ConsultasTributarias.css'
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
-const ANIOS = Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - i)
 const monto = (valor) => valor == null ? 'No disponible' : moneda(valor)
 
 function Desglose({ titulo, filas, tipo }) {
@@ -62,6 +61,17 @@ export default function IndiceMorosidad() {
   const [filtros, setFiltros] = useState({ anio: '', mes: '' })
   const [consulta, setConsulta] = useState({ anio: '', mes: '', revision: 0 })
   const [resultado, setResultado] = useState({ cargando: true, datos: null, error: null })
+  const [periodos, setPeriodos] = useState([])
+
+  useEffect(() => {
+    const controlador = new AbortController()
+    obtenerPeriodosMorosidad({ signal: controlador.signal })
+      .then((lista) => { if (!controlador.signal.aborted) setPeriodos(lista) })
+      .catch(() => { if (!controlador.signal.aborted) setPeriodos([]) })
+    return () => controlador.abort()
+  }, [])
+
+  const mesesDelAnio = periodos.find((periodo) => String(periodo.anio) === String(filtros.anio))?.meses ?? []
 
   useEffect(() => {
     const controlador = new AbortController()
@@ -82,10 +92,10 @@ export default function IndiceMorosidad() {
     <div className="consulta-tributaria" aria-busy={cargando}>
       <form className="filters consulta-filtros" onSubmit={consultar} aria-label="Consultar periodo de morosidad">
         <div className="fld"><label htmlFor="morosidad-anio">Año</label><select id="morosidad-anio" value={filtros.anio} onChange={(e) => setFiltros({ anio: e.target.value, mes: '' })}>
-          <option value="">Última carga publicada</option>{ANIOS.map((anio) => <option key={anio}>{anio}</option>)}
+          <option value="">Última carga publicada</option>{periodos.map(({ anio }) => <option key={anio}>{anio}</option>)}
         </select></div>
         <div className="fld"><label htmlFor="morosidad-mes">Mes</label><select id="morosidad-mes" value={filtros.mes} disabled={!filtros.anio} onChange={(e) => setFiltros({ ...filtros, mes: e.target.value })}>
-          <option value="">Último disponible</option>{MESES.map((mes, i) => <option key={mes} value={i + 1}>{mes}</option>)}
+          <option value="">Último disponible</option>{mesesDelAnio.map((mes) => <option key={mes} value={mes}>{MESES[mes - 1]}</option>)}
         </select></div>
         <button className="btn primary" type="submit" disabled={cargando}>{cargando ? 'Consultando…' : 'Consultar'}</button>
       </form>
@@ -93,10 +103,10 @@ export default function IndiceMorosidad() {
       {error && <div className="alert" role="alert"><strong>No se pudo consultar la morosidad.</strong><p>{error.message}</p><button type="button" className="btn" onClick={() => consultar()}>Reintentar</button></div>}
       {!cargando && !error && !datos && <section className="pcard consulta-vacio" role="status"><h2>Sin índice publicado</h2><p>No hay un índice calculado para el periodo seleccionado. Consulta otro periodo o vuelve a la última carga publicada.</p></section>}
       {!cargando && datos && <>
-        {datos.esDemo && <div className="info" role="note"><strong>Datos de demostración.</strong> Esta muestra permite explorar la pantalla y no representa una carga real.</div>}
         <section className="pcard" aria-label="Carga del ETL consultada">
           <div className="consulta-cabecera"><div><h2>Carga publicada</h2><p className="hint">Los tres alcances corresponden al mismo lote y fecha de corte.</p></div><span className="estado ok">Lote #{datos.lote.idLote}</span></div>
           <div className="pfields"><div className="pf"><span className="pl">Periodo</span><strong className="pv">{datos.lote.periodo}</strong></div><div className="pf"><span className="pl">Fecha de corte</span><strong className="pv">{fecha(datos.lote.fechaCorte)}</strong></div></div>
+          {datos.anioCuotas && datos.anioCuotas !== datos.lote.anio && <p className="hint">A la fecha de corte aún no vence ninguna cuota de {datos.lote.anio}; el índice mide las cuotas de {datos.anioCuotas}.</p>}
         </section>
         <section className="consulta-indicadores" aria-label="Resumen de morosidad">
           <div className={`pcard consulta-indicador principal ${(datos.total ?? 0) > 0 ? 'alerta-deuda' : ''}`}>

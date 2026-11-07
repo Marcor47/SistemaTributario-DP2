@@ -9,7 +9,8 @@ Con una sesión del backend requiere una cuenta actualizada. Las copias
 desactualizadas no habilitan pagos.
 
 El portal usa siempre la sesión y los datos del backend: no crea pagos ni saldos
-en `sessionStorage`. `.env.development` tiene `VITE_AUTH_DEMO=false` y apunta a
+en `sessionStorage`. No hay datos de demostración ni mocks: todas las pantallas y las opciones
+de sus filtros se leen del backend. `.env.development` apunta a
 `http://localhost:8080/api`. Inicia el backend con su perfil normal y PostgreSQL;
 el login acepta el código o el documento de un contribuyente con credencial
 habilitada en `samnet.credencial_web`. Flyway crea automáticamente los accesos de
@@ -107,11 +108,11 @@ el `404` de un predio inexistente se comprueba llamando directamente a la API.
   en Línea: tras una confirmación se vuelve a consultar el estado de cuenta al servidor,
   sin simular un pago exitoso por una caída de conexión.
 
-Para mostrar HU008 sin backend, `VITE_USAR_MOCK=true` habilita una muestra
-consistente de octubre de 2026. HU014 y HU022 requieren una sesión del backend y
-consultan PostgreSQL. Después de cambiar variables de entorno, reinicia Vite.
+HU008 lee el índice y sus periodos (`/api/indicadores/morosidad/periodos`) del backend; HU014 y
+HU022 requieren una sesión del backend y consultan PostgreSQL. Después de cambiar variables de
+entorno, reinicia Vite.
 
-En integración deja ambas opciones en `false` y configura `VITE_API_URL`. El estado
+En integración configura `VITE_API_URL`. El estado
 de cuenta utiliza `GET /api/portal/estado-cuenta`, sin enviar identificadores del contribuyente;
 morosidad utiliza `GET /api/indicadores/morosidad` con año y mes opcionales.
 
@@ -129,8 +130,7 @@ y el texto del certificado para enviarlos al contrato actual de la API. La integ
 firmador real queda pendiente.
 
 El frontend usa `VITE_API_URL` o `http://localhost:8080/api` por defecto. Para entrar con la base
-PostgreSQL se necesita una credencial de contribuyente en `samnet.credencial_web`. El modo
-`VITE_AUTH_DEMO=true` funciona sin backend y no permite completar este trámite.
+PostgreSQL se necesita una credencial de contribuyente en `samnet.credencial_web`.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

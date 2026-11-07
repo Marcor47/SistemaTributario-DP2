@@ -59,6 +59,23 @@ LANGUAGE sql STABLE AS $$
     ORDER BY p.zona;
 $$;
 
+-- Tributos y años con cuotas emitidas, para los selectores de los reportes (las opciones salen de los datos).
+CREATE OR REPLACE FUNCTION samnet.ps_tributos()
+RETURNS TABLE (tributo VARCHAR)
+LANGUAGE sql STABLE AS $$
+    SELECT DISTINCT o.tributo
+    FROM samnet.obligacion o
+    ORDER BY o.tributo DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION samnet.ps_anios_emision()
+RETURNS TABLE (anio INTEGER)
+LANGUAGE sql STABLE AS $$
+    SELECT DISTINCT o.anio
+    FROM samnet.obligacion o
+    ORDER BY o.anio DESC;
+$$;
+
 -- RF-003: declaraciones juradas del predio, la vigente primero.
 CREATE OR REPLACE FUNCTION samnet.ps_declaracionjurada(p_codigo_predio VARCHAR)
 RETURNS TABLE (

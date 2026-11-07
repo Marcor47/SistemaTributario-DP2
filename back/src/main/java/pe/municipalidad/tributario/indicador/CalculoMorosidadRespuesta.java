@@ -14,6 +14,8 @@ public record CalculoMorosidadRespuesta(
         int anio,
         int numeroPeriodo,
         String periodo,
+        /* Año de las cuotas medidas: el de corte o, si aún no vence ninguna, el anterior. */
+        int anioCuotas,
         DetalleMorosidad total,
         List<DetalleMorosidad> porTributo,
         List<DetalleMorosidad> porZona,

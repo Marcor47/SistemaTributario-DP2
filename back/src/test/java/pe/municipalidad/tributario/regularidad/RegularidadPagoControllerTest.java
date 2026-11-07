@@ -33,7 +33,12 @@ class RegularidadPagoControllerTest {
                 .andExpect(jsonPath("$.cuotasPagadasATiempo").value(28))
                 .andExpect(jsonPath("$.cuotasPendientesOVencidas").value(0))
                 .andExpect(jsonPath("$.porcentajeRegularidad").value(100.00))
-                .andExpect(jsonPath("$.segmentoSugerido").value("PUNTUAL"));
+                .andExpect(jsonPath("$.segmentoSugerido").value("PUNTUAL"))
+                .andExpect(jsonPath("$.aniosDisponibles[0]").value(2026))
+                .andExpect(jsonPath("$.aniosDisponibles[1]").value(2025))
+                .andExpect(jsonPath("$.cuotas.length()").value(28))
+                .andExpect(jsonPath("$.cuotas[0].estado").value("A_TIEMPO"))
+                .andExpect(jsonPath("$.cuotas[0].fechaPago").value("2025-02-20"));
     }
 
     /*

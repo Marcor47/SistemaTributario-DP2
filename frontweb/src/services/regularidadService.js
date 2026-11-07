@@ -1,17 +1,47 @@
-import { CONTRIBUYENTES } from '../mocks/predios.js'
-import { ANIOS_REGULARIDAD, generarRegularidad } from '../mocks/regularidad.js'
+import { pedir } from './api.js'
 
-// HU010 sigue con datos ficticios. La búsqueda real puede devolver contribuyentes
-// que no existen en este catálogo, así que la pantalla debe mostrar "sin datos".
-export function tieneDatosRegularidad(codigo) {
-  return CONTRIBUYENTES.some((persona) => persona.codigo === codigo)
+const ESTADOS = {
+  A_TIEMPO: 'A tiempo',
+  CON_ATRASO: 'Con atraso',
+  VENCIDA_SIN_PAGAR: 'Vencida sin pagar',
+  POR_VENCER: 'Por vencer',
 }
 
-// Igual que cuentaService: al integrar la API, solo se reemplaza esta función.
-export async function obtenerRegularidad(codigo, anio = ANIOS_REGULARIDAD[0]) {
-  await new Promise((resolve) => setTimeout(resolve, 250))
-  const contribuyente = CONTRIBUYENTES.find((persona) => persona.codigo === codigo)
-  if (!contribuyente) throw new Error('No se encontró el contribuyente.')
-  if (!ANIOS_REGULARIDAD.includes(anio)) throw new Error('El año solicitado no está disponible.')
-  return { contribuyente, ...generarRegularidad(codigo, anio) }
+const TRIBUTOS = { IMPUESTO_PREDIAL: 'Impuesto Predial', ARBITRIOS: 'Arbitrios Municipales' }
+
+// HU010: regularidad de pago calculada por el backend sobre la cuenta corriente del contribuyente en SAMNET.
+export function normalizarRegularidad(respuesta, contribuyente) {
+  const cuotas = (respuesta.cuotas || []).map((cuota) => ({
+    id: cuota.idObligacion,
+    periodo: cuota.periodo,
+    tributo: TRIBUTOS[cuota.tributo] || cuota.tributo,
+    codigoPredio: cuota.codigoPredio,
+    fechaVencimiento: cuota.fechaVencimiento,
+    fechaPago: cuota.fechaPago,
+    emitido: Number(cuota.emitido),
+    estado: ESTADOS[cuota.estado] || cuota.estado,
+  }))
+  const exigibles = respuesta.cuotasExigibles ?? 0
+  return {
+    contribuyente: { ...contribuyente, nombre: respuesta.nombreContribuyente ?? contribuyente?.nombre },
+    anio: respuesta.anio,
+    aniosDisponibles: respuesta.aniosDisponibles?.length ? respuesta.aniosDisponibles : [respuesta.anio],
+    fechaCorte: respuesta.fechaCorte,
+    emitidas: respuesta.totalCuotasEmitidas ?? cuotas.length,
+    exigibles,
+    aTiempo: respuesta.cuotasPagadasATiempo ?? 0,
+    conAtraso: respuesta.cuotasPagadasConAtraso ?? 0,
+    vencidasSinPagar: respuesta.cuotasPendientesOVencidas ?? 0,
+    porVencer: cuotas.filter((cuota) => cuota.estado === ESTADOS.POR_VENCER).length,
+    porcentaje: exigibles > 0 ? Number(respuesta.porcentajeRegularidad) : null,
+    segmentoSugerido: respuesta.segmentoSugerido,
+    observacion: respuesta.observacion,
+    cuotas,
+  }
+}
+
+export async function obtenerRegularidad(contribuyente, anio) {
+  const parametros = anio ? `?anio=${encodeURIComponent(anio)}` : ''
+  const respuesta = await pedir(`/contribuyentes/${encodeURIComponent(contribuyente.codigo)}/regularidad${parametros}`)
+  return normalizarRegularidad(respuesta, contribuyente)
 }

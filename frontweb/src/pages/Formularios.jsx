@@ -121,7 +121,7 @@ export default function Formularios() {
       await eliminarFormulario(documento.codigo)
       setDocumentos((actuales) => actuales.filter((item) => item.codigo !== documento.codigo))
       setPendienteEliminar(null)
-      setAviso(`Se eliminó ${documento.nombre} del catálogo local.`)
+      setAviso(`Se retiró ${documento.nombre} del catálogo. Sus versiones anteriores se conservan.`)
       requestAnimationFrame(() => botonAgregar.current?.focus())
     } catch (err) {
       setError(err.message || 'No se pudo eliminar el documento. Intenta nuevamente.')
@@ -134,10 +134,10 @@ export default function Formularios() {
     <div aria-busy={ocupado || guardando || eliminando !== null}>
       <section className="pcard">
         <h2>Formularios y plantillas oficiales</h2>
-        <p className="hint">Descarga los documentos en Word o agrega una nueva plantilla para los trámites municipales.</p>
+        <p className="hint">Descarga los documentos vigentes o publica una nueva plantilla para los trámites municipales.</p>
       </section>
       <BarraBusqueda etiqueta="Buscar formulario o plantilla" placeholder="Nombre, código o tipo de documento" onBuscar={buscar} onLimpiar={() => buscar('')} ocupado={bloqueado} />
-      <div className="info">Los documentos de ejemplo son Word editables marcados como DOCUMENTO DE PRUEBA. Las plantillas que agregues o elimines se guardan solo en este navegador.</div>
+      <div className="info">El catálogo se guarda en el sistema: lo que publiques o retires lo ven todos los usuarios. Al retirar un documento se conservan sus versiones anteriores.</div>
 
       {error && <div className="alert" role="alert">{error}</div>}
       {aviso && <div className="info" role="status">{aviso}</div>}
@@ -146,7 +146,7 @@ export default function Formularios() {
       {mostrarFormulario && (
         <section className="pcard" id="nueva-plantilla" aria-labelledby="titulo-nueva-plantilla">
           <h2 id="titulo-nueva-plantilla">Agregar plantilla</h2>
-          <p className="hint">Selecciona un archivo Word (.docx) de hasta 10 MB. El código y la versión inicial se asignan automáticamente.</p>
+          <p className="hint">Selecciona un archivo Word (.docx) o PDF de hasta 10 MB. El código y la versión inicial se asignan automáticamente.</p>
           <form className="formulario-plantilla" ref={formulario} onSubmit={guardar}>
             <fieldset className="pfields" disabled={bloqueado}>
               <legend className="sr-only">Datos del documento</legend>
@@ -166,9 +166,9 @@ export default function Formularios() {
                 <textarea id="plantilla-descripcion" name="descripcion" rows={2} maxLength={300} />
               </div>
               <div className="fld campo-completo">
-                <label htmlFor="plantilla-archivo">Archivo Word</label>
-                <input id="plantilla-archivo" name="archivo" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required aria-describedby="plantilla-archivo-ayuda" />
-                <span id="plantilla-archivo-ayuda" className="hint">Formato .docx · Tamaño máximo: 10 MB</span>
+                <label htmlFor="plantilla-archivo">Archivo Word o PDF</label>
+                <input id="plantilla-archivo" name="archivo" type="file" accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required aria-describedby="plantilla-archivo-ayuda" />
+                <span id="plantilla-archivo-ayuda" className="hint">Formato .docx o .pdf · Tamaño máximo: 10 MB</span>
               </div>
             </fieldset>
             {errorFormulario && <div className="alert" role="alert">{errorFormulario}</div>}

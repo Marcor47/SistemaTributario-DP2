@@ -30,6 +30,7 @@ export function normalizarMorosidad(respuesta) {
     total: numeroOpcional(detalle ? detalle.indice : respuesta.total),
     montoEmitidoTotal: numeroOpcional(detalle?.montoEmitido),
     montoVencidoTotal: numeroOpcional(detalle?.montoVencidoNoPagado),
-    porTributo: filas(respuesta.porTributo), porZona: filas(respuesta.porZona), esDemo: false,
+    porTributo: filas(respuesta.porTributo), porZona: filas(respuesta.porZona),
+    anioCuotas: respuesta.anioCuotas ?? null,
   }
 }

@@ -4,12 +4,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
+import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
 import pe.municipalidad.tributario.obligacion.Obligacion;
+import pe.municipalidad.tributario.regularidad.RegularidadPagoRespuesta.CuotaRegularidad;
 
 /**
  * HU010 - Logica de negocio para calcular la regularidad de pago del contribuyente.
@@ -45,7 +48,15 @@ public class RegularidadPagoService {
         int anioEvaluado = (anio != null) ? anio : LocalDate.now(reloj).getYear();
 
         LocalDate fechaCorte = LocalDate.now(reloj);
-        List<Obligacion> cuotas = samnet.obtenerEstadoCuenta(codigo).desglosar(null, anioEvaluado);
+        EstadoCuenta estadoCuenta = samnet.obtenerEstadoCuenta(codigo);
+        List<Obligacion> cuotas = estadoCuenta.desglosar(null, anioEvaluado);
+        List<Integer> aniosDisponibles = estadoCuenta.getObligaciones().stream()
+                .map(Obligacion::getAnio).distinct().sorted(Comparator.reverseOrder()).toList();
+        List<CuotaRegularidad> detalle = cuotas.stream()
+                .sorted(Comparator.comparing(Obligacion::getFechaVencimiento)
+                        .thenComparing(o -> o.getTributo().name()))
+                .map(o -> cuota(o, fechaCorte))
+                .toList();
         int totalCuotas = cuotas.size();
         /* Solo cuentan las cuotas que ya vencieron: una que aún no vence no es incumplimiento. */
         List<Obligacion> exigibles = cuotas.stream()
@@ -66,7 +77,8 @@ public class RegularidadPagoService {
                     "SIN_EMISIONES",
                     totalCuotas == 0
                             ? "No se registran cuotas emitidas para el contribuyente en el anio " + anioEvaluado + "."
-                            : "Ninguna cuota del anio " + anioEvaluado + " ha vencido todavia."
+                            : "Ninguna cuota del anio " + anioEvaluado + " ha vencido todavia.",
+                    fechaCorte, aniosDisponibles, detalle
             );
         }
 
@@ -106,7 +118,22 @@ public class RegularidadPagoService {
                 cuotasPendientesOVencidas,
                 porcentaje,
                 segmentoSugerido,
-                observacion
+                observacion,
+                fechaCorte,
+                aniosDisponibles,
+                detalle
         );
+    }
+
+    private static CuotaRegularidad cuota(Obligacion obligacion, LocalDate fechaCorte) {
+        String estado;
+        if (obligacion.saldo().signum() <= 0) {
+            estado = obligacion.pagadaATiempo() ? "A_TIEMPO" : "CON_ATRASO";
+        } else {
+            estado = obligacion.getFechaVencimiento().isBefore(fechaCorte) ? "VENCIDA_SIN_PAGAR" : "POR_VENCER";
+        }
+        return new CuotaRegularidad(obligacion.getIdObligacion(), obligacion.etiquetaPeriodo(),
+                obligacion.getTributo().name(), obligacion.getCodigoPredio(), obligacion.getFechaVencimiento(),
+                obligacion.getFechaUltimoPago(), obligacion.getMontoEmitido(), estado);
     }
 }

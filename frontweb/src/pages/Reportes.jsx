@@ -1,8 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Reorder } from 'framer-motion'
 import { fecha, moneda } from '../utils/formato.js'
-import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, opcionesZona, paginarFilas, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
-import { descargarReporte, generarReporte, listarZonas, obtenerCatalogoReportes } from '../services/reporteService.js'
+import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, opcionesZona, paginarFilas, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, validarFiltros } from '../utils/reportes.js'
+import { descargarReporte, generarReporte, listarZonas, obtenerCatalogoReportes, obtenerOpcionesReporte } from '../services/reporteService.js'
 import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import VisualizacionReporte from '../components/VisualizacionReporte.jsx'
@@ -344,6 +344,15 @@ export default function Reportes() {
   const [detalleActivoAplicado, setDetalleActivoAplicado] = useState(true)
   const [accionError, setAccionError] = useState(null)
   const [zonas, setZonas] = useState({ tipo: '', datos: [], error: null })
+  const [opcionesDatos, setOpcionesDatos] = useState({ tributos: [], anios: [] })
+
+  useEffect(() => {
+    const controlador = new AbortController()
+    obtenerOpcionesReporte({ signal: controlador.signal })
+      .then((datos) => { if (!controlador.signal.aborted) setOpcionesDatos({ tributos: datos.tributos ?? [], anios: datos.anios ?? [] }) })
+      .catch(() => { if (!controlador.signal.aborted) setOpcionesDatos({ tributos: [], anios: [] }) })
+    return () => controlador.abort()
+  }, [])
   const consultaActiva = useRef(null)
   const consultarActual = useRef(null)
   const arrastreColumnas = useRef(false)
@@ -737,17 +746,26 @@ export default function Reportes() {
                 <div className="reporte-config-campos">
                 {disponibles.has('anio') && <div className={`fld${errores.anio ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-anio">Año</label>
-                  <input id="reporte-anio" inputMode="numeric" placeholder="Ej. 2026" value={filtros.anio} onChange={(e) => setFiltros({ ...filtros, anio: e.target.value })} aria-describedby={errores.anio ? 'error-anio' : undefined} />
+                  <select id="reporte-anio" value={filtros.anio} onChange={(e) => setFiltros({ ...filtros, anio: e.target.value })} aria-describedby={errores.anio ? 'error-anio' : undefined}>
+                    <option value="">Todos</option>
+                    {opcionesDatos.anios.map((anio) => <option key={anio} value={anio}>{anio}</option>)}
+                  </select>
                   {errores.anio && <span id="error-anio" className="error-campo">{errores.anio}</span>}
                 </div>}
                 {disponibles.has('anioDesde') && <div className={`fld${errores.anioDesde ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-anio-desde">Año desde</label>
-                  <input id="reporte-anio-desde" type="number" min="1900" max="2100" value={filtros.anioDesde} onChange={(e) => setFiltros({ ...filtros, anioDesde: e.target.value })} aria-describedby={errores.anioDesde ? 'error-anio-desde' : undefined} />
+                  <select id="reporte-anio-desde" value={filtros.anioDesde} onChange={(e) => setFiltros({ ...filtros, anioDesde: e.target.value })} aria-describedby={errores.anioDesde ? 'error-anio-desde' : undefined}>
+                    <option value="">Todos</option>
+                    {opcionesDatos.anios.map((anio) => <option key={anio} value={anio}>{anio}</option>)}
+                  </select>
                   {errores.anioDesde && <span id="error-anio-desde" className="error-campo">{errores.anioDesde}</span>}
                 </div>}
                 {disponibles.has('anioHasta') && <div className={`fld${errores.anioHasta ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-anio-hasta">Año hasta</label>
-                  <input id="reporte-anio-hasta" type="number" min="1900" max="2100" value={filtros.anioHasta} onChange={(e) => setFiltros({ ...filtros, anioHasta: e.target.value })} aria-describedby={errores.anioHasta ? 'error-anio-hasta' : undefined} />
+                  <select id="reporte-anio-hasta" value={filtros.anioHasta} onChange={(e) => setFiltros({ ...filtros, anioHasta: e.target.value })} aria-describedby={errores.anioHasta ? 'error-anio-hasta' : undefined}>
+                    <option value="">Todos</option>
+                    {opcionesDatos.anios.map((anio) => <option key={anio} value={anio}>{anio}</option>)}
+                  </select>
                   {errores.anioHasta && <span id="error-anio-hasta" className="error-campo">{errores.anioHasta}</span>}
                 </div>}
                 {disponibles.has('zona') && <FiltroZona valor={filtros.zona} zonas={zonasDisponibles} cargando={cargandoZonas} error={errorZonas} errorCampo={errores.zona} onCambio={(zona) => setFiltros({ ...filtros, zona })} />}
@@ -755,7 +773,7 @@ export default function Reportes() {
                   <label htmlFor="reporte-tributo">Tributo</label>
                   <select id="reporte-tributo" value={filtros.tributo} onChange={(e) => setFiltros({ ...filtros, tributo: e.target.value })}>
                     <option value="">Todos</option>
-                    {TRIBUTOS.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}
+                    {opcionesDatos.tributos.map((tributo) => <option key={tributo} value={tributo}>{etiquetaTributo(tributo)}</option>)}
                   </select>
                   {errores.tributo && <span className="error-campo">{errores.tributo}</span>}
                 </div>}

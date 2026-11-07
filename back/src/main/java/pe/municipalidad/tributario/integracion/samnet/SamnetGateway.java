@@ -32,6 +32,12 @@ public interface SamnetGateway {
 
     /* HU018: zonas registradas en los predios, para el selector de los reportes por zona. */
     List<String> obtenerZonas();
+
+    /* Tributos con cuotas emitidas, para el selector de los reportes. */
+    List<String> obtenerTributos();
+
+    /* Años con cuotas emitidas, del más reciente al más antiguo. */
+    List<Integer> obtenerAniosEmision();
     /* Auditoría 2026-11: búsqueda parcial por código predial, dirección o titular, para listas largas. */
     List<Predio> buscarPredios(String texto);
 

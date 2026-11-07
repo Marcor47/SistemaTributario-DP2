@@ -148,7 +148,7 @@ ficticios indicados: no crea claves para otros contribuyentes. Si ya existe una
 credencial, conserva su clave y su estado de habilitación; reiniciar no reinicia
 contraseñas. Tampoco registra pagos ni modifica obligaciones o beneficios.
 
-En `frontweb` utiliza `VITE_AUTH_DEMO=false` y el backend con su perfil normal.
+En `frontweb` configura `VITE_API_URL` y usa el backend con su perfil normal (el front no tiene modo demo).
 Las claves publicadas aquí son solo para los datos sintéticos de desarrollo;
 excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno real.
 
