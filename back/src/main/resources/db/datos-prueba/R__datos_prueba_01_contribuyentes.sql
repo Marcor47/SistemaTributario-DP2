@@ -103,7 +103,9 @@ ON CONFLICT (codigo_predio, contribuyente_codigo) DO NOTHING;
 
 INSERT INTO samnet.declaracion_jurada
     (id_declaracion, codigo_predio, anio, autoavaluo, motivo, submotivo, tipo_declarante, estado, es_vigente)
-VALUES
+SELECT s.id_declaracion, s.codigo_predio, s.anio, s.autoavaluo, s.motivo, s.submotivo,
+       s.tipo_declarante, s.estado, s.es_vigente
+FROM (VALUES
     ('DJ-2012-000141', '014502-01', 2012, 150000.00, 'INSCRIPCION', 'COMPRA-VENTA', 'PROPIETARIO', 'PROCESADA', FALSE),
     ('DJ-2024-001450', '014502-01', 2024, 185000.00, 'ACTUALIZACION', 'AMPLIACION', 'PROPIETARIO', 'PROCESADA', TRUE),
     ('DJ-2021-000155', '014502-02', 2021, 98000.00, 'INSCRIPCION', 'COMPRA-VENTA', 'PROPIETARIO', 'PROCESADA', TRUE),
@@ -122,6 +124,11 @@ VALUES
     ('DJ-2009-000640', '045067-01', 2009, 1250000.00, 'INSCRIPCION', 'COMPRA-VENTA', 'REPRESENTANTE LEGAL', 'PROCESADA', TRUE),
     ('DJ-2018-000340', '058934-01', 2018, 210000.00, 'INSCRIPCION', 'COMPRA-VENTA', 'COPROPIETARIO', 'PROCESADA', TRUE),
     ('DJ-2022-000342', '058934-02', 2022, 115000.00, 'INSCRIPCION', 'COMPRA-VENTA', 'PROPIETARIO', 'PROCESADA', TRUE)
+) AS s(id_declaracion, codigo_predio, anio, autoavaluo, motivo, submotivo, tipo_declarante, estado, es_vigente)
+WHERE NOT (s.es_vigente AND EXISTS (
+    SELECT 1 FROM samnet.declaracion_jurada d
+    WHERE d.codigo_predio = s.codigo_predio AND d.es_vigente
+))
 ON CONFLICT (id_declaracion) DO NOTHING;
 
 INSERT INTO samnet.declaracion_jurada
@@ -130,4 +137,8 @@ SELECT 'DJ-2020-' || replace(p.codigo_predio, '-', ''), p.codigo_predio, 2020, p
        'COMPRA-VENTA', 'REPRESENTANTE LEGAL', 'PROCESADA', TRUE
 FROM samnet.predio p
 WHERE p.codigo_predio LIKE '080245-%'
+  AND NOT EXISTS (
+      SELECT 1 FROM samnet.declaracion_jurada d
+      WHERE d.codigo_predio = p.codigo_predio AND d.es_vigente
+  )
 ON CONFLICT (id_declaracion) DO NOTHING;
