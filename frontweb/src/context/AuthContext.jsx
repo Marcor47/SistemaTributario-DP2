@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { esSesionDemo, obtenerSesionDemo } from '../services/authService.js'
+import { haySesionPortal, obtenerSesionPortal } from '../services/authService.js'
 import { obtenerSesionInterna } from '../services/authInternoService.js'
 import { pedir } from '../services/api.js'
 
@@ -8,7 +8,7 @@ const AuthContext = createContext(null)
 
 // Averigua qué sesión tiene el navegador. El backend mantiene una sola sesión por navegador.
 async function consultarSesion() {
-  if (esSesionDemo()) return { estado: 'listo', tipo: 'contribuyente', usuario: obtenerSesionDemo() }
+  if (haySesionPortal()) return { estado: 'listo', tipo: 'contribuyente', usuario: obtenerSesionPortal() }
   try {
     return { estado: 'listo', tipo: 'interno', usuario: await obtenerSesionInterna() }
   } catch {

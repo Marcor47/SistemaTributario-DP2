@@ -148,6 +148,15 @@ export const MODULOS = [
     icono: icono(<><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /><path d="M4 6l6-3 6 6 5-4" /></>),
   },
   {
+    ruta: '/reporteria',
+    texto: 'Plataforma analítica',
+    titulo: 'Plataforma analítica de Rentas',
+    descripcion: 'Explora la recaudación, la morosidad, los principales contribuyentes y los buenos pagadores con la información disponible a la fecha de corte; compara, guarda tus vistas y expórtalas.',
+    seccion: 'gestion',
+    permiso: 'REPORTES:CONSULTAR',
+    icono: icono(<><path d="M3 3v18h18" /><path d="M7 16v-4M12 16V8M17 16v-7" /></>),
+  },
+  {
     ruta: '/morosidad',
     texto: 'Morosidad',
     titulo: 'Índice de Morosidad',

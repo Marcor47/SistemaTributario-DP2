@@ -65,7 +65,7 @@ public class RestriccionReporte {
         if (dimension == DimensionRestringida.REPORTE) {
             return permitido;
         }
-        if (dimension != dimensionFila || !valorPermitido.equals(valorFila)) {
+        if (dimension != dimensionFila || !valorPermitido.equalsIgnoreCase(valorFila)) {
             return true;
         }
         return permitido;

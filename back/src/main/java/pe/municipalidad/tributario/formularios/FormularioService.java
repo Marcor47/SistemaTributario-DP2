@@ -19,10 +19,12 @@ import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 /* HU049: los formularios son plantillas del maestro (operativo.plantilla_documento y version_plantilla). */
 @Service
 public class FormularioService {
-    public record Resumen(String codigo, String nombre, int version, java.time.Instant fechaPublicacion) {
+    public record Resumen(String codigo, String nombre, int version, java.time.Instant fechaPublicacion,
+            String descripcion, String formato, String archivo) {
         static Resumen from(VersionPlantilla v) {
             return new Resumen(v.getPlantilla().getCodigo(), v.getPlantilla().getNombre(), v.getNumeroVersion(),
-                    v.getFechaPublicacion());
+                    v.getFechaPublicacion(), v.getPlantilla().getDescripcion(),
+                    "application/pdf".equals(v.getTipoContenido()) ? "PDF" : "Word (.docx)", v.getArchivo());
         }
     }
 
@@ -47,6 +49,23 @@ public class FormularioService {
 
     @Transactional
     public synchronized Resumen publicar(String codigo, String nombre, String archivo, byte[] contenido) {
+        return publicar(codigo, nombre, null, archivo, contenido);
+    }
+
+    /* Retira la versión vigente: el formulario deja de ofrecerse, pero sus versiones se conservan. */
+    @Transactional
+    public synchronized void retirar(String codigo) {
+        VersionPlantilla vigente = vigente(codigo);
+        vigente.retirar();
+        versiones.save(vigente);
+    }
+
+    @Transactional
+    public synchronized Resumen publicar(String codigo, String nombre, String descripcion, String archivo,
+            byte[] contenido) {
+        if (descripcion != null && descripcion.length() > 400) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La descripción admite hasta 400 caracteres");
+        }
         if (codigo == null || !codigo.matches("[A-Z0-9_-]{2,80}") || nombre == null
                 || nombre.isBlank() || nombre.length() > 200 || archivo == null || contenido == null
                 || contenido.length == 0 || contenido.length > 10 * 1024 * 1024) {
@@ -66,6 +85,9 @@ public class FormularioService {
         PlantillaDocumento plantilla = plantillas.findByCodigo(codigo).orElseGet(() -> plantillas.save(
                 new PlantillaDocumento(codigo, nombre.trim(), TipoPlantilla.FORMULARIO_MANUAL, null)));
         plantilla.renombrar(nombre.trim());
+        if (descripcion != null) {
+            plantilla.describir(descripcion);
+        }
         versiones.findByPlantillaCodigoAndVigenteTrue(codigo).ifPresent(anterior -> {
             anterior.retirar();
             /* Se escribe antes de insertar la nueva: solo puede haber una versión vigente por plantilla. */

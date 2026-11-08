@@ -25,6 +25,13 @@ sin predio asociado se conservan en `SIN_ZONA`; no se les asigna una zona invent
 Se incluyen metas de ejemplo y segmentos rotulados Demo. Esos segmentos son categorías
 fijas de la semilla, no resultados de un modelo de IA.
 
+La semilla `R__zz_demo_05_alertas_desvio_t4.sql` agrega cuatro alertas activas del periodo
+`2026-T4` (tres indicadores trimestrales Demo y la meta existente de recuperación de deuda).
+Se ven en `/dashboard` cuando el periodo consultado cubre ese trimestre —por defecto, el
+corte de 2026-11— y en `/metas` mientras sigan activas. Las alertas de periodos que no
+coinciden con el periodo consultado se ocultan en el dashboard; las alertas `TOTAL` se
+conservan aunque se filtre por zona, tributo o segmento.
+
 Esta carga permite probar el dashboard mientras se incorpora el proceso ETL de HU025.
 No modifica las obligaciones ni los pagos de SAMNET. No se actualiza automáticamente al
 pagar: es una foto de demostración, independiente de las siguientes cargas del ETL.

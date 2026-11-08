@@ -1,6 +1,6 @@
 spring:
   config:
-    import: optional:file:./back/.niubiz-sandbox-local.properties,optional:file:./.niubiz-sandbox-local.properties
+    import: optional:file:./back/.niubiz-sandbox-local.properties,optional:file:./.niubiz-sandbox-local.properties,optional:file:./back/.asistente-local.properties,optional:file:./.asistente-local.properties
   flyway:
     locations: classpath:db/migration,classpath:db/datos-prueba,classpath:db/datos-demo
 
@@ -11,6 +11,9 @@ server:
         secure: false
 
 tributario:
+  indicadores:
+    morosidad:
+      calcular-al-iniciar: true
   constancia:
     demo:
       habilitado: true

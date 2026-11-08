@@ -32,6 +32,7 @@ import pe.municipalidad.tributario.seguridad.SesionInterna;
  * HU006, HU007, HU018 y HU038: controlador de reportes de Seguimiento institucional para la Gerencia de Rentas.
  * HU006: catálogo y generación de reportes sin soporte de TI (back/HU006_API.md).
  * HU007: guardar, gestionar y exportar vistas personalizadas a Excel o PDF (back/HU007_API.md).
+ * HU032: opciones predefinidas para personalizar gráficas, series y filtros (back/HU032_API.md).
  * HU018: reporte de contribuyentes morosos por zona y periodo (RF-024 adaptado).
  * HU038: reporte de buenos pagadores por zona y periodo (RF-051).
  */
@@ -54,6 +55,11 @@ public class ReporteController {
     @GetMapping
     public List<ReporteCatalogoRespuesta> catalogo(HttpServletRequest request) {
         return servicio.catalogo(sesion.conRol(request, ROLES_REPORTES));
+    }
+
+    @GetMapping("/opciones")
+    public ReporteService.OpcionesReporte opciones(HttpServletRequest request) {
+        return servicio.opciones(sesion.conRol(request, ROLES_REPORTES));
     }
 
     @GetMapping("/zonas")
@@ -127,6 +133,16 @@ public class ReporteController {
         Integer periodoEfectivo = periodo != null ? periodo : anio;
         return servicio.generarBuenosPagadoresPorZona(
                 new FiltrosReporte(periodoEfectivo, zona, tributo, montoMinimo, periodoEfectivo), usuario);
+    }
+
+    /* ===== HU032: Opciones predefinidas para personalizar la visualización (back/HU032_API.md) ===== */
+
+    @GetMapping("/{tipo}/opciones-visualizacion")
+    public OpcionesVisualizacionRespuesta opcionesVisualizacion(
+            @PathVariable TipoReporte tipo,
+            HttpServletRequest request) {
+        String usuario = sesion.conRol(request, ROLES_REPORTES);
+        return servicio.opcionesVisualizacion(tipo, usuario);
     }
 
     /* ===== HU007: Vistas personalizadas de reporte ===== */
@@ -212,6 +228,9 @@ public class ReporteController {
             @RequestParam(required = false) FiltroBeneficio beneficio,
             @RequestParam(required = false) @DecimalMin(value = "0", message = "no puede ser negativo")
             BigDecimal montoMinimo,
+            @RequestParam(required = false) CriterioPricos criterio,
+            @RequestParam(required = false) @Min(value = 1, message = "debe ser al menos 1")
+            @Max(value = 200, message = "debe ser como máximo 200") Integer limite,
             @RequestParam(required = false) List<String> columnas,
             @RequestParam(required = false) List<String> columnasDetalle,
             @RequestParam(required = false) @Size(max = 250, message = "es demasiado largo") String orden,
@@ -219,7 +238,7 @@ public class ReporteController {
         String usuario = sesion.conRol(request, ROLES_REPORTES);
         ExportacionReporte exportacion = servicio.exportar(tipo,
                 new FiltrosReporte(anio, zona, tributo, montoMinimo, periodo,
-                        regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio), formato, columnas,
+                        regimen, tipoDocumento, etapa, anioDesde, anioHasta, beneficio, criterio, limite), formato, columnas,
                 columnasDetalle, orden, usuario);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + exportacion.nombreArchivo() + "\"")

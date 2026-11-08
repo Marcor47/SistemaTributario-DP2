@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { MotionConfig, motion } from 'framer-motion'
-import { esSesionDemo, obtenerSesionContribuyente } from '../services/authService.js'
+import { haySesionPortal, obtenerSesionContribuyente } from '../services/authService.js'
 import './Inicio.css'
 
 const MODULOS = [
@@ -110,7 +110,7 @@ const aparece = {
 }
 
 export default function Inicio() {
-  const [tieneSesion, setTieneSesion] = useState(esSesionDemo)
+  const [tieneSesion, setTieneSesion] = useState(haySesionPortal)
   const [selectorAbierto, setSelectorAbierto] = useState(false)
 
   useEffect(() => {

@@ -23,6 +23,11 @@ export function generarReportePricos({ criterio, limite }, { signal } = {}) {
   return pedir(`/reportes/pricos${consulta}`, { signal }).catch(controlarSesion)
 }
 
+// Tributos y años con cuotas emitidas en la BD: opciones de los filtros de tributo y año.
+export function obtenerOpcionesReporte({ signal } = {}) {
+  return pedir('/reportes/opciones', { signal }).catch(controlarSesion)
+}
+
 export function listarZonas(tipo, { signal } = {}) {
   return pedir(`/reportes/zonas?tipo=${encodeURIComponent(tipo)}`, { signal }).catch(controlarSesion)
 }
@@ -37,6 +42,20 @@ export function generarBuenosPagadoresPorZona(filtros, { signal } = {}) {
   const parametros = parametrosReporte({ filtros: ['periodo', 'zona', 'tributo', 'montoMinimo'] }, filtros)
   const consulta = parametros.size ? `?${parametros}` : ''
   return pedir(`/reportes/buenos-pagadores-zona${consulta}`, { signal }).catch(controlarSesion)
+}
+
+export function exportarBuenosPagadoresPorZona(filtros, formato, columnas = []) {
+  const parametros = parametrosReporte({ filtros: ['periodo', 'zona', 'tributo', 'montoMinimo'] }, filtros)
+  parametros.set('formato', formato)
+  columnas.forEach((columna) => parametros.append('columnas', columna))
+  return descargarReporte(`/reportes/buenos-pagadores-zona/exportar?${parametros}`)
+}
+
+export function exportarReportePricos({ criterio, limite, columnas }, formato) {
+  const parametros = parametrosPricos({ criterio, limite })
+  parametros.set('formato', formato)
+  columnas?.forEach((columna) => parametros.append('columnas', columna))
+  return descargarReporte(`/reportes/PRICOS/exportar?${parametros}`)
 }
 
 export function listarVistas({ signal } = {}) {

@@ -71,12 +71,12 @@ class ReporteBuenosPagadoresZonaTest {
     void buenosPagadoresPorZonaYPeriodoCoincideConMuestraControlSAMNET() throws Exception {
         mvc.perform(get("/api/reportes/buenos-pagadores-zona")
                         .param("periodo", "2026")
-                        .param("zona", "Z1")
+                        .param("zona", "Costanera")
                         .session(sesion(NombreRol.GERENCIA)))
                 
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tipoReporte").value("BUENOS_PAGADORES"))
-                .andExpect(jsonPath("$.filtrosAplicados.zona").value("Z1"))
+                .andExpect(jsonPath("$.filtrosAplicados.zona").value("Costanera"))
                 .andExpect(jsonPath("$.filtrosAplicados.periodo").value(2026))
                 .andExpect(jsonPath("$.filas[*].codigo", contains("014502")))
                 // RF-051: Verificación de columnas obligatorias
@@ -94,7 +94,7 @@ class ReporteBuenosPagadoresZonaTest {
                 .andExpect(jsonPath("$.filas[0].totalEmitido").value(2500.32))
                 .andExpect(jsonPath("$.filas[0].totalPagado").value(2500.32))
                 .andExpect(jsonPath("$.filas[0].cuotasPagadasATiempo").value(21))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2")));
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Costanera", "Maranga")));
     }
 
     @Test
@@ -111,7 +111,7 @@ class ReporteBuenosPagadoresZonaTest {
 
         mvc.perform(get("/api/reportes/buenos-pagadores-zona")
                         .param("periodo", "2026")
-                        .param("zona", "Z3")
+                        .param("zona", "Pando")
                         .session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filas[*].codigo", contains("033218")))
@@ -131,7 +131,7 @@ class ReporteBuenosPagadoresZonaTest {
         byte[] excel = mvc.perform(get("/api/reportes/buenos-pagadores-zona/exportar")
                         .param("formato", "EXCEL")
                         .param("periodo", "2026")
-                        .param("zona", "Z1")
+                        .param("zona", "Costanera")
                         .session(sesion(NombreRol.GERENCIA)))
                 
                 .andExpect(status().isOk())
@@ -165,7 +165,7 @@ class ReporteBuenosPagadoresZonaTest {
         byte[] pdf = mvc.perform(get("/api/reportes/buenos-pagadores-zona/exportar")
                         .param("formato", "PDF")
                         .param("periodo", "2026")
-                        .param("zona", "Z1")
+                        .param("zona", "Costanera")
                         .session(sesion(NombreRol.GERENCIA)))
                 
                 .andExpect(status().isOk())
@@ -191,7 +191,7 @@ class ReporteBuenosPagadoresZonaTest {
                 + "AND anio = 2026 AND numero_cuota = 1");
         mvc.perform(get("/api/reportes/buenos-pagadores-zona")
                         .param("periodo", "2026")
-                        .param("zona", "Z1")
+                        .param("zona", "Costanera")
                         .param("tributo", "IMPUESTO_PREDIAL")
                         .session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())

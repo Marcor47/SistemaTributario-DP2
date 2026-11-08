@@ -68,7 +68,7 @@ class ReporteMorososEtlTest {
                 .andExpect(jsonPath("$.filas[0].tipoDocumento").value("RUC"))
                 .andExpect(jsonPath("$.filas[0].numeroDocumento").value("20456781239"))
                 .andExpect(jsonPath("$.filas[0].regimen").value("GENERAL"))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2", "Z3")))
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Costanera", "Maranga", "Pando")))
                 .andExpect(jsonPath("$.filas[0].deudaVencida").value(2326.48))
                 .andExpect(jsonPath("$.filas[0].deudaSinBeneficio").value(2326.48))
                 .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(2))
@@ -82,7 +82,7 @@ class ReporteMorososEtlTest {
                 .andExpect(jsonPath("$.filas[0].detalleDeuda[0].tributo").value("IMPUESTO_PREDIAL"))
                 .andExpect(jsonPath("$.filas[0].detalleDeuda[0].zona").value(nullValue()))
                 .andExpect(jsonPath("$.filas[0].detalleDeuda[1].tributo").value("ARBITRIOS"))
-                .andExpect(jsonPath("$.filas[0].detalleDeuda[1].zona").value("Z2"));
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[1].zona").value("Maranga"));
 
         assertThat(jdbc.queryForObject(
                 "SELECT count(*) FROM seguridad.registro_auditoria WHERE accion = 'REIDENTIFICAR'",
@@ -99,7 +99,7 @@ class ReporteMorososEtlTest {
         insertarHecho(idLote, seudonimo, idPredio, "ARBITRIOS", 2026, 2, LocalDate.of(2026, 6, 30),
                 new BigDecimal("1315.60"), new BigDecimal("1315.60"));
 
-        mvc.perform(get("/api/reportes/MOROSOS").param("zona", "Z2")
+        mvc.perform(get("/api/reportes/MOROSOS").param("zona", "Maranga")
                         .session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.resumen.cantidad").value(1))
@@ -110,7 +110,7 @@ class ReporteMorososEtlTest {
                 .andExpect(jsonPath("$.filas[0].deudaPorTributo", hasSize(1)))
                 .andExpect(jsonPath("$.filas[0].deudaPorTributo[0].tributo").value("ARBITRIOS"))
                 .andExpect(jsonPath("$.filas[0].detalleDeuda", hasSize(1)))
-                .andExpect(jsonPath("$.filas[0].detalleDeuda[0].zona").value("Z2"));
+                .andExpect(jsonPath("$.filas[0].detalleDeuda[0].zona").value("Maranga"));
     }
 
     @Test
@@ -156,7 +156,7 @@ class ReporteMorososEtlTest {
         Long idPredio = jdbc.queryForObject("""
                 INSERT INTO analitica.dim_predio
                     (seudonimo_predio, zona, uso_predio, tipo_predio, base_imponible)
-                VALUES ('etl-predio-sin-correspondencia', 'Z2', 'Comercio', 'URBANO', 960000.00)
+                VALUES ('etl-predio-sin-correspondencia', 'Maranga', 'Comercio', 'URBANO', 960000.00)
                 RETURNING id_predio
                 """, Long.class);
         insertarHecho(idLote, seudonimo, idPredio, "IMPUESTO_PREDIAL", 2026, 1, LocalDate.of(2026, 3, 31),

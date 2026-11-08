@@ -1,16 +1,8 @@
 import { pedir } from './api.js'
-import { DATOS_DEMO } from '../mocks/morosidad.js'
 import { normalizarMorosidad } from '../utils/morosidad.js'
-
-const USAR_MOCK = import.meta.env?.VITE_USAR_MOCK === 'true'
 
 // La consulta es de lectura: el cálculo pertenece al proceso ETL del backend.
 export async function obtenerMorosidad(anio, numeroPeriodo, { signal } = {}) {
-  if (USAR_MOCK) {
-    if ((anio && Number(anio) !== DATOS_DEMO.lote.anio)
-      || (numeroPeriodo && Number(numeroPeriodo) !== DATOS_DEMO.lote.numeroPeriodo)) return null
-    return { ...structuredClone(DATOS_DEMO), esDemo: true }
-  }
   const parametros = new URLSearchParams()
   if (anio) parametros.set('anio', anio)
   if (numeroPeriodo) parametros.set('numeroPeriodo', numeroPeriodo)
@@ -20,4 +12,17 @@ export async function obtenerMorosidad(anio, numeroPeriodo, { signal } = {}) {
     if (error.estado === 404 && error.codigo === 'MOROSIDAD_NO_CALCULADA') return null
     throw error
   }
+}
+
+// Años y meses con índice publicado en la BD; son las únicas opciones del filtro.
+export async function obtenerPeriodosMorosidad({ signal } = {}) {
+  const periodos = await pedir('/indicadores/morosidad/periodos', { signal })
+  const porAnio = new Map()
+  for (const { anio, numeroPeriodo } of periodos) {
+    if (!porAnio.has(anio)) porAnio.set(anio, [])
+    porAnio.get(anio).push(numeroPeriodo)
+  }
+  return [...porAnio.entries()]
+    .sort(([a], [b]) => b - a)
+    .map(([anio, meses]) => ({ anio, meses: [...new Set(meses)].sort((a, b) => a - b) }))
 }

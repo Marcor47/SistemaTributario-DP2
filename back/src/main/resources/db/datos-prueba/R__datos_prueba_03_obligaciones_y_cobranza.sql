@@ -15,44 +15,57 @@ CREATE TEMPORARY TABLE contribuyente_sintetico ON COMMIT DROP AS
 SELECT codigo FROM (VALUES ('014502'), ('021390'), ('033218'), ('045067'), ('058934'), ('061177'), ('072405'),
                            ('080245')) AS c (codigo);
 
+-- Solo administra 2025 y 2026: la historia anterior (y sus recibos 'RH-') la carga datos-demo y no se toca aquí.
 DELETE FROM samnet.seguimiento_cobranza s
 USING samnet.obligacion o
-WHERE o.id = s.obligacion_id AND o.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico);
+WHERE o.id = s.obligacion_id AND o.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico)
+  AND o.anio >= 2025;
 DELETE FROM samnet.pago_obligacion po
 USING samnet.obligacion o
-WHERE o.id = po.id_obligacion AND o.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico);
-DELETE FROM samnet.pago WHERE contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico);
+WHERE o.id = po.id_obligacion AND o.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico)
+  AND o.anio >= 2025;
+DELETE FROM samnet.pago p
+WHERE p.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico)
+  AND p.id_pago LIKE 'REC-%'
+  AND NOT EXISTS (SELECT 1 FROM samnet.pago_obligacion po WHERE po.id_pago = p.id_pago);
 -- obligacion_servicio se borra en cascada con su obligación (V31).
-DELETE FROM samnet.obligacion WHERE contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico);
+DELETE FROM samnet.obligacion
+WHERE contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico) AND anio >= 2025;
 
--- Tasas mensuales de arbitrios 2025 por servicio, categoría de uso y zona; 2026 se reajusta 3 %.
-DELETE FROM samnet.tasa_arbitrio;
+-- Tasas mensuales de arbitrios 2025 por servicio, categoría de uso y zona; 2026 se reajusta 3 %. Costanera, Maranga
+-- y Pando son las tarifas de este archivo; Las Leyendas cuesta como Maranga y Faucett - Libertad como Pando. Las
+-- tarifas son ilustrativas, no las de la ordenanza. Los años anteriores los agrega datos-demo.
+DELETE FROM samnet.tasa_arbitrio WHERE anio IN (2025, 2026);
 INSERT INTO samnet.tasa_arbitrio (anio, servicio, categoria_uso, zona, monto_mensual)
 SELECT a.anio, t.servicio, t.categoria_uso, t.zona,
        round(t.monto * CASE a.anio WHEN 2026 THEN 1.03 ELSE 1 END, 2)
 FROM (VALUES (2025), (2026)) AS a (anio)
 CROSS JOIN (VALUES
-    ('BARRIDO_CALLES', 'CASA_HABITACION', 'Z1', 9.80), ('BARRIDO_CALLES', 'CASA_HABITACION', 'Z2', 8.60), ('BARRIDO_CALLES', 'CASA_HABITACION', 'Z3', 7.40),
-    ('RECOLECCION_RESIDUOS', 'CASA_HABITACION', 'Z1', 14.50), ('RECOLECCION_RESIDUOS', 'CASA_HABITACION', 'Z2', 13.20), ('RECOLECCION_RESIDUOS', 'CASA_HABITACION', 'Z3', 12.10),
-    ('PARQUES_JARDINES', 'CASA_HABITACION', 'Z1', 8.90), ('PARQUES_JARDINES', 'CASA_HABITACION', 'Z2', 7.60), ('PARQUES_JARDINES', 'CASA_HABITACION', 'Z3', 6.30),
-    ('SERENAZGO', 'CASA_HABITACION', 'Z1', 15.20), ('SERENAZGO', 'CASA_HABITACION', 'Z2', 13.80), ('SERENAZGO', 'CASA_HABITACION', 'Z3', 12.40),
-    ('BARRIDO_CALLES', 'COMERCIO', 'Z1', 18.40), ('BARRIDO_CALLES', 'COMERCIO', 'Z2', 16.20), ('BARRIDO_CALLES', 'COMERCIO', 'Z3', 14.00),
-    ('RECOLECCION_RESIDUOS', 'COMERCIO', 'Z1', 46.80), ('RECOLECCION_RESIDUOS', 'COMERCIO', 'Z2', 41.50), ('RECOLECCION_RESIDUOS', 'COMERCIO', 'Z3', 36.90),
-    ('PARQUES_JARDINES', 'COMERCIO', 'Z1', 12.60), ('PARQUES_JARDINES', 'COMERCIO', 'Z2', 10.80), ('PARQUES_JARDINES', 'COMERCIO', 'Z3', 9.20),
-    ('SERENAZGO', 'COMERCIO', 'Z1', 38.50), ('SERENAZGO', 'COMERCIO', 'Z2', 34.20), ('SERENAZGO', 'COMERCIO', 'Z3', 30.10),
-    ('BARRIDO_CALLES', 'SERVICIOS', 'Z1', 16.20), ('BARRIDO_CALLES', 'SERVICIOS', 'Z2', 14.30), ('BARRIDO_CALLES', 'SERVICIOS', 'Z3', 12.50),
-    ('RECOLECCION_RESIDUOS', 'SERVICIOS', 'Z1', 35.40), ('RECOLECCION_RESIDUOS', 'SERVICIOS', 'Z2', 31.60), ('RECOLECCION_RESIDUOS', 'SERVICIOS', 'Z3', 28.20),
-    ('PARQUES_JARDINES', 'SERVICIOS', 'Z1', 11.40), ('PARQUES_JARDINES', 'SERVICIOS', 'Z2', 9.80), ('PARQUES_JARDINES', 'SERVICIOS', 'Z3', 8.30),
-    ('SERENAZGO', 'SERVICIOS', 'Z1', 30.20), ('SERENAZGO', 'SERVICIOS', 'Z2', 26.90), ('SERENAZGO', 'SERVICIOS', 'Z3', 23.80),
-    ('BARRIDO_CALLES', 'INDUSTRIA', 'Z1', 17.10), ('BARRIDO_CALLES', 'INDUSTRIA', 'Z2', 15.10), ('BARRIDO_CALLES', 'INDUSTRIA', 'Z3', 13.20),
-    ('RECOLECCION_RESIDUOS', 'INDUSTRIA', 'Z1', 52.30), ('RECOLECCION_RESIDUOS', 'INDUSTRIA', 'Z2', 46.70), ('RECOLECCION_RESIDUOS', 'INDUSTRIA', 'Z3', 41.40),
-    ('PARQUES_JARDINES', 'INDUSTRIA', 'Z1', 10.20), ('PARQUES_JARDINES', 'INDUSTRIA', 'Z2', 8.80), ('PARQUES_JARDINES', 'INDUSTRIA', 'Z3', 7.40),
-    ('SERENAZGO', 'INDUSTRIA', 'Z1', 34.60), ('SERENAZGO', 'INDUSTRIA', 'Z2', 30.80), ('SERENAZGO', 'INDUSTRIA', 'Z3', 27.20),
-    ('BARRIDO_CALLES', 'TERRENO_SIN_CONSTRUIR', 'Z1', 6.20), ('BARRIDO_CALLES', 'TERRENO_SIN_CONSTRUIR', 'Z2', 5.40), ('BARRIDO_CALLES', 'TERRENO_SIN_CONSTRUIR', 'Z3', 4.70),
-    ('RECOLECCION_RESIDUOS', 'TERRENO_SIN_CONSTRUIR', 'Z1', 3.10), ('RECOLECCION_RESIDUOS', 'TERRENO_SIN_CONSTRUIR', 'Z2', 2.80), ('RECOLECCION_RESIDUOS', 'TERRENO_SIN_CONSTRUIR', 'Z3', 2.50),
-    ('PARQUES_JARDINES', 'TERRENO_SIN_CONSTRUIR', 'Z1', 5.60), ('PARQUES_JARDINES', 'TERRENO_SIN_CONSTRUIR', 'Z2', 4.80), ('PARQUES_JARDINES', 'TERRENO_SIN_CONSTRUIR', 'Z3', 4.10),
-    ('SERENAZGO', 'TERRENO_SIN_CONSTRUIR', 'Z1', 9.40), ('SERENAZGO', 'TERRENO_SIN_CONSTRUIR', 'Z2', 8.50), ('SERENAZGO', 'TERRENO_SIN_CONSTRUIR', 'Z3', 7.60)
-) AS t (servicio, categoria_uso, zona, monto);
+    ('BARRIDO_CALLES', 'CASA_HABITACION', 'Costanera', 9.80), ('BARRIDO_CALLES', 'CASA_HABITACION', 'Maranga', 8.60), ('BARRIDO_CALLES', 'CASA_HABITACION', 'Pando', 7.40),
+    ('RECOLECCION_RESIDUOS', 'CASA_HABITACION', 'Costanera', 14.50), ('RECOLECCION_RESIDUOS', 'CASA_HABITACION', 'Maranga', 13.20), ('RECOLECCION_RESIDUOS', 'CASA_HABITACION', 'Pando', 12.10),
+    ('PARQUES_JARDINES', 'CASA_HABITACION', 'Costanera', 8.90), ('PARQUES_JARDINES', 'CASA_HABITACION', 'Maranga', 7.60), ('PARQUES_JARDINES', 'CASA_HABITACION', 'Pando', 6.30),
+    ('SERENAZGO', 'CASA_HABITACION', 'Costanera', 15.20), ('SERENAZGO', 'CASA_HABITACION', 'Maranga', 13.80), ('SERENAZGO', 'CASA_HABITACION', 'Pando', 12.40),
+    ('BARRIDO_CALLES', 'COMERCIO', 'Costanera', 18.40), ('BARRIDO_CALLES', 'COMERCIO', 'Maranga', 16.20), ('BARRIDO_CALLES', 'COMERCIO', 'Pando', 14.00),
+    ('RECOLECCION_RESIDUOS', 'COMERCIO', 'Costanera', 46.80), ('RECOLECCION_RESIDUOS', 'COMERCIO', 'Maranga', 41.50), ('RECOLECCION_RESIDUOS', 'COMERCIO', 'Pando', 36.90),
+    ('PARQUES_JARDINES', 'COMERCIO', 'Costanera', 12.60), ('PARQUES_JARDINES', 'COMERCIO', 'Maranga', 10.80), ('PARQUES_JARDINES', 'COMERCIO', 'Pando', 9.20),
+    ('SERENAZGO', 'COMERCIO', 'Costanera', 38.50), ('SERENAZGO', 'COMERCIO', 'Maranga', 34.20), ('SERENAZGO', 'COMERCIO', 'Pando', 30.10),
+    ('BARRIDO_CALLES', 'SERVICIOS', 'Costanera', 16.20), ('BARRIDO_CALLES', 'SERVICIOS', 'Maranga', 14.30), ('BARRIDO_CALLES', 'SERVICIOS', 'Pando', 12.50),
+    ('RECOLECCION_RESIDUOS', 'SERVICIOS', 'Costanera', 35.40), ('RECOLECCION_RESIDUOS', 'SERVICIOS', 'Maranga', 31.60), ('RECOLECCION_RESIDUOS', 'SERVICIOS', 'Pando', 28.20),
+    ('PARQUES_JARDINES', 'SERVICIOS', 'Costanera', 11.40), ('PARQUES_JARDINES', 'SERVICIOS', 'Maranga', 9.80), ('PARQUES_JARDINES', 'SERVICIOS', 'Pando', 8.30),
+    ('SERENAZGO', 'SERVICIOS', 'Costanera', 30.20), ('SERENAZGO', 'SERVICIOS', 'Maranga', 26.90), ('SERENAZGO', 'SERVICIOS', 'Pando', 23.80),
+    ('BARRIDO_CALLES', 'INDUSTRIA', 'Costanera', 17.10), ('BARRIDO_CALLES', 'INDUSTRIA', 'Maranga', 15.10), ('BARRIDO_CALLES', 'INDUSTRIA', 'Pando', 13.20),
+    ('RECOLECCION_RESIDUOS', 'INDUSTRIA', 'Costanera', 52.30), ('RECOLECCION_RESIDUOS', 'INDUSTRIA', 'Maranga', 46.70), ('RECOLECCION_RESIDUOS', 'INDUSTRIA', 'Pando', 41.40),
+    ('PARQUES_JARDINES', 'INDUSTRIA', 'Costanera', 10.20), ('PARQUES_JARDINES', 'INDUSTRIA', 'Maranga', 8.80), ('PARQUES_JARDINES', 'INDUSTRIA', 'Pando', 7.40),
+    ('SERENAZGO', 'INDUSTRIA', 'Costanera', 34.60), ('SERENAZGO', 'INDUSTRIA', 'Maranga', 30.80), ('SERENAZGO', 'INDUSTRIA', 'Pando', 27.20),
+    ('BARRIDO_CALLES', 'TERRENO_SIN_CONSTRUIR', 'Costanera', 6.20), ('BARRIDO_CALLES', 'TERRENO_SIN_CONSTRUIR', 'Maranga', 5.40), ('BARRIDO_CALLES', 'TERRENO_SIN_CONSTRUIR', 'Pando', 4.70),
+    ('RECOLECCION_RESIDUOS', 'TERRENO_SIN_CONSTRUIR', 'Costanera', 3.10), ('RECOLECCION_RESIDUOS', 'TERRENO_SIN_CONSTRUIR', 'Maranga', 2.80), ('RECOLECCION_RESIDUOS', 'TERRENO_SIN_CONSTRUIR', 'Pando', 2.50),
+    ('PARQUES_JARDINES', 'TERRENO_SIN_CONSTRUIR', 'Costanera', 5.60), ('PARQUES_JARDINES', 'TERRENO_SIN_CONSTRUIR', 'Maranga', 4.80), ('PARQUES_JARDINES', 'TERRENO_SIN_CONSTRUIR', 'Pando', 4.10),
+    ('SERENAZGO', 'TERRENO_SIN_CONSTRUIR', 'Costanera', 9.40), ('SERENAZGO', 'TERRENO_SIN_CONSTRUIR', 'Maranga', 8.50), ('SERENAZGO', 'TERRENO_SIN_CONSTRUIR', 'Pando', 7.60)
+) AS z (servicio, categoria_uso, zona, monto)
+CROSS JOIN LATERAL (VALUES (z.zona), (CASE z.zona WHEN 'Maranga' THEN 'Las Leyendas'
+                                                   WHEN 'Pando' THEN 'Faucett - Libertad' END)) AS zz (zona_tarifa)
+CROSS JOIN LATERAL (SELECT z.servicio, z.categoria_uso, zz.zona_tarifa AS zona, z.monto) AS t
+WHERE zz.zona_tarifa IS NOT NULL;
 
 -- Impuesto Predial: base de cada contribuyente al 1 de enero de cada año y su impuesto anual en 4 cuotas.
 WITH base AS (
@@ -65,6 +78,7 @@ WITH base AS (
     JOIN samnet.uit u ON u.anio = a.anio
     WHERE coalesce(p.fecha_adquisicion, DATE '1900-01-01') < make_date(a.anio, 1, 1)
       AND p.fecha_baja IS NULL
+      AND t.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico)
     GROUP BY t.contribuyente_codigo, a.anio, u.valor, c.regimen
 ),
 afecta AS (
@@ -116,7 +130,8 @@ CROSS JOIN generate_series(1, 12) AS m (mes)
 JOIN samnet.tasa_arbitrio ta
   ON ta.anio = a.anio AND ta.categoria_uso = cat.categoria AND ta.zona = p.zona
 WHERE make_date(a.anio, m.mes, 1) > coalesce(p.fecha_adquisicion, DATE '1900-01-01')
-  AND p.fecha_baja IS NULL;
+  AND p.fecha_baja IS NULL
+  AND t.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico);
 
 WITH cuotas AS (
     SELECT contribuyente_codigo, codigo_predio, anio, mes, sum(monto) AS monto
@@ -170,7 +185,8 @@ SELECT o.id, o.contribuyente_codigo,
        CASE WHEN o.contribuyente_codigo = '061177' AND o.anio = 2026 AND o.tributo = 'IMPUESTO_PREDIAL'
                  AND o.numero_cuota = 1 THEN round(o.monto_emitido / 2, 2)
             ELSE o.monto_emitido END AS monto
-FROM samnet.obligacion o;
+FROM samnet.obligacion o
+WHERE o.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico) AND o.anio >= 2025;
 
 DELETE FROM plan_pago WHERE fecha_pago IS NULL OR fecha_pago > DATE '2026-10-19';
 

@@ -44,4 +44,13 @@ public interface ValorIndicadorRepository extends JpaRepository<ValorIndicador, 
             """)
     List<ValorIndicador> buscarPublicadosDeIndicador(@Param("indicadorCodigo") String indicadorCodigo,
             @Param("anio") Integer anio, @Param("numeroPeriodo") Integer numeroPeriodo);
+
+    /* Años y periodos que tienen un valor del indicador en una carga publicada, del más reciente al más antiguo. */
+    @Query("""
+            select distinct v.anio, v.numeroPeriodo from ValorIndicador v join v.lote l
+            where v.indicador.codigo = :indicadorCodigo
+              and l.estado = pe.municipalidad.tributario.etl.EstadoLote.PUBLICADO
+            order by v.anio desc, v.numeroPeriodo desc
+            """)
+    List<Object[]> buscarPeriodosPublicados(@Param("indicadorCodigo") String indicadorCodigo);
 }

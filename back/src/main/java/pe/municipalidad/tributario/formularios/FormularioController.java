@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -42,12 +43,19 @@ public class FormularioController {
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<FormularioService.Resumen> publicar(@RequestParam String codigo,
-            @RequestParam String nombre, @RequestParam MultipartFile archivo) {
+            @RequestParam String nombre, @RequestParam(required = false) String descripcion,
+            @RequestParam MultipartFile archivo) {
         try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(
-                    service.publicar(codigo, nombre, archivo.getOriginalFilename(), archivo.getBytes()));
+            return ResponseEntity.status(HttpStatus.CREATED).body(service.publicar(codigo, nombre, descripcion,
+                    archivo.getOriginalFilename(), archivo.getBytes()));
         } catch (java.io.IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No se pudo leer el archivo");
         }
+    }
+
+    @DeleteMapping("/{codigo}")
+    public ResponseEntity<Void> retirar(@PathVariable String codigo) {
+        service.retirar(codigo);
+        return ResponseEntity.noContent().build();
     }
 }

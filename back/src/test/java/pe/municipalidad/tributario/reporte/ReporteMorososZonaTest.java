@@ -66,11 +66,11 @@ class ReporteMorososZonaTest {
     void morososPorZonaYPeriodoCoincideConLaCargaEtl() throws Exception {
         mvc.perform(get("/api/reportes/morosos-zona")
                         .param("periodo", "2026")
-                        .param("zona", "Z2")
+                        .param("zona", "Maranga")
                         .session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tipoReporte").value("MOROSOS"))
-                .andExpect(jsonPath("$.filtrosAplicados.zona").value("Z2"))
+                .andExpect(jsonPath("$.filtrosAplicados.zona").value("Maranga"))
                 .andExpect(jsonPath("$.filtrosAplicados.periodo").value(2026))
                 .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "058934", "061177")))
                 // RF-024: Verificación de columnas obligatorias
@@ -84,11 +84,11 @@ class ReporteMorososZonaTest {
                 .andExpect(jsonPath("$.filas[0].domicilioFiscalDesglosado.numero").value("220"))
                 .andExpect(jsonPath("$.filas[0].domicilioFiscalDesglosado.distrito").value("SAN MIGUEL"))
                 // La muestra se calcula a la fecha de corte del último lote publicado de cobranza.
-                /* 2026 de 021390 en Z2: enero a setiembre de arbitrios de sus 4 predios de esa zona (36 cuotas). */
+                /* 2026 de 021390 en Maranga: enero a setiembre de arbitrios de sus 4 predios de esa zona (36 cuotas). */
                 .andExpect(jsonPath("$.filas[0].deudaVencida").value(4047.75))
                 .andExpect(jsonPath("$.filas[0].deudaSinBeneficio").value(4047.75))
                 .andExpect(jsonPath("$.filas[0].cuotasVencidas").value(36))
-                .andExpect(jsonPath("$.filas[0].zonas", contains("Z1", "Z2", "Z3")));
+                .andExpect(jsonPath("$.filas[0].zonas", contains("Costanera", "Maranga", "Pando")));
     }
 
     @Test
@@ -105,7 +105,7 @@ class ReporteMorososZonaTest {
 
         mvc.perform(get("/api/reportes/morosos-zona")
                         .param("periodo", "2026")
-                        .param("zona", "Z1")
+                        .param("zona", "Costanera")
                         .session(sesion(NombreRol.ANALISTA_RENTAS)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filas[*].codigo", contains("021390", "080245", "045067")))
@@ -120,7 +120,7 @@ class ReporteMorososZonaTest {
         byte[] excel = mvc.perform(get("/api/reportes/morosos-zona/exportar")
                         .param("formato", "EXCEL")
                         .param("periodo", "2026")
-                        .param("zona", "Z2")
+                        .param("zona", "Maranga")
                         .session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE,
@@ -140,7 +140,7 @@ class ReporteMorososZonaTest {
         byte[] pdf = mvc.perform(get("/api/reportes/morosos-zona/exportar")
                         .param("formato", "PDF")
                         .param("periodo", "2026")
-                        .param("zona", "Z2")
+                        .param("zona", "Maranga")
                         .session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/pdf"))

@@ -3,6 +3,8 @@
 Para probar el dashboard HU011 y el buzón móvil HU019 con datos incluidos al iniciar el perfil
 `local`, consulta [DEMOSTRACION_LOCAL.md](DEMOSTRACION_LOCAL.md).
 
+La plataforma analítica de Rentas y la configuración de su asistente de IA están en [REPORTERIA_API.md](REPORTERIA_API.md).
+
 ## Portal del contribuyente (HU014, HU022 y HU046)
 
 El contrato corregido de pago total y beneficios de HU022 está en [HU022_API.md](HU022_API.md).
@@ -146,7 +148,7 @@ ficticios indicados: no crea claves para otros contribuyentes. Si ya existe una
 credencial, conserva su clave y su estado de habilitación; reiniciar no reinicia
 contraseñas. Tampoco registra pagos ni modifica obligaciones o beneficios.
 
-En `frontweb` utiliza `VITE_AUTH_DEMO=false` y el backend con su perfil normal.
+En `frontweb` configura `VITE_API_URL` y usa el backend con su perfil normal (el front no tiene modo demo).
 Las claves publicadas aquí son solo para los datos sintéticos de desarrollo;
 excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno real.
 

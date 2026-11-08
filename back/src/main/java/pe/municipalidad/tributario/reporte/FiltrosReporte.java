@@ -14,23 +14,32 @@ import pe.municipalidad.tributario.obligacion.Tributo;
  */
 public record FiltrosReporte(Integer anio, String zona, Tributo tributo, BigDecimal montoMinimo, Integer periodo,
         String regimen, TipoDocumento tipoDocumento, EtapaCobranza etapa,
-        Integer anioDesde, Integer anioHasta, FiltroBeneficio beneficio) {
+        Integer anioDesde, Integer anioHasta, FiltroBeneficio beneficio,
+        CriterioPricos criterio, Integer limite) {
+
+    public FiltrosReporte(Integer anio, String zona, Tributo tributo, BigDecimal montoMinimo, Integer periodo,
+            String regimen, TipoDocumento tipoDocumento, EtapaCobranza etapa,
+            Integer anioDesde, Integer anioHasta, FiltroBeneficio beneficio) {
+        this(anio, zona, tributo, montoMinimo, periodo, regimen, tipoDocumento, etapa,
+                anioDesde, anioHasta, beneficio, null, null);
+    }
 
     public FiltrosReporte(Integer anio, String zona, Tributo tributo, BigDecimal montoMinimo, Integer periodo,
             String regimen, TipoDocumento tipoDocumento, EtapaCobranza etapa) {
-        this(anio, zona, tributo, montoMinimo, periodo, regimen, tipoDocumento, etapa, null, null, null);
+        this(anio, zona, tributo, montoMinimo, periodo, regimen, tipoDocumento, etapa, null, null, null, null, null);
     }
 
     public FiltrosReporte(Integer anio, String zona, Tributo tributo, BigDecimal montoMinimo, Integer periodo) {
-        this(anio, zona, tributo, montoMinimo, periodo, null, null, null, null, null, null);
+        this(anio, zona, tributo, montoMinimo, periodo, null, null, null, null, null, null, null, null);
     }
 
     public FiltrosReporte(Integer anio, String zona, Tributo tributo, BigDecimal montoMinimo) {
-        this(anio, zona, tributo, montoMinimo, null, null, null, null, null, null, null);
+        this(anio, zona, tributo, montoMinimo, null, null, null, null, null, null, null, null, null);
     }
 
     public FiltrosReporte {
-        zona = zona == null || zona.isBlank() ? null : zona.strip().toUpperCase(Locale.ROOT);
+        /* Las zonas son nombres de sectores (p. ej. Maranga); se comparan sin distinguir mayúsculas. */
+        zona = zona == null || zona.isBlank() ? null : zona.strip();
         regimen = regimen == null || regimen.isBlank() ? null : regimen.strip().toUpperCase(Locale.ROOT);
         if (anio == null && periodo != null) {
             anio = periodo;
@@ -51,15 +60,16 @@ public record FiltrosReporte(Integer anio, String zona, Tributo tributo, BigDeci
         if (beneficio == null) {
             beneficio = FiltroBeneficio.AMBOS;
         }
+        if (criterio != null && limite == null) limite = 10;
     }
 
     FiltrosReporte conAnio(Integer anioAplicado) {
         return new FiltrosReporte(anioAplicado, zona, tributo, montoMinimo, periodo, regimen, tipoDocumento, etapa,
-                anioDesde, anioHasta, beneficio);
+                anioDesde, anioHasta, beneficio, criterio, limite);
     }
 
     FiltrosReporte conRangoYBeneficio(Integer anioAplicado, Integer desde, Integer hasta, FiltroBeneficio filtro) {
         return new FiltrosReporte(anioAplicado, zona, tributo, montoMinimo, periodo, regimen, tipoDocumento, etapa,
-                desde, hasta, filtro);
+                desde, hasta, filtro, criterio, limite);
     }
 }

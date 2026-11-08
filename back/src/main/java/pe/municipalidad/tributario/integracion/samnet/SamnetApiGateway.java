@@ -100,6 +100,16 @@ public class SamnetApiGateway implements SamnetGateway {
     }
 
     @Override
+    public List<String> obtenerTributos() {
+        return invocar(() -> jdbc.queryForList("SELECT tributo FROM samnet.ps_tributos()", String.class));
+    }
+
+    @Override
+    public List<Integer> obtenerAniosEmision() {
+        return invocar(() -> jdbc.queryForList("SELECT anio FROM samnet.ps_anios_emision()", Integer.class));
+    }
+
+    @Override
     public List<Predio> buscarPredios(String texto) {
         List<Map<String, Object>> filas = invocar(() -> jdbc.queryForList(
                 "SELECT * FROM samnet.ps_buscarpredios(?)", texto));

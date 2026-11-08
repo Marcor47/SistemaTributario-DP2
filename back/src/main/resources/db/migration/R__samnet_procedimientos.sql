@@ -59,6 +59,23 @@ LANGUAGE sql STABLE AS $$
     ORDER BY p.zona;
 $$;
 
+-- Tributos y años con cuotas emitidas, para los selectores de los reportes (las opciones salen de los datos).
+CREATE OR REPLACE FUNCTION samnet.ps_tributos()
+RETURNS TABLE (tributo VARCHAR)
+LANGUAGE sql STABLE AS $$
+    SELECT DISTINCT o.tributo
+    FROM samnet.obligacion o
+    ORDER BY o.tributo DESC;
+$$;
+
+CREATE OR REPLACE FUNCTION samnet.ps_anios_emision()
+RETURNS TABLE (anio INTEGER)
+LANGUAGE sql STABLE AS $$
+    SELECT DISTINCT o.anio
+    FROM samnet.obligacion o
+    ORDER BY o.anio DESC;
+$$;
+
 -- RF-003: declaraciones juradas del predio, la vigente primero.
 CREATE OR REPLACE FUNCTION samnet.ps_declaracionjurada(p_codigo_predio VARCHAR)
 RETURNS TABLE (
@@ -288,18 +305,30 @@ LANGUAGE sql STABLE AS $$
     ORDER BY p.codigo_predio;
 $$;
 
--- Cuotas emitidas hasta el año de la fecha de corte, con su zona para los reportes por zona.
+-- Cuotas emitidas hasta el año de la fecha de corte, con su zona para los reportes por zona y la fecha y el canal de
+-- su último pago a la fecha de corte para la plataforma analítica.
+-- PostgreSQL no permite cambiar los parámetros OUT mediante CREATE OR REPLACE.
+DROP FUNCTION IF EXISTS samnet.ps_etl_cobranza(DATE);
 CREATE OR REPLACE FUNCTION samnet.ps_etl_cobranza(p_fecha_corte DATE)
 RETURNS TABLE (
     id_obligacion BIGINT, contribuyente_codigo VARCHAR, codigo_predio VARCHAR, zona VARCHAR, tributo VARCHAR,
     anio INTEGER, cuota INTEGER, fecha_vencimiento DATE, monto_emitido NUMERIC, monto_pagado NUMERIC,
-    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE)
+    insoluto NUMERIC, porcentaje_descuento NUMERIC, etapa_cobranza VARCHAR, fecha_etapa DATE,
+    fecha_pago DATE, canal_pago VARCHAR)
 LANGUAGE sql STABLE AS $$
     SELECT o.id_obligacion, o.contribuyente_codigo, o.codigo_predio, p.zona, o.tributo, o.anio, o.cuota,
            o.fecha_vencimiento, o.monto_emitido, o.monto_pagado, o.insoluto, o.porcentaje_descuento,
-           o.etapa_cobranza, o.fecha_etapa
+           o.etapa_cobranza, o.fecha_etapa, u.fecha_pago, u.canal
     FROM samnet.fn_obligaciones(NULL, NULL) o
     LEFT JOIN samnet.predio p ON p.codigo_predio = o.codigo_predio
+    LEFT JOIN LATERAL (
+        SELECT sp.fecha_pago, sp.canal
+        FROM samnet.pago_obligacion po
+        JOIN samnet.pago sp ON sp.id_pago = po.id_pago
+        WHERE po.id_obligacion = o.id_obligacion AND sp.fecha_pago <= p_fecha_corte
+        ORDER BY sp.fecha_pago DESC, sp.id_pago DESC
+        LIMIT 1
+    ) u ON TRUE
     WHERE o.anio <= EXTRACT(YEAR FROM p_fecha_corte);
 $$;
 

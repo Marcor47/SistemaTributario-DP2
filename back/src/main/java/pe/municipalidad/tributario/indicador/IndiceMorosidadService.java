@@ -5,6 +5,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,34 +72,25 @@ public class IndiceMorosidadService {
         LocalDate fechaCorte = lote.getFechaCorte();
         int anio = fechaCorte.getYear();
         int numeroPeriodo = fechaCorte.getMonthValue();
-        List<MontosMorosidad> grupos = hechoCobranzaRepository.sumarCuotasExigibles(idLote, anio, fechaCorte);
-        if (grupos.isEmpty()) {
+        Exigibles exigibles = cuotasExigibles(idLote, fechaCorte);
+        if (exigibles.grupos().isEmpty()) {
             throw new ReglaNegocioException("SIN_CUOTAS_EXIGIBLES",
-                    "El lote " + idLote + " no tiene cuotas de " + anio + " vencidas al " + fechaCorte
-                            + ": no se puede calcular el índice de morosidad.");
+                    "El lote " + idLote + " no tiene cuotas de " + anio + " ni de " + (anio - 1) + " vencidas al "
+                            + fechaCorte + ": no se puede calcular el índice de morosidad.");
         }
 
         Map<ClaveValor, ValorIndicador> existentes = valorIndicadorRepository.buscarPorLote(idLote).stream()
                 .filter(valor -> valor.getIndicador().getCodigo().equals(CODIGO_INDICADOR))
                 .collect(Collectors.toMap(ClaveValor::de, Function.identity()));
         Calculo calculo = new Calculo(indicador, lote, anio, numeroPeriodo, existentes);
+        Agregado agregado = Agregado.de(exigibles.grupos());
 
-        Montos montosTotales = Montos.CERO;
-        Map<Tributo, Montos> porTributo = new EnumMap<>(Tributo.class);
-        Map<String, Montos> porZona = new TreeMap<>();
-        for (MontosMorosidad grupo : grupos) {
-            Montos montos = new Montos(grupo.montoEmitido(), grupo.montoVencidoNoPagado());
-            montosTotales = montosTotales.sumar(montos);
-            porTributo.merge(grupo.tributo(), montos, Montos::sumar);
-            porZona.merge(grupo.zona(), montos, Montos::sumar);
-        }
-
-        DetalleMorosidad total = calculo.registrar(AlcanceIndicador.TOTAL, null, montosTotales).orElse(null);
+        DetalleMorosidad total = calculo.registrar(AlcanceIndicador.TOTAL, null, agregado.total()).orElse(null);
         List<DetalleMorosidad> detallePorTributo = new ArrayList<>();
-        porTributo.forEach((tributo, montos) -> calculo.registrar(AlcanceIndicador.TRIBUTO, tributo.name(), montos)
-                .ifPresent(detallePorTributo::add));
+        agregado.porTributo().forEach((tributo, montos) -> calculo.registrar(AlcanceIndicador.TRIBUTO, tributo,
+                montos).ifPresent(detallePorTributo::add));
         List<DetalleMorosidad> detallePorZona = new ArrayList<>();
-        porZona.forEach((zona, montos) -> calculo.registrar(AlcanceIndicador.ZONA, zona, montos)
+        agregado.porZona().forEach((zona, montos) -> calculo.registrar(AlcanceIndicador.ZONA, zona, montos)
                 .ifPresent(detallePorZona::add));
 
         /* En un lote ya publicado el valor nuevo afecta las alertas; uno en curso se evalúa al publicarse. */
@@ -106,8 +98,18 @@ public class IndiceMorosidadService {
                 ? alertaDesvioService.evaluarLote(idLote)
                 : null;
         return new CalculoMorosidadRespuesta(lote.getIdLote(), fechaCorte, anio, numeroPeriodo,
-                indicador.getPeriodicidad().etiqueta(anio, numeroPeriodo), total, detallePorTributo,
-                detallePorZona, evaluacion);
+                indicador.getPeriodicidad().etiqueta(anio, numeroPeriodo), exigibles.anioCuotas(), total,
+                detallePorTributo, detallePorZona, evaluacion);
+    }
+
+    /* Periodos con índice publicado: las opciones de año y mes de la consulta salen de aquí, no de una lista fija. */
+    public List<PeriodoMorosidad> periodosPublicados() {
+        return valorIndicadorRepository.buscarPeriodosPublicados(CODIGO_INDICADOR).stream()
+                .map(fila -> new PeriodoMorosidad((Integer) fila[0], (Integer) fila[1]))
+                .toList();
+    }
+
+    public record PeriodoMorosidad(int anio, int numeroPeriodo) {
     }
 
     /* Sin año ni periodo, devuelve el índice de la última carga publicada. */
@@ -125,22 +127,89 @@ public class IndiceMorosidadService {
                         && valor.getNumeroPeriodo() == referencia.getNumeroPeriodo())
                 .toList();
 
-        BigDecimal total = delPeriodo.stream()
+        /* Los montos base salen de los hechos de la misma carga; una carga sin hechos no los tiene. */
+        Exigibles exigibles = cuotasExigibles(referencia.getLote().getIdLote(), referencia.getLote().getFechaCorte());
+        Agregado agregado = Agregado.de(exigibles.grupos());
+        ValorPorAlcance total = delPeriodo.stream()
                 .filter(valor -> valor.getAlcance() == AlcanceIndicador.TOTAL)
-                .map(ValorIndicador::getValor)
+                .map(valor -> valorPorAlcance(valor, agregado.vacio() ? null : agregado.total()))
                 .findFirst()
                 .orElse(null);
         return new IndiceMorosidadRespuesta(referencia.getLote().getIdLote(), referencia.getFechaCorte(),
-                referencia.getAnio(), referencia.getNumeroPeriodo(), referencia.etiquetaPeriodo(), total,
-                valoresDe(delPeriodo, AlcanceIndicador.TRIBUTO), valoresDe(delPeriodo, AlcanceIndicador.ZONA));
+                referencia.getAnio(), referencia.getNumeroPeriodo(), referencia.etiquetaPeriodo(),
+                agregado.vacio() ? null : exigibles.anioCuotas(), total,
+                valoresDe(delPeriodo, AlcanceIndicador.TRIBUTO, agregado.porTributo()),
+                valoresDe(delPeriodo, AlcanceIndicador.ZONA, agregado.porZona()));
     }
 
-    private static List<ValorPorAlcance> valoresDe(List<ValorIndicador> valores, AlcanceIndicador alcance) {
+    /*
+     * Calcula el índice en las cargas publicadas que traen hechos y aún no lo tienen, por ejemplo las que se
+     * cargaron antes de existir este cálculo. Omite las que no tienen cuotas exigibles.
+     */
+    @Transactional
+    public List<Long> calcularCargasPendientes() {
+        List<Long> calculadas = new ArrayList<>();
+        for (Long idLote : hechoCobranzaRepository.buscarLotesPublicadosSinIndicador(CODIGO_INDICADOR)) {
+            LoteETL lote = loteETLRepository.findById(idLote).orElseThrow();
+            if (!cuotasExigibles(idLote, lote.getFechaCorte()).grupos().isEmpty()) {
+                calcularParaLote(idLote);
+                calculadas.add(idLote);
+            }
+        }
+        return calculadas;
+    }
+
+    /*
+     * Cuotas exigibles del año de corte. En enero y febrero aún no vence ninguna cuota del año (la primera de
+     * predial y los arbitrios de enero y febrero vencen a fin de febrero): entonces se mide el ejercicio anterior.
+     */
+    private Exigibles cuotasExigibles(Long idLote, LocalDate fechaCorte) {
+        int anio = fechaCorte.getYear();
+        List<MontosMorosidad> grupos = hechoCobranzaRepository.sumarCuotasExigibles(idLote, anio, fechaCorte);
+        if (grupos.isEmpty()) {
+            List<MontosMorosidad> anterior = hechoCobranzaRepository.sumarCuotasExigibles(idLote, anio - 1, fechaCorte);
+            if (!anterior.isEmpty()) {
+                return new Exigibles(anio - 1, anterior);
+            }
+        }
+        return new Exigibles(anio, grupos);
+    }
+
+    private record Exigibles(int anioCuotas, List<MontosMorosidad> grupos) {
+    }
+
+    private static List<ValorPorAlcance> valoresDe(List<ValorIndicador> valores, AlcanceIndicador alcance,
+            Map<String, Montos> montos) {
         return valores.stream()
                 .filter(valor -> valor.getAlcance() == alcance)
-                .map(valor -> new ValorPorAlcance(valor.getValorAlcance(), valor.getValor()))
+                .map(valor -> valorPorAlcance(valor, montos.get(valor.getValorAlcance())))
                 .sorted((a, b) -> a.valorAlcance().compareTo(b.valorAlcance()))
                 .toList();
+    }
+
+    private static ValorPorAlcance valorPorAlcance(ValorIndicador valor, Montos montos) {
+        return new ValorPorAlcance(valor.getValorAlcance(), montos == null ? null : montos.emitido(),
+                montos == null ? null : montos.vencidoNoPagado(), valor.getValor());
+    }
+
+    /* Suma los grupos por tributo y zona en los tres alcances del índice. */
+    private record Agregado(Montos total, Map<String, Montos> porTributo, Map<String, Montos> porZona,
+            boolean vacio) {
+
+        static Agregado de(List<MontosMorosidad> grupos) {
+            Montos total = Montos.CERO;
+            Map<Tributo, Montos> porTributo = new EnumMap<>(Tributo.class);
+            Map<String, Montos> porZona = new TreeMap<>();
+            for (MontosMorosidad grupo : grupos) {
+                Montos montos = new Montos(grupo.montoEmitido(), grupo.montoVencidoNoPagado());
+                total = total.sumar(montos);
+                porTributo.merge(grupo.tributo(), montos, Montos::sumar);
+                porZona.merge(grupo.zona(), montos, Montos::sumar);
+            }
+            Map<String, Montos> tributos = new LinkedHashMap<>();
+            porTributo.forEach((tributo, montos) -> tributos.put(tributo.name(), montos));
+            return new Agregado(total, tributos, porZona, grupos.isEmpty());
+        }
     }
 
     /* Guarda o, si el lote ya se calculó, actualiza cada valor del índice. */

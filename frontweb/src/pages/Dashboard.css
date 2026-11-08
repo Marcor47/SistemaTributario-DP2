@@ -1,5 +1,75 @@
 /* HU039: alertas de desvío de meta en el dashboard. */
 .dashboard { min-width: 0; }
+
+/* HU011/HU039: contenido principal a la izquierda y alertas en una columna derecha. */
+.dashboard-scroll {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--borde-fuerte) transparent;
+}
+.dashboard-scroll:focus-visible { outline: 3px solid var(--cian); outline-offset: -3px; }
+.dashboard-scroll::-webkit-scrollbar { height: 10px; }
+.dashboard-scroll::-webkit-scrollbar-track { background: var(--fondo); border-radius: 999px; }
+.dashboard-scroll::-webkit-scrollbar-thumb { background: var(--borde-fuerte); border-radius: 999px; }
+
+.dashboard-cuerpo {
+  display: grid;
+  grid-template-columns: minmax(760px, 1fr) minmax(740px, 920px);
+  gap: 24px;
+  align-items: stretch;
+  width: 100%;
+  max-width: none;
+  min-width: 1620px;
+  margin-inline: 0;
+  padding: 24px clamp(16px, 3vw, 40px) 16px;
+}
+.dashboard-cuerpo--alertas-plegadas { grid-template-columns: minmax(760px, 1fr) 56px; min-width: 1120px; }
+.dashboard-cuerpo--sin-alertas { grid-template-columns: minmax(0, 1fr); min-width: 1120px; }
+.dashboard-cuerpo > .dashboard-contenido { max-width: none; margin: 0; padding: 0; }
+.dashboard-kpis { grid-column: 1 / -1; width: 100%; min-width: 0; }
+.dashboard-kpis .dashboard-resumen { width: 100%; margin-bottom: 0; }
+.dashboard-columna-alertas { display: flex; flex-direction: column; min-width: 0; }
+
+.dashboard-alertas-panel {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+}
+.dashboard-alertas-panel[open] { flex: 1; }
+.dashboard-alertas-panel__contenido { padding: 16px; }
+.dashboard-alertas-panel__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 18px;
+  color: var(--marino-osc);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.dashboard-alertas-panel__summary::-webkit-details-marker { display: none; }
+.dashboard-alertas-panel__summary:focus-visible { outline: 3px solid var(--cian); outline-offset: -3px; }
+.dashboard-alertas-panel[open] .dashboard-alertas-panel__summary { border-bottom: 1px solid var(--borde); }
+.dashboard-alertas-panel__toggle { flex: none; color: var(--marino); font-size: 14px; }
+.dashboard-columna-alertas--plegada .dashboard-alertas-panel__summary {
+  display: grid;
+  place-items: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  gap: 0;
+  min-height: 180px;
+  padding: 14px 10px;
+  text-align: center;
+  border-bottom: 0;
+}
+.dashboard-columna-alertas--plegada .dashboard-alertas-panel__toggle { display: none; }
+
 .dashboard-filtros.dashboard-filtros--ejecutivo .fld { flex: 1 1 150px; min-width: 140px; }
 .dashboard-rejilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 20px; margin-bottom: 20px; }
 .dashboard-rejilla .pcard { margin: 0; }
@@ -14,8 +84,6 @@
 .dashboard-tabla table { width: 100%; border-collapse: collapse; }
 .dashboard-tabla th, .dashboard-tabla td { padding: 12px; text-align: right; border-bottom: 1px solid var(--borde); white-space: nowrap; }
 .dashboard-tabla th:first-child { text-align: left; }
-.dashboard-alertas > summary { cursor: pointer; padding: 20px clamp(16px, 3vw, 40px); color: var(--marino-osc); font-weight: 700; }
-
 .pmain--dashboard {
   width: 100%;
   max-width: none;
@@ -150,6 +218,14 @@
 }
 .dashboard-carrusel__botones { display: flex; gap: 8px; }
 .dashboard-carrusel__botones .btn { white-space: nowrap; }
+
+/* HU039: alertas dentro de la columna derecha del dashboard. */
+.dashboard-columna-alertas .dashboard-carrusel__pista { grid-auto-columns: calc((100% - 18px) / 2); }
+.dashboard-columna-alertas .dashboard-carrusel--uno .dashboard-carrusel__pista { grid-auto-columns: 100%; }
+.dashboard-columna-alertas .dashboard-alertas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dashboard-columna-alertas .dashboard-alerta { padding: 18px 16px; }
+.dashboard-columna-alertas .dashboard-vacio { margin: 0; padding: 28px 16px; }
+.dashboard-columna-alertas .dashboard-seccion-cab h2 { font-size: 18px; }
 
 .dashboard-alertas {
   display: grid;
@@ -307,8 +383,34 @@
   .dashboard-skeleton { animation: none; background: #E3ECF5; }
 }
 
+@media (max-width: 900px) {
+  .dashboard-scroll { overflow-x: visible; scrollbar-gutter: auto; }
+  .dashboard-cuerpo,
+  .dashboard-cuerpo--alertas-plegadas {
+    grid-template-columns: 1fr;
+    min-width: 0;
+    max-width: none;
+    padding: 16px;
+  }
+  .dashboard-columna-alertas { width: auto; }
+  .dashboard-columna-alertas--plegada .dashboard-alertas-panel__summary {
+    display: flex;
+    writing-mode: horizontal-tb;
+    transform: none;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 0;
+    padding: 16px 18px;
+    text-align: left;
+    border-bottom: 1px solid var(--borde);
+  }
+  .dashboard-columna-alertas--plegada .dashboard-alertas-panel__toggle { display: inline; }
+}
+
 @media (max-width: 700px) {
   .dashboard-carrusel__pista { grid-auto-columns: 100%; }
+  .dashboard-columna-alertas .dashboard-carrusel__pista { grid-auto-columns: 100%; }
+  .dashboard-columna-alertas .dashboard-alertas { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 600px) {

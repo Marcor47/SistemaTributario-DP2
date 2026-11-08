@@ -71,12 +71,13 @@ class VistaReporteControllerTest {
                   "nombre": "Morosos Zona 2 con Arbitrios",
                   "tipoGrafica": "BARRAS",
                   "filtros": {
-                    "zona": "Z2",
+                    "zona": "Maranga",
                     "tributo": "ARBITRIOS",
                     "montoMinimo": 1000
                   },
                   "columnasVisibles": ["codigo", "nombre", "deudaVencida", "nombreEtapa"],
                   "columnasDetalleVisibles": ["codigoPredio", "tributo", "montoConBeneficio"],
+                  "series": ["deudaVencida"],
                   "orden": "deudaVencida:desc"
                 }
                 """;
@@ -91,11 +92,12 @@ class VistaReporteControllerTest {
                 .andExpect(jsonPath("$.tipoReporte").value("MOROSOS"))
                 .andExpect(jsonPath("$.nombre").value("Morosos Zona 2 con Arbitrios"))
                 .andExpect(jsonPath("$.tipoGrafica").value("BARRAS"))
-                .andExpect(jsonPath("$.filtros.zona").value("Z2"))
+                .andExpect(jsonPath("$.filtros.zona").value("Maranga"))
                 .andExpect(jsonPath("$.filtros.tributo").value("ARBITRIOS"))
                 .andExpect(jsonPath("$.filtros.montoMinimo").value(1000))
                 .andExpect(jsonPath("$.columnasVisibles", contains("codigo", "nombre", "deudaVencida", "nombreEtapa")))
                 .andExpect(jsonPath("$.columnasDetalleVisibles", contains("codigoPredio", "tributo", "montoConBeneficio")))
+                .andExpect(jsonPath("$.series", contains("deudaVencida")))
                 .andExpect(jsonPath("$.orden").value("deudaVencida:desc"))
                 .andExpect(jsonPath("$.fechaCreacion", notNullValue()));
     }
@@ -139,6 +141,40 @@ class VistaReporteControllerTest {
     }
 
     @Test
+    void vistaPricosConservaCriterioLimiteYPermiteExportarColumnasHu037() throws Exception {
+        MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_pricos_hu007");
+        String guardarJson = """
+                {
+                  "nombre": "PRICOS por deuda",
+                  "tipoGrafica": "TABLA",
+                  "filtros": { "criterio": "DEUDA_TOTAL", "limite": 2 },
+                  "columnasVisibles": ["codigo", "razonSocial", "baseImponible", "deudaActualPredial"],
+                  "ordenColumnas": ["codigo", "razonSocial", "baseImponible", "deudaActualPredial"]
+                }
+                """;
+
+        String guardado = mvc.perform(post("/api/reportes/PRICOS/vistas").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(guardarJson).session(sesion))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.filtros.criterio").value("DEUDA_TOTAL"))
+                .andExpect(jsonPath("$.filtros.limite").value(2))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        Number idVista = com.jayway.jsonpath.JsonPath.read(guardado, "$.idVista");
+
+        mvc.perform(get("/api/reportes/vistas/" + idVista + "/abrir").session(sesion))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reporte.criterio").value("DEUDA_TOTAL"))
+                .andExpect(jsonPath("$.reporte.limite").value(2))
+                .andExpect(jsonPath("$.reporte.filas", hasSize(2)));
+
+        mvc.perform(get("/api/reportes/vistas/" + idVista + "/exportar")
+                        .param("formato", "EXCEL").session(sesion))
+                .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_TYPE,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+    }
+
+    @Test
     void listarVistasPorTipoYListarTodas() throws Exception {
         MockHttpSession sesion = sesion(NombreRol.ANALISTA_RENTAS, "analista_listar");
 
@@ -152,7 +188,7 @@ class VistaReporteControllerTest {
         String vista2 = """
                 {
                   "nombre": "Vista PRICOS B",
-                  "tipoGrafica": "CIRCULAR",
+                  "tipoGrafica": "TABLA",
                   "columnasVisibles": ["codigo", "nombre", "emitidoAnio"]
                 }
                 """;
@@ -197,7 +233,7 @@ class VistaReporteControllerTest {
         String actualizarJson = """
                 {
                   "nombre": "Vista Modificada",
-                  "tipoGrafica": "LINEAS",
+                  "tipoGrafica": "BARRAS",
                   "columnasVisibles": ["codigo", "nombre", "cuotasPagadasATiempo", "pagadoAnio"],
                   "orden": "pagadoAnio:desc"
                 }
@@ -211,7 +247,7 @@ class VistaReporteControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idVista").value(idVista))
                 .andExpect(jsonPath("$.nombre").value("Vista Modificada"))
-                .andExpect(jsonPath("$.tipoGrafica").value("LINEAS"))
+                .andExpect(jsonPath("$.tipoGrafica").value("BARRAS"))
                 .andExpect(jsonPath("$.columnasVisibles", hasSize(4)))
                 .andExpect(jsonPath("$.orden").value("pagadoAnio:desc"));
     }
@@ -329,7 +365,7 @@ class VistaReporteControllerTest {
 
         byte[] contenido = mvc.perform(get("/api/reportes/MOROSOS/exportar")
                         .param("formato", "EXCEL")
-                        .param("zona", "Z2")
+                        .param("zona", "Maranga")
                         .param("tributo", "ARBITRIOS")
                         .session(sesion))
                 .andExpect(status().isOk())

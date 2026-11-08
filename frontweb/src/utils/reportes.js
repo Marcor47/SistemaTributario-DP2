@@ -1,5 +1,5 @@
-const FILTROS_VALIDOS = new Set(['anio', 'anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'])
-const CAMPOS_FILTRO = ['anio', 'anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo']
+const FILTROS_VALIDOS = new Set(['anio', 'periodo', 'anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'])
+const CAMPOS_FILTRO = ['anio', 'periodo', 'anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo']
 
 export const TRIBUTOS = [
   { valor: 'IMPUESTO_PREDIAL', etiqueta: 'Impuesto Predial' },
@@ -76,6 +76,10 @@ export function validarFiltros(reporte, filtros) {
     const anio = Number(filtros.anio)
     if (!Number.isInteger(anio) || anio < 2000 || anio > 2100) errores.anio = 'Ingresa un año entre 2000 y 2100.'
   }
+  if (permitidos.has('periodo') && filtros.periodo) {
+    const periodo = Number(filtros.periodo)
+    if (!Number.isInteger(periodo) || periodo < 2000 || periodo > 2100) errores.periodo = 'Ingresa un periodo entre 2000 y 2100.'
+  }
   const anioDesde = permitidos.has('anioDesde') ? Number(filtros.anioDesde) : null
   const anioHasta = permitidos.has('anioHasta') ? Number(filtros.anioHasta) : null
   if (permitidos.has('anioDesde') && (!Number.isInteger(anioDesde) || anioDesde < 1900 || anioDesde > 2100)) {
@@ -99,6 +103,15 @@ export function validarFiltros(reporte, filtros) {
     if (!Number.isFinite(monto) || monto < 0) errores.montoMinimo = 'Ingresa un monto igual o mayor a cero.'
   }
   return errores
+}
+
+export function paginarFilas(filas, paginaSolicitada, tamanioSolicitado) {
+  const tamanio = [10, 25, 50, 100].includes(Number(tamanioSolicitado)) ? Number(tamanioSolicitado) : 10
+  const total = Array.isArray(filas) ? filas.length : 0
+  const totalPaginas = Math.max(1, Math.ceil(total / tamanio))
+  const pagina = Math.min(Math.max(1, Number(paginaSolicitada) || 1), totalPaginas)
+  const inicio = (pagina - 1) * tamanio
+  return { filas: (filas || []).slice(inicio, inicio + tamanio), pagina, tamanio, total, totalPaginas, desde: total ? inicio + 1 : 0, hasta: Math.min(inicio + tamanio, total) }
 }
 
 export function parametrosReporte(reporte, filtros) {

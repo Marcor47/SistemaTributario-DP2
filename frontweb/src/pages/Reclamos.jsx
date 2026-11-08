@@ -25,7 +25,6 @@ const CAMPOS = [
 
 export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
   const [reclamos, setReclamos] = useState([])
-  const [demo, setDemo] = useState(false)
   const [ocupado, setOcupado] = useState(true)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
@@ -48,7 +47,6 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
       .then((resultado) => {
         if (!activo) return
         setReclamos(ordenarReclamos(resultado.reclamos))
-        setDemo(resultado.demo)
       })
       .catch((err) => {
         if (activo) setError(err.message || 'No se pudo cargar tus reclamos. Recarga la página para intentarlo nuevamente.')
@@ -80,7 +78,7 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
     setErrorEnvio('')
     setEnviando(true)
     try {
-      const creado = await registrarReclamo(datos, demo, reclamante)
+      const creado = await registrarReclamo(datos, reclamante)
       setReclamos((actuales) => ordenarReclamos([creado, ...actuales.filter((r) => r.idReclamo !== creado.idReclamo)]))
       setDatos(FORMULARIO_VACIO)
       setErrores({})
@@ -113,7 +111,7 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
     setCancelando(true)
     setError('')
     try {
-      const actualizado = demo ? { ...detalle, estado: 'CANCELADO' } : await cancelarReclamo(detalle.idReclamo)
+      const actualizado = await cancelarReclamo(detalle.idReclamo)
       setReclamos((actuales) => actuales.map((reclamo) => reclamo.idReclamo === actualizado.idReclamo ? actualizado : reclamo))
       setConfirmandoCancelacion(false)
       setAviso(`El reclamo ${actualizado.numeroReclamo} fue cancelado.`)
@@ -126,12 +124,6 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
 
   return (
     <div aria-busy={ocupado || enviando}>
-      {demo && (
-        <div className="alert" role="note">
-          <strong>Datos ficticios de demostración.</strong> El servicio de reclamos no está disponible: los reclamos que
-          registres se guardan solo en esta pantalla y se pierden al recargar.
-        </div>
-      )}
       {error && <div className="alert" role="alert">{error}</div>}
       {aviso && <div className="info" role="status">{aviso}</div>}
 

@@ -62,7 +62,7 @@ export default function CarruselAlertas({ alertas }) {
         ref={pistaRef}
         className="dashboard-carrusel__pista"
         role="region"
-        aria-label="Carrusel de alertas del periodo vigente"
+        aria-label="Carrusel de alertas filtradas del dashboard"
         tabIndex={0}
         onScroll={medir}
         onKeyDown={manejarTeclado}
@@ -72,7 +72,7 @@ export default function CarruselAlertas({ alertas }) {
       <div className="dashboard-carrusel__pie">
         <span className="hint">
           {posicion.fin
-            ? `${alertas.length} ${alertas.length === 1 ? 'alerta' : 'alertas'} en el periodo vigente`
+            ? `${alertas.length} ${alertas.length === 1 ? 'alerta' : 'alertas'} con los filtros aplicados`
             : `Desliza para ver las ${alertas.length} alertas`}
         </span>
         <div className="dashboard-carrusel__botones">

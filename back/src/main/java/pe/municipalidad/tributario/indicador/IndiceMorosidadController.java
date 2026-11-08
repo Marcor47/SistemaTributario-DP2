@@ -1,5 +1,6 @@
 package pe.municipalidad.tributario.indicador;
 
+import java.util.List;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -31,6 +32,11 @@ public class IndiceMorosidadController {
             @RequestParam(required = false) @Min(value = 1, message = "debe estar entre 1 y 12")
             @Max(value = 12, message = "debe estar entre 1 y 12") Integer numeroPeriodo) {
         return indiceMorosidadService.obtenerUltimo(anio, numeroPeriodo);
+    }
+
+    @GetMapping("/periodos")
+    public List<IndiceMorosidadService.PeriodoMorosidad> periodos() {
+        return indiceMorosidadService.periodosPublicados();
     }
 
     @PostMapping("/calculos")

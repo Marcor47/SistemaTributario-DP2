@@ -35,6 +35,67 @@ export function filtrarAlertasDelPeriodo(alertas, hoy = new Date()) {
   return (Array.isArray(alertas) ? alertas : []).filter((alerta) => esPeriodoActual(alerta.periodo, hoy))
 }
 
+function normalizar(valor) {
+  return valor == null ? '' : String(valor).trim().toLowerCase()
+}
+
+/* Una alerta trimestral cubre los tres meses del trimestre; una anual, todo el año. */
+export function periodoCubre(periodoAlerta, anio, mes) {
+  const objetivoAnio = Number(anio)
+  const objetivoMes = Number(mes)
+  if (!Number.isInteger(objetivoAnio) || !Number.isInteger(objetivoMes)) return true
+  if (!periodoAlerta) return false
+
+  const mensual = /^(\d{4})-(\d{2})$/.exec(periodoAlerta)
+  if (mensual) {
+    return Number(mensual[1]) === objetivoAnio && Number(mensual[2]) === objetivoMes
+  }
+
+  const trimestral = /^(\d{4})-T([1-4])$/.exec(periodoAlerta)
+  if (trimestral) {
+    if (Number(trimestral[1]) !== objetivoAnio) return false
+    const trimestre = Number(trimestral[2])
+    return objetivoMes >= (trimestre - 1) * 3 + 1 && objetivoMes <= trimestre * 3
+  }
+
+  const anual = /^(\d{4})$/.exec(periodoAlerta)
+  if (anual) return Number(anual[1]) === objetivoAnio
+  return false
+}
+
+/*
+ * Aplica los filtros del dashboard a las alertas activas. El periodo del dashboard manda
+ * sobre las alertas; las alertas TOTAL se conservan aunque se filtre por zona, tributo o segmento.
+ */
+export function filtrarAlertasPorFiltros(alertas, filtros = {}, { periodo = '', segmentos = [] } = {}) {
+  const lista = Array.isArray(alertas) ? alertas : []
+  const partesPeriodo = /^(\d{4})-(\d{2})$/.exec(String(periodo || ''))
+  const anioPeriodo = partesPeriodo ? Number(partesPeriodo[1]) : null
+  const mesPeriodo = partesPeriodo ? Number(partesPeriodo[2]) : null
+
+  let objetivoAnio = anioPeriodo
+  let objetivoMes = mesPeriodo
+  if (filtros.anio) objetivoAnio = Number(filtros.anio)
+  if (filtros.numeroPeriodo) objetivoMes = Number(filtros.numeroPeriodo)
+  if (filtros.anio && !filtros.numeroPeriodo && Number(filtros.anio) !== anioPeriodo) objetivoMes = 12
+
+  const filtrarPeriodo = Number.isInteger(objetivoAnio) && Number.isInteger(objetivoMes)
+  const listaSegmentos = Array.isArray(segmentos) ? segmentos : []
+  const segmento = listaSegmentos.find((item) => String(item.idSegmento) === String(filtros.idSegmento))
+  const valoresSegmento = [filtros.idSegmento, segmento?.nombre].filter(Boolean).map(normalizar)
+  const hayFiltroAlcance = Boolean(filtros.zona || filtros.tributo || filtros.idSegmento)
+
+  return lista.filter((alerta) => {
+    if (filtros.indicadorCodigo && alerta.indicadorCodigo !== filtros.indicadorCodigo) return false
+    if (filtrarPeriodo && !periodoCubre(alerta.periodo, objetivoAnio, objetivoMes)) return false
+    if (!hayFiltroAlcance || alerta.alcance === 'TOTAL') return true
+    if (filtros.zona && !(alerta.alcance === 'ZONA' && normalizar(alerta.valorAlcance) === normalizar(filtros.zona))) return false
+    if (filtros.tributo && !(alerta.alcance === 'TRIBUTO' && normalizar(alerta.valorAlcance) === normalizar(filtros.tributo))) return false
+    if (filtros.idSegmento && !(alerta.alcance === 'SEGMENTO' && valoresSegmento.includes(normalizar(alerta.valorAlcance)))) return false
+    return true
+  })
+}
+
 export function formatearPorcentaje(valor) {
   if (valor === null || valor === undefined || valor === '') return '—'
   const numero = Number(valor)

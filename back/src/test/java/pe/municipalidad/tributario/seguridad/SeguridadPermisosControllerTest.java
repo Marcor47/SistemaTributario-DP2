@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ class SeguridadPermisosControllerTest {
     @Autowired UsuarioRepository usuarios;
     @Autowired RolRepository roles;
     @Autowired ClaveInternaService claves;
+    @Autowired JdbcTemplate jdbc;
 
     @Test
     void aplicaLaMatrizDePermisosDeLosSeisRoles() throws Exception {
@@ -45,6 +47,27 @@ class SeguridadPermisosControllerTest {
         mvc.perform(get("/api/formularios").session(ventanilla)).andExpect(status().isOk());
         mvc.perform(get("/api/formularios").session(terminalista)).andExpect(status().isOk());
         mvc.perform(get("/api/metas").session(ventanilla)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void laGerenciaConsultaElEstadoDeCuentaYElDetalleDeCobranzaEnContribuyentes() throws Exception {
+        MockHttpSession gerencia = sesion(NombreRol.GERENCIA);
+        Rol rol = rol(NombreRol.GERENCIA);
+        assertThat(rol.tienePermiso("CUENTAS", "CONSULTAR")).isTrue();
+        assertThat(rol.tienePermiso("COBRANZA", "CONSULTAR")).isTrue();
+
+        mvc.perform(get("/api/contribuyentes/021390/estado-cuenta").session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.contribuyente.codigo").value("021390"));
+
+        Long idObligacion = jdbc.queryForObject("""
+                SELECT id FROM samnet.obligacion
+                WHERE contribuyente_codigo = '021390' AND tributo = 'IMPUESTO_PREDIAL'
+                  AND anio = 2025 AND numero_cuota = 4
+                """, Long.class);
+        mvc.perform(get("/api/obligaciones/" + idObligacion + "/etapa-cobranza").session(gerencia))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.obligacion.contribuyenteCodigo").value("021390"));
     }
 
     @Test

@@ -1,8 +1,8 @@
-export default function CardsNumericos({ metricas = [], cargando = false }) {
+export default function CardsNumericos({ metricas = [], cargando = false, cantidad = 3 }) {
   if (cargando) {
     return (
       <section className="dashboard-resumen" aria-hidden="true">
-        {[0, 1, 2].map((clave) => (
+        {Array.from({ length: cantidad }, (_, clave) => (
           <div className="pcard dashboard-kpi" key={clave}>
             <span className="dashboard-skeleton dashboard-skeleton--linea" style={{ width: '55%' }} />
             <span className="dashboard-skeleton dashboard-skeleton--valor" style={{ width: '42%' }} />

@@ -1,6 +1,6 @@
 import { useId, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { CREDENCIALES_DEMO, MODO_DEMO, iniciarSesion } from '../services/authService.js'
+import { iniciarSesion } from '../services/authService.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import LoginLayout, { AlertaLogin, BotonEnviar, CampoClave } from '../components/LoginLayout.jsx'
 
@@ -17,7 +17,7 @@ export default function Login() {
   const [clave, setClave] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
-  const accesoPrueba = MODO_DEMO ? CREDENCIALES_DEMO : ACCESO_PORTAL_PRUEBA
+  const accesoPrueba = ACCESO_PORTAL_PRUEBA
 
   function usarAccesoPrueba() {
     setCodigo(accesoPrueba.codigo)
@@ -83,7 +83,7 @@ export default function Login() {
 
       {import.meta.env.DEV && (
         <div className="lg-demo" role="note">
-          <strong>{MODO_DEMO ? 'Modo demostración (sin servidor)' : 'Acceso de prueba'}</strong>
+          <strong>Acceso de prueba</strong>
           <p className="lg-demo__datos">Código: <code>{accesoPrueba.codigo}</code><br />Contraseña: <code>{accesoPrueba.password}</code></p>
           <button className="lg-demo__usar" type="button" onClick={usarAccesoPrueba} disabled={enviando}>Usar estos datos</button>
         </div>

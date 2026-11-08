@@ -3,6 +3,9 @@
 -- Casos que cubre (auditoría 2026-11): un predio, varios predios, copropiedad al 50 %, predio adquirido a mitad
 -- de año, pensionista con un solo predio de vivienda, contribuyente sin predios, una inmobiliaria con 31 predios
 -- y una empresa (021390) con 11 predios de usos y zonas distintos, para probar los filtros de la tabla de predios.
+-- Zonas: sectores del distrito de San Miguel (Lima) que agrupan urbanizaciones con la misma tarifa de arbitrios:
+-- Costanera, Maranga y Pando aquí; Las Leyendas y Faucett - Libertad con los contribuyentes de datos-demo. Son
+-- ilustrativas: reemplazarlas por la zonificación de la ordenanza de arbitrios vigente cuando se tenga.
 INSERT INTO samnet.contribuyente
     (codigo, nombre, tipo_persona, tipo_documento, numero_documento, domicilio_fiscal, estado, regimen, condicion,
      correo, telefonos, dom_departamento, dom_provincia, dom_distrito, dom_via, dom_numero)
@@ -35,25 +38,25 @@ INSERT INTO samnet.predio
     (codigo_predio, numero_catastral, ubicacion, uso_predio, tipo_predio, area_terreno, base_imponible,
      fecha_adquisicion, zona)
 VALUES
-    ('014502-01', '150136-001-014', 'Av. La Marina 1450, San Miguel', 'Vivienda', 'URBANO', 160.00, 185000.00, DATE '2012-05-14', 'Z1'),
-    ('014502-02', '150136-006-155', 'Calle Los Cedros 155, San Miguel', 'Vivienda', 'URBANO', 90.00, 98000.00, DATE '2021-07-15', 'Z2'),
-    ('021390-01', '150136-004-220', 'Jr. Los Precursores 220, San Miguel', 'Comercio', 'URBANO', 420.00, 960000.00, DATE '2016-09-01', 'Z2'),
-    ('021390-02', '150136-004-224', 'Jr. Los Precursores 224 (depósito), San Miguel', 'Industria', 'URBANO', 180.00, 120000.00, DATE '2019-09-01', 'Z2'),
-    ('021390-03', '150136-003-380', 'Av. Elmer Faucett 380 Of. 501, San Miguel', 'Oficina', 'URBANO', 85.00, 210000.00, DATE '2025-06-10', 'Z1'),
-    ('021390-04', '150136-016-118', 'Calle Los Nogales 245, San Miguel', 'Depósito', 'URBANO', 210.00, 190000.00, DATE '2017-10-03', 'Z2'),
-    ('021390-05', '150136-017-073', 'Jr. Ayacucho 880, San Miguel', 'Almacén', 'URBANO', 280.00, 350000.00, DATE '2013-05-27', 'Z1'),
-    ('021390-06', '150136-017-074', 'Jr. Ayacucho 884, San Miguel', 'Estacionamiento', 'URBANO', 160.00, 110000.00, DATE '2021-01-18', 'Z1'),
-    ('021390-07', '150136-018-202', 'Av. El Pacífico 1520, San Miguel', 'Comercio', 'URBANO', 360.00, 540000.00, DATE '2016-03-09', 'Z1'),
-    ('021390-08', '150136-019-331', 'Calle Las Brisas 410, San Miguel', 'Vivienda', 'URBANO', 130.00, 175000.00, DATE '2018-08-21', 'Z3'),
-    ('021390-09', '150136-020-055', 'Av. Industrial 2270, San Miguel', 'Industria', 'URBANO', 600.00, 820000.00, DATE '2011-12-12', 'Z3'),
-    ('021390-10', '150136-020-056', 'Av. Industrial 2274, San Miguel', 'Terreno sin construir', 'URBANO', 115.00, 75000.00, DATE '2022-04-06', 'Z3'),
-    ('021390-11', '150136-021-144', 'Psje. Los Jazmines 92, San Miguel', 'Comercio', 'URBANO', 200.00, 310000.00, DATE '2015-11-11', 'Z2'),
-    ('033218-01', '150136-007-088', 'Calle Bahía 88, San Miguel', 'Vivienda', 'URBANO', 120.00, 142000.00, DATE '1998-03-20', 'Z3'),
-    ('045067-01', '150136-002-640', 'Av. Faro Azul 640, San Miguel', 'Educación', 'URBANO', 850.00, 1250000.00, DATE '2009-01-10', 'Z1'),
-    ('058934-01', '150136-005-340', 'Jr. Mirador 340, San Miguel', 'Vivienda', 'URBANO', 140.00, 210000.00, DATE '2018-11-30', 'Z2'),
-    ('058934-02', '150136-005-342', 'Jr. Mirador 342 Dpto. 201, San Miguel', 'Vivienda', 'URBANO', 75.00, 115000.00, DATE '2022-03-01', 'Z2'),
-    ('099001-01', '150136-009-001', 'Psje. Las Gaviotas 15, San Miguel', 'Terreno sin construir', 'OTRO', 95.00, 60000.00, NULL, 'Z3')
-ON CONFLICT (codigo_predio) DO NOTHING;
+    ('014502-01', '150136-001-014', 'Av. La Marina 1450, San Miguel', 'Vivienda', 'URBANO', 160.00, 185000.00, DATE '2012-05-14', 'Costanera'),
+    ('014502-02', '150136-006-155', 'Calle Los Cedros 155, San Miguel', 'Vivienda', 'URBANO', 90.00, 98000.00, DATE '2021-07-15', 'Maranga'),
+    ('021390-01', '150136-004-220', 'Jr. Los Precursores 220, San Miguel', 'Comercio', 'URBANO', 420.00, 960000.00, DATE '2016-09-01', 'Maranga'),
+    ('021390-02', '150136-004-224', 'Jr. Los Precursores 224 (depósito), San Miguel', 'Industria', 'URBANO', 180.00, 120000.00, DATE '2019-09-01', 'Maranga'),
+    ('021390-03', '150136-003-380', 'Av. Elmer Faucett 380 Of. 501, San Miguel', 'Oficina', 'URBANO', 85.00, 210000.00, DATE '2025-06-10', 'Costanera'),
+    ('021390-04', '150136-016-118', 'Calle Los Nogales 245, San Miguel', 'Depósito', 'URBANO', 210.00, 190000.00, DATE '2017-10-03', 'Maranga'),
+    ('021390-05', '150136-017-073', 'Av. Rafael Escardó 880, San Miguel', 'Almacén', 'URBANO', 280.00, 350000.00, DATE '2013-05-27', 'Costanera'),
+    ('021390-06', '150136-017-074', 'Av. Rafael Escardó 884, San Miguel', 'Estacionamiento', 'URBANO', 160.00, 110000.00, DATE '2021-01-18', 'Costanera'),
+    ('021390-07', '150136-018-202', 'Av. El Pacífico 1520, San Miguel', 'Comercio', 'URBANO', 360.00, 540000.00, DATE '2016-03-09', 'Costanera'),
+    ('021390-08', '150136-019-331', 'Calle Las Brisas 410, San Miguel', 'Vivienda', 'URBANO', 130.00, 175000.00, DATE '2018-08-21', 'Pando'),
+    ('021390-09', '150136-020-055', 'Av. Universitaria 2270, San Miguel', 'Industria', 'URBANO', 600.00, 820000.00, DATE '2011-12-12', 'Pando'),
+    ('021390-10', '150136-020-056', 'Av. Universitaria 2274, San Miguel', 'Terreno sin construir', 'URBANO', 115.00, 75000.00, DATE '2022-04-06', 'Pando'),
+    ('021390-11', '150136-021-144', 'Psje. Los Jazmines 92, San Miguel', 'Comercio', 'URBANO', 200.00, 310000.00, DATE '2015-11-11', 'Maranga'),
+    ('033218-01', '150136-007-088', 'Calle Bahía 88, San Miguel', 'Vivienda', 'URBANO', 120.00, 142000.00, DATE '1998-03-20', 'Pando'),
+    ('045067-01', '150136-002-640', 'Av. Faro Azul 640, San Miguel', 'Educación', 'URBANO', 850.00, 1250000.00, DATE '2009-01-10', 'Costanera'),
+    ('058934-01', '150136-005-340', 'Jr. Mirador 340, San Miguel', 'Vivienda', 'URBANO', 140.00, 210000.00, DATE '2018-11-30', 'Maranga'),
+    ('058934-02', '150136-005-342', 'Jr. Mirador 342 Dpto. 201, San Miguel', 'Vivienda', 'URBANO', 75.00, 115000.00, DATE '2022-03-01', 'Maranga'),
+    ('099001-01', '150136-009-001', 'Psje. Las Gaviotas 15, San Miguel', 'Terreno sin construir', 'OTRO', 95.00, 60000.00, NULL, 'Pando')
+ON CONFLICT (codigo_predio) DO UPDATE SET ubicacion = EXCLUDED.ubicacion, zona = EXCLUDED.zona;
 
 -- Inmobiliaria Miramar: 30 departamentos y un local comercial en el mismo edificio (lista larga de predios).
 INSERT INTO samnet.predio
@@ -69,9 +72,9 @@ SELECT '080245-' || lpad(n::TEXT, 2, '0'),
        CASE WHEN n = 31 THEN 140.00 ELSE 60.00 + (n % 6) * 10 END,
        CASE WHEN n = 31 THEN 420000.00 ELSE 180000.00 + (n % 6) * 25000 + ((n - 1) / 6) * 4000 END,
        DATE '2020-02-01',
-       'Z1'
+       'Costanera'
 FROM generate_series(1, 31) AS n
-ON CONFLICT (codigo_predio) DO NOTHING;
+ON CONFLICT (codigo_predio) DO UPDATE SET zona = EXCLUDED.zona;
 
 INSERT INTO samnet.predio_titular (codigo_predio, contribuyente_codigo, condicion_propiedad, porcentaje_propiedad)
 VALUES

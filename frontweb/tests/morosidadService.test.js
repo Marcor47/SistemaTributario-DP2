@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { obtenerMorosidad } from '../src/services/morosidadService.js'
+import { obtenerMorosidad, obtenerPeriodosMorosidad } from '../src/services/morosidadService.js'
 import { normalizarMorosidad, etiquetaTributo, porcentaje } from '../src/utils/morosidad.js'
-import { DATOS_DEMO } from '../src/mocks/morosidad.js'
 
 const respuesta = { idLote: 8, fechaCorte: '2026-10-19', anio: 2026, numeroPeriodo: 10, periodo: '2026-10', total: 46.6667,
   porTributo: [{ valorAlcance: 'IMPUESTO_PREDIAL', indice: 50 }], porZona: [{ valorAlcance: 'Z01', indice: 0 }] }
@@ -42,9 +41,17 @@ test('HU008: el detalle de cálculo conserva la muestra de control 420 / 900', (
   assert.equal(datos.total, 46.6667)
 })
 
-test('HU008: ambos desgloses de demostración concilian con los montos institucionales', () => {
-  for (const filas of [DATOS_DEMO.porTributo, DATOS_DEMO.porZona]) {
-    assert.equal(filas.reduce((total, fila) => total + fila.montoEmitido, 0), DATOS_DEMO.montoEmitidoTotal)
-    assert.equal(filas.reduce((total, fila) => total + fila.montoVencido, 0), DATOS_DEMO.montoVencidoTotal)
-  }
+test('HU008: las opciones de año y mes son los periodos publicados en la BD', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    assert.ok(String(url).endsWith('/indicadores/morosidad/periodos'))
+    return new Response(JSON.stringify([
+      { anio: 2026, numeroPeriodo: 11 }, { anio: 2026, numeroPeriodo: 10 }, { anio: 2019, numeroPeriodo: 1 },
+    ]))
+  })
+  assert.deepEqual(await obtenerPeriodosMorosidad(), [{ anio: 2026, meses: [10, 11] }, { anio: 2019, meses: [1] }])
+})
+
+test('HU008: en enero el índice indica que mide las cuotas del año anterior', () => {
+  const datos = normalizarMorosidad({ ...respuesta, anio: 2026, numeroPeriodo: 1, anioCuotas: 2025 })
+  assert.equal(datos.anioCuotas, 2025)
 })

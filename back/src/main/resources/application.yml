@@ -46,6 +46,9 @@ tributario:
   archivos:
     predios: ${PREDIO_FILES_DIR:./storage/predios}
     clave: ${PREDIO_FILES_KEY:}
+  asistente:
+    llm-url: ${LLM_URL:}
+    llm-token: ${LLM_TOKEN:}
   niubiz:
     mode: ${NIUBIZ_MODE:sandbox}
     username: ${NIUBIZ_USERNAME:}
