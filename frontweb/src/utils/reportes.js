@@ -26,6 +26,37 @@ export const FILTROS_BENEFICIO = [
   { valor: 'SIN_BENEFICIO', etiqueta: 'Sin beneficio' },
 ]
 
+const COLUMNAS_CONTRIBUYENTE = ['codigo', 'razonSocial', 'regimen', 'tipoDocumento', 'numeroDocumento']
+const COLUMNAS_DOMICILIO = ['via', 'numero', 'departamento', 'interior', 'manzana', 'lote', 'distrito']
+const COLUMNAS_DATOS_CONTRIBUYENTE = ['condicion', 'tipoPersona', 'correo', 'telefonos']
+
+export const GRUPOS_PRICOS = [
+  { clave: 'contribuyente', etiqueta: 'Contribuyente', columnas: COLUMNAS_CONTRIBUYENTE },
+  { clave: 'domicilio', etiqueta: 'Domicilio fiscal', columnas: ['domicilioFiscal', ...COLUMNAS_DOMICILIO] },
+  { clave: 'baseImponible', etiqueta: 'Base imponible', columnas: ['baseImponible'] },
+  { clave: 'emision', etiqueta: 'Emisión', columnas: ['emisionPredial', 'emisionArbitrios'] },
+  { clave: 'deudaAnterior', etiqueta: 'Deuda años anteriores', columnas: ['deudaAnteriorPredial', 'deudaAnteriorArbitrios'] },
+  {
+    clave: 'deudaActual',
+    etiqueta: 'Deuda con el año de corte',
+    columnas: ['deudaActualPredial', 'deudaActualArbitrios', 'porcentajeDescuentoArbitrios'],
+  },
+  { clave: 'datosContribuyente', etiqueta: 'Datos del contribuyente', columnas: COLUMNAS_DATOS_CONTRIBUYENTE },
+]
+
+export const GRUPOS_MOROSOS = [
+  { clave: 'contribuyente', etiqueta: 'Contribuyente', columnas: COLUMNAS_CONTRIBUYENTE },
+  { clave: 'domicilio', etiqueta: 'Domicilio fiscal', columnas: [...COLUMNAS_DOMICILIO, 'zonas'] },
+  { clave: 'deuda', etiqueta: 'Deuda vencida', columnas: ['deudaVencida', 'deudaSinBeneficio'] },
+  { clave: 'datosContribuyente', etiqueta: 'Datos del contribuyente', columnas: COLUMNAS_DATOS_CONTRIBUYENTE },
+]
+
+export const GRUPOS_DETALLE_MOROSOS = [
+  { clave: 'obligacion', etiqueta: 'Obligación', columnas: ['anio', 'codigoPredio', 'zona', 'tributo', 'periodo'] },
+  { clave: 'vencimiento', etiqueta: 'Vencimiento', columnas: ['fechaVencimiento', 'diasVencido', 'etapaCobranza'] },
+  { clave: 'montos', etiqueta: 'Montos', columnas: ['montoSinBeneficio', 'montoConBeneficio'] },
+]
+
 export const CRITERIOS_PRICOS = [
   { valor: 'BASE_IMPONIBLE', etiqueta: 'Base imponible', descripcion: 'Ordena por la mayor base imponible de los predios del contribuyente.' },
   { valor: 'DEUDA_TOTAL', etiqueta: 'Deuda total', descripcion: 'Ordena por la mayor deuda vencida de todos los años.' },
@@ -149,4 +180,59 @@ export function etiquetaBeneficio(beneficio) {
 export function porcentaje(valor) {
   const numero = Number(valor)
   return Number.isFinite(numero) ? `${numero.toLocaleString('es-PE', { maximumFractionDigits: 2 })} %` : '—'
+}
+
+/* Ordena los grupos según la primera columna que aparece en el orden plano. */
+export function ordenarGrupos(grupos, orden) {
+  const posicion = (grupo) => {
+    const indices = grupo.columnas.map((columna) => orden.indexOf(columna)).filter((indice) => indice >= 0)
+    return indices.length ? Math.min(...indices) : Number.MAX_SAFE_INTEGER
+  }
+  return [...grupos].sort((a, b) => posicion(a) - posicion(b))
+}
+
+/* Alterna todo un grupo: oculta sus columnas si ya estaban todas, o las muestra si faltaba alguna. */
+export function alternarGrupoColumnas(visibles, grupo, orden) {
+  const visiblesSet = new Set(visibles)
+  const todasVisibles = grupo.columnas.every((columna) => visiblesSet.has(columna))
+  if (todasVisibles) {
+    if (visiblesSet.size === grupo.columnas.length) return visibles
+    grupo.columnas.forEach((columna) => visiblesSet.delete(columna))
+  } else {
+    grupo.columnas.forEach((columna) => visiblesSet.add(columna))
+  }
+  return orden.filter((columna) => visiblesSet.has(columna))
+}
+
+/* Reconstruye el orden plano al mover grupos completos, conservando el orden interno de cada grupo. */
+export function reordenarGruposColumnas(orden, grupos, claves) {
+  const porClave = new Map(grupos.map((grupo) => [grupo.clave, grupo]))
+  return claves.flatMap((clave) => {
+    const grupo = porClave.get(clave)
+    return grupo ? orden.filter((columna) => grupo.columnas.includes(columna)) : []
+  })
+}
+
+/* Reconstruye el orden plano al mover columnas dentro de un grupo. */
+export function reordenarColumnasDeGrupo(orden, grupos, grupoClave, columnas) {
+  const porClave = new Map(grupos.map((grupo) => [grupo.clave, grupo]))
+  return ordenarGrupos(grupos, orden).flatMap(({ clave }) => {
+    const grupo = porClave.get(clave)
+    if (clave === grupoClave) return columnas.filter((columna) => grupo.columnas.includes(columna))
+    return orden.filter((columna) => grupo.columnas.includes(columna))
+  })
+}
+
+/* Restaura un orden guardado: descarta columnas inválidas, agrega las faltantes y mantiene los grupos contiguos. */
+export function normalizarOrdenColumnas(orden, grupos) {
+  const todas = grupos.flatMap((grupo) => grupo.columnas)
+  const guardadas = Array.isArray(orden)
+    ? orden.filter((columna, indice) => todas.includes(columna) && orden.indexOf(columna) === indice)
+    : []
+  const propuesto = [...guardadas, ...todas.filter((columna) => !guardadas.includes(columna))]
+  return ordenarGrupos(grupos, propuesto).flatMap((grupo) => {
+    return grupo.columnas
+      .filter((columna) => propuesto.includes(columna))
+      .sort((a, b) => propuesto.indexOf(a) - propuesto.indexOf(b))
+  })
 }

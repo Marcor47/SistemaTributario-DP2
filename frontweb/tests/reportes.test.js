@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { etiquetaCriterioPricos, filtrosDisponibles, limpiarFiltros, metricaReporte, opcionesZona, paginarFilas, parametrosPricos, parametrosReporte, validarFiltros, validarPricos } from '../src/utils/reportes.js'
+import { alternarGrupoColumnas, etiquetaCriterioPricos, filtrosDisponibles, GRUPOS_DETALLE_MOROSOS, GRUPOS_MOROSOS, limpiarFiltros, metricaReporte, normalizarOrdenColumnas, opcionesZona, ordenarGrupos, paginarFilas, parametrosPricos, parametrosReporte, reordenarColumnasDeGrupo, reordenarGruposColumnas, validarFiltros, validarPricos } from '../src/utils/reportes.js'
 
 const morosos = { tipo: 'MOROSOS', filtros: ['anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'] }
 const pricos = { tipo: 'PRICOS', filtros: ['anio', 'zona', 'tributo', 'montoMinimo'] }
 const buenosPagadoresZona = { tipo: 'BUENOS_PAGADORES', filtros: ['periodo', 'zona', 'tributo', 'montoMinimo'] }
+const gruposPricos = [
+  { clave: 'contribuyente', columnas: ['codigo', 'razonSocial'] },
+  { clave: 'domicilio', columnas: ['via', 'numero'] },
+  { clave: 'deuda', columnas: ['predial', 'arbitrios'] },
+]
+const ordenPricos = gruposPricos.flatMap(({ columnas }) => columnas)
+const columnasMorosos = ['codigo', 'razonSocial', 'regimen', 'tipoDocumento', 'numeroDocumento', 'via', 'numero', 'departamento', 'interior', 'manzana', 'lote', 'distrito', 'zonas', 'deudaVencida', 'deudaSinBeneficio', 'condicion', 'tipoPersona', 'correo', 'telefonos']
+const columnasDetalleMorosos = ['anio', 'codigoPredio', 'zona', 'tributo', 'periodo', 'fechaVencimiento', 'diasVencido', 'etapaCobranza', 'montoSinBeneficio', 'montoConBeneficio']
 
 test('HU006: el catálogo controla los filtros visibles', () => {
   assert.deepEqual(filtrosDisponibles(morosos), ['anioDesde', 'anioHasta', 'zona', 'tributo', 'regimen', 'tipoDocumento', 'etapa', 'beneficio', 'montoMinimo'])
@@ -86,4 +94,56 @@ test('HU038: pagina los resultados y corrige una página fuera de rango', () => 
   assert.deepEqual({ pagina: segunda.pagina, totalPaginas: segunda.totalPaginas, desde: segunda.desde, hasta: segunda.hasta }, { pagina: 2, totalPaginas: 3, desde: 11, hasta: 20 })
   assert.equal(paginarFilas(filas, 99, 10).pagina, 3)
   assert.equal(paginarFilas(Array.from({ length: 120 }), 2, 100).filas.length, 20)
+})
+
+test('HU037: ordena los grupos según la primera columna del orden plano', () => {
+  const orden = ['via', 'numero', 'codigo', 'razonSocial', 'predial', 'arbitrios']
+  assert.deepEqual(ordenarGrupos(gruposPricos, orden).map(({ clave }) => clave), ['domicilio', 'contribuyente', 'deuda'])
+})
+
+test('HU037: las columnas se reordenan solo dentro de su propio grupo', () => {
+  assert.deepEqual(reordenarColumnasDeGrupo(ordenPricos, gruposPricos, 'contribuyente', ['razonSocial', 'codigo']), ['razonSocial', 'codigo', 'via', 'numero', 'predial', 'arbitrios'])
+  assert.deepEqual(reordenarColumnasDeGrupo(ordenPricos, gruposPricos, 'domicilio', ['numero', 'via']), ['codigo', 'razonSocial', 'numero', 'via', 'predial', 'arbitrios'])
+  assert.deepEqual(reordenarColumnasDeGrupo(ordenPricos, gruposPricos, 'contribuyente', ['razonSocial', 'via', 'codigo']), ['razonSocial', 'codigo', 'via', 'numero', 'predial', 'arbitrios'])
+})
+
+test('HU037: mover una cabecera superior arrastra sus columnas en su orden actual', () => {
+  assert.deepEqual(reordenarGruposColumnas(ordenPricos, gruposPricos, ['domicilio', 'deuda', 'contribuyente']), ['via', 'numero', 'predial', 'arbitrios', 'codigo', 'razonSocial'])
+  assert.deepEqual(reordenarGruposColumnas(ordenPricos, gruposPricos, ['deuda', 'contribuyente', 'domicilio']), ['predial', 'arbitrios', 'codigo', 'razonSocial', 'via', 'numero'])
+  const conOrdenInterno = ['razonSocial', 'codigo', 'via', 'numero', 'predial', 'arbitrios']
+  assert.deepEqual(reordenarGruposColumnas(conOrdenInterno, gruposPricos, ['deuda', 'contribuyente', 'domicilio']), ['predial', 'arbitrios', 'razonSocial', 'codigo', 'via', 'numero'])
+})
+
+test('HU037: normaliza órdenes guardados incompletos o inválidos', () => {
+  assert.deepEqual(normalizarOrdenColumnas(['via', 'fantasma', 'codigo', 'via'], gruposPricos), ['via', 'numero', 'codigo', 'razonSocial', 'predial', 'arbitrios'])
+  assert.deepEqual(normalizarOrdenColumnas(null, gruposPricos), ordenPricos)
+})
+
+test('HU018: los grupos de morosos cubren todas las columnas sin duplicarlas', () => {
+  assert.deepEqual(GRUPOS_MOROSOS.flatMap(({ columnas }) => columnas), columnasMorosos)
+  assert.deepEqual(GRUPOS_DETALLE_MOROSOS.flatMap(({ columnas }) => columnas), columnasDetalleMorosos)
+})
+
+test('HU018: mover el grupo Domicilio fiscal lleva también Zonas', () => {
+  const movido = reordenarGruposColumnas(columnasMorosos, GRUPOS_MOROSOS, ['domicilio', 'contribuyente', 'deuda', 'datosContribuyente'])
+  assert.deepEqual(movido.slice(0, 13), [...columnasMorosos.slice(5, 13), ...columnasMorosos.slice(0, 5)])
+})
+
+test('HU018: las columnas del detalle solo se reordenan dentro de su grupo', () => {
+  const movido = reordenarColumnasDeGrupo(columnasDetalleMorosos, GRUPOS_DETALLE_MOROSOS, 'montos', ['montoConBeneficio', 'montoSinBeneficio'])
+  assert.deepEqual(movido.slice(0, 5), columnasDetalleMorosos.slice(0, 5))
+  assert.deepEqual(movido.slice(-2), ['montoConBeneficio', 'montoSinBeneficio'])
+})
+
+test('HU018: la cabecera de grupo oculta y vuelve a mostrar todas sus columnas', () => {
+  const grupo = GRUPOS_MOROSOS.find(({ clave }) => clave === 'domicilio')
+  const ocultas = alternarGrupoColumnas(columnasMorosos, grupo, columnasMorosos)
+  assert.deepEqual(ocultas, columnasMorosos.filter((columna) => !grupo.columnas.includes(columna)))
+  const mostradas = alternarGrupoColumnas(['codigo'], grupo, columnasMorosos)
+  assert.deepEqual(mostradas, ['codigo', ...grupo.columnas])
+})
+
+test('HU018: el grupo no puede ocultar la última columna visible', () => {
+  const grupo = GRUPOS_MOROSOS.find(({ clave }) => clave === 'domicilio')
+  assert.deepEqual(alternarGrupoColumnas(grupo.columnas, grupo, columnasMorosos), grupo.columnas)
 })
