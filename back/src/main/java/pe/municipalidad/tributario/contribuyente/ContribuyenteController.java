@@ -4,9 +4,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import pe.municipalidad.tributario.documentos.AlertaMoraService;
+import pe.municipalidad.tributario.documentos.AvisoCorreoRespuesta;
 
 /* HU001: consultar contribuyente por documento. */
 @RestController
@@ -14,9 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class ContribuyenteController {
 
     private final ContribuyenteService contribuyenteService;
+    private final AlertaMoraService alertaMoraService;
 
-    public ContribuyenteController(ContribuyenteService contribuyenteService) {
+    public ContribuyenteController(
+            ContribuyenteService contribuyenteService,
+            AlertaMoraService alertaMoraService) {
         this.contribuyenteService = contribuyenteService;
+        this.alertaMoraService = alertaMoraService;
     }
 
     @GetMapping
@@ -31,5 +38,11 @@ public class ContribuyenteController {
             @RequestParam @NotBlank(message = "es obligatorio")
             @Size(max = 120, message = "debe tener como máximo 120 caracteres") String q) {
         return contribuyenteService.buscar(q);
+    }
+
+    /* HU012 (RF-013): Historial de avisos de mora temprana recibidos por el contribuyente. */
+    @GetMapping("/{codigo}/avisos-mora")
+    public List<AvisoCorreoRespuesta> obtenerHistorialAvisos(@PathVariable String codigo) {
+        return alertaMoraService.obtenerHistorialContribuyente(codigo);
     }
 }
