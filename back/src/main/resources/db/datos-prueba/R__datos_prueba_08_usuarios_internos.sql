@@ -9,7 +9,8 @@ WITH accesos (nombre_usuario, nombre_completo, correo, clave, rol) AS (
          'GestorLocalSM#2026', 'GESTOR_RECLAMOS'),
         ('responsable.local', 'Responsable de Rentas de Pruebas', 'responsable.local@example.org',
          'ResponsableSM#2026', 'GERENCIA'),
-        ('gerencia', 'Gerencia de Rentas de Pruebas', 'gerencia.local@example.org', 'gerencia123', 'GERENCIA')
+        ('gerencia', 'Gerencia de Rentas de Pruebas', 'gerencia.local@example.org', 'gerencia123', 'GERENCIA'),
+        ('ventanilla', 'Trabajador de Ventanilla de Pruebas', 'ventanilla@example.org', 'ventanilla123', 'VENTANILLA')
 ),
 nuevos AS (
     INSERT INTO seguridad.usuario (nombre_usuario, nombre_completo, correo, clave_hash, activo, fecha_creacion)
