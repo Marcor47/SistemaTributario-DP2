@@ -28,6 +28,11 @@ public class GeneradorConstanciaPdf {
 
     public byte[] generar(String numeroConstancia, Contribuyente contribuyente, LocalDateTime fechaEmision,
             boolean dePrueba) {
+        return generar(numeroConstancia, contribuyente, fechaEmision, null, null, null, dePrueba);
+    }
+
+    public byte[] generar(String numeroConstancia, Contribuyente contribuyente, LocalDateTime fechaEmision,
+            String prediosIncluidos, String rangoFechas, String trabajadorEmisor, boolean dePrueba) {
         List<String> lineas = new ArrayList<>();
         if (dePrueba) {
             lineas.add("DOCUMENTO DE PRUEBA - SIN VALIDEZ LEGAL");
@@ -42,6 +47,16 @@ public class GeneradorConstanciaPdf {
                 "Fecha de emisión: " + fechaEmision.toLocalDate(),
                 "Se deja constancia de que el contribuyente no registra deuda tributaria pendiente",
                 "con la Municipalidad a la fecha de emisión."));
+
+        if (prediosIncluidos != null && !prediosIncluidos.isBlank()) {
+            lineas.add("Predios comprendidos: " + prediosIncluidos);
+        }
+        if (rangoFechas != null && !rangoFechas.isBlank()) {
+            lineas.add("Período cubierto: " + rangoFechas);
+        }
+        if (trabajadorEmisor != null && !trabajadorEmisor.isBlank()) {
+            lineas.add("Atendido en Ventanilla por: " + trabajadorEmisor);
+        }
 
         try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream salida = new ByteArrayOutputStream()) {
             PDPage pagina = new PDPage();

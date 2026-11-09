@@ -42,6 +42,7 @@ public class SeguridadWebConfig {
                                 .hasAuthority("RECLAMOS:GESTIONAR")
                         .requestMatchers("/api/reclamos/asignados/**").hasAuthority("RECLAMOS:ATENDER")
                         .requestMatchers("/api/gestion/constancias/**").hasAuthority("CONSTANCIAS:GESTIONAR")
+                        .requestMatchers("/api/ventanilla/constancias/**").hasAuthority("CONSTANCIAS:GESTIONAR")
                         .requestMatchers(HttpMethod.POST, "/api/segmentos/aprobaciones")
                                 .hasAuthority("SEGMENTOS:APROBAR")
                         .requestMatchers(HttpMethod.GET, "/api/segmentos/publicados")
