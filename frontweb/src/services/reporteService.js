@@ -90,6 +90,30 @@ export function exportarVista(idVista, formato) {
   return descargarReporte(`/reportes/vistas/${idVista}/exportar?formato=${formato}`)
 }
 
+export function nombreDesdeCabecera(cabecera) {
+  if (!cabecera) return null
+  const extendido = cabecera.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (extendido) {
+    try {
+      return decodeURIComponent(extendido)
+    } catch {
+      // Si el valor extendido está mal codificado, se usa filename normal.
+    }
+  }
+  return cabecera.match(/filename="?([^";]+)"?/i)?.[1] ?? null
+}
+
+export function nombreDescarga(ruta) {
+  const extension = /[?&]formato=PDF(?:&|$)/i.test(ruta) ? 'pdf' : 'xlsx'
+  const fecha = new Date().toLocaleDateString('en-CA').replaceAll('-', '')
+  const tipo = ruta.match(/\/reportes\/(PRICOS|MOROSOS|morosos-zona|buenos-pagadores-zona)\/exportar/i)?.[1]?.toLowerCase()
+  const nombreTipo = tipo === 'pricos' ? 'pricos'
+    : tipo?.includes('morosos') ? 'morosos'
+      : tipo?.includes('buenos') ? 'buenos_pagadores'
+        : null
+  return nombreTipo ? `reporte_${nombreTipo}_${fecha}.${extension}` : `reporte_${fecha}.${extension}`
+}
+
 export async function descargarReporte(ruta) {
   let respuesta
   try {
@@ -101,6 +125,6 @@ export async function descargarReporte(ruta) {
     const cuerpo = await respuesta.json().catch(() => null)
     throw Object.assign(new Error(cuerpo?.mensaje || 'No se pudo exportar el reporte.'), { estado: respuesta.status })
   }
-  const nombre = respuesta.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1] || 'reporte'
+  const nombre = nombreDesdeCabecera(respuesta.headers.get('content-disposition')) || nombreDescarga(ruta)
   return { blob: await respuesta.blob(), nombre }
 }

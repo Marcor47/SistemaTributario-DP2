@@ -1,10 +1,15 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Reorder } from 'framer-motion'
 import { fecha, moneda } from '../utils/formato.js'
-import { ETAPAS_COBRANZA, etiquetaBeneficio, etiquetaEtapa, etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, opcionesZona, paginarFilas, parametrosReporte, porcentaje, TIPOS_DOCUMENTO, validarFiltros } from '../utils/reportes.js'
+import {
+  ETAPAS_COBRANZA, GRUPOS_DETALLE_MOROSOS, GRUPOS_MOROSOS, alternarGrupoColumnas, etiquetaBeneficio, etiquetaEtapa,
+  etiquetaTipoDocumento, etiquetaTributo, FILTROS_BENEFICIO, filtrosDisponibles, limpiarFiltros, normalizarOrdenColumnas,
+  opcionesZona, ordenarGrupos, paginarFilas, parametrosReporte, porcentaje, reordenarColumnasDeGrupo, reordenarGruposColumnas,
+  TIPOS_DOCUMENTO, validarFiltros,
+} from '../utils/reportes.js'
 import { descargarReporte, generarReporte, listarZonas, obtenerCatalogoReportes, obtenerOpcionesReporte } from '../services/reporteService.js'
 import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
+import SelectorColumnasAgrupadas from '../components/SelectorColumnasAgrupadas.jsx'
 import VisualizacionReporte from '../components/VisualizacionReporte.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import ReporteBuenosPagadores from './ReporteBuenosPagadores.jsx'
@@ -214,6 +219,12 @@ function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle, mostrar
     ? (detalleFiltradas.length ? detalleFiltradas : COLUMNAS_DETALLE_MOROSOS)
       .filter((columna) => columna !== 'anio' || mostrarAnio)
     : []
+  const gruposMorosos = ordenarGrupos(GRUPOS_MOROSOS, visibles)
+    .map((grupo) => ({ ...grupo, columnas: visibles.filter((columna) => grupo.columnas.includes(columna)) }))
+    .filter((grupo) => grupo.columnas.length > 0)
+  const gruposDetalle = ordenarGrupos(GRUPOS_DETALLE_MOROSOS, detalleVisibles)
+    .map((grupo) => ({ ...grupo, columnas: detalleVisibles.filter((columna) => grupo.columnas.includes(columna)) }))
+    .filter((grupo) => grupo.columnas.length > 0)
   if (mostrarDetalle && filaDetalle) {
     const obligaciones = detalleObligaciones(filaDetalle, anioDesde, anioHasta)
     const paginacionDetalle = paginarFilas(obligaciones, paginaDetalle, tamanioDetalle)
@@ -226,7 +237,12 @@ function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle, mostrar
       <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`Obligaciones vencidas de ${filaDetalle.razonSocial || filaDetalle.nombre}`}>
         <table className="tabla reporte-tabla reporte-tabla-detalle">
           <caption className="sr-only">Detalle de obligaciones de {filaDetalle.razonSocial || filaDetalle.nombre}</caption>
-          <thead><tr>{detalleVisibles.map((columna) => <th key={columna} scope="col" className={claseDetalle(columna)}>{ETIQUETAS_DETALLE[columna]}</th>)}</tr></thead>
+          <thead>
+            <tr className="reporte-grupo">
+              {gruposDetalle.map((grupo) => <th key={grupo.clave} scope="colgroup" colSpan={grupo.columnas.length}>{grupo.etiqueta}</th>)}
+            </tr>
+            <tr>{detalleVisibles.map((columna) => <th key={columna} scope="col" className={claseDetalle(columna)}>{ETIQUETAS_DETALLE[columna]}</th>)}</tr>
+          </thead>
           <tbody>{paginacionDetalle.filas.map((item, indice) => <tr key={`${item.anio}-${item.tributo}-${item.periodo}-${item.codigoPredio}-${indice}`}>
             {detalleVisibles.map((columna) => { const valor = valorDetalle(item, columna); return <td key={columna} className={claseDetalle(columna)}>{columna === 'montoConBeneficio' ? <strong>{valor}</strong> : valor}</td> })}
           </tr>)}</tbody>
@@ -237,10 +253,15 @@ function TablaCabeceraMorosos({ datos, filas, columnas, columnasDetalle, mostrar
   return <>
     <div className="tabla-scroll" tabIndex="0" role="region" aria-label={`${datos.titulo} en tabla cabecera`}><table className="tabla reporte-tabla reporte-tabla-cabecera">
       <caption className="sr-only">Cabecera de reporte de morosos</caption>
-      <thead><tr>
-        {mostrarDetalle && <th scope="col" className="reporte-col-accion">Detalle</th>}
-        {visibles.map((columna) => <th key={columna} scope="col" className={claseCabecera(columna)}>{ETIQUETAS_CABECERA[columna]}</th>)}
-      </tr></thead>
+      <thead>
+        <tr className="reporte-grupo">
+          {mostrarDetalle && <th rowSpan={2} scope="col" className="reporte-col-accion">Detalle</th>}
+          {gruposMorosos.map((grupo) => <th key={grupo.clave} scope="colgroup" colSpan={grupo.columnas.length}>{grupo.etiqueta}</th>)}
+        </tr>
+        <tr>
+          {visibles.map((columna) => <th key={columna} scope="col" className={claseCabecera(columna)}>{ETIQUETAS_CABECERA[columna]}</th>)}
+        </tr>
+      </thead>
       <tbody>
         {filas.map((fila) => {
           const obligaciones = detalleObligaciones(fila, anioDesde, anioHasta)
@@ -354,7 +375,6 @@ export default function Reportes() {
     return () => controlador.abort()
   }, [])
   const consultaActiva = useRef(null)
-  const consultarActual = useRef(null)
   const arrastreColumnas = useRef(false)
   const arrastreDetalle = useRef(false)
   const grupoColumnasRef = useRef(null)
@@ -366,10 +386,14 @@ export default function Reportes() {
   const columnasDetalleEfectivas = columnasDetalle.length
     ? columnasDetalle
     : (seleccion === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])
-  const ordenColumnasEfectivas = ordenColumnas.length ? ordenColumnas : (COLUMNAS[seleccion] || [])
-  const ordenColumnasDetalleEfectivas = ordenColumnasDetalle.length
-    ? ordenColumnasDetalle
-    : (seleccion === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])
+  const ordenColumnasEfectivas = useMemo(
+    () => (ordenColumnas.length ? ordenColumnas : (COLUMNAS[seleccion] || [])),
+    [ordenColumnas, seleccion],
+  )
+  const ordenColumnasDetalleEfectivas = useMemo(
+    () => (ordenColumnasDetalle.length ? ordenColumnasDetalle : (seleccion === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])),
+    [ordenColumnasDetalle, seleccion],
+  )
   const columnasAplicadasEfectivas = columnasAplicadas.length ? columnasAplicadas : (COLUMNAS[seleccion] || [])
   const columnasDetalleAplicadasEfectivas = columnasDetalleAplicadas.length
     ? columnasDetalleAplicadas
@@ -382,6 +406,24 @@ export default function Reportes() {
     : (seleccion === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])
   const columnasPredeterminadas = COLUMNAS[seleccion] || []
   const detallePredeterminado = seleccion === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : []
+  const gruposMorosos = useMemo(
+    () => seleccion === 'MOROSOS'
+      ? ordenarGrupos(GRUPOS_MOROSOS, ordenColumnasEfectivas).map((grupo) => ({
+          ...grupo,
+          columnas: ordenColumnasEfectivas.filter((columna) => grupo.columnas.includes(columna)),
+        }))
+      : [],
+    [seleccion, ordenColumnasEfectivas],
+  )
+  const gruposDetalleMorosos = useMemo(
+    () => seleccion === 'MOROSOS'
+      ? ordenarGrupos(GRUPOS_DETALLE_MOROSOS, ordenColumnasDetalleEfectivas).map((grupo) => ({
+          ...grupo,
+          columnas: ordenColumnasDetalleEfectivas.filter((columna) => grupo.columnas.includes(columna)),
+        }))
+      : [],
+    [seleccion, ordenColumnasDetalleEfectivas],
+  )
   const columnasSonPredeterminadas = ordenColumnasEfectivas.join('|') === columnasPredeterminadas.join('|')
     && columnasEfectivas.length === columnasPredeterminadas.length
   const detalleSonPredeterminados = ordenColumnasDetalleEfectivas.join('|') === detallePredeterminado.join('|')
@@ -397,7 +439,7 @@ export default function Reportes() {
     || ordenColumnasDetalleEfectivas.join('|') !== ordenColumnasDetalleAplicadasEfectivas.join('|')
     || detalleActivo !== detalleActivoAplicado
     || orden !== ordenAplicado
-  const mostrarAvisoCambios = hayCambiosSinAplicar && !resultado.cargando
+  const mostrarAvisoCambios = Boolean(resultado.datos) && hayCambiosSinAplicar && !resultado.cargando
 
   const actualizarDesbordeColumnas = useCallback(() => {
     setDesbordeColumnas((actual) => {
@@ -426,34 +468,6 @@ export default function Reportes() {
     }
   }, [seleccion, columnasEfectivas.length, columnasDetalleEfectivas.length, detalleActivo,
     actualizarDesbordeColumnas, actualizarDesbordeDetalle])
-
-  async function cargarMorososInicial(reporteMorosos, filtrosIniciales = FILTROS_INICIALES) {
-    consultaActiva.current?.abort()
-    const controlador = new AbortController()
-    consultaActiva.current = controlador
-    setResultado({ cargando: true, datos: null, error: null })
-    try {
-      const datos = await generarReporte(reporteMorosos, filtrosIniciales, { signal: controlador.signal })
-      const columnasIniciales = COLUMNAS[reporteMorosos.tipo] || []
-      const detalleIniciales = COLUMNAS_DETALLE_MOROSOS
-      datos.__columnas = columnasIniciales
-      datos.__orden = ''
-      datos.__mostrarDetalle = true
-      if (controlador.signal.aborted) return
-      setFiltrosAplicados({ ...filtrosIniciales })
-      setColumnasAplicadas(columnasIniciales)
-      setOrdenColumnasAplicadas(columnasIniciales)
-      setColumnasDetalleAplicadas(detalleIniciales)
-      setOrdenColumnasDetalleAplicadas(detalleIniciales)
-      setDetalleActivo(true)
-      setDetalleActivoAplicado(true)
-      setOrdenAplicado('')
-      setResultado({ cargando: false, datos, error: null })
-      setOpcionesMorosos(opcionesDesdeMorosos(datos.filas))
-    } catch (error) {
-      if (!controlador.signal.aborted) setResultado({ cargando: false, datos: null, error })
-    }
-  }
 
   useEffect(() => {
     const controlador = new AbortController()
@@ -501,7 +515,6 @@ export default function Reportes() {
     setColumnasDetalleAplicadas([]); setOrdenColumnasDetalleAplicadas(nuevo === 'MOROSOS' ? COLUMNAS_DETALLE_MOROSOS : [])
     setDetalleActivo(true); setDetalleActivoAplicado(true)
     setOrden(''); setOrdenAplicado('')
-    if (nuevo === 'MOROSOS' && siguiente) cargarMorososInicial(siguiente, filtrosNuevo)
   }
 
   function cambiarReporte() {
@@ -534,7 +547,9 @@ export default function Reportes() {
       const columnasVista = columnasValidas.length ? columnasValidas : columnasDisponiblesVista
       const ordenGuardadoMain = (datos.vista.ordenColumnas || []).filter((columna) => columnasDisponiblesVista.includes(columna))
       const ordenMainBase = ordenGuardadoMain.length ? ordenGuardadoMain : columnasVista
-      const ordenMain = [...ordenMainBase, ...columnasDisponiblesVista.filter((columna) => !ordenMainBase.includes(columna))]
+      const ordenMain = datos.vista.tipoReporte === 'MOROSOS'
+        ? normalizarOrdenColumnas(ordenMainBase, GRUPOS_MOROSOS)
+        : [...ordenMainBase, ...columnasDisponiblesVista.filter((columna) => !ordenMainBase.includes(columna))]
       const visiblesMain = new Set(columnasVista)
       const columnasVistaOrdenadas = ordenMain.filter((columna) => visiblesMain.has(columna))
 
@@ -546,7 +561,9 @@ export default function Reportes() {
       const columnasDetalleVista = detalleValidas.length ? detalleValidas : detalleDisponiblesVista
       const ordenGuardadoDetalle = (datos.vista.ordenColumnasDetalle || []).filter((columna) => detalleDisponiblesVista.includes(columna))
       const ordenDetalleBase = ordenGuardadoDetalle.length ? ordenGuardadoDetalle : columnasDetalleVista
-      const ordenDetalle = [...ordenDetalleBase, ...detalleDisponiblesVista.filter((columna) => !ordenDetalleBase.includes(columna))]
+      const ordenDetalle = datos.vista.tipoReporte === 'MOROSOS'
+        ? normalizarOrdenColumnas(ordenDetalleBase, GRUPOS_DETALLE_MOROSOS)
+        : [...ordenDetalleBase, ...detalleDisponiblesVista.filter((columna) => !ordenDetalleBase.includes(columna))]
       const visiblesDetalle = new Set(columnasDetalleVista)
       const columnasDetalleVistaOrdenadas = ordenDetalle.filter((columna) => visiblesDetalle.has(columna))
 
@@ -606,16 +623,44 @@ export default function Reportes() {
     setColumnasDetalle(ordenColumnasDetalleEfectivas.filter((item) => visiblesSet.has(item)))
   }
 
-  function reordenarColumnas(nuevoOrden) {
+  function alternarGrupoMorosos(grupoClave) {
+    const grupo = GRUPOS_MOROSOS.find(({ clave }) => clave === grupoClave)
+    if (!grupo) return
+    setColumnas(alternarGrupoColumnas(columnasEfectivas, grupo, ordenColumnasEfectivas))
+  }
+
+  function alternarGrupoDetalleMorosos(grupoClave) {
+    const grupo = GRUPOS_DETALLE_MOROSOS.find(({ clave }) => clave === grupoClave)
+    if (!grupo) return
+    setColumnasDetalle(alternarGrupoColumnas(columnasDetalleEfectivas, grupo, ordenColumnasDetalleEfectivas))
+  }
+
+  function aplicarOrdenColumnas(nuevoOrden) {
     setOrdenColumnas(nuevoOrden)
     const visibles = new Set(columnasEfectivas)
     setColumnas(nuevoOrden.filter((columna) => visibles.has(columna)))
   }
 
-  function reordenarColumnasDetalle(nuevoOrden) {
+  function reordenarGrupos(claves) {
+    aplicarOrdenColumnas(reordenarGruposColumnas(ordenColumnasEfectivas, GRUPOS_MOROSOS, claves))
+  }
+
+  function reordenarColumnasGrupo(grupoClave, columnas) {
+    aplicarOrdenColumnas(reordenarColumnasDeGrupo(ordenColumnasEfectivas, GRUPOS_MOROSOS, grupoClave, columnas))
+  }
+
+  function aplicarOrdenDetalle(nuevoOrden) {
     setOrdenColumnasDetalle(nuevoOrden)
     const visibles = new Set(columnasDetalleEfectivas)
     setColumnasDetalle(nuevoOrden.filter((columna) => visibles.has(columna)))
+  }
+
+  function reordenarGruposDetalle(claves) {
+    aplicarOrdenDetalle(reordenarGruposColumnas(ordenColumnasDetalleEfectivas, GRUPOS_DETALLE_MOROSOS, claves))
+  }
+
+  function reordenarColumnasGrupoDetalle(grupoClave, columnas) {
+    aplicarOrdenDetalle(reordenarColumnasDeGrupo(ordenColumnasDetalleEfectivas, GRUPOS_DETALLE_MOROSOS, grupoClave, columnas))
   }
 
   function restablecerColumnas() {
@@ -674,13 +719,6 @@ export default function Reportes() {
       if (!controlador.signal.aborted) setResultado({ cargando: false, datos: null, error })
     }
   }
-  useEffect(() => { consultarActual.current = consultar })
-
-  useEffect(() => {
-    if (!resultado.datos || !filtrosCambiados) return undefined
-    const temporizador = window.setTimeout(() => consultarActual.current?.(null, filtros), 450)
-    return () => window.clearTimeout(temporizador)
-  }, [filtros, filtrosCambiados, resultado.datos])
 
   const disponibles = new Set(filtrosDisponibles(reporte))
   const errorGeneral = resultado.error
@@ -859,33 +897,18 @@ export default function Reportes() {
                       data-desborde-izquierda={desbordeColumnas.izquierda}
                       data-desborde-derecha={desbordeColumnas.derecha}
                     >
-                      <Reorder.Group
-                        as="div"
-                        axis="x"
-                        values={ordenColumnasEfectivas}
-                        onReorder={reordenarColumnas}
+                      <SelectorColumnasAgrupadas
+                        grupos={gruposMorosos}
+                        columnasVisibles={columnasEfectivas}
+                        etiquetas={ETIQUETAS_CABECERA}
+                        arrastre={arrastreColumnas}
+                        onAlternar={alternarColumna}
+                        onAlternarGrupo={alternarGrupoMorosos}
+                        onReordenarGrupos={reordenarGrupos}
+                        onReordenarColumnas={reordenarColumnasGrupo}
                         onScroll={actualizarDesbordeColumnas}
-                        className="reporte-columnas-grid"
-                        role="group"
-                        aria-label="Columnas visibles"
-                      >
-                        {ordenColumnasEfectivas.map((columna) => <Reorder.Item
-                          as="button"
-                          key={columna}
-                          value={columna}
-                          type="button"
-                          className="reporte-segmento"
-                          aria-pressed={columnasEfectivas.includes(columna)}
-                          onDragStart={() => { arrastreColumnas.current = true }}
-                          onDragEnd={() => { window.setTimeout(() => { arrastreColumnas.current = false }, 0) }}
-                          onClick={() => {
-                            if (arrastreColumnas.current) return
-                            alternarColumna(columna)
-                          }}
-                        >
-                          {seleccion === 'MOROSOS' ? ETIQUETAS_CABECERA[columna] : ETIQUETAS[columna]}
-                        </Reorder.Item>)}
-                      </Reorder.Group>
+                        ariaLabel="Columnas visibles"
+                      />
                       {desbordeColumnas.izquierda && <button
                         className="reporte-columnas-flecha reporte-columnas-flecha--izquierda"
                         type="button"
@@ -917,33 +940,18 @@ export default function Reportes() {
                         data-desborde-izquierda={desbordeDetalle.izquierda}
                         data-desborde-derecha={desbordeDetalle.derecha}
                       >
-                        <Reorder.Group
-                          as="div"
-                          axis="x"
-                          values={ordenColumnasDetalleEfectivas}
-                          onReorder={reordenarColumnasDetalle}
+                        <SelectorColumnasAgrupadas
+                          grupos={gruposDetalleMorosos}
+                          columnasVisibles={columnasDetalleEfectivas}
+                          etiquetas={ETIQUETAS_DETALLE}
+                          arrastre={arrastreDetalle}
+                          onAlternar={alternarColumnaDetalle}
+                          onAlternarGrupo={alternarGrupoDetalleMorosos}
+                          onReordenarGrupos={reordenarGruposDetalle}
+                          onReordenarColumnas={reordenarColumnasGrupoDetalle}
                           onScroll={actualizarDesbordeDetalle}
-                          className="reporte-columnas-grid"
-                          role="group"
-                          aria-label="Columnas del detalle"
-                        >
-                          {ordenColumnasDetalleEfectivas.map((columna) => <Reorder.Item
-                            as="button"
-                            key={columna}
-                            value={columna}
-                            type="button"
-                            className="reporte-segmento"
-                            aria-pressed={columnasDetalleEfectivas.includes(columna)}
-                            onDragStart={() => { arrastreDetalle.current = true }}
-                            onDragEnd={() => { window.setTimeout(() => { arrastreDetalle.current = false }, 0) }}
-                            onClick={() => {
-                              if (arrastreDetalle.current) return
-                              alternarColumnaDetalle(columna)
-                            }}
-                          >
-                            {ETIQUETAS_DETALLE[columna]}
-                          </Reorder.Item>)}
-                        </Reorder.Group>
+                          ariaLabel="Columnas del detalle"
+                        />
                         {desbordeDetalle.izquierda && <button
                           className="reporte-columnas-flecha reporte-columnas-flecha--izquierda"
                           type="button"
@@ -975,7 +983,7 @@ export default function Reportes() {
         </form>
       </section>
       <GestionVistasReporte tipo="MOROSOS" configuracion={configuracionVista} habilitado={Boolean(resultado.datos)} onAbrir={abrirConfiguracion} />
-      <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : errorGeneral.codigo === 'SIN_CARGA_ETL' ? 'El ETL no tiene una carga publicada.' : errorGeneral.codigo === 'ETL_SIN_CORRESPONDENCIA' ? 'El ETL no tiene correspondencia con SAMNET.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}</div>
+      <div aria-live="polite">{resultado.cargando && <div className="pcard reporte-estado" role="status">Generando el reporte con la información disponible…</div>}{errorGeneral && <div className="alert" role="alert"><strong>{errorGeneral.estado === 403 ? 'Reporte restringido.' : errorGeneral.estado === 400 ? 'Revisa los filtros.' : errorGeneral.codigo === 'SIN_CARGA_ETL' ? 'El ETL no tiene una carga publicada.' : errorGeneral.codigo === 'ETL_SIN_CORRESPONDENCIA' ? 'El ETL no tiene correspondencia con SAMNET.' : 'No se pudo generar el reporte.'}</strong><p>{errorGeneral.message}</p>{errorGeneral.estado === 503 && <button className="btn" type="button" onClick={consultar}>Reintentar</button>}</div>}{!resultado.datos && !resultado.cargando && !errorGeneral && <div className="pcard reporte-estado" role="status"><h3>Reporte sin generar</h3><p>Configura los filtros, las columnas y el orden y pulsa “Generar reporte”.</p></div>}</div>
       {resultado.datos && <section className="reporte-resultados" aria-labelledby="resultado-reporte"><div className="reporte-resultados-cab"><div><h2 id="resultado-reporte">{resultado.datos.titulo}</h2><p className="hint">Información oficial a la fecha de corte indicada.</p></div><div className="reporte-config-exportar"><button className="btn" type="button" onClick={() => exportar('EXCEL')}>Exportar Excel</button><button className="btn" type="button" onClick={() => exportar('PDF')}>Exportar PDF</button></div></div>{accionError && <div className="alert" role="alert">{accionError.message}</div>}<Resumen datos={resultado.datos} paginacion={resultado.datos.filas.length > 0 && grafica === 'TABLA' ? <PaginacionTabla id="morosos" totalRegistros={resultado.datos.filas.length} pagina={paginacion.pagina} tamanio={paginacion.tamanio} onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} /> : null} />{resultado.datos.filas.length === 0 ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes que cumplan los criterios seleccionados.</p></div> : puedePersonalizar ? <VisualizacionReporte tipo={grafica} onCambiarTipo={setGrafica} serie={serie} onCambiarSerie={setSerie} series={SERIES_MOROSOS} tipos={['TABLA', 'BARRAS', 'LINEAS', 'CIRCULAR']} filas={filasOrdenadasReporte} lineas={lineasMorosos} descripcion={grafica === 'LINEAS' ? `Evolución anual agregada de ${resultado.datos.filas.length} contribuyentes. Selecciona un año para consultar su detalle.` : undefined} tabla={<TablaReporte datos={resultado.datos} filas={paginacion.filas} columnasDetalle={columnasDetalleAplicadasEfectivas} />} /> : <TablaReporte datos={resultado.datos} filas={paginacion.filas} columnasDetalle={columnasDetalleAplicadasEfectivas} />}</section>}
     </>}
   </div>

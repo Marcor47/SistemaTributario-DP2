@@ -1,30 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
+import SelectorColumnasAgrupadas from '../components/SelectorColumnasAgrupadas.jsx'
 import VisualizacionReporte from '../components/VisualizacionReporte.jsx'
 import { fecha, moneda } from '../utils/formato.js'
-import { CRITERIOS_PRICOS, etiquetaCriterioPricos, etiquetaTipoDocumento, paginarFilas, porcentaje, validarPricos } from '../utils/reportes.js'
+import {
+  CRITERIOS_PRICOS, GRUPOS_PRICOS, alternarGrupoColumnas, etiquetaCriterioPricos, etiquetaTipoDocumento, normalizarOrdenColumnas,
+  ordenarGrupos, paginarFilas, porcentaje, reordenarColumnasDeGrupo, reordenarGruposColumnas, validarPricos,
+} from '../utils/reportes.js'
 import { exportarReportePricos, generarReportePricos } from '../services/reporteService.js'
 import './Reportes.css'
 
-const GRUPOS = [
-  {
-    etiqueta: 'Contribuyente',
-    columnas: ['codigo', 'razonSocial', 'regimen', 'tipoDocumento', 'numeroDocumento'],
-  },
-  {
-    etiqueta: 'Domicilio fiscal',
-    columnas: ['domicilioFiscal', 'via', 'numero', 'departamento', 'interior', 'manzana', 'lote', 'distrito'],
-  },
-  { etiqueta: 'Base imponible', columnas: ['baseImponible'] },
-  { etiqueta: 'Emisión', columnas: ['emisionPredial', 'emisionArbitrios'] },
-  { etiqueta: 'Deuda años anteriores', columnas: ['deudaAnteriorPredial', 'deudaAnteriorArbitrios'] },
-  {
-    etiqueta: 'Deuda con el año de corte',
-    columnas: ['deudaActualPredial', 'deudaActualArbitrios', 'porcentajeDescuentoArbitrios'],
-  },
-  { etiqueta: 'Datos del contribuyente', columnas: ['condicion', 'tipoPersona', 'correo', 'telefonos'] },
-]
+const GRUPOS = GRUPOS_PRICOS
 
 const COLUMNAS_PRICOS = GRUPOS.flatMap(({ columnas }) => columnas)
 
@@ -209,8 +196,11 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
   const [limite, setLimite] = useState('10')
   const [aplicado, setAplicado] = useState({ criterio: CRITERIOS_PRICOS[0].valor, limite: '10' })
   const [errores, setErrores] = useState({})
-  const [resultado, setResultado] = useState({ cargando: true, datos: null, error: null })
+  const [resultado, setResultado] = useState({ cargando: false, datos: null, error: null })
   const [columnasVisibles, setColumnasVisibles] = useState(COLUMNAS_PRICOS)
+  const [ordenColumnas, setOrdenColumnas] = useState(COLUMNAS_PRICOS)
+  const [columnasAplicadas, setColumnasAplicadas] = useState(COLUMNAS_PRICOS)
+  const [ordenColumnasAplicadas, setOrdenColumnasAplicadas] = useState(COLUMNAS_PRICOS)
   const [pagina, setPagina] = useState(1)
   const [tamanio, setTamanio] = useState(10)
   const [exportando, setExportando] = useState('')
@@ -220,6 +210,7 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
   const [desbordeColumnas, setDesbordeColumnas] = useState({ izquierda: false, derecha: false })
   const consultaActiva = useRef(null)
   const grupoColumnasRef = useRef(null)
+  const arrastreColumnas = useRef(false)
 
   const actualizarDesbordeColumnas = useCallback(() => {
     setDesbordeColumnas((actual) => {
@@ -228,7 +219,7 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
     })
   }, [])
 
-  const ejecutar = useCallback(async (criterioSolicitado, limiteSolicitado) => {
+  const ejecutar = useCallback(async (criterioSolicitado, limiteSolicitado, columnasSolicitadas, ordenSolicitado) => {
     const validacion = validarPricos({ criterio: criterioSolicitado, limite: limiteSolicitado })
     setErrores(validacion)
     if (Object.keys(validacion).length) return
@@ -245,26 +236,15 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
       if (controlador.signal.aborted) return
       setResultado({ cargando: false, datos, error: null })
       setAplicado({ criterio: criterioSolicitado, limite: String(limiteSolicitado) })
+      setColumnasAplicadas(columnasSolicitadas)
+      setOrdenColumnasAplicadas(ordenSolicitado)
       setPagina(1)
     } catch (error) {
       if (!controlador.signal.aborted) setResultado({ cargando: false, datos: null, error })
     }
   }, [])
 
-  useEffect(() => {
-    const controlador = new AbortController()
-    consultaActiva.current = controlador
-    generarReportePricos({ criterio: CRITERIOS_PRICOS[0].valor, limite: '10' }, { signal: controlador.signal })
-      .then((datos) => {
-        if (controlador.signal.aborted) return
-        setResultado({ cargando: false, datos, error: null })
-        setAplicado({ criterio: CRITERIOS_PRICOS[0].valor, limite: '10' })
-      })
-      .catch((error) => {
-        if (!controlador.signal.aborted) setResultado({ cargando: false, datos: null, error })
-      })
-    return () => controlador.abort()
-  }, [])
+  useEffect(() => () => consultaActiva.current?.abort(), [])
 
   useEffect(() => {
     const actualizar = () => actualizarDesbordeColumnas()
@@ -274,32 +254,46 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
       window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', actualizar)
     }
-  }, [columnasVisibles, actualizarDesbordeColumnas])
+  }, [columnasVisibles, ordenColumnas, actualizarDesbordeColumnas])
 
-  const columnasOrdenadas = useMemo(
-    () => COLUMNAS_PRICOS.filter((columna) => columnasVisibles.includes(columna)),
-    [columnasVisibles],
+  const gruposOrdenados = useMemo(
+    () => ordenarGrupos(GRUPOS, ordenColumnas).map((grupo) => ({
+      ...grupo,
+      columnas: ordenColumnas.filter((columna) => grupo.columnas.includes(columna)),
+    })),
+    [ordenColumnas],
   )
-  const gruposVisibles = useMemo(
-    () => GRUPOS
-      .map((grupo) => ({ ...grupo, columnas: grupo.columnas.filter((columna) => columnasVisibles.includes(columna)) }))
+  const gruposAplicados = useMemo(
+    () => ordenarGrupos(GRUPOS, ordenColumnasAplicadas).map((grupo) => ({
+      ...grupo,
+      columnas: ordenColumnasAplicadas.filter((columna) => grupo.columnas.includes(columna)),
+    })),
+    [ordenColumnasAplicadas],
+  )
+  const gruposVisiblesAplicados = useMemo(
+    () => gruposAplicados
+      .map((grupo) => ({ ...grupo, columnas: grupo.columnas.filter((columna) => columnasAplicadas.includes(columna)) }))
       .filter((grupo) => grupo.columnas.length > 0),
-    [columnasVisibles],
+    [gruposAplicados, columnasAplicadas],
+  )
+  const columnasAplicadasOrdenadas = useMemo(
+    () => ordenColumnasAplicadas.filter((columna) => columnasAplicadas.includes(columna)),
+    [ordenColumnasAplicadas, columnasAplicadas],
   )
   const criterioSeleccionado = CRITERIOS_PRICOS.find(({ valor }) => valor === criterio)
-  const hayCambios = criterio !== aplicado.criterio || String(limite) !== aplicado.limite
-  const mostrarAvisoCambios = hayCambios && !resultado.cargando
+  const hayCambiosFiltros = criterio !== aplicado.criterio || String(limite) !== aplicado.limite
+  const mismasColumnasVisibles = columnasVisibles.length === columnasAplicadas.length
+    && columnasVisibles.every((columna) => columnasAplicadas.includes(columna))
+  const hayCambiosColumnas = !mismasColumnasVisibles
+    || ordenColumnas.join('|') !== ordenColumnasAplicadas.join('|')
+  const hayCambiosSinAplicar = hayCambiosFiltros || hayCambiosColumnas
+  const mostrarAvisoCambios = Boolean(resultado.datos) && hayCambiosSinAplicar && !resultado.cargando
   const columnasPredeterminadas = columnasVisibles.length === COLUMNAS_PRICOS.length
-
-  useEffect(() => {
-    if (!resultado.datos || !hayCambios) return undefined
-    const temporizador = window.setTimeout(() => ejecutar(criterio, limite), 450)
-    return () => window.clearTimeout(temporizador)
-  }, [criterio, limite, hayCambios, resultado.datos, ejecutar])
+    && ordenColumnas.every((columna, indice) => columna === COLUMNAS_PRICOS[indice])
 
   function consultar(evento) {
     evento?.preventDefault()
-    ejecutar(criterio, limite)
+    ejecutar(criterio, limite, columnasVisibles, ordenColumnas)
   }
 
   function alternarColumna(columna) {
@@ -311,15 +305,30 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
     })
   }
 
+  function alternarGrupo(grupoClave) {
+    const grupo = GRUPOS_PRICOS.find(({ clave }) => clave === grupoClave)
+    if (!grupo) return
+    setColumnasVisibles((actual) => alternarGrupoColumnas(actual, grupo, COLUMNAS_PRICOS))
+  }
+
   function restablecerColumnas() {
     setColumnasVisibles(COLUMNAS_PRICOS)
+    setOrdenColumnas(COLUMNAS_PRICOS)
+  }
+
+  function reordenarGrupos(claves) {
+    setOrdenColumnas((actual) => reordenarGruposColumnas(actual, GRUPOS, claves))
+  }
+
+  function reordenarColumnasGrupo(grupoClave, columnas) {
+    setOrdenColumnas((actual) => reordenarColumnasDeGrupo(actual, GRUPOS, grupoClave, columnas))
   }
 
   async function exportar(formato) {
     setExportando(formato)
     setErrorAccion(null)
     try {
-      descargar(await exportarReportePricos({ ...aplicado, columnas: columnasOrdenadas }, formato))
+      descargar(await exportarReportePricos({ ...aplicado, columnas: columnasAplicadasOrdenadas }, formato))
     } catch (error) {
       setErrorAccion(error)
     } finally {
@@ -328,13 +337,19 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
   }
 
   function abrirConfiguracion({ vista, reporte }) {
+    consultaActiva.current?.abort()
     const criterioVista = vista.filtros?.criterio || CRITERIOS_PRICOS[0].valor
     const limiteVista = String(vista.filtros?.limite || 10)
     const columnasVista = (vista.columnasVisibles || []).filter((columna) => COLUMNAS_PRICOS.includes(columna))
+    const ordenVista = normalizarOrdenColumnas(vista.ordenColumnas, GRUPOS)
+    const columnasVistaOrdenadas = ordenVista.filter((columna) => (columnasVista.length ? columnasVista.includes(columna) : true))
     setCriterio(criterioVista)
     setLimite(limiteVista)
     setAplicado({ criterio: criterioVista, limite: limiteVista })
-    setColumnasVisibles(columnasVista.length ? columnasVista : COLUMNAS_PRICOS)
+    setColumnasVisibles(columnasVistaOrdenadas)
+    setOrdenColumnas(ordenVista)
+    setColumnasAplicadas(columnasVistaOrdenadas)
+    setOrdenColumnasAplicadas(ordenVista)
     setTipoGrafica(vista.tipoGrafica || 'TABLA')
     setSerie(vista.series?.find((item) => SERIES.some((opcion) => opcion.id === item)) || 'baseImponible')
     setResultado({ cargando: false, datos: reporte, error: null })
@@ -346,8 +361,8 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
   const configuracionVista = {
     tipoGrafica,
     filtros: { criterio: aplicado.criterio, limite: Number(aplicado.limite) },
-    columnasVisibles: columnasOrdenadas,
-    ordenColumnas: COLUMNAS_PRICOS,
+    columnasVisibles: columnasAplicadasOrdenadas,
+    ordenColumnas: ordenColumnasAplicadas,
     orden: '',
     series: [serie],
   }
@@ -358,7 +373,7 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
         <div className="reporte-configuracion-cab">
           <div>
             <h2 id="configuracion-pricos">Criterio y personalización</h2>
-            <p className="hint">Genera la primera consulta; después el criterio y el límite se actualizarán automáticamente.</p>
+            <p className="hint">Configura el criterio, el límite y las columnas. El reporte se generará solo al pulsar “Generar reporte”.</p>
           </div>
           <div className="reporte-configuracion-acciones">
             <button className="btn" type="button" onClick={onCambiarReporte}>Cambiar reporte</button>
@@ -368,7 +383,7 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
 
         <div className={`reporte-cambios-pendientes-wrap${mostrarAvisoCambios ? ' reporte-cambios-pendientes-wrap--visible' : ''}`} aria-hidden={!mostrarAvisoCambios}>
           <div className="reporte-cambios-pendientes-interior">
-            <p className="reporte-cambios-pendientes" role="status">Actualizando el reporte con el nuevo criterio…</p>
+            <p className="reporte-cambios-pendientes" role="status">Hay cambios de criterio, columnas u orden sin aplicar. Pulsa “Generar reporte” para verlos.</p>
           </div>
         </div>
 
@@ -399,6 +414,7 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
             <legend>Personalización</legend>
             <fieldset className="reporte-columnas">
               <legend>Columnas visibles</legend>
+              <p className="hint reporte-columnas-ayuda">Arrastra una columna dentro de su grupo, o una cabecera para mover el grupo completo con todas sus columnas.</p>
               <div className="reporte-fila-restablecer">
                 <div
                   className="reporte-columnas-grupo"
@@ -406,22 +422,18 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
                   data-desborde-izquierda={desbordeColumnas.izquierda}
                   data-desborde-derecha={desbordeColumnas.derecha}
                 >
-                  <div
-                    className="reporte-columnas-grid"
-                    role="group"
-                    aria-label="Columnas visibles del reporte PRICOS"
+                  <SelectorColumnasAgrupadas
+                    grupos={gruposOrdenados}
+                    columnasVisibles={columnasVisibles}
+                    etiquetas={ETIQUETAS}
+                    arrastre={arrastreColumnas}
+                    onAlternar={alternarColumna}
+                    onAlternarGrupo={alternarGrupo}
+                    onReordenarGrupos={reordenarGrupos}
+                    onReordenarColumnas={reordenarColumnasGrupo}
                     onScroll={actualizarDesbordeColumnas}
-                  >
-                    {COLUMNAS_PRICOS.map((columna) => <button
-                      key={columna}
-                      type="button"
-                      className="reporte-segmento"
-                      aria-pressed={columnasVisibles.includes(columna)}
-                      onClick={() => alternarColumna(columna)}
-                    >
-                      {ETIQUETAS[columna]}
-                    </button>)}
-                  </div>
+                    ariaLabel="Columnas visibles del reporte PRICOS"
+                  />
                   {desbordeColumnas.izquierda && <button
                     className="reporte-columnas-flecha reporte-columnas-flecha--izquierda"
                     type="button"
@@ -450,8 +462,9 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
       {errorGeneral && <div className="alert" role="alert">
         <strong>{tituloError(errorGeneral)}</strong>
         <p>{errorGeneral.message}</p>
-        {errorGeneral.estado === 503 && <button className="btn" type="button" onClick={() => ejecutar(criterio, limite)}>Reintentar</button>}
+        {errorGeneral.estado === 503 && <button className="btn" type="button" onClick={() => ejecutar(criterio, limite, columnasVisibles, ordenColumnas)}>Reintentar</button>}
       </div>}
+      {!resultado.datos && !resultado.cargando && !errorGeneral && <div className="pcard reporte-estado" role="status"><h3>Reporte sin generar</h3><p>Configura el criterio, el límite y las columnas y pulsa “Generar reporte”.</p></div>}
     </div>
 
     {resultado.datos && <section className="reporte-resultados" aria-labelledby="resultado-pricos">
@@ -465,7 +478,7 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
       {errorAccion && <div className="alert" role="alert">{errorAccion.message}</div>}
       {resultado.datos.filas.length === 0
         ? <div className="pcard reporte-estado" role="status"><h3>Sin resultados</h3><p>No hay contribuyentes en la carga del ETL para este criterio.</p></div>
-        : puedePersonalizar ? <VisualizacionReporte tipo={tipoGrafica} onCambiarTipo={setTipoGrafica} serie={serie} onCambiarSerie={setSerie} series={SERIES} tipos={['TABLA', 'BARRAS', 'CIRCULAR']} filas={resultado.datos.filas} tabla={<TablaPricos filas={paginacion.filas} columnas={columnasOrdenadas} grupos={gruposVisibles} anioCorte={resultado.datos.fechaCorte?.slice(0, 4)} />} /> : <TablaPricos filas={paginacion.filas} columnas={columnasOrdenadas} grupos={gruposVisibles} anioCorte={resultado.datos.fechaCorte?.slice(0, 4)} />}
+        : puedePersonalizar ? <VisualizacionReporte tipo={tipoGrafica} onCambiarTipo={setTipoGrafica} serie={serie} onCambiarSerie={setSerie} series={SERIES} tipos={['TABLA', 'BARRAS', 'CIRCULAR']} filas={resultado.datos.filas} tabla={<TablaPricos filas={paginacion.filas} columnas={columnasAplicadasOrdenadas} grupos={gruposVisiblesAplicados} anioCorte={resultado.datos.fechaCorte?.slice(0, 4)} />} /> : <TablaPricos filas={paginacion.filas} columnas={columnasAplicadasOrdenadas} grupos={gruposVisiblesAplicados} anioCorte={resultado.datos.fechaCorte?.slice(0, 4)} />}
     </section>}
   </div>
 }

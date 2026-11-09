@@ -3,9 +3,13 @@ package pe.municipalidad.tributario.reporte;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.text.Normalizer;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -27,7 +31,9 @@ import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
@@ -45,6 +51,12 @@ public class ReporteExportador {
     public static final String MEDIA_TYPE_EXCEL =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     public static final String MEDIA_TYPE_PDF = "application/pdf";
+
+    private final Clock reloj;
+
+    public ReporteExportador(Clock reloj) {
+        this.reloj = reloj;
+    }
 
     private static final Map<TipoReporte, Set<String>> COLUMNAS_VALIDAS = Map.of(
             TipoReporte.MOROSOS, Set.of("codigo", "nombre", "razonSocial", "regimen", "tipoDocumento", "numeroDocumento",
@@ -77,6 +89,27 @@ public class ReporteExportador {
     public static final Set<String> COLUMNAS_DETALLE_MOROSOS = Set.of(
             "anio", "codigoPredio", "zona", "tributo", "periodo", "fechaVencimiento", "diasVencido",
             "etapaCobranza", "montoSinBeneficio", "montoConBeneficio");
+
+    private record GrupoColumnas(String etiqueta, List<String> columnas) {
+    }
+
+    private record RangoGrupo(String etiqueta, int desde, int hasta) {
+    }
+
+    private static final List<GrupoColumnas> GRUPOS_MOROSOS = List.of(
+            new GrupoColumnas("Contribuyente", List.of("codigo", "razonSocial", "regimen", "tipoDocumento", "numeroDocumento")),
+            new GrupoColumnas("Domicilio fiscal", List.of("domicilioFiscal", "via", "numero", "departamento",
+                    "interior", "manzana", "lote", "distrito", "zonas")),
+            new GrupoColumnas("Deuda vencida", List.of("deudaVencida", "deudaSinBeneficio")),
+            new GrupoColumnas("Datos del contribuyente", List.of("condicion", "tipoPersona", "correo", "telefonos"))
+    );
+
+    private static final List<GrupoColumnas> GRUPOS_DETALLE_MOROSOS = List.of(
+            new GrupoColumnas("Contribuyente", List.of("codigo", "razonSocial")),
+            new GrupoColumnas("Obligación", List.of("anio", "codigoPredio", "zona", "tributo", "periodo")),
+            new GrupoColumnas("Vencimiento", List.of("fechaVencimiento", "diasVencido", "etapaCobranza")),
+            new GrupoColumnas("Montos", List.of("montoSinBeneficio", "montoConBeneficio"))
+    );
 
     /* Fila plana del detalle de obligaciones para las exportaciones de morosos. */
     private record FilaDetalle(String codigo, String razonSocial, DetalleDeuda detalle) {
@@ -125,31 +158,73 @@ public class ReporteExportador {
 
     public ExportacionReporte exportar(ReporteRespuesta<?> reporte, FormatoExportacion formato,
             List<String> columnasSolicitadas, String emisor) {
-        return exportar(reporte, formato, columnasSolicitadas, List.of(), null, emisor);
+        return exportar(reporte, formato, columnasSolicitadas, List.of(), null, emisor, null);
     }
 
     public ExportacionReporte exportar(ReporteRespuesta<?> reporte, FormatoExportacion formato,
             List<String> columnasSolicitadas, List<String> columnasDetalleSolicitadas,
             String orden, String emisor) {
+        return exportar(reporte, formato, columnasSolicitadas, columnasDetalleSolicitadas, orden, emisor, null);
+    }
+
+    public ExportacionReporte exportar(ReporteRespuesta<?> reporte, FormatoExportacion formato,
+            List<String> columnasSolicitadas, List<String> columnasDetalleSolicitadas,
+            String orden, String emisor, String nombreVista) {
         List<String> columnas = columnasEfectivas(reporte.tipoReporte(), columnasSolicitadas);
         List<String> columnasDetalle = reporte.tipoReporte() == TipoReporte.MOROSOS
                 ? columnasDetalleEfectivas(columnasDetalleSolicitadas) : List.of();
         List<?> filas = ordenarFilas(reporte.filas(), orden);
-        String baseNombre = "reporte-" + reporte.tipoReporte().name().toLowerCase() + "-"
-                + reporte.fechaCorte().format(DateTimeFormatter.BASIC_ISO_DATE);
+        String nombreArchivo = construirNombreArchivo(reporte.tipoReporte(), formato, nombreVista);
 
         return switch (formato) {
             case EXCEL -> {
                 byte[] bytes = generarExcel(reporte, filas, columnas, columnasDetalle, emisor);
-                yield new ExportacionReporte(bytes, baseNombre + ".xlsx", MEDIA_TYPE_EXCEL);
+                yield new ExportacionReporte(bytes, nombreArchivo, MEDIA_TYPE_EXCEL);
             }
             case PDF -> {
                 byte[] bytes = generarPdf(reporte, filas, columnas, columnasDetalle, emisor);
-                yield new ExportacionReporte(bytes, baseNombre + ".pdf", MEDIA_TYPE_PDF);
+                yield new ExportacionReporte(bytes, nombreArchivo, MEDIA_TYPE_PDF);
             }
             default -> throw new DatoInvalidoException("FORMATO_NO_SOPORTADO",
                     "El formato de exportación debe ser EXCEL o PDF.");
         };
+    }
+
+    private String construirNombreArchivo(TipoReporte tipo, FormatoExportacion formato, String nombreVista) {
+        StringBuilder nombre = new StringBuilder("reporte_")
+                .append(nombreTipo(tipo))
+                .append('_')
+                .append(LocalDate.now(reloj).format(DateTimeFormatter.BASIC_ISO_DATE));
+        String vista = limpiarNombreVista(nombreVista);
+        if (!vista.isEmpty()) {
+            nombre.append('_').append(vista);
+        }
+        String extension = formato == FormatoExportacion.EXCEL ? ".xlsx"
+                : formato == FormatoExportacion.PDF ? ".pdf" : "";
+        return nombre.append(extension).toString();
+    }
+
+    private static String nombreTipo(TipoReporte tipo) {
+        return switch (tipo) {
+            case MOROSOS -> "morosos";
+            case PRICOS -> "pricos";
+            case BUENOS_PAGADORES -> "buenos_pagadores";
+        };
+    }
+
+    private static String limpiarNombreVista(String nombre) {
+        if (nombre == null) {
+            return "";
+        }
+        String limpio = Normalizer.normalize(nombre, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("[^A-Za-z0-9._-]+", "_")
+                .replaceAll("_+", "_")
+                .replaceAll("^[_.-]+|[_.-]+$", "");
+        if (limpio.length() > 80) {
+            limpio = limpio.substring(0, 80).replaceAll("[_.-]+$", "");
+        }
+        return limpio;
     }
 
     private static List<?> ordenarFilas(List<?> filas, String orden) {
@@ -210,6 +285,76 @@ public class ReporteExportador {
         return columnas;
     }
 
+    private static List<GrupoColumnas> gruposPricos(int anioCorte) {
+        return List.of(
+                new GrupoColumnas("Contribuyente", List.of("codigo", "razonSocial", "regimen", "tipoDocumento", "numeroDocumento")),
+                new GrupoColumnas("Domicilio fiscal", List.of("domicilioFiscal", "via", "numero", "departamento",
+                        "interior", "manzana", "lote", "distrito")),
+                new GrupoColumnas("Base imponible", List.of("baseImponible")),
+                new GrupoColumnas("Emisión", List.of("emisionPredial", "emisionArbitrios")),
+                new GrupoColumnas("Deuda años anteriores", List.of("deudaAnteriorPredial", "deudaAnteriorArbitrios")),
+                new GrupoColumnas("Deuda con " + anioCorte, List.of("deudaActualPredial", "deudaActualArbitrios",
+                        "porcentajeDescuentoArbitrios")),
+                new GrupoColumnas("Datos del contribuyente", List.of("condicion", "tipoPersona", "correo", "telefonos"))
+        );
+    }
+
+    private static List<GrupoColumnas> gruposExportacion(TipoReporte tipo, int anioCorte) {
+        return switch (tipo) {
+            case PRICOS -> gruposPricos(anioCorte);
+            case MOROSOS -> GRUPOS_MOROSOS;
+            default -> List.of();
+        };
+    }
+
+    private static List<RangoGrupo> rangosGrupos(List<String> columnas, List<GrupoColumnas> grupos) {
+        if (columnas == null || columnas.isEmpty() || grupos == null || grupos.isEmpty()) {
+            return List.of();
+        }
+        Map<String, GrupoColumnas> porColumna = new HashMap<>();
+        for (GrupoColumnas grupo : grupos) {
+            for (String columna : grupo.columnas()) {
+                porColumna.put(columna, grupo);
+            }
+        }
+        List<RangoGrupo> rangos = new ArrayList<>();
+        int i = 0;
+        while (i < columnas.size()) {
+            GrupoColumnas grupo = porColumna.get(columnas.get(i));
+            if (grupo == null) {
+                rangos.add(new RangoGrupo(etiquetaColumna(columnas.get(i)), i, i));
+                i++;
+                continue;
+            }
+            int j = i;
+            while (j + 1 < columnas.size() && grupo.columnas().contains(columnas.get(j + 1))) {
+                j++;
+            }
+            rangos.add(new RangoGrupo(grupo.etiqueta(), i, j));
+            i = j + 1;
+        }
+        return rangos;
+    }
+
+    private static void escribirCabeceraGruposExcel(Sheet sheet, int numFila, List<String> columnas,
+            List<GrupoColumnas> grupos, CellStyle estilo) {
+        List<RangoGrupo> rangos = rangosGrupos(columnas, grupos);
+        if (rangos.isEmpty()) {
+            return;
+        }
+        Row fila = sheet.createRow(numFila);
+        fila.setHeightInPoints(26);
+        for (RangoGrupo rango : rangos) {
+            for (int col = rango.desde(); col <= rango.hasta(); col++) {
+                fila.createCell(col).setCellStyle(estilo);
+            }
+            fila.getCell(rango.desde()).setCellValue(rango.etiqueta());
+            if (rango.hasta() > rango.desde()) {
+                sheet.addMergedRegion(new CellRangeAddress(numFila, numFila, rango.desde(), rango.hasta()));
+            }
+        }
+    }
+
     private byte[] generarExcel(ReporteRespuesta<?> reporte, List<?> filas, List<String> columnas,
             List<String> columnasDetalle, String emisor) {
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
@@ -226,14 +371,23 @@ public class ReporteExportador {
 
             Font fontCabecera = workbook.createFont();
             fontCabecera.setBold(true);
-            fontCabecera.setColor(IndexedColors.WHITE.getIndex());
+            fontCabecera.setColor(IndexedColors.DARK_BLUE.getIndex());
 
             CellStyle styleCabecera = workbook.createCellStyle();
             styleCabecera.setFont(fontCabecera);
-            styleCabecera.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+            styleCabecera.setFillForegroundColor(IndexedColors.PALE_BLUE.getIndex());
             styleCabecera.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             styleCabecera.setAlignment(HorizontalAlignment.CENTER);
             aplicarBordes(styleCabecera);
+
+            CellStyle styleGrupoCabecera = workbook.createCellStyle();
+            styleGrupoCabecera.setFont(fontCabecera);
+            styleGrupoCabecera.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+            styleGrupoCabecera.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            styleGrupoCabecera.setAlignment(HorizontalAlignment.CENTER);
+            styleGrupoCabecera.setVerticalAlignment(VerticalAlignment.CENTER);
+            styleGrupoCabecera.setWrapText(true);
+            aplicarBordes(styleGrupoCabecera);
 
             DataFormat df = workbook.createDataFormat();
 
@@ -272,7 +426,13 @@ public class ReporteExportador {
             r3.createCell(0).setCellValue("Filtros aplicados: " + describirFiltros(reporte.filtrosAplicados())
                     + (emisor != null ? " | Solicitado por: " + emisor : ""));
 
+            for (int fila = 0; fila <= 3; fila++) {
+                sheet.addMergedRegion(new CellRangeAddress(fila, fila, 0, 3));
+            }
+
             // Fila de encabezados de la tabla
+            List<GrupoColumnas> grupos = gruposExportacion(reporte.tipoReporte(), reporte.fechaCorte().getYear());
+            escribirCabeceraGruposExcel(sheet, 4, columnas, grupos, styleGrupoCabecera);
             int numFila = 5;
             Row filaCabecera = sheet.createRow(numFila++);
             for (int col = 0; col < columnas.size(); col++) {
@@ -290,17 +450,20 @@ public class ReporteExportador {
                 }
             }
 
-            // Detalle de obligaciones (solo morosos con columnas de detalle seleccionadas)
+            // Detalle de obligaciones en una hoja independiente
             List<Object> detalle = filasDetalle(filas, columnasDetalle);
             List<String> columnasDetalleTabla = columnasDetalleTabla(columnasDetalle);
             if (!detalle.isEmpty()) {
-                numFila++;
-                Row tituloDetalle = sheet.createRow(numFila++);
+                Sheet hojaDetalle = workbook.createSheet("Detalle");
+                int filaDetalle = 0;
+
+                Row tituloDetalle = hojaDetalle.createRow(filaDetalle++);
                 Cell celdaTitulo = tituloDetalle.createCell(0);
                 celdaTitulo.setCellValue("Detalle de obligaciones");
                 celdaTitulo.setCellStyle(styleTitulo);
 
-                Row cabeceraDetalle = sheet.createRow(numFila++);
+                escribirCabeceraGruposExcel(hojaDetalle, filaDetalle++, columnasDetalleTabla, GRUPOS_DETALLE_MOROSOS, styleGrupoCabecera);
+                Row cabeceraDetalle = hojaDetalle.createRow(filaDetalle++);
                 for (int col = 0; col < columnasDetalleTabla.size(); col++) {
                     Cell cell = cabeceraDetalle.createCell(col);
                     cell.setCellValue(etiquetaColumna(columnasDetalleTabla.get(col)));
@@ -308,17 +471,20 @@ public class ReporteExportador {
                 }
 
                 for (Object fila : detalle) {
-                    Row row = sheet.createRow(numFila++);
+                    Row row = hojaDetalle.createRow(filaDetalle++);
                     for (int col = 0; col < columnasDetalleTabla.size(); col++) {
                         Cell cell = row.createCell(col);
                         escribirCelda(cell, fila, columnasDetalleTabla.get(col),
                                 styleMoneda, stylePorcentaje, styleEntero, styleTexto);
                     }
                 }
+
+                for (int col = 0; col < columnasDetalleTabla.size(); col++) {
+                    hojaDetalle.autoSizeColumn(col);
+                }
             }
 
-            int totalColumnas = Math.max(columnas.size(), columnasDetalleTabla.size());
-            for (int col = 0; col < totalColumnas; col++) {
+            for (int col = 0; col < columnas.size(); col++) {
                 sheet.autoSizeColumn(col);
             }
 

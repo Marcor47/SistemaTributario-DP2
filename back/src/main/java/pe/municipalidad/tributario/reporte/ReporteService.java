@@ -384,12 +384,7 @@ public class ReporteService {
         List<String> detalle = columnasDetalle != null ? columnasDetalle : List.of();
         validarColumnasDetalle(detalle);
         ReporteRespuesta<?> reporte = ejecutarReporte(TipoReporte.MOROSOS, filtros, usuario, formato);
-        ExportacionReporte exportacion = exportador.exportar(reporte, formato, columnas,
-                detalle, orden, usuario.getNombreCompleto());
-        String extension = formato == FormatoExportacion.EXCEL ? ".xlsx" : ".pdf";
-        return new ExportacionReporte(exportacion.contenido(),
-                "reporte_morosos_zona_" + reporte.fechaCorte().toString().replace("-", "") + extension,
-                exportacion.mediaType());
+        return exportador.exportar(reporte, formato, columnas, detalle, orden, usuario.getNombreCompleto());
     }
 
     /* ===== HU038: Generar reporte de buenos pagadores por zona (RF-051) ===== */
@@ -408,11 +403,7 @@ public class ReporteService {
         }
         Usuario usuario = usuario(nombreUsuario);
         ReporteRespuesta<?> reporte = ejecutarReporte(TipoReporte.BUENOS_PAGADORES, filtros, usuario, formato);
-        ExportacionReporte exportacion = exportador.exportar(reporte, formato, columnas, usuario.getNombreCompleto());
-        String extension = formato == FormatoExportacion.EXCEL ? ".xlsx" : ".pdf";
-        return new ExportacionReporte(exportacion.contenido(),
-                "reporte_buenos_pagadores_zona_" + reporte.fechaCorte().toString().replace("-", "") + extension,
-                exportacion.mediaType());
+        return exportador.exportar(reporte, formato, columnas, usuario.getNombreCompleto());
     }
 
     /* ===== HU007: Vistas personalizadas de reporte (RF-008, RF-044, RNF-023) ===== */
@@ -618,7 +609,7 @@ public class ReporteService {
         List<String> columnasDetalle = parsearColumnasDetalle(vista.getColumnasDetalleVisibles());
         ReporteRespuesta<?> reporte = reporteExportable(vista.getTipoReporte(), filtros, usuario, formato);
         return exportador.exportar(reporte, formato, columnas, columnasDetalle, vista.getOrden(),
-                usuario.getNombreCompleto());
+                usuario.getNombreCompleto(), vista.getNombre());
     }
 
     private ReporteRespuesta<?> reporteExportable(TipoReporte tipo, FiltrosReporte filtros, Usuario usuario,

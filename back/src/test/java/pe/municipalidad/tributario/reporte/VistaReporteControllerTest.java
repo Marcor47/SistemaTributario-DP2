@@ -364,12 +364,14 @@ class VistaReporteControllerTest {
         MockHttpSession sesion = sesion(NombreRol.GERENCIA, "gerente_excel");
 
         byte[] contenido = mvc.perform(get("/api/reportes/MOROSOS/exportar")
+                        .header(HttpHeaders.ORIGIN, "http://localhost:5173")
                         .param("formato", "EXCEL")
                         .param("zona", "Maranga")
                         .param("tributo", "ARBITRIOS")
                         .session(sesion))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"reporte-morosos-20261019.xlsx\""))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, org.hamcrest.Matchers.matchesPattern("attachment; filename=\"reporte_morosos_\\d{8}\\.xlsx\"")))
+                .andExpect(header().string("Access-Control-Expose-Headers", org.hamcrest.Matchers.containsString("Content-Disposition")))
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andReturn().getResponse().getContentAsByteArray();
 
@@ -388,6 +390,39 @@ class VistaReporteControllerTest {
     }
 
     @Test
+    void exportarPricosAExcelCombinaCabecerasDeGrupo() throws Exception {
+        MockHttpSession sesion = sesion(NombreRol.ANALISTA_RENTAS, "analista_excel_pricos_grupos");
+
+        byte[] contenido = mvc.perform(get("/api/reportes/PRICOS/exportar")
+                        .param("formato", "EXCEL")
+                        .param("anio", "2026")
+                        .param("columnas",
+                                "codigo", "razonSocial", "regimen", "tipoDocumento", "numeroDocumento",
+                                "domicilioFiscal", "via", "numero", "departamento", "interior", "manzana", "lote", "distrito",
+                                "baseImponible", "emisionPredial", "emisionArbitrios",
+                                "deudaActualPredial", "deudaActualArbitrios", "porcentajeDescuentoArbitrios",
+                                "condicion", "tipoPersona", "correo", "telefonos")
+                        .session(sesion))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsByteArray();
+
+        try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(contenido))) {
+            var sheet = wb.getSheetAt(0);
+            assertThat(sheet.getRow(4).getCell(0).getStringCellValue()).isEqualTo("Contribuyente");
+            assertThat(sheet.getRow(4).getCell(5).getStringCellValue()).isEqualTo("Domicilio fiscal");
+            assertThat(sheet.getRow(4).getCell(13).getStringCellValue()).isEqualTo("Base imponible");
+            assertThat(sheet.getRow(4).getCell(14).getStringCellValue()).isEqualTo("Emisión");
+            assertThat(sheet.getRow(4).getCell(16).getStringCellValue()).isEqualTo("Deuda con 2026");
+            assertThat(sheet.getRow(4).getCell(19).getStringCellValue()).isEqualTo("Datos del contribuyente");
+            assertThat(sheet.getMergedRegions())
+                    .anyMatch(r -> r.getFirstRow() == 4 && r.getLastRow() == 4
+                            && r.getFirstColumn() == 0 && r.getLastColumn() == 4)
+                    .anyMatch(r -> r.getFirstRow() == 4 && r.getLastRow() == 4
+                            && r.getFirstColumn() == 5 && r.getLastColumn() == 12);
+        }
+    }
+
+    @Test
     void exportarReporteAPdfGeneraArchivoPdfYRegistraSolicitud() throws Exception {
         MockHttpSession sesion = sesion(NombreRol.ANALISTA_RENTAS, "analista_pdf");
 
@@ -396,7 +431,7 @@ class VistaReporteControllerTest {
                         .param("anio", "2026")
                         .session(sesion))
                 .andExpect(status().isOk())
-                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"reporte-pricos-20261019.pdf\""))
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, org.hamcrest.Matchers.matchesPattern("attachment; filename=\"reporte_pricos_\\d{8}\\.pdf\"")))
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/pdf"))
                 .andReturn().getResponse().getContentAsByteArray();
 
@@ -466,6 +501,21 @@ class VistaReporteControllerTest {
 
         try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(excel))) {
             var sheet = wb.getSheetAt(0);
+            for (int i = 0; i <= 3; i++) {
+                int fila = i;
+                assertThat(sheet.getMergedRegions())
+                        .anyMatch(r -> r.getFirstRow() == fila && r.getLastRow() == fila
+                                && r.getFirstColumn() == 0 && r.getLastColumn() == 3);
+            }
+            assertThat(sheet.getRow(4).getCell(0).getStringCellValue()).isEqualTo("Contribuyente");
+            assertThat(sheet.getRow(4).getCell(2).getStringCellValue()).isEqualTo("Deuda vencida");
+            assertThat(sheet.getRow(4).getCell(0).getCellStyle().getFillForegroundColor())
+                    .isEqualTo(org.apache.poi.ss.usermodel.IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+            assertThat(sheet.getRow(5).getCell(0).getCellStyle().getFillForegroundColor())
+                    .isEqualTo(org.apache.poi.ss.usermodel.IndexedColors.PALE_BLUE.getIndex());
+            assertThat(sheet.getMergedRegions())
+                    .anyMatch(r -> r.getFirstRow() == 4 && r.getLastRow() == 4
+                            && r.getFirstColumn() == 0 && r.getLastColumn() == 1);
             assertThat(sheet.getRow(5).getCell(0).getStringCellValue()).isEqualTo("Código");
 
             // El orden solicitado (deudaVencida:desc) se refleja en las filas exportadas.
@@ -473,10 +523,14 @@ class VistaReporteControllerTest {
             double segundaDeuda = sheet.getRow(7).getCell(2).getNumericCellValue();
             assertThat(primeraDeuda).isGreaterThanOrEqualTo(segundaDeuda);
 
+            var hojaDetalle = wb.getSheet("Detalle");
+            assertThat(hojaDetalle).isNotNull();
             boolean tieneTituloDetalle = false;
             boolean tieneCabeceraPredio = false;
-            for (int i = 0; i <= sheet.getLastRowNum(); i++) {
-                var fila = sheet.getRow(i);
+            boolean tieneGrupoObligacion = false;
+            boolean tieneGrupoMontos = false;
+            for (int i = 0; i <= hojaDetalle.getLastRowNum(); i++) {
+                var fila = hojaDetalle.getRow(i);
                 if (fila == null) {
                     continue;
                 }
@@ -488,10 +542,18 @@ class VistaReporteControllerTest {
                     if ("Predio".equals(celda.toString())) {
                         tieneCabeceraPredio = true;
                     }
+                    if ("Obligación".equals(celda.toString())) {
+                        tieneGrupoObligacion = true;
+                    }
+                    if ("Montos".equals(celda.toString())) {
+                        tieneGrupoMontos = true;
+                    }
                 }
             }
             assertThat(tieneTituloDetalle).isTrue();
             assertThat(tieneCabeceraPredio).isTrue();
+            assertThat(tieneGrupoObligacion).isTrue();
+            assertThat(tieneGrupoMontos).isTrue();
         }
 
         byte[] pdf = mvc.perform(get("/api/reportes/MOROSOS/exportar")
@@ -547,6 +609,8 @@ class VistaReporteControllerTest {
                         .param("formato", "EXCEL")
                         .session(sesion))
                 .andExpect(status().isOk())
+                .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.containsString("_Buenos_Pagadores_2026.xlsx")))
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
 
         mvc.perform(get("/api/reportes/vistas/" + idVista + "/exportar")

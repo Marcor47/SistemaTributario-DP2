@@ -138,7 +138,7 @@ class ReporteBuenosPagadoresZonaTest {
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE,
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
-                        org.hamcrest.Matchers.containsString("reporte_buenos_pagadores_zona_")))
+                        org.hamcrest.Matchers.containsString("reporte_buenos_pagadores_")))
                 .andReturn().getResponse().getContentAsByteArray();
 
         assertThat(excel).isNotEmpty();
@@ -171,7 +171,7 @@ class ReporteBuenosPagadoresZonaTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/pdf"))
                 .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
-                        org.hamcrest.Matchers.containsString("reporte_buenos_pagadores_zona_")))
+                        org.hamcrest.Matchers.containsString("reporte_buenos_pagadores_")))
                 .andReturn().getResponse().getContentAsByteArray();
 
         assertThat(pdf).isNotEmpty();
