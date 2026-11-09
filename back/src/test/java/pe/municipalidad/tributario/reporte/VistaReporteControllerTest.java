@@ -501,8 +501,18 @@ class VistaReporteControllerTest {
 
         try (Workbook wb = WorkbookFactory.create(new ByteArrayInputStream(excel))) {
             var sheet = wb.getSheetAt(0);
+            for (int i = 0; i <= 3; i++) {
+                int fila = i;
+                assertThat(sheet.getMergedRegions())
+                        .anyMatch(r -> r.getFirstRow() == fila && r.getLastRow() == fila
+                                && r.getFirstColumn() == 0 && r.getLastColumn() == 3);
+            }
             assertThat(sheet.getRow(4).getCell(0).getStringCellValue()).isEqualTo("Contribuyente");
             assertThat(sheet.getRow(4).getCell(2).getStringCellValue()).isEqualTo("Deuda vencida");
+            assertThat(sheet.getRow(4).getCell(0).getCellStyle().getFillForegroundColor())
+                    .isEqualTo(org.apache.poi.ss.usermodel.IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
+            assertThat(sheet.getRow(5).getCell(0).getCellStyle().getFillForegroundColor())
+                    .isEqualTo(org.apache.poi.ss.usermodel.IndexedColors.PALE_BLUE.getIndex());
             assertThat(sheet.getMergedRegions())
                     .anyMatch(r -> r.getFirstRow() == 4 && r.getLastRow() == 4
                             && r.getFirstColumn() == 0 && r.getLastColumn() == 1);
@@ -513,12 +523,14 @@ class VistaReporteControllerTest {
             double segundaDeuda = sheet.getRow(7).getCell(2).getNumericCellValue();
             assertThat(primeraDeuda).isGreaterThanOrEqualTo(segundaDeuda);
 
+            var hojaDetalle = wb.getSheet("Detalle");
+            assertThat(hojaDetalle).isNotNull();
             boolean tieneTituloDetalle = false;
             boolean tieneCabeceraPredio = false;
             boolean tieneGrupoObligacion = false;
             boolean tieneGrupoMontos = false;
-            for (int i = 0; i <= sheet.getLastRowNum(); i++) {
-                var fila = sheet.getRow(i);
+            for (int i = 0; i <= hojaDetalle.getLastRowNum(); i++) {
+                var fila = hojaDetalle.getRow(i);
                 if (fila == null) {
                     continue;
                 }

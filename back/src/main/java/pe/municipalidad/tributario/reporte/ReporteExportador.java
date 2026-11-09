@@ -371,18 +371,18 @@ public class ReporteExportador {
 
             Font fontCabecera = workbook.createFont();
             fontCabecera.setBold(true);
-            fontCabecera.setColor(IndexedColors.WHITE.getIndex());
+            fontCabecera.setColor(IndexedColors.DARK_BLUE.getIndex());
 
             CellStyle styleCabecera = workbook.createCellStyle();
             styleCabecera.setFont(fontCabecera);
-            styleCabecera.setFillForegroundColor(IndexedColors.ROYAL_BLUE.getIndex());
+            styleCabecera.setFillForegroundColor(IndexedColors.PALE_BLUE.getIndex());
             styleCabecera.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             styleCabecera.setAlignment(HorizontalAlignment.CENTER);
             aplicarBordes(styleCabecera);
 
             CellStyle styleGrupoCabecera = workbook.createCellStyle();
             styleGrupoCabecera.setFont(fontCabecera);
-            styleGrupoCabecera.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+            styleGrupoCabecera.setFillForegroundColor(IndexedColors.LIGHT_CORNFLOWER_BLUE.getIndex());
             styleGrupoCabecera.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             styleGrupoCabecera.setAlignment(HorizontalAlignment.CENTER);
             styleGrupoCabecera.setVerticalAlignment(VerticalAlignment.CENTER);
@@ -426,6 +426,10 @@ public class ReporteExportador {
             r3.createCell(0).setCellValue("Filtros aplicados: " + describirFiltros(reporte.filtrosAplicados())
                     + (emisor != null ? " | Solicitado por: " + emisor : ""));
 
+            for (int fila = 0; fila <= 3; fila++) {
+                sheet.addMergedRegion(new CellRangeAddress(fila, fila, 0, 3));
+            }
+
             // Fila de encabezados de la tabla
             List<GrupoColumnas> grupos = gruposExportacion(reporte.tipoReporte(), reporte.fechaCorte().getYear());
             escribirCabeceraGruposExcel(sheet, 4, columnas, grupos, styleGrupoCabecera);
@@ -446,18 +450,20 @@ public class ReporteExportador {
                 }
             }
 
-            // Detalle de obligaciones (solo morosos con columnas de detalle seleccionadas)
+            // Detalle de obligaciones en una hoja independiente
             List<Object> detalle = filasDetalle(filas, columnasDetalle);
             List<String> columnasDetalleTabla = columnasDetalleTabla(columnasDetalle);
             if (!detalle.isEmpty()) {
-                numFila++;
-                Row tituloDetalle = sheet.createRow(numFila++);
+                Sheet hojaDetalle = workbook.createSheet("Detalle");
+                int filaDetalle = 0;
+
+                Row tituloDetalle = hojaDetalle.createRow(filaDetalle++);
                 Cell celdaTitulo = tituloDetalle.createCell(0);
                 celdaTitulo.setCellValue("Detalle de obligaciones");
                 celdaTitulo.setCellStyle(styleTitulo);
 
-                escribirCabeceraGruposExcel(sheet, numFila++, columnasDetalleTabla, GRUPOS_DETALLE_MOROSOS, styleGrupoCabecera);
-                Row cabeceraDetalle = sheet.createRow(numFila++);
+                escribirCabeceraGruposExcel(hojaDetalle, filaDetalle++, columnasDetalleTabla, GRUPOS_DETALLE_MOROSOS, styleGrupoCabecera);
+                Row cabeceraDetalle = hojaDetalle.createRow(filaDetalle++);
                 for (int col = 0; col < columnasDetalleTabla.size(); col++) {
                     Cell cell = cabeceraDetalle.createCell(col);
                     cell.setCellValue(etiquetaColumna(columnasDetalleTabla.get(col)));
@@ -465,17 +471,20 @@ public class ReporteExportador {
                 }
 
                 for (Object fila : detalle) {
-                    Row row = sheet.createRow(numFila++);
+                    Row row = hojaDetalle.createRow(filaDetalle++);
                     for (int col = 0; col < columnasDetalleTabla.size(); col++) {
                         Cell cell = row.createCell(col);
                         escribirCelda(cell, fila, columnasDetalleTabla.get(col),
                                 styleMoneda, stylePorcentaje, styleEntero, styleTexto);
                     }
                 }
+
+                for (int col = 0; col < columnasDetalleTabla.size(); col++) {
+                    hojaDetalle.autoSizeColumn(col);
+                }
             }
 
-            int totalColumnas = Math.max(columnas.size(), columnasDetalleTabla.size());
-            for (int col = 0; col < totalColumnas; col++) {
+            for (int col = 0; col < columnas.size(); col++) {
                 sheet.autoSizeColumn(col);
             }
 
