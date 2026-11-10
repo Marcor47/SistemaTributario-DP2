@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface DecisionHomologacionRepository extends JpaRepository<DecisionHomologacion, Long> {
 
     List<DecisionHomologacion> findByEntidadMaestraIdMaestroOrderByFechaHoraAsc(Long idMaestro);
+
+    List<DecisionHomologacion> findByEntidadMaestraSeudonimoOrderByFechaHoraAsc(String seudonimo);
 }

@@ -69,7 +69,19 @@ public class DecisionHomologacion {
     protected DecisionHomologacion() {
     }
 
-    static DecisionHomologacion humana(CasoHomologacion caso, EntidadMaestra entidadMaestra, Usuario usuario,
+    public static DecisionHomologacion automatica(EntidadMaestra entidadMaestra, NivelHomologacion nivel,
+            BigDecimal puntaje, String atributosCoincidentes, LocalDateTime ahora) {
+        DecisionHomologacion decision = new DecisionHomologacion();
+        decision.entidadMaestra = entidadMaestra;
+        decision.nivelResolutor = nivel;
+        decision.puntaje = puntaje;
+        decision.atributosCoincidentes = atributosCoincidentes;
+        decision.tipoDecision = TipoDecision.AUTOMATICA;
+        decision.fechaHora = ahora;
+        return decision;
+    }
+
+    public static DecisionHomologacion humana(CasoHomologacion caso, EntidadMaestra entidadMaestra, Usuario usuario,
             String motivo, LocalDateTime ahora) {
         if (usuario == null || motivo == null || motivo.isBlank()) {
             throw new ReglaNegocioException("MOTIVO_REQUERIDO",
