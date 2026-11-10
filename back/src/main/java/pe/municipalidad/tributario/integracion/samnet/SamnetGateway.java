@@ -67,6 +67,9 @@ public interface SamnetGateway {
     /* RF-048, RF-056: registra o edita el predio y su titular; devuelve el código predial. */
     String registrarPredio(Predio predio, String codigoContribuyente);
 
+    /* HU036 / RF-048: registra un predio NUEVO. Si el código ya existe lanza ConflictoException sin modificarlo. */
+    String registrarPredioNuevo(Predio predio, String codigoContribuyente);
+
     /* RF-024, RF-050, RF-051: cartera por contribuyente y tributo para los reportes del catálogo (HU006). */
     List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anioDesde, int anioHasta, String beneficio);
 

@@ -80,6 +80,7 @@ public class SeguridadWebConfig {
                         .requestMatchers("/api/contribuyentes/**").hasAuthority("CONTRIBUYENTES:CONSULTAR")
                         .requestMatchers("/api/predios/*/declaracion-jurada").hasAuthority("DECLARACIONES:CONSULTAR")
                         .requestMatchers("/api/predios/*/arbitrios").hasAuthority("ARBITRIOS:CONSULTAR")
+                        .requestMatchers(HttpMethod.POST, "/api/predios").hasAuthority("PREDIOS:REGISTRAR")
                         .requestMatchers("/api/predios/**").hasAuthority("PREDIOS:CONSULTAR")
                         .requestMatchers("/api/obligaciones/**").hasAuthority("COBRANZA:CONSULTAR")
                         .anyRequest().authenticated())

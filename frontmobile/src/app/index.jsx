@@ -29,6 +29,12 @@ const SERVICIOS = [
     descripcion: 'Envía tu solicitud y adjunta los documentos desde tu celular.',
   },
   {
+    ruta: '/tramites',
+    icono: 'reloj',
+    titulo: 'Estado de mis trámites de predio',
+    descripcion: 'Consulta el avance de tus solicitudes de registro o traspaso.',
+  },
+  {
     ruta: '/constancia',
     icono: 'documento',
     titulo: 'Constancia de No Adeudo',

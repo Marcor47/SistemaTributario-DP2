@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ConnectionCallback;
@@ -23,6 +24,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 import pe.municipalidad.tributario.cobranza.SeguimientoCobranza;
+import pe.municipalidad.tributario.common.ConflictoException;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.DomicilioFiscal;
@@ -229,6 +231,27 @@ public class SamnetApiGateway implements SamnetGateway {
                 predio.getFechaAdquisicion() == null ? null : Date.valueOf(predio.getFechaAdquisicion()),
                 predio.getZona(), codigoContribuyente, titular.condicionPropiedad(),
                 titular.porcentajePropiedad()));
+    }
+
+    @Override
+    public String registrarPredioNuevo(Predio predio, String codigoContribuyente) {
+        Titularidad titular = predio.getTitulares().stream()
+                .filter(t -> t.codigoContribuyente().equals(codigoContribuyente))
+                .findFirst()
+                .orElse(new Titularidad(codigoContribuyente, "PROPIETARIO", BigDecimal.valueOf(100)));
+        try {
+            return invocar(() -> jdbc.queryForObject(
+                    "SELECT samnet.ps_registrarpredionuevo(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", String.class,
+                    predio.getCodigoPredio(), predio.getNumeroCatastral(), predio.getUbicacion(),
+                    predio.getUsoPredio(), predio.getTipoPredio().name(), predio.getAreaTerreno(),
+                    predio.getBaseImponible(),
+                    predio.getFechaAdquisicion() == null ? null : Date.valueOf(predio.getFechaAdquisicion()),
+                    predio.getZona(), codigoContribuyente, titular.condicionPropiedad(),
+                    titular.porcentajePropiedad()));
+        } catch (DuplicateKeyException ex) {
+            throw new ConflictoException("PREDIO_YA_REGISTRADO",
+                    "El predio " + predio.getCodigoPredio() + " ya está registrado en SAMNET.");
+        }
     }
 
     @Override
