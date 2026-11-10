@@ -13,6 +13,11 @@ export function obtenerRequisitos(tipoTramite, tipoPredio) {
   return pedir(`${BASE}/requisitos?${consulta}`)
 }
 
+/** HU047: solicitudes propias del contribuyente con su estado actual. */
+export function listarSolicitudes({ signal } = {}) {
+  return pedir(BASE, { signal })
+}
+
 export function obtenerSolicitud(id) {
   return pedir(`${BASE}/${encodeURIComponent(id)}`)
 }

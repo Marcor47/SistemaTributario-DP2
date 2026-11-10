@@ -166,6 +166,15 @@ export const MODULOS = [
     icono: icono(<><path d="M3 3v18h18" /><path d="M18 8l-6 6-3-3-5 5" /></>),
   },
   {
+    ruta: '/alertas-mora',
+    texto: 'Alertas de mora',
+    titulo: 'Alertas de mora temprana',
+    descripcion: 'Envía por correo el aviso de mora a los contribuyentes con cuotas vencidas y consulta el historial de avisos por lote o contribuyente.',
+    seccion: 'gestion',
+    permiso: 'ALERTAS:CONSULTAR',
+    icono: icono(<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>),
+  },
+  {
     ruta: '/resumen-ejecutivo',
     texto: 'Resumen ejecutivo',
     titulo: 'Resumen ejecutivo con IA',

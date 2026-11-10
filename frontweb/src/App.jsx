@@ -25,6 +25,7 @@ import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
 import LoginInterno from './pages/LoginInterno.jsx'
 import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
 import GestionUsuarios from './pages/GestionUsuarios.jsx'
+import AlertasMora from './pages/AlertasMora.jsx'
 import SinAcceso from './pages/SinAcceso.jsx'
 import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
 import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
@@ -152,6 +153,7 @@ export default function App() {
           <Route path="/resumen-ejecutivo" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><ResumenEjecutivo /></RutaInternaProtegida>} />
           <Route path="/reportes" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Reportes /></RutaInternaProtegida>} />
           <Route path="/reporteria" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Suspense fallback={<p className="mensaje-carga" role="status">Cargando la plataforma analítica…</p>}><Reporteria /></Suspense></RutaInternaProtegida>} />
+          <Route path="/alertas-mora" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><AlertasMora /></RutaInternaProtegida>} />
           <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />
           <Route path="/gestion/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:GESTIONAR"><GestionReclamos modo="gestion" /></RutaInternaProtegida>} />
           <Route path="/reclamos/asignados" element={<RutaInternaProtegida permiso="RECLAMOS:ATENDER"><GestionReclamos modo="asignados" /></RutaInternaProtegida>} />
