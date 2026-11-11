@@ -18,6 +18,7 @@ import ResumenEjecutivo from './pages/ResumenEjecutivo.jsx'
 import GestionReclamos from './pages/GestionReclamos.jsx'
 import Reportes from './pages/Reportes.jsx'
 import Constancia from './pages/Constancia.jsx'
+import ConstanciaVentanilla from './pages/ConstanciaVentanilla.jsx'
 import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
 import InicioPortal from './pages/InicioPortal.jsx'
 import InicioGestion from './pages/InicioGestion.jsx'
@@ -147,6 +148,7 @@ export default function App() {
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
           <Route path="/contribuyentes" element={<RutaInternaProtegida permiso="CONTRIBUYENTES:CONSULTAR"><ConsultaContribuyente /></RutaInternaProtegida>} />
+          <Route path="/ventanilla/constancias" element={<RutaInternaProtegida permiso="CONSTANCIAS:GESTIONAR"><ConstanciaVentanilla /></RutaInternaProtegida>} />
           <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
           <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />

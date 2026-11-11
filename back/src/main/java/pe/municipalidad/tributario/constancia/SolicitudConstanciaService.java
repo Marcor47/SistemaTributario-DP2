@@ -40,7 +40,7 @@ public class SolicitudConstanciaService {
     private static final Logger LOG = LoggerFactory.getLogger(SolicitudConstanciaService.class);
     private static final Set<EstadoConstancia> ESTADOS_CERRADOS =
             EnumSet.of(EstadoConstancia.EMITIDA, EstadoConstancia.RECHAZADA);
-    private static final String TIPO_CONTENIDO_DOCUMENTO = "text/plain; charset=UTF-8";
+    static final String TIPO_CONTENIDO_DOCUMENTO = "text/plain; charset=UTF-8";
     private static final String MARCA_DOCUMENTO_DE_PRUEBA = "DOCUMENTO DE PRUEBA";
 
     private final SolicitudConstanciaRepository solicitudConstanciaRepository;
@@ -166,9 +166,6 @@ public class SolicitudConstanciaService {
     }
 
     private static void exigirPendienteDeFirma(SolicitudConstancia solicitud) {
-        if (solicitud.getCanal() != CanalSolicitud.APP) {
-            throw new ReglaNegocioException("FIRMA_NO_APLICA", "En ventanilla no se firma la solicitud.");
-        }
         if (solicitud.getEstado() != EstadoConstancia.INICIADA) {
             throw new ReglaNegocioException("FIRMA_NO_PENDIENTE",
                     "La solicitud está " + solicitud.getEstado() + " y ya no requiere la firma del contribuyente.");
@@ -179,7 +176,7 @@ public class SolicitudConstanciaService {
      * Documento que se firma. Se arma siempre con los mismos datos guardados, así el servidor verifica la firma
      * contra su propia versión y no contra un documento enviado por el cliente (RNF-029).
      */
-    private byte[] documentoParaFirma(SolicitudConstancia solicitud) {
+    byte[] documentoParaFirma(SolicitudConstancia solicitud) {
         StringBuilder texto = new StringBuilder();
         if (firmador.esSimulado()) {
             texto.append(MARCA_DOCUMENTO_DE_PRUEBA).append('\n');
@@ -195,7 +192,7 @@ public class SolicitudConstanciaService {
         return texto.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    private static byte[] decodificarFirma(String firmaBase64) {
+    static byte[] decodificarFirma(String firmaBase64) {
         try {
             return Base64.getDecoder().decode(firmaBase64.strip());
         } catch (IllegalArgumentException ex) {
@@ -203,7 +200,7 @@ public class SolicitudConstanciaService {
         }
     }
 
-    private static String sha256(byte[] contenido) {
+    static String sha256(byte[] contenido) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(contenido));
         } catch (NoSuchAlgorithmException ex) {
