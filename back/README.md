@@ -152,14 +152,19 @@ En `frontweb` configura `VITE_API_URL` y usa el backend con su perfil normal (el
 Las claves publicadas aquí son solo para los datos sintéticos de desarrollo;
 excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno real.
 
-### Carga ETL simulada para reportes
+### Carga del ETL para reportes
 
-El perfil `local` y los tests cargan `db/datos-prueba/R__datos_prueba_10_etl_cobranza.sql`, que simula
-una carga publicada de `ps_etl_cobranza` con fecha de corte `2026-10-19`. Llena `analitica.lote_etl`,
-`dim_contribuyente`, `dim_predio`, `hecho_cobranza` y `maestros.correspondencia_origen` a partir de los
-datos sintéticos de `samnet.*`. Los reportes de morosos y PRICOS se calculan siempre sobre esa carga; la
-carga real la producirá el proceso ETL. El archivo no se aplica en producción porque `db/datos-prueba` no
-está en las ubicaciones de Flyway del perfil normal.
+Los reportes, el dashboard y la plataforma analítica leen el modelo estrella (`analitica`), que llena el ETL por
+capas: SAMNET → `bronce` → `plata` (reglas de calidad y homologación) → `analitica` y `maestros`. El perfil `local` y
+los tests ejecutan el ETL real con fecha de corte `2026-10-19` (`db/datos-prueba/R__zz_carga_etl_prueba.sql`) y, en
+`local`, una carga por cierre de mes desde 2019. Los datos de prueba incluyen duplicados para la bandeja de
+homologación. El funcionamiento, las reglas, la API (`/api/etl/lotes`, `/api/homologacion/casos`) y la configuración
+están en [ETL_HOMOLOGACION_API.md](ETL_HOMOLOGACION_API.md). El usuario de desarrollo `datos` / `datos123` tiene el rol
+Responsable de datos.
+
+La segmentación de contribuyentes con K-means (HU030, RF-043) se calcula sobre ese modelo estrella con
+`POST /api/segmentos/calculos` y queda en borrador para la aprobación de HU031; ver
+[SEGMENTACION_IA.md](SEGMENTACION_IA.md).
 
 Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
 `tributario.integracion.autenticacion-simulada.documento` y `.clave`.
@@ -185,8 +190,10 @@ en `tributario.constancia.demo.derecho` y la funcionalidad está deshabilitada f
 - Sustituir `DemoMunicipalAuthClient` por `AutenticacionMunicipalGateway` (SP `ps_login`).
 - Integrar el acceso de los usuarios internos por rol. Las claves de `demo` no son el esquema
   de autenticación definitivo.
-- Acordar el almacenamiento definitivo de plantillas en el lakehouse y cargar los archivos
-  oficiales. PostgreSQL conserva el catálogo actual mientras se define ese almacenamiento.
+- Cargar los archivos oficiales de las plantillas. Se guardan en PostgreSQL, versionados; para el piloto alcanza y
+  un almacenamiento de objetos o lakehouse queda para cuando crezca el volumen. Ver
+  [MAESTRO_DOCUMENTOS.md](MAESTRO_DOCUMENTOS.md), que también explica cómo editar un formulario con
+  `scripts/editar_formulario.py`.
 
 Ejecuta `mvnw.cmd test` para verificar consultas, sesión, control de acceso de demostración y
 versionado de formularios. Las pruebas levantan un PostgreSQL temporal; no requieren uno instalado.

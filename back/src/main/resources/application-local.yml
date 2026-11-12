@@ -11,9 +11,19 @@ server:
         secure: false
 
 tributario:
+  etl:
+    # Las mismas claves públicas de las semillas: un lote a demanda en local da los mismos seudónimos. Solo para
+    # los datos ficticios.
+    clave-seudonimo-contribuyente: ${ETL_CLAVE_SEUDONIMO_CONTRIBUYENTE:samnet-demo-contribuyente}
+    clave-seudonimo-predio: ${ETL_CLAVE_SEUDONIMO_PREDIO:samnet-demo-predio}
   indicadores:
     morosidad:
       calcular-al-iniciar: true
+  # Demostración: al iniciar calcula la segmentación K-means y la publica (aprobada como el usuario de la jefatura de
+  # las semillas), para que el filtro «Segmento», el dashboard y el mapa la muestren. En producción se aprueba a mano.
+  segmentacion:
+    publicar-al-iniciar: true
+    aprobador-demo: gerencia
   constancia:
     demo:
       habilitado: true

@@ -53,6 +53,17 @@ public class CasoHomologacion {
     @Column(name = "estado", nullable = false, length = 10)
     private EstadoCaso estado;
 
+    /*
+     * Entidad con que el ETL publicó el registro mientras el caso está pendiente (estado PENDIENTE_REVISION, con su
+     * propio seudónimo). Al aprobar o reasignar se une a la otra; al rechazar queda como entidad nueva.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_maestro_provisional")
+    private EntidadMaestra maestroProvisional;
+
+    @Column(name = "fecha_creacion")
+    private LocalDateTime fechaCreacion;
+
     protected CasoHomologacion() {
     }
 
@@ -124,5 +135,13 @@ public class CasoHomologacion {
 
     public EstadoCaso getEstado() {
         return estado;
+    }
+
+    public EntidadMaestra getMaestroProvisional() {
+        return maestroProvisional;
+    }
+
+    public LocalDateTime getFechaCreacion() {
+        return fechaCreacion;
     }
 }

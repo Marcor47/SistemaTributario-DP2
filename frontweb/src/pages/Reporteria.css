@@ -199,3 +199,6 @@
 @media (prefers-reduced-motion: reduce) {
   .rep-interruptor__marca, .rep-interruptor__marca::after { transition: none; }
 }
+
+/* HU030: la pestaña del mapa oculta los filtros y el panel del cubo, que no aplican a la segmentación. */
+.rep-filtros[hidden], .rep-contenido[hidden] { display: none; }

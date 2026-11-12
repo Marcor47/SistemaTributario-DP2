@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
 import IconoReporte from '../components/reporteria/IconoReporte.jsx'
+import MapaSegmentos from '../components/reporteria/MapaSegmentos.jsx'
 import PanelAsistente from '../components/reporteria/PanelAsistente.jsx'
 import TablaRanking from '../components/reporteria/TablaRanking.jsx'
 import TarjetaGrafico from '../components/reporteria/TarjetaGrafico.jsx'
@@ -18,6 +19,12 @@ import {
 } from '../utils/reporteria.js'
 import { contextoGrafico, tablaDeGrafico } from '../utils/reporteriaGraficos.js'
 import './Reporteria.css'
+
+const PESTANA_MAPA = {
+  id: 'mapa',
+  titulo: 'Mapa de segmentos',
+  descripcion: 'Cada punto es un contribuyente, con el color del segmento que le asignó el modelo según cómo paga.',
+}
 
 const estadoInicial = (modelo) => ({
   pestana: 'resumen',
@@ -74,6 +81,10 @@ function DialogoGuardar({ abierto, nombreInicial, onGuardar, onCerrar }) {
 function Plataforma({ modelo }) {
   const { sesion } = useSesionInterna()
   const puedeExportar = sesion?.permisos?.includes('REPORTES:EXPORTAR')
+  // HU030: el mapa de segmentos es una pestaña aparte; no usa los filtros ni se guarda en las vistas.
+  const puedeVerMapa = sesion?.permisos?.includes('SEGMENTOS:CONSULTAR')
+  const [vistaMapa, setVistaMapa] = useState(false)
+  const pestanasVisibles = puedeVerMapa ? [...PESTANAS, PESTANA_MAPA] : PESTANAS
   const [estado, setEstado] = useState(() => estadoInicial(modelo))
   const [seleccion, setSeleccion] = useState(null)
   const [respuesta, setRespuesta] = useState({ clave: null, A: null, S: null, R: null, error: null })
@@ -228,19 +239,25 @@ function Plataforma({ modelo }) {
   }
 
   function cambiarPestana(id) {
+    if (id === PESTANA_MAPA.id) {
+      setVistaMapa(true)
+      return
+    }
+    setVistaMapa(false)
     setEstado((actual) => ({ ...actual, pestana: id }))
   }
 
   function alTeclaPestana(evento, indice) {
+    const total = pestanasVisibles.length
     let destino = null
-    if (evento.key === 'ArrowRight') destino = (indice + 1) % PESTANAS.length
-    else if (evento.key === 'ArrowLeft') destino = (indice + PESTANAS.length - 1) % PESTANAS.length
+    if (evento.key === 'ArrowRight') destino = (indice + 1) % total
+    else if (evento.key === 'ArrowLeft') destino = (indice + total - 1) % total
     else if (evento.key === 'Home') destino = 0
-    else if (evento.key === 'End') destino = PESTANAS.length - 1
+    else if (evento.key === 'End') destino = total - 1
     if (destino != null) {
       evento.preventDefault()
-      cambiarPestana(PESTANAS[destino].id)
-      document.getElementById(`rep-pestana-${PESTANAS[destino].id}`)?.focus()
+      cambiarPestana(pestanasVisibles[destino].id)
+      document.getElementById(`rep-pestana-${pestanasVisibles[destino].id}`)?.focus()
     }
   }
 
@@ -328,6 +345,7 @@ function Plataforma({ modelo }) {
   }
 
   const datosPestana = PESTANAS.find((p) => p.id === pestana)
+  const pestanaActiva = vistaMapa ? PESTANA_MAPA.id : pestana
   const nombreSugerido = `${datosPestana.titulo} · ${periodo.etiqueta}`.slice(0, 60)
   const fechaCorte = fecha(modelo.catalogo.fechaCorte)
   const error = respuesta.error
@@ -355,7 +373,7 @@ function Plataforma({ modelo }) {
         </div>
         {puedeExportar && (
           <div className="rep-desplegable" ref={contenedorExportar}>
-            <button className="btn" type="button" aria-haspopup="true" aria-expanded={menuExportar.abierto} disabled={!A || exportando} onClick={() => { menuVistas.setAbierto(false); menuExportar.setAbierto(!menuExportar.abierto) }}>
+            <button className="btn" type="button" aria-haspopup="true" aria-expanded={menuExportar.abierto} disabled={!A || exportando || vistaMapa} onClick={() => { menuVistas.setAbierto(false); menuExportar.setAbierto(!menuExportar.abierto) }}>
               <IconoReporte nombre="exportar" />{exportando ? 'Exportando…' : 'Exportar ▾'}
             </button>
             {menuExportar.abierto && (
@@ -376,23 +394,23 @@ function Plataforma({ modelo }) {
       </div>
 
       <nav className="rep-pestanas" role="tablist" aria-label="Reportes">
-        {PESTANAS.map((p, i) => (
+        {pestanasVisibles.map((p, i) => (
           <button
             key={p.id}
             id={`rep-pestana-${p.id}`}
             type="button"
             className="rep-pestana"
             role="tab"
-            aria-selected={pestana === p.id}
+            aria-selected={pestanaActiva === p.id}
             aria-controls="rep-panel"
-            tabIndex={pestana === p.id ? 0 : -1}
+            tabIndex={pestanaActiva === p.id ? 0 : -1}
             onClick={() => cambiarPestana(p.id)}
             onKeyDown={(e) => alTeclaPestana(e, i)}
           >{p.titulo}</button>
         ))}
       </nav>
 
-      <section className="filters rep-filtros" aria-label="Filtros globales" ref={barraFiltros}>
+      <section className="filters rep-filtros" aria-label="Filtros globales" ref={barraFiltros} hidden={vistaMapa}>
         <Filtro id="rep-periodo" etiqueta="Periodo" valor={filtros.periodo} cambiado={filtros.periodo !== modelo.periodoInicial} onCambiar={(v) => cambiarFiltro('periodo', v)}>
           {Object.entries(modelo.periodos).map(([clave, p]) => <option key={clave} value={clave}>{p.etiqueta}</option>)}
         </Filtro>
@@ -438,7 +456,16 @@ function Plataforma({ modelo }) {
       </section>
 
       <div className={`rep-distribucion${asistenteAbierto ? ' rep-distribucion--con-panel' : ''}`}>
-        <div id="rep-panel" className="rep-contenido" role="tabpanel" aria-labelledby={`rep-pestana-${pestana}`}>
+        {vistaMapa && (
+          <div id="rep-panel" className="rep-contenido" role="tabpanel" aria-labelledby={`rep-pestana-${PESTANA_MAPA.id}`}>
+            <div className="rep-titulo-pestana">
+              <h2>{PESTANA_MAPA.titulo}</h2>
+              <p>{PESTANA_MAPA.descripcion}</p>
+            </div>
+            <MapaSegmentos />
+          </div>
+        )}
+        <div id={vistaMapa ? undefined : 'rep-panel'} className="rep-contenido" role="tabpanel" aria-labelledby={`rep-pestana-${pestana}`} hidden={vistaMapa}>
           <div className="rep-titulo-pestana">
             <h2>{datosPestana.titulo}</h2>
             <p>{datosPestana.descripcion}</p>

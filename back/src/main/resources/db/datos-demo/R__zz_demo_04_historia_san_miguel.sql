@@ -6,10 +6,9 @@
 --   3. Cuotas de 2018 a 2026 de los nuevos y de 2018 a 2024 de los contribuyentes de R__datos_prueba_01, calculadas
 --      igual que R__datos_prueba_03 (predial por escala de la UIT en 4 cuotas; arbitrios por predio y mes).
 --   4. Pagos según el perfil, con el efecto del estado de emergencia de 2020, y cobranza de las cuotas impagas.
---   5. Una carga del ETL por cierre de mes desde enero de 2019 y otra el 2026-11-04: cada una es la foto de la cuenta
---      corriente a su fecha de corte (lo pagado hasta ese día). Las de cierre de octubre y la de noviembre de 2026
---      traen todos los años, como la que usan los reportes; las demás, el año de corte (y el anterior en enero y
---      febrero) más la deuda pendiente de años previos.
+--   5. Una carga del ETL por cierre de mes desde enero de 2019 y otra el 2026-11-04: cada una ejecuta el ETL real
+--      (etl.ejecutar_lote: SAMNET → bronce → plata → oro) con esa fecha de corte, así que es la foto de la cuenta
+--      corriente a ese día (lo pagado hasta entonces) con todas las cuotas hasta el año de corte.
 -- Nombres, documentos, direcciones y montos son ficticios. Los sectores agrupan urbanizaciones reales del distrito,
 -- pero no son la zonificación de la ordenanza de arbitrios. Es repetible: rehace todo lo suyo cada vez que cambia.
 
@@ -303,54 +302,17 @@ SELECT e.id, e.etapa, e.fecha_inicio,
 FROM etapa e
 ORDER BY e.id, e.fecha_inicio;
 
--- 5. Dimensiones y correspondencias del ETL (mismo seudónimo que R__datos_prueba_10) para todo SAMNET, con las
--- zonas actuales. También se corrigen las zonas de la muestra del dashboard (R__zz_demo_01), que usa otra clave.
-INSERT INTO analitica.dim_contribuyente (seudonimo_contribuyente, tipo_persona, regimen, condicion)
-SELECT encode(public.hmac(c.codigo, 'samnet-demo-contribuyente', 'sha256'), 'hex'), c.tipo_persona, c.regimen,
-       c.condicion
-FROM samnet.contribuyente c
-ON CONFLICT (seudonimo_contribuyente) DO UPDATE
-SET tipo_persona = EXCLUDED.tipo_persona, regimen = EXCLUDED.regimen, condicion = EXCLUDED.condicion;
-
-INSERT INTO analitica.dim_predio (seudonimo_predio, zona, uso_predio, tipo_predio, base_imponible)
-SELECT encode(public.hmac(p.codigo_predio, 'samnet-demo-predio', 'sha256'), 'hex'), p.zona, p.uso_predio,
-       p.tipo_predio, p.base_imponible
-FROM samnet.predio p
-ON CONFLICT (seudonimo_predio) DO UPDATE
-SET zona = EXCLUDED.zona, uso_predio = EXCLUDED.uso_predio, tipo_predio = EXCLUDED.tipo_predio,
-    base_imponible = EXCLUDED.base_imponible;
-
+-- 5. Las dimensiones, las entidades maestras y sus correspondencias las crea el ETL en cada carga (paso 6), con el
+-- mismo seudónimo de antes. Aquí solo se corrigen las zonas de la muestra del dashboard (R__zz_demo_01), que usa otra
+-- clave y no pasa por el ETL.
 UPDATE analitica.dim_predio d SET zona = p.zona
 FROM samnet.predio p
 WHERE d.seudonimo_predio = encode(public.hmac('PREDIO:' || p.codigo_predio,
                                               'CLAVE_PUBLICA_SOLO_SEMILLA_FICTICIA_HU011', 'sha256'), 'hex')
   AND d.zona IS DISTINCT FROM p.zona;
 
-INSERT INTO maestros.entidad_maestra (tipo_entidad, seudonimo, estado)
-SELECT 'CONTRIBUYENTE', encode(public.hmac(c.codigo, 'samnet-demo-contribuyente', 'sha256'), 'hex'), 'ACTIVA'
-FROM samnet.contribuyente c
-ON CONFLICT (seudonimo) DO NOTHING;
-
-INSERT INTO maestros.entidad_maestra (tipo_entidad, seudonimo, estado)
-SELECT 'PREDIO', encode(public.hmac(p.codigo_predio, 'samnet-demo-predio', 'sha256'), 'hex'), 'ACTIVA'
-FROM samnet.predio p
-ON CONFLICT (seudonimo) DO NOTHING;
-
-INSERT INTO maestros.correspondencia_origen (id_maestro, sistema_origen, clave_origen, fecha_vinculo)
-SELECT e.id_maestro, 'SAMNET', c.codigo, TIMESTAMP '2019-02-01 02:10'
-FROM samnet.contribuyente c
-JOIN maestros.entidad_maestra e
-  ON e.seudonimo = encode(public.hmac(c.codigo, 'samnet-demo-contribuyente', 'sha256'), 'hex')
-ON CONFLICT (sistema_origen, clave_origen) DO NOTHING;
-
-INSERT INTO maestros.correspondencia_origen (id_maestro, sistema_origen, clave_origen, fecha_vinculo)
-SELECT e.id_maestro, 'SAMNET', p.codigo_predio, TIMESTAMP '2019-02-01 02:10'
-FROM samnet.predio p
-JOIN maestros.entidad_maestra e
-  ON e.seudonimo = encode(public.hmac(p.codigo_predio, 'samnet-demo-predio', 'sha256'), 'hex')
-ON CONFLICT (sistema_origen, clave_origen) DO NOTHING;
-
--- 6. Cargas del ETL. Las de esta semilla se reconocen porque empezaron el día siguiente a su fecha de corte.
+-- 6. Cargas del ETL. Las de esta semilla se reconocen porque empezaron el día siguiente a su fecha de corte. Al volver a
+-- ejecutarse se borran (con su bronce, su cuarentena y sus indicadores) y se cargan otra vez.
 CREATE TEMPORARY TABLE demo_sm_lote_viejo ON COMMIT DROP AS
 SELECT l.id_lote FROM analitica.lote_etl l
 WHERE l.fuente = 'ps_etl_cobranza' AND l.tipo_ejecucion = 'PROGRAMADA'
@@ -373,61 +335,22 @@ FROM generate_series(DATE '2019-01-01', DATE '2026-10-01', INTERVAL '1 month') A
 UNION ALL
 SELECT DATE '2026-11-04';
 
-INSERT INTO analitica.lote_etl
-    (fuente, fecha_corte, tipo_ejecucion, estado, fecha_inicio, fecha_fin, registros_leidos, registros_aceptados,
-     registros_rechazados)
-SELECT 'ps_etl_cobranza', c.fecha_corte, 'PROGRAMADA', 'PUBLICADO', (c.fecha_corte + 1) + TIME '02:00',
-       (c.fecha_corte + 1) + TIME '02:12', 0, 0, 0
-FROM demo_sm_corte c
-ORDER BY c.fecha_corte;
+-- Una ejecución del ETL por fecha de corte, en orden, como si hubiera corrido cada madrugada siguiente al cierre.
+DO $etl$
+DECLARE
+    v_corte DATE;
+BEGIN
+    FOR v_corte IN SELECT fecha_corte FROM demo_sm_corte ORDER BY fecha_corte LOOP
+        PERFORM etl.ejecutar_lote(v_corte, 'PROGRAMADA', 'samnet-demo-contribuyente', 'samnet-demo-predio',
+                                  (v_corte + 1) + TIME '02:00');
+    END LOOP;
+END;
+$etl$;
 
--- Lo pagado de cada cuota con la fecha del recibo, para reconstruir el estado a cada fecha de corte.
-CREATE TEMPORARY TABLE demo_sm_aplicado ON COMMIT DROP AS
-SELECT po.id_obligacion, p.fecha_pago, po.monto_aplicado
-FROM samnet.pago_obligacion po
-JOIN samnet.pago p ON p.id_pago = po.id_pago;
-CREATE INDEX ON demo_sm_aplicado (id_obligacion, fecha_pago);
-
--- El predial no tiene predio en SAMNET: como en R__datos_prueba_10, se enlaza al primer predio del contribuyente.
-CREATE TEMPORARY TABLE demo_sm_predio_tecnico ON COMMIT DROP AS
-SELECT DISTINCT ON (t.contribuyente_codigo) t.contribuyente_codigo, t.codigo_predio
-FROM samnet.predio_titular t
-ORDER BY t.contribuyente_codigo, t.codigo_predio;
-
-INSERT INTO analitica.hecho_cobranza
-    (id_lote, seudonimo_contribuyente, id_predio, tributo, anio, cuota, fecha_vencimiento,
-     monto_emitido, monto_insoluto, monto_pagado, monto_descuento, estado_pago)
-SELECT l.id_lote, dc.seudonimo_contribuyente, dp.id_predio, o.tributo, o.anio, o.numero_cuota,
-       o.fecha_vencimiento, o.monto_emitido,
-       greatest(o.monto_emitido - x.pagado - x.descuento, 0), x.pagado, x.descuento,
-       CASE WHEN o.monto_emitido - x.pagado - x.descuento <= 0 THEN 'PAGADA'
-            WHEN o.fecha_vencimiento < l.fecha_corte THEN 'VENCIDA' ELSE 'PENDIENTE' END
-FROM analitica.lote_etl l
-JOIN demo_sm_corte c ON c.fecha_corte = l.fecha_corte
-JOIN samnet.obligacion o ON o.anio <= EXTRACT(YEAR FROM l.fecha_corte)
-CROSS JOIN LATERAL (
-    SELECT coalesce((SELECT sum(a.monto_aplicado) FROM demo_sm_aplicado a
-                     WHERE a.id_obligacion = o.id AND a.fecha_pago <= l.fecha_corte), 0) AS pagado,
-           CASE WHEN l.fecha_corte >= DATE '2026-10-19' THEN o.monto_descontado ELSE 0 END AS descuento
-) x
-LEFT JOIN demo_sm_predio_tecnico pt ON pt.contribuyente_codigo = o.contribuyente_codigo
-JOIN analitica.dim_contribuyente dc
-  ON dc.seudonimo_contribuyente = encode(public.hmac(o.contribuyente_codigo, 'samnet-demo-contribuyente', 'sha256'), 'hex')
-JOIN analitica.dim_predio dp
-  ON dp.seudonimo_predio = encode(public.hmac(coalesce(o.codigo_predio, pt.codigo_predio), 'samnet-demo-predio',
-                                              'sha256'), 'hex')
-WHERE l.fuente = 'ps_etl_cobranza' AND l.tipo_ejecucion = 'PROGRAMADA'
-  AND l.fecha_inicio::DATE = l.fecha_corte + 1
-  AND (l.fecha_corte >= DATE '2026-10-31'
-       OR o.anio = EXTRACT(YEAR FROM l.fecha_corte)
-       OR (EXTRACT(MONTH FROM l.fecha_corte) <= 2 AND o.anio = EXTRACT(YEAR FROM l.fecha_corte) - 1)
-       OR o.monto_emitido - x.pagado - x.descuento > 0);
-
-UPDATE analitica.lote_etl l
-SET registros_leidos = h.total, registros_aceptados = h.total
-FROM (SELECT id_lote, count(*) AS total FROM analitica.hecho_cobranza GROUP BY id_lote) h
-WHERE h.id_lote = l.id_lote AND l.fuente = 'ps_etl_cobranza' AND l.tipo_ejecucion = 'PROGRAMADA'
-  AND l.fecha_inicio::DATE = l.fecha_corte + 1;
+-- Estadísticas al día tras cargar casi medio millón de hechos: sin ellas, las semillas siguientes eligen planes lentos.
+ANALYZE analitica.hecho_cobranza;
+ANALYZE analitica.hecho_pago;
+ANALYZE analitica.lote_etl;
 
 -- 7. Segmentos de la muestra (R__zz_demo_01) para los contribuyentes de la carga del 2026-11-04, con la misma regla:
 -- sin deuda, con pagos y deuda, o solo deuda. Así el dashboard mantiene la distribución por segmento.

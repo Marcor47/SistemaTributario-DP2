@@ -59,6 +59,11 @@ public class EntidadMaestra {
         this.estado = EstadoMaestro.ACTIVA;
     }
 
+    /* La entidad provisional de un caso se unió a otra: sus correspondencias ya pasaron a la otra entidad. */
+    public void fusionar() {
+        this.estado = EstadoMaestro.FUSIONADA;
+    }
+
     public Long getIdMaestro() {
         return idMaestro;
     }
