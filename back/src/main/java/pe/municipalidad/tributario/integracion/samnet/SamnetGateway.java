@@ -12,6 +12,7 @@ import pe.municipalidad.tributario.gestiontributaria.DeclaracionJurada;
 import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
 import pe.municipalidad.tributario.gestiontributaria.Pago;
 import pe.municipalidad.tributario.gestiontributaria.Predio;
+import pe.municipalidad.tributario.gestiontributaria.Titularidad;
 import pe.municipalidad.tributario.obligacion.Obligacion;
 
 /*
@@ -69,6 +70,12 @@ public interface SamnetGateway {
 
     /* HU036 / RF-048: registra un predio NUEVO. Si el código ya existe lanza ConflictoException sin modificarlo. */
     String registrarPredioNuevo(Predio predio, String codigoContribuyente);
+
+    /*
+     * HU043 / RF-056: traspasa un predio existente al adquirente, que queda como único titular. Si el predio no existe
+     * lanza RecursoNoEncontradoException sin modificar nada.
+     */
+    String traspasarPredio(String codigoPredio, Titularidad adquirente);
 
     /* RF-024, RF-050, RF-051: cartera por contribuyente y tributo para los reportes del catálogo (HU006). */
     List<CarteraTributo> obtenerCartera(LocalDate fechaCorte, int anioDesde, int anioHasta, String beneficio);

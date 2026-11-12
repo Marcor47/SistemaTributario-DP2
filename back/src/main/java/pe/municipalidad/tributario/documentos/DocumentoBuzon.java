@@ -111,7 +111,9 @@ public class DocumentoBuzon {
         documento.contenido = "Solicitud #" + solicitud.getIdSolicitud() + " · " + solicitud.getTipoTramite()
                 + " · " + solicitud.getEstado()
                 + (solicitud.getCodigoPredio() == null ? "" : "\nPredio: " + solicitud.getCodigoPredio())
-                + (solicitud.getMotivoRechazo() == null ? "" : "\nMotivo: " + solicitud.getMotivoRechazo());
+                + (solicitud.getMotivoRechazo() == null ? "" : "\nMotivo: " + solicitud.getMotivoRechazo())
+                + (solicitud.getDeudaPredio() == null ? ""
+                        : "\nDeuda existente del predio: S/ " + solicitud.getDeudaPredio().toPlainString());
         return documento;
     }
 

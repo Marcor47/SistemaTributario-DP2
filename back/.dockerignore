@@ -1,0 +1,9 @@
+# Ignorar archivos locales en la imagen Docker
+target/
+.mvn/
+*.log
+storage/predios/*
+!storage/predios/.gitkeep
+.idea/
+.vscode/
+

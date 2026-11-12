@@ -31,7 +31,7 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
 /*
  * HU020: la solicitud firmada llega al operador, que verifica la deuda en SAMNET y emite la orden de pago; tras el
- * pago, el operador emite la constancia y la envía al buzón. Se usan la pasarela y el firmador simulados y los
+ * pago, la constancia se firma y llega al buzón sola (HU024) y la emisión del operador queda como respaldo. Se usan la pasarela y el firmador simulados y los
  * contribuyentes de prueba: 014502 (DNI 41028765, sin deuda) y 021390 (RUC 20456781239, con deuda).
  */
 @PruebaIntegracion
@@ -81,17 +81,22 @@ class ConstanciaOperadorControllerTest {
         mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/sesion").session(sesion))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.urlPasarela").value(startsWith("/pasarela-simulada/")));
-        mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/confirmacion").session(sesion))
+        String confirmada = mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/confirmacion")
+                        .session(sesion))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("CONFIRMADA"))
-                .andExpect(jsonPath("$.comprobante").value(startsWith("CONST-")));
-
-        String emitida = mockMvc.perform(post(RUTA_OPERADOR + "/" + id + "/emision").with(operador()).with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.estado").value("EMITIDA"))
+                .andExpect(jsonPath("$.comprobante").value(startsWith("CONST-")))
+                .andExpect(jsonPath("$.estadoSolicitud").value("EMITIDA"))
                 .andExpect(jsonPath("$.numeroConstancia").value(startsWith("CNA-2026-")))
                 .andReturn().getResponse().getContentAsString();
-        String numero = JsonPath.read(emitida, "$.numeroConstancia");
+        String numero = JsonPath.read(confirmada, "$.numeroConstancia");
+
+        mockMvc.perform(get(RUTA_OPERADOR + "/" + id).with(operador()))
+                .andExpect(jsonPath("$.estado").value("EMITIDA"))
+                .andExpect(jsonPath("$.numeroConstancia").value(numero));
+        mockMvc.perform(post(RUTA_OPERADOR + "/" + id + "/emision").with(operador()).with(csrf()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.codigo").value("PAGO_REQUERIDO"));
 
         assertThat(jdbc.queryForObject("SELECT count(*) FROM operativo.documento_buzon "
                 + "WHERE numero_constancia = ? AND documento_contribuyente = '41028765'", Integer.class, numero))
