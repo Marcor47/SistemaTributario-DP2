@@ -84,6 +84,15 @@ export const MODULOS = [
     icono: icono(<><circle cx="9" cy="8" r="4" /><path d="M2 21c0-4 3.1-7 7-7s7 3 7 7M18 8v6M15 11h6" /></>),
   },
   {
+    ruta: '/configuracion/reportes',
+    texto: 'Acceso a reportes',
+    titulo: 'Acceso y alcance de reportes',
+    descripcion: 'Define por rol qué reportes puede consultar cada usuario, con qué zonas, segmentos y columnas.',
+    seccion: 'gestion',
+    permiso: 'USUARIOS:LISTAR',
+    icono: icono(<><path d="M12 2 20 6v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z" /><path d="m9 12 2 2 4-4" /></>),
+  },
+  {
     ruta: '/predios',
     texto: 'Predios',
     titulo: 'Consulta de predios',

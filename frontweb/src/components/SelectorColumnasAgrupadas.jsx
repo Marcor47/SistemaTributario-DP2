@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Reorder, useDragControls } from 'framer-motion'
 
-function GrupoColumnas({ grupo, columnasVisibles, etiquetas, arrastre, onAlternar, onAlternarGrupo, onReordenar }) {
+function GrupoColumnas({ grupo, columnasVisibles, etiquetas, arrastre, permitirArrastre, onAlternar, onAlternarGrupo, onReordenar }) {
   const controles = useDragControls()
   const arrastreGrupo = useRef(false)
   const visibles = grupo.columnas.filter((columna) => columnasVisibles.includes(columna)).length
@@ -13,6 +13,7 @@ function GrupoColumnas({ grupo, columnasVisibles, etiquetas, arrastre, onAlterna
       value={grupo.clave}
       className="reporte-columnas-bloque"
       aria-label={`Grupo ${grupo.etiqueta}`}
+      drag={permitirArrastre}
       dragListener={false}
       dragControls={controles}
       onDragStart={() => { arrastreGrupo.current = true }}
@@ -20,11 +21,13 @@ function GrupoColumnas({ grupo, columnasVisibles, etiquetas, arrastre, onAlterna
     >
       <button
         type="button"
-        className="reporte-columnas-bloque__cabecera"
-        title={`${todasVisibles ? 'Ocultar' : 'Mostrar'} todas las columnas del grupo. Arrastra para moverlo.`}
+        className={`reporte-columnas-bloque__cabecera${permitirArrastre ? '' : ' reporte-columnas-bloque__cabecera--fijo'}`}
+        title={permitirArrastre
+          ? `${todasVisibles ? 'Ocultar' : 'Mostrar'} todas las columnas del grupo. Arrastra para moverlo.`
+          : `${todasVisibles ? 'Ocultar' : 'Mostrar'} todas las columnas del grupo.`}
         aria-pressed={todasVisibles}
         data-estado={estado}
-        onPointerDown={(evento) => controles.start(evento)}
+        onPointerDown={(evento) => { if (permitirArrastre) controles.start(evento) }}
         onClick={() => {
           if (arrastreGrupo.current) return
           onAlternarGrupo(grupo.clave)
@@ -47,7 +50,8 @@ function GrupoColumnas({ grupo, columnasVisibles, etiquetas, arrastre, onAlterna
             key={columna}
             value={columna}
             type="button"
-            className="reporte-segmento"
+            drag={permitirArrastre}
+            className={`reporte-segmento${permitirArrastre ? '' : ' reporte-segmento--fijo'}`}
             aria-pressed={columnasVisibles.includes(columna)}
             onDragStart={() => { arrastre.current = true }}
             onDragEnd={() => { window.setTimeout(() => { arrastre.current = false }, 0) }}
@@ -65,8 +69,8 @@ function GrupoColumnas({ grupo, columnasVisibles, etiquetas, arrastre, onAlterna
 }
 
 export default function SelectorColumnasAgrupadas({
-  grupos, columnasVisibles, etiquetas, arrastre, onAlternar, onAlternarGrupo, onReordenarGrupos, onReordenarColumnas,
-  onScroll, ariaLabel,
+  grupos, columnasVisibles, etiquetas, arrastre, permitirArrastre = true,
+  onAlternar, onAlternarGrupo, onReordenarGrupos, onReordenarColumnas, onScroll, ariaLabel,
 }) {
   return (
     <Reorder.Group
@@ -86,6 +90,7 @@ export default function SelectorColumnasAgrupadas({
           columnasVisibles={columnasVisibles}
           etiquetas={etiquetas}
           arrastre={arrastre}
+          permitirArrastre={permitirArrastre}
           onAlternar={onAlternar}
           onAlternarGrupo={onAlternarGrupo}
           onReordenar={onReordenarColumnas}
