@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { MODULOS } from '../utils/modulos.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
-import { etiquetaRol } from '../utils/roles.js'
+import { etiquetaRol, puedeAccederModulo } from '../utils/roles.js'
 import './InicioGestion.css'
 
 const DESCRIPCIONES_ROL = {
@@ -26,7 +26,7 @@ export default function InicioGestion() {
     (modulo) =>
       modulo.seccion === 'gestion' &&
       modulo.ruta !== '/gestion/inicio' &&
-      (!modulo.permiso || sesion?.permisos?.includes(modulo.permiso))
+      puedeAccederModulo(modulo, sesion)
   )
 
   const nombreUsuario = sesion?.nombreCompleto || sesion?.nombreUsuario || 'Funcionario Municipal'
@@ -84,8 +84,13 @@ export default function InicioGestion() {
               <article className="gestion-card-modulo" key={modulo.ruta}>
                 <div className="gestion-card-modulo__cabecera">
                   <span className="gestion-card-modulo__icono">{modulo.icono}</span>
-                  {modulo.permiso && (
-                    <span className="gestion-card-modulo__clave" title={`Permiso: ${modulo.permiso}`}>
+                  {(modulo.permiso || modulo.roles?.length > 0) && (
+                    <span
+                      className="gestion-card-modulo__clave"
+                      title={modulo.permiso
+                        ? `Permiso: ${modulo.permiso}`
+                        : `Rol: ${modulo.roles.map((rol) => etiquetaRol(rol)).join(', ')}`}
+                    >
                       Acceso activo
                     </span>
                   )}

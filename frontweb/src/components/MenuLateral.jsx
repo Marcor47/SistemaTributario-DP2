@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import { MODULOS } from '../utils/modulos.jsx'
+import { puedeAccederModulo } from '../utils/roles.js'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { obtenerEstadoCuentaPortal } from '../services/portalCuentaService.js'
@@ -43,7 +44,7 @@ export default function MenuLateral({ solo, visible = true, onToggle }) {
 
   const modulosPortal  = MODULOS.filter((m) => m.seccion === 'portal')
   const modulosGestion = MODULOS.filter((m) => m.seccion !== 'portal'
-    && (!m.permiso || sesion?.permisos?.includes(m.permiso)))
+    && puedeAccederModulo(m, sesion))
 
   const mostrarPortal  = !solo || solo === 'portal'
   const mostrarGestion = !solo || solo === 'gestion'

@@ -1,0 +1,31 @@
+/* HU016: configuración del recordatorio de vencimiento. */
+.config-recordatorios { min-width: 0; }
+.recordatorios-cabecera {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px;
+}
+.recordatorios-cabecera h2 { margin-bottom: 6px; }
+.recordatorios-cabecera .estado { white-space: nowrap; }
+.recordatorios-demo { margin-bottom: 20px; }
+.recordatorios-formulario { max-width: 560px; margin-top: 16px; }
+.recordatorios-formulario .fld { min-width: 0; }
+.recordatorios-ejemplo {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--fondo);
+}
+.recordatorios-ejemplo p { margin: 6px 0 0; color: var(--texto-secundario); }
+.recordatorios-ejemplo strong { color: var(--marino-osc); }
+.recordatorios-acciones {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-top: 18px;
+}
+.recordatorios-ayuda { margin: 18px 0 0; }
+.recordatorios-ayuda p { margin: 6px 0 0; }
+.recordatorios-demo-datos .btn { margin-top: 14px; }
+
+@media (max-width: 600px) {
+  .recordatorios-acciones .btn { flex: 1 1 100%; }
+}

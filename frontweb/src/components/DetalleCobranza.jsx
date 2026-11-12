@@ -1,5 +1,11 @@
 import { useRef, useState } from 'react'
 import { fecha, moneda } from '../utils/formato.js'
+import {
+  descripcionRecordatorio,
+  estadoRecordatorio,
+  fechaRecordatorio,
+  textoAnticipacion,
+} from '../utils/recordatorios.js'
 import EtiquetaDeudaVencida from './EtiquetaDeudaVencida.jsx'
 
 function Dato({ etiqueta, valor }) {
@@ -11,7 +17,54 @@ function Dato({ etiqueta, valor }) {
   )
 }
 
-export default function DetalleCobranza({ detalle }) {
+function RecordatorioVencimiento({ recordatorio, ocupado, error, onReintentar }) {
+  if (ocupado) {
+    return <p className="hint mensaje-carga" role="status">Consultando el recordatorio de vencimiento…</p>
+  }
+
+  if (error) {
+    return (
+      <div className="alert" role="alert">
+        <p>{error}</p>
+        {onReintentar && (
+          <button className="btn" type="button" onClick={onReintentar}>Reintentar recordatorio</button>
+        )}
+      </div>
+    )
+  }
+
+  if (!recordatorio) {
+    return <p className="hint" role="status">No hay recordatorio registrado para esta obligación.</p>
+  }
+
+  const estado = estadoRecordatorio(recordatorio.estado)
+  const fechaAviso = fechaRecordatorio(recordatorio)
+
+  return (
+    <>
+      <div className="detalle-cobranza__recordatorio">
+        <span className={`estado ${estado.clase}`}>{estado.texto}</span>
+        <span className="hint">{textoAnticipacion(recordatorio.diasAnticipacion)}</span>
+      </div>
+      <div className="pfields">
+        <Dato etiqueta="Estado" valor={estado.texto} />
+        <Dato etiqueta={fechaAviso.etiqueta} valor={fechaAviso.valor} />
+        <Dato etiqueta="Anticipación" valor={textoAnticipacion(recordatorio.diasAnticipacion)} />
+        <Dato etiqueta="Correo destino" valor={recordatorio.correoDestino} />
+        <Dato etiqueta="Aviso" valor={recordatorio.idAviso} />
+      </div>
+      <p className="hint">{descripcionRecordatorio(recordatorio)}</p>
+    </>
+  )
+}
+
+export default function DetalleCobranza({
+  detalle,
+  recordatorio,
+  ocupadoRecordatorio,
+  errorRecordatorio,
+  onReintentarRecordatorio,
+}) {
   const { obligacion, fechaConsulta, diasVencida, diasEnEtapaActual, historial } = detalle
   const tramos = Array.isArray(historial) ? historial : []
   const [indiceActivo, setIndiceActivo] = useState(() => Math.max(0, tramos.length - 1))
@@ -46,6 +99,17 @@ export default function DetalleCobranza({ detalle }) {
           <Dato etiqueta="Monto pagado" valor={moneda(obligacion.montoPagado)} />
           <Dato etiqueta="Fecha de consulta" valor={fecha(fechaConsulta)} />
         </div>
+      </section>
+
+      <section className="pcard" aria-label="Recordatorio de vencimiento" aria-busy={ocupadoRecordatorio}>
+        <h2>Recordatorio de vencimiento</h2>
+        <p className="hint">Aviso automático por correo enviado antes de la fecha de vencimiento.</p>
+        <RecordatorioVencimiento
+          recordatorio={recordatorio}
+          ocupado={ocupadoRecordatorio}
+          error={errorRecordatorio}
+          onReintentar={onReintentarRecordatorio}
+        />
       </section>
 
       <section className="pcard" aria-label="Etapas de cobranza">

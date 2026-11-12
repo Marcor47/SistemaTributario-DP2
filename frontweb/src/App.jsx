@@ -11,6 +11,7 @@ import { RutaContribuyente } from './components/RutaProtegida.jsx'
 import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
+import ConfiguracionRecordatorios from './pages/ConfiguracionRecordatorios.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Reclamos from './pages/Reclamos.jsx'
@@ -155,6 +156,7 @@ export default function App() {
           <Route path="/ventanilla/constancias" element={<RutaInternaProtegida permiso="CONSTANCIAS:GESTIONAR"><ConstanciaVentanilla /></RutaInternaProtegida>} />
           <Route path="/ventanilla/solicitudes-predio/:idSolicitud?" element={<RutaInternaProtegida permiso="SOLICITUDES_PREDIO:REVISAR"><SolicitudesPredio /></RutaInternaProtegida>} />
           <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
+          <Route path="/configuracion/recordatorios" element={<RutaInternaProtegida roles={['ADMINISTRADOR']}><ConfiguracionRecordatorios /></RutaInternaProtegida>} />
           <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
           <Route path="/resumen-ejecutivo" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><ResumenEjecutivo /></RutaInternaProtegida>} />

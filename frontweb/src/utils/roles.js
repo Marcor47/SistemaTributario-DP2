@@ -18,6 +18,15 @@ export const ROLES_CONSULTA_PREDIO = ['ANALISTA_RENTAS', 'ADMINISTRADOR']
 
 // La sesión interna (SesionInternaRespuesta) expone los roles del usuario en `roles`.
 export function tieneRolInterno(sesion, roles = ROLES_CONSULTA_PREDIO) {
-  const asignados = sesion?.roles
-  return Array.isArray(asignados) && roles.some((rol) => asignados.includes(rol))
+  const asignados = Array.isArray(sesion?.roles) ? sesion.roles : []
+  if (roles.some((rol) => asignados.includes(rol))) return true
+  return Boolean(sesion?.rol) && roles.includes(sesion.rol)
+}
+
+// Un módulo puede restringirse por permiso, por rol o por ambos.
+export function puedeAccederModulo(modulo, sesion) {
+  if (!modulo) return false
+  const cumplePermiso = !modulo.permiso || Boolean(sesion?.permisos?.includes(modulo.permiso))
+  const cumpleRol = !modulo.roles?.length || tieneRolInterno(sesion, modulo.roles)
+  return cumplePermiso && cumpleRol
 }
