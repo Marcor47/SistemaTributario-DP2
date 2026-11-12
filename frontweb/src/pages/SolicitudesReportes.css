@@ -1,0 +1,54 @@
+.solicitudes-reportes { display: grid; gap: 20px; min-width: 0; }
+.solicitudes-reportes .pcard { margin: 0; }
+.solicitudes-reportes__filtros { display: grid; gap: 20px; }
+.solicitudes-reportes__filtros-cab,
+.solicitudes-reportes__registro-cab { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.solicitudes-reportes__filtros h2,
+.solicitudes-reportes__registro h2 { margin: 0; color: var(--marino-osc); font-size: 22px; }
+.solicitudes-reportes__filtros .hint,
+.solicitudes-reportes__registro .hint { margin: 4px 0 0; }
+.solicitudes-reportes__acciones { display: flex; flex-wrap: wrap; gap: 10px; }
+.solicitudes-reportes__campos { display: grid; grid-template-columns: minmax(220px, 1.4fr) minmax(220px, 1fr) repeat(2, minmax(160px, 0.75fr)); gap: 16px; }
+.solicitudes-reportes__campos .fld { min-width: 0; }
+.solicitudes-reportes__campos input,
+.solicitudes-reportes__campos select { min-height: 48px; width: 100%; }
+.solicitudes-reportes__error-campo { margin: -10px 0 0; color: var(--critico); font-weight: 700; }
+.solicitudes-reportes__alerta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.solicitudes-reportes__alerta p { margin: 3px 0 0; }
+.solicitudes-reportes__resumen { display: grid; grid-template-columns: repeat(5, minmax(150px, 1fr)); gap: 14px; }
+.solicitudes-reportes__tarjeta { display: flex; flex-direction: column; gap: 5px; padding: 18px; min-width: 0; }
+.solicitudes-reportes__tarjeta > span { color: var(--texto-secundario); font-weight: 700; }
+.solicitudes-reportes__tarjeta > strong { color: var(--marino-osc); font-size: clamp(28px, 3vw, 38px); line-height: 1; font-variant-numeric: tabular-nums; }
+.solicitudes-reportes__tarjeta p { margin: 0; color: var(--texto-atenuado); font-size: 13px; }
+.solicitudes-reportes__registro { min-width: 0; display: grid; gap: 18px; }
+.solicitudes-reportes__registro-cab { align-items: center; }
+.solicitudes-reportes__registro-cab .paginacion-tabla { margin-left: auto; }
+.solicitudes-reportes__tabla { width: 100%; overflow-x: auto; border: 1px solid var(--borde); border-radius: 12px; scrollbar-width: thin; }
+.solicitudes-reportes__tabla:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.solicitudes-reportes__tabla table { width: 100%; min-width: 960px; border-collapse: collapse; }
+.solicitudes-reportes__tabla th { padding: 13px 15px; color: #fff; background: var(--marino); text-align: left; white-space: nowrap; }
+.solicitudes-reportes__tabla td { padding: 14px 15px; border-bottom: 1px solid var(--borde); vertical-align: middle; }
+.solicitudes-reportes__tabla tbody tr:last-child td { border-bottom: 0; }
+.solicitudes-reportes__tabla tbody tr:hover { background: var(--azul-suave); }
+.solicitudes-reportes__usuario { display: block; margin-top: 2px; color: var(--texto-atenuado); font-size: 14px; }
+.solicitudes-reportes__fecha { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.solicitudes-reportes__operacion { display: inline-flex; align-items: center; min-height: 30px; padding: 3px 10px; border-radius: 999px; color: var(--marino-osc); background: var(--azul-suave); font-size: 14px; font-weight: 700; white-space: nowrap; }
+.solicitudes-reportes__operacion--excel { color: var(--exito); background: var(--exito-fondo); }
+.solicitudes-reportes__operacion--pdf { color: var(--critico); background: var(--critico-fondo); }
+.solicitudes-reportes__filtros-texto { display: block; max-width: 330px; overflow: hidden; color: var(--texto-secundario); text-overflow: ellipsis; white-space: nowrap; }
+.solicitudes-reportes__estado { margin: 0; padding: 32px 18px; border-radius: 10px; background: var(--fondo); text-align: center; }
+.solicitudes-reportes__estado h3 { margin: 0 0 6px; color: var(--marino-osc); }
+.solicitudes-reportes__estado p { margin: 0; }
+
+@media (max-width: 1120px) {
+  .solicitudes-reportes__campos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .solicitudes-reportes__resumen { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 700px) {
+  .solicitudes-reportes__campos,
+  .solicitudes-reportes__resumen { grid-template-columns: 1fr; }
+  .solicitudes-reportes__acciones { width: 100%; }
+  .solicitudes-reportes__acciones .btn { flex: 1 1 140px; }
+  .solicitudes-reportes__registro-cab .paginacion-tabla { width: 100%; margin-left: 0; }
+}

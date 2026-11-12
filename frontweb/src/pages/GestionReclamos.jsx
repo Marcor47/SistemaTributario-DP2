@@ -8,6 +8,8 @@ import {
 } from '../services/reclamoService.js'
 import { ESTADOS_RECLAMO, estadoReclamo, etiquetaTipo } from '../utils/reclamos.js'
 import { etiquetaRol } from '../utils/roles.js'
+import PaginacionTabla from '../components/PaginacionTabla.jsx'
+import { paginar } from '../utils/paginacion.js'
 import './Reclamos.css'
 
 const MAXIMO_OBSERVACION = 400
@@ -23,6 +25,8 @@ export default function GestionReclamos({ modo }) {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [aviso, setAviso] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
 
   useEffect(() => {
     let activo = true
@@ -39,6 +43,7 @@ export default function GestionReclamos({ modo }) {
   }, [esGestion])
 
   const visibles = estado ? reclamos.filter((reclamo) => reclamo.estado === estado) : reclamos
+  const paginacion = paginar(visibles, pagina, tamanio)
   const seleccionado = reclamos.find((reclamo) => reclamo.idReclamo === seleccionadoId) ?? null
 
   function actualizado(reclamo, mensaje) {
@@ -62,7 +67,7 @@ export default function GestionReclamos({ modo }) {
           </div>
           <div className="fld filtro-estado">
             <label htmlFor="gestion-reclamo-estado">Filtrar por estado</label>
-            <select id="gestion-reclamo-estado" value={estado} onChange={(evento) => setEstado(evento.target.value)} disabled={cargando}>
+            <select id="gestion-reclamo-estado" value={estado} onChange={(evento) => { setEstado(evento.target.value); setPagina(1) }} disabled={cargando}>
               <option value="">Todos</option>
               {Object.entries(ESTADOS_RECLAMO).map(([valor, datos]) => <option key={valor} value={valor}>{datos.etiqueta}</option>)}
             </select>
@@ -77,7 +82,7 @@ export default function GestionReclamos({ modo }) {
             <table className="tabla tabla-gestion-reclamos">
               <caption className="sr-only">Reclamos con reclamante, fecha, asignación y estado</caption>
               <thead><tr><th scope="col">Reclamo</th><th scope="col">Reclamante</th><th scope="col">Asignación</th><th scope="col">Estado</th><th scope="col">Acción</th></tr></thead>
-              <tbody>{visibles.map((reclamo) => (
+              <tbody>{paginacion.visibles.map((reclamo) => (
                 <tr key={reclamo.idReclamo}>
                   <td><strong>{reclamo.numeroReclamo}</strong><span className="reclamo-detalle">{etiquetaTipo(reclamo.tipoReclamo)} · {formatoFechaHora(reclamo.fechaRegistro)}</span></td>
                   <td>{reclamo.reclamante}<span className="reclamo-detalle">{reclamo.tipoReclamante === 'CONTRIBUYENTE' ? 'Contribuyente' : 'Trabajador municipal'}</span></td>
@@ -89,6 +94,7 @@ export default function GestionReclamos({ modo }) {
             </table>
           </div>
         )}
+        {!cargando && visibles.length > 0 && <PaginacionTabla id="gestion-reclamos" totalRegistros={visibles.length} pagina={paginacion.paginaActual} tamanio={tamanio} opciones={[5, 10, 20, 100]} onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} />}
       </section>
 
       {seleccionado && (

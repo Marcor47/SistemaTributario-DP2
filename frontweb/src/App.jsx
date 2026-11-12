@@ -17,6 +17,7 @@ import Reclamos from './pages/Reclamos.jsx'
 import ResumenEjecutivo from './pages/ResumenEjecutivo.jsx'
 import GestionReclamos from './pages/GestionReclamos.jsx'
 import Reportes from './pages/Reportes.jsx'
+import SolicitudesReportes from './pages/SolicitudesReportes.jsx'
 import Constancia from './pages/Constancia.jsx'
 import ConstanciaVentanilla from './pages/ConstanciaVentanilla.jsx'
 import SolicitudesPredio from './pages/SolicitudesPredio.jsx'
@@ -29,6 +30,7 @@ import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
 import GestionUsuarios from './pages/GestionUsuarios.jsx'
 import AlertasMora from './pages/AlertasMora.jsx'
 import SinAcceso from './pages/SinAcceso.jsx'
+import Buzon from './pages/Buzon.jsx'
 import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
 import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
 
@@ -137,6 +139,7 @@ export default function App() {
               <Route path="/mi-cuenta" element={<Navigate to="/estado-cuenta" replace />} />
               <Route path="/constancias" element={<Constancia />} />
               <Route path="/portal/reclamos" element={<Reclamos reclamante="CONTRIBUYENTE" />} />
+              <Route path="/portal/buzon" element={<Buzon />} />
             </Route>
           </Route>
 
@@ -156,6 +159,7 @@ export default function App() {
           <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
           <Route path="/resumen-ejecutivo" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><ResumenEjecutivo /></RutaInternaProtegida>} />
           <Route path="/reportes" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Reportes /></RutaInternaProtegida>} />
+          <Route path="/reportes/solicitudes" element={<RutaInternaProtegida permiso="REPORTES:SOLICITUDES"><SolicitudesReportes /></RutaInternaProtegida>} />
           <Route path="/reporteria" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Suspense fallback={<p className="mensaje-carga" role="status">Cargando la plataforma analítica…</p>}><Reporteria /></Suspense></RutaInternaProtegida>} />
           <Route path="/alertas-mora" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><AlertasMora /></RutaInternaProtegida>} />
           <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />

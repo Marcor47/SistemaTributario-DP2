@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import { cancelarReclamo, listarMisReclamos, ordenarReclamos, registrarReclamo } from '../services/reclamoService.js'
 import {
   ESTADOS_RECLAMO,
@@ -9,6 +10,7 @@ import {
   etiquetaTipo,
   tiposPara,
 } from '../utils/reclamos.js'
+import { paginar } from '../utils/paginacion.js'
 import './Reclamos.css'
 
 const FORMULARIO_VACIO = { tipoReclamo: '', fechaHoraIncidente: '', referencia: '', comentario: '' }
@@ -34,6 +36,9 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
   const [enviando, setEnviando] = useState(false)
   const [errorEnvio, setErrorEnvio] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('')
+  const [formularioVisible, setFormularioVisible] = useState(false)
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
   const [detalleId, setDetalleId] = useState(null)
   const [confirmandoCancelacion, setConfirmandoCancelacion] = useState(false)
   const [cancelando, setCancelando] = useState(false)
@@ -62,6 +67,7 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
 
   const mensajesError = CAMPOS.filter(([campo]) => errores[campo])
   const visibles = filtroEstado ? reclamos.filter((r) => r.estado === filtroEstado) : reclamos
+  const paginacion = paginar(visibles, pagina, tamanio)
   const detalle = reclamos.find((r) => r.idReclamo === detalleId) ?? null
   const bloqueado = ocupado || enviando
 
@@ -84,6 +90,8 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
       setErrores({})
       setIntentos(0)
       setAviso(`Tu reclamo se registró con el número ${creado.numeroReclamo}. Puedes seguir su estado en «Mis reclamos».`)
+      setFormularioVisible(false)
+      setPagina(1)
     } catch (err) {
       if (err.errores) {
         setErrores(err.errores)
@@ -123,11 +131,11 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
   }
 
   return (
-    <div aria-busy={ocupado || enviando}>
+    <div className="reclamos-pagina" aria-busy={ocupado || enviando}>
       {error && <div className="alert" role="alert">{error}</div>}
       {aviso && <div className="info" role="status">{aviso}</div>}
 
-      <section className="pcard" aria-labelledby="titulo-nuevo-reclamo">
+      {formularioVisible && <section className="pcard reclamos-registro" aria-labelledby="titulo-nuevo-reclamo">
         <h2 id="titulo-nuevo-reclamo">Registrar un reclamo</h2>
         <p className="hint">Los campos con * son obligatorios.</p>
 
@@ -216,11 +224,12 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
             >
               Limpiar
             </button>
+            <button className="btn" type="button" disabled={bloqueado} onClick={() => setFormularioVisible(false)}>Cerrar formulario</button>
           </div>
         </form>
-      </section>
+      </section>}
 
-      <section className="pcard" aria-labelledby="titulo-mis-reclamos">
+      <section className="pcard reclamos-listado" aria-labelledby="titulo-mis-reclamos">
         <div className="catalogo-cabecera">
           <div>
             <h2 id="titulo-mis-reclamos">Mis reclamos</h2>
@@ -230,12 +239,17 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
                 : `${visibles.length} ${visibles.length === 1 ? 'reclamo' : 'reclamos'}${filtroEstado ? ` en estado «${estadoReclamo(filtroEstado).etiqueta}»` : ''}.`}
             </p>
           </div>
-          <div className="fld filtro-estado">
-            <label htmlFor="reclamo-filtro">Filtrar por estado</label>
-            <select id="reclamo-filtro" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} disabled={bloqueado}>
-              <option value="">Todos</option>
-              {Object.entries(ESTADOS_RECLAMO).map(([valor, e]) => <option key={valor} value={valor}>{e.etiqueta}</option>)}
-            </select>
+          <div className="reclamos-acciones-cabecera">
+            <div className="fld filtro-estado">
+              <label htmlFor="reclamo-filtro">Filtrar por estado</label>
+              <select id="reclamo-filtro" value={filtroEstado} onChange={(e) => { setFiltroEstado(e.target.value); setPagina(1) }} disabled={bloqueado}>
+                <option value="">Todos</option>
+                {Object.entries(ESTADOS_RECLAMO).map(([valor, e]) => <option key={valor} value={valor}>{e.etiqueta}</option>)}
+              </select>
+            </div>
+            <button className="btn primary" type="button" aria-expanded={formularioVisible} onClick={() => setFormularioVisible((valor) => !valor)}>
+              {formularioVisible ? 'Ocultar formulario' : 'Registrar reclamo'}
+            </button>
           </div>
         </div>
 
@@ -252,7 +266,7 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
                 <tr><th scope="col">Número</th><th scope="col">Tipo</th><th scope="col">Incidente</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr>
               </thead>
               <tbody>
-                {visibles.map((r) => (
+                {paginacion.visibles.map((r) => (
                   <tr key={r.idReclamo}>
                     <td><strong>{r.numeroReclamo}</strong><span className="reclamo-detalle">Registrado el {formatoFechaHora(r.fechaRegistro)}</span></td>
                     <td>{etiquetaTipo(r.tipoReclamo)}{r.referencia && <span className="reclamo-detalle">{r.referencia}</span>}</td>
@@ -276,6 +290,7 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
             </table>
           </div>
         )}
+        {!ocupado && visibles.length > 0 && <PaginacionTabla id="mis-reclamos" totalRegistros={visibles.length} pagina={paginacion.paginaActual} tamanio={tamanio} opciones={[5, 10, 20, 100]} onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} />}
       </section>
 
       {detalle && (
@@ -293,22 +308,11 @@ export default function Reclamos({ reclamante = 'TRABAJADOR' }) {
           {detalle.referencia && <p><strong>Relacionado con:</strong> {detalle.referencia}</p>}
           <p><strong>Comentario:</strong> {detalle.comentario}</p>
 
-          <h3>Derivaciones</h3>
-          {detalle.derivaciones.length === 0 ? (
-            <p className="hint">Todavía no se derivó a ningún área. El gestor de reclamos lo hará cuando lo revise.</p>
-          ) : (
-            <ol className="derivaciones">
-              {detalle.derivaciones.map((d, i) => (
-                <li key={`${d.fechaDerivacion}-${i}`}>
-                  <strong>{d.areaDestino}</strong>
-                  <span className="reclamo-detalle">
-                    {formatoFechaHora(d.fechaDerivacion)} · Encargado de revisión: {d.responsable} · Derivó: {d.derivadoPor}
-                  </span>
-                  {d.observacion && <span className="reclamo-detalle">Observación: {d.observacion}</span>}
-                </li>
-              ))}
-            </ol>
-          )}
+          {reclamante !== 'CONTRIBUYENTE' && <><h3>Derivaciones</h3>
+            {detalle.derivaciones.length === 0 ? <p className="hint">Todavía no se derivó a ningún área.</p> : <ol className="derivaciones">
+              {detalle.derivaciones.map((d, i) => <li key={`${d.fechaDerivacion}-${i}`}><strong>{d.areaDestino}</strong><span className="reclamo-detalle">{formatoFechaHora(d.fechaDerivacion)} · Encargado de revisión: {d.responsable} · Derivó: {d.derivadoPor}</span>{d.observacion && <span className="reclamo-detalle">Observación: {d.observacion}</span>}</li>)}
+            </ol>}
+          </>}
 
           <h3>Respuesta</h3>
           {detalle.respuesta ? (

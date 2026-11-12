@@ -43,6 +43,14 @@ export const MODULOS = [
     icono: icono(<><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M12 15.5v.01" /></>),
   },
   {
+    ruta: '/portal/buzon',
+    texto: 'Buzón',
+    titulo: 'Buzón municipal',
+    descripcion: 'Consulta, organiza y descarga las comunicaciones y documentos enviados por la Municipalidad.',
+    seccion: 'portal',
+    icono: icono(<><path d="M4 4h16v16H4z" /><path d="m4 7 8 6 8-6" /></>),
+  },
+  {
     ruta: '/gestion/inicio',
     texto: 'Inicio',
     titulo: 'Panel de inicio institucional',
@@ -164,6 +172,15 @@ export const MODULOS = [
     seccion: 'gestion',
     permiso: 'REPORTES:CONSULTAR',
     icono: icono(<><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /><path d="M4 6l6-3 6 6 5-4" /></>),
+  },
+  {
+    ruta: '/reportes/solicitudes',
+    texto: 'Uso de reportes',
+    titulo: 'Solicitudes de reportes',
+    descripcion: 'Consulta qué reportes tributarios solicitan los usuarios autorizados, cuándo los generan y con qué frecuencia.',
+    seccion: 'gestion',
+    permiso: 'REPORTES:SOLICITUDES',
+    icono: icono(<><path d="M4 4h16v16H4z" /><path d="M8 9h8M8 13h5M8 17h8" /><path d="M15 13h1" /></>),
   },
   {
     ruta: '/reporteria',

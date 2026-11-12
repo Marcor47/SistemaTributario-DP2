@@ -9,7 +9,8 @@ export async function pedir(ruta, opciones = {}) {
       credentials: 'include',
       ...opciones,
     })
-  } catch {
+  } catch (error) {
+    if (error?.name === 'AbortError') throw error
     throw Object.assign(
       new Error('No se pudo conectar con el servicio. Verifica que el backend esté disponible e intenta nuevamente.'),
       { codigo: 'SIN_CONEXION', estado: 0, detalles: [] },
