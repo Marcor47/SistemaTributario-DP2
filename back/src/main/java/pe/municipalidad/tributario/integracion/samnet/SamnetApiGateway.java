@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
@@ -26,6 +27,7 @@ import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 import pe.municipalidad.tributario.cobranza.SeguimientoCobranza;
 import pe.municipalidad.tributario.common.ConflictoException;
 import pe.municipalidad.tributario.common.DatoInvalidoException;
+import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.DomicilioFiscal;
 import pe.municipalidad.tributario.contribuyente.EstadoContribuyente;
@@ -55,6 +57,9 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Component
 public class SamnetApiGateway implements SamnetGateway {
+
+    /* SQLSTATE de no_data_found, con el que ps_traspasarpredio avisa que el predio no existe. */
+    private static final String ERROR_SIN_DATOS = "P0002";
 
     /* Procedimientos que el ETL puede extraer y si reciben la fecha de corte. */
     private static final Map<String, Boolean> PROCEDIMIENTOS_ETL = Map.of(
@@ -251,6 +256,21 @@ public class SamnetApiGateway implements SamnetGateway {
         } catch (DuplicateKeyException ex) {
             throw new ConflictoException("PREDIO_YA_REGISTRADO",
                     "El predio " + predio.getCodigoPredio() + " ya está registrado en SAMNET.");
+        }
+    }
+
+    @Override
+    public String traspasarPredio(String codigoPredio, Titularidad adquirente) {
+        try {
+            return invocar(() -> jdbc.queryForObject("SELECT samnet.ps_traspasarpredio(?, ?, ?, ?)", String.class,
+                    codigoPredio, adquirente.codigoContribuyente(), adquirente.condicionPropiedad(),
+                    adquirente.porcentajePropiedad()));
+        } catch (DataAccessException ex) {
+            if (ex.getMostSpecificCause() instanceof SQLException sql && ERROR_SIN_DATOS.equals(sql.getSQLState())) {
+                throw new RecursoNoEncontradoException("PREDIO_NO_ENCONTRADO",
+                        "El predio " + codigoPredio + " no está registrado en SAMNET.");
+            }
+            throw ex;
         }
     }
 

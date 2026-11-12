@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,6 +71,10 @@ public class SolicitudPredio {
     @Column(name = "fecha_revision")
     private LocalDateTime fechaRevision;
 
+    /* HU043: deuda existente del predio cuando se decidió; la respuesta del buzón muestra esta cifra. */
+    @Column(name = "deuda_predio", precision = 14, scale = 2)
+    private BigDecimal deudaPredio;
+
     @OneToMany(mappedBy = "solicitud", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<DocumentoAdjunto> adjuntos = new ArrayList<>();
 
@@ -113,27 +118,38 @@ public class SolicitudPredio {
         return estado;
     }
 
-    /* Se acepta después de registrar o traspasar el predio en SAMNET (ps_registrarpredio). */
-    public void aceptar(Usuario revisor, String codigoPredioRegistrado, LocalDateTime ahora) {
+    /*
+     * HU043: se acepta después de registrar o traspasar el predio en SAMNET. La revisión siempre es humana, así que
+     * el revisor es obligatorio y queda registrado con la fecha.
+     */
+    public void aceptar(Usuario revisor, String codigoPredioRegistrado, BigDecimal deudaPredio, LocalDateTime ahora) {
         exigirEnRevision();
+        registrarRevision(revisor, deudaPredio, ahora);
         this.codigoPredio = codigoPredioRegistrado;
-        this.revisor = revisor;
-        this.fechaRevision = ahora;
         this.estado = EstadoSolicitudPredio.ACEPTADA;
     }
 
-    public void rechazar(Usuario revisor, String motivo, LocalDateTime ahora) {
+    public void rechazar(Usuario revisor, String motivo, BigDecimal deudaPredio, LocalDateTime ahora) {
         exigirEnRevision();
         if (motivo == null || motivo.isBlank()) {
             throw new ReglaNegocioException("MOTIVO_REQUERIDO", "El rechazo requiere un motivo.");
         }
+        registrarRevision(revisor, deudaPredio, ahora);
         this.motivoRechazo = motivo;
-        this.revisor = revisor;
-        this.fechaRevision = ahora;
         this.estado = EstadoSolicitudPredio.RECHAZADA;
     }
 
-    private void exigirEnRevision() {
+    private void registrarRevision(Usuario revisor, BigDecimal deudaPredio, LocalDateTime ahora) {
+        if (revisor == null) {
+            throw new ReglaNegocioException("REVISOR_REQUERIDO", "La revisión la realiza un usuario de ventanilla.");
+        }
+        this.revisor = revisor;
+        this.deudaPredio = deudaPredio;
+        this.fechaRevision = ahora;
+    }
+
+    /* El servicio la exige antes de escribir en SAMNET, para no registrar un predio de una solicitud ya cerrada. */
+    public void exigirEnRevision() {
         if (estado != EstadoSolicitudPredio.EN_REVISION) {
             throw new ReglaNegocioException("SOLICITUD_NO_EN_REVISION", "La solicitud ya fue " + estado + ".");
         }
@@ -181,6 +197,10 @@ public class SolicitudPredio {
 
     public LocalDateTime getFechaRevision() {
         return fechaRevision;
+    }
+
+    public BigDecimal getDeudaPredio() {
+        return deudaPredio;
     }
 
     public List<DocumentoAdjunto> getAdjuntos() {

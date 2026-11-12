@@ -35,6 +35,8 @@ tributario:
   constancia:
     # Derecho de trámite de la Constancia de No Adeudo (HU020). Confirmar el monto vigente del TUPA con la Municipalidad.
     derecho-tramite: ${CONSTANCIA_DERECHO_TRAMITE:10.00}
+    # HU024 (RF-037): la constancia se firma y emite sola al confirmarse el pago. En false vuelve a emitirla el operador.
+    firma-automatica: ${CONSTANCIA_FIRMA_AUTOMATICA:true}
   seguridad:
     cors-origins: ${CORS_ORIGINS:http://localhost:5173}
     administrador-inicial:
