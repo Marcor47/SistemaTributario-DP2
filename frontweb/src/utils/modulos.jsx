@@ -111,6 +111,15 @@ export const MODULOS = [
     icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /><circle cx="17" cy="18" r="2" /></>),
   },
   {
+    ruta: '/ventanilla/solicitudes-predio',
+    texto: 'Solicitudes de predio',
+    titulo: 'Solicitudes de registro y traspaso de predio',
+    descripcion: 'Revisa los documentos enviados por los contribuyentes y resuelve sus solicitudes.',
+    seccion: 'gestion',
+    permiso: 'SOLICITUDES_PREDIO:REVISAR',
+    icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /></>),
+  },
+  {
     ruta: '/metas',
     texto: 'Metas',
     titulo: 'Metas de recaudación',

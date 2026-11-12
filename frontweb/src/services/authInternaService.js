@@ -8,7 +8,7 @@ function sinConexion() {
   })
 }
 
-function notificarSesionExpirada() {
+export function notificarSesionExpirada() {
   csrfActual = null
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_SESION_INTERNA_EXPIRADA))
 }

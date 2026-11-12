@@ -198,6 +198,13 @@ body {
 }
 .barra-superior__salir:hover { background: var(--critico-fondo); border-color: var(--critico); color: var(--critico); }
 .barra-superior__salir:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+
+@media (max-width: 600px) {
+  .barra-superior { flex-wrap: wrap; height: auto; min-height: 54px; padding: 8px 16px; }
+  .barra-superior__sistema { flex-basis: 100%; white-space: normal; }
+  .barra-superior__usuario, .barra-superior__info { min-width: 0; }
+}
+
 .pagina-cab {
   padding: 28px clamp(16px, 3vw, 40px) 24px; background: #fff; border-bottom: 1px solid var(--borde);
   background-image: radial-gradient(circle at 100% 0%, rgba(25, 195, 243, 0.14) 0, rgba(25, 195, 243, 0) 40%);

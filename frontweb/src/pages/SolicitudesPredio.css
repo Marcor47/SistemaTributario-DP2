@@ -1,0 +1,175 @@
+.revision-predio {
+  container-type: inline-size;
+}
+
+.revision-predio__cabecera,
+.revision-predio__acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.revision-predio__cabecera {
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.revision-predio__acciones .fld,
+.revision-predio__formulario .fld {
+  min-width: 0;
+}
+
+.revision-predio__acciones select {
+  min-width: 142px;
+}
+
+.revision-predio a.btn {
+  text-decoration: none;
+}
+
+.tabla-scroll .revision-predio__tabla {
+  min-width: 500px;
+}
+
+.revision-predio__enlace {
+  color: var(--marino-osc);
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.revision-predio__enlace:focus-visible {
+  outline: 3px solid var(--cian);
+  outline-offset: 2px;
+}
+
+.revision-predio__secundario {
+  display: block;
+  color: var(--texto-atenuado);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.revision-predio__tabla .revision-predio__secundario {
+  white-space: nowrap;
+}
+
+.revision-predio__datos {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+
+.revision-predio__datos dd,
+.revision-predio .alert p,
+.revision-predio__motivo p {
+  margin: 0;
+}
+
+.revision-predio .alert .btn {
+  margin-top: 10px;
+}
+
+.revision-predio h3 {
+  margin: 0 0 8px;
+  color: var(--marino-osc);
+  font-size: 17px;
+}
+
+.revision-predio__motivo,
+.revision-predio__deuda {
+  margin-top: 16px;
+}
+
+.revision-predio__motivo p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.revision-predio__deuda summary {
+  color: var(--marino-osc);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.revision-predio__revision {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+.revision-predio__revision > .pcard {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.revision-predio__archivos {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+}
+
+.revision-predio__archivos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.revision-predio__archivos li + li {
+  border-top: 1px solid var(--borde);
+}
+
+.revision-predio__archivos li > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.revision-predio__visor,
+.revision-predio__formulario,
+.revision-predio__revision .pcard > .revision-predio__acciones {
+  margin-top: 16px;
+}
+
+.revision-predio__visor iframe,
+.revision-predio__visor img {
+  display: block;
+  width: 100%;
+  margin-bottom: 12px;
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  background: var(--fondo);
+}
+
+.revision-predio__visor iframe {
+  height: clamp(360px, 64vh, 640px);
+}
+
+.revision-predio__visor img {
+  max-height: 640px;
+  object-fit: contain;
+}
+
+.revision-predio__formulario fieldset {
+  min-width: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  border: 0;
+}
+
+.revision-predio__campos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 158px), 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+@container (min-width: 820px) {
+  .revision-predio__revision--pendiente {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+}
