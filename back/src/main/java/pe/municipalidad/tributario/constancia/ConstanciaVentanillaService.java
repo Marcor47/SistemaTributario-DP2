@@ -102,21 +102,49 @@ public class ConstanciaVentanillaService {
                 deuda);
     }
 
-    /* Crea la solicitud de ventanilla; si el contribuyente ya tiene una abierta, se retoma para continuarla. */
+    /*
+     * Solicitudes del contribuyente para retomar una abierta o revisar el resultado de una cerrada. Se listan ambos
+     * canales y todos los estados, de la más reciente a la más antigua (HU042).
+     */
+    public List<SolicitudVentanillaRespuesta> listarSolicitudes(String documentoContribuyente) {
+        Contribuyente contribuyente = resolverContribuyente(documentoContribuyente);
+        return solicitudConstanciaRepository
+                .findTop20ByDocumentoContribuyenteOrderByFechaSolicitudDesc(contribuyente.getNumeroDocumento())
+                .stream()
+                .map(solicitud -> respuesta(solicitud, contribuyente, ordenDe(solicitud), null))
+                .toList();
+    }
+
+    /*
+     * Presenta la solicitud en ventanilla. Si el contribuyente ya tiene una abierta, se retoma sin volver a evaluar
+     * la deuda; si es nueva, se evalúa en este momento (la presentación) y se congela el resultado (HU042). Con
+     * deuda, la solicitud queda RECHAZADA con su motivo y el detalle de lo pendiente.
+     */
     @Transactional
     public SolicitudVentanillaRespuesta crearSolicitud(String documentoContribuyente, String nombreTrabajador) {
         Usuario trabajador = obtenerTrabajador(nombreTrabajador);
         Contribuyente contribuyente = resolverContribuyente(documentoContribuyente);
         String documento = contribuyente.getNumeroDocumento();
-        SolicitudConstancia solicitud = solicitudConstanciaRepository
+        var abierta = solicitudConstanciaRepository
                 .findFirstByDocumentoContribuyenteAndCanalAndEstadoNotInOrderByFechaSolicitudDesc(
-                        documento, CanalSolicitud.VENTANILLA, ESTADOS_CERRADOS)
-                .orElseGet(() -> {
-                    LOG.info("Nueva solicitud de constancia en ventanilla para el contribuyente {}", documento);
-                    return solicitudConstanciaRepository.save(new SolicitudConstancia(CanalSolicitud.VENTANILLA,
-                            documento, trabajador, LocalDateTime.now(reloj).truncatedTo(ChronoUnit.SECONDS)));
-                });
-        return respuesta(solicitud, ordenDe(solicitud), null);
+                        documento, CanalSolicitud.VENTANILLA, ESTADOS_CERRADOS);
+        if (abierta.isPresent()) {
+            return respuesta(abierta.get(), contribuyente, ordenDe(abierta.get()), null);
+        }
+
+        LocalDateTime ahora = LocalDateTime.now(reloj).truncatedTo(ChronoUnit.SECONDS);
+        DeudaConstanciaRespuesta deuda = solicitudConstanciaService.consultarDeuda(contribuyente.getCodigoContribuyente());
+        SolicitudConstancia solicitud = new SolicitudConstancia(CanalSolicitud.VENTANILLA, documento, trabajador, ahora);
+        solicitud.registrarDeudaPresentacion(deuda.total(), ahora);
+        if (!deuda.puedeSolicitar()) {
+            LOG.warn("Solicitud de constancia de ventanilla rechazada al presentar por deuda: contribuyente {}",
+                    documento);
+            solicitud.rechazar(trabajador, "El contribuyente tiene deuda pendiente de S/ " + deuda.total() + ".",
+                    ahora);
+        } else {
+            LOG.info("Nueva solicitud de constancia en ventanilla para el contribuyente {}", documento);
+        }
+        return respuesta(solicitudConstanciaRepository.save(solicitud), contribuyente, null, deuda);
     }
 
     /* Documento de la solicitud que se muestra en el dispositivo de firma presencial (RF-021). */
@@ -158,19 +186,27 @@ public class ConstanciaVentanillaService {
     }
 
     /*
-     * Verificación de deuda en SAMNET (RF-034): con deuda 0 se emite la orden de pago del derecho de trámite; con
-     * deuda, la solicitud se rechaza y la respuesta lleva el detalle de lo pendiente.
+     * Fase 3: con la deuda ya congelada al presentar la solicitud, genera la orden de pago del derecho de trámite.
+     * Solo las solicitudes anteriores a esta regla (sin evaluación) se consultan una única vez en SAMNET y el
+     * resultado se guarda para no volver a verificarlo (HU042, RF-034, RF-036).
      */
     @Transactional
     public SolicitudVentanillaRespuesta verificarDeuda(Long idSolicitud, String nombreTrabajador) {
         Usuario trabajador = obtenerTrabajador(nombreTrabajador);
         SolicitudConstancia solicitud = bloquearVentanilla(idSolicitud);
-        DeudaConstanciaRespuesta deuda = solicitudConstanciaService.consultarDeuda(codigoDe(solicitud));
-        boolean continua = solicitud.verificarDeuda(trabajador, deuda.total(), LocalDateTime.now(reloj));
+        LocalDateTime ahora = LocalDateTime.now(reloj);
+        DeudaConstanciaRespuesta deuda;
+        if (solicitud.getDeudaPresentacion() == null) {
+            deuda = solicitudConstanciaService.consultarDeuda(codigoDe(solicitud));
+            solicitud.registrarDeudaPresentacion(deuda.total(), ahora);
+        } else {
+            deuda = new DeudaConstanciaRespuesta(solicitud.getDeudaPresentacion(), List.of());
+        }
+        boolean continua = solicitud.verificarDeuda(trabajador, deuda.total(), ahora);
         TransaccionPago ordenPago = null;
         if (continua) {
             ordenPago = transaccionPagoRepository.save(
-                    TransaccionPago.deDerechoTramite(solicitud, derechoTramite, LocalDateTime.now(reloj)));
+                    TransaccionPago.deDerechoTramite(solicitud, derechoTramite, ahora));
             solicitud.emitirOrdenPago(ordenPago);
         } else {
             LOG.warn("Solicitud de constancia {} de ventanilla rechazada por deuda pendiente", idSolicitud);
@@ -208,8 +244,9 @@ public class ConstanciaVentanillaService {
     }
 
     /*
-     * Emisión de la constancia tras el pago confirmado: se vuelve a exigir deuda 0, se asigna el correlativo,
-     * se genera el PDF con la firma municipal y se envía al buzón del contribuyente (RF-055, RF-037, RF-030).
+     * Emisión de la constancia tras el pago confirmado: se usa la deuda congelada al presentar la solicitud (no se
+     * vuelve a consultar SAMNET), se asigna el correlativo, se genera el PDF con la firma municipal y se envía al
+     * buzón del contribuyente (RF-055, RF-037, RF-030).
      */
     @Transactional
     public ConstanciaVentanillaRespuesta emitir(Long idSolicitud, EmitirConstanciaVentanillaSolicitud peticion,
@@ -221,15 +258,11 @@ public class ConstanciaVentanillaService {
                     "La solicitud está " + solicitud.getEstado()
                             + ": la constancia se emite tras el pago del trámite.");
         }
-        Contribuyente contribuyente = resolverContribuyente(solicitud.getDocumentoContribuyente());
-        DeudaConstanciaRespuesta deuda = solicitudConstanciaService.consultarDeuda(contribuyente.getCodigoContribuyente());
-        if (!deuda.puedeSolicitar()) {
-            LOG.warn("Intento de emisión de constancia en ventanilla denegado por deuda: contribuyente {}",
-                    contribuyente.getNumeroDocumento());
-            throw new ReglaNegocioException("DEUDA_PENDIENTE",
-                    "El contribuyente registra deuda pendiente de S/ " + deuda.total()
-                            + ". No se puede emitir la constancia de no adeudo; debe regularizar sus pagos.");
+        if (solicitud.getDeudaPresentacion() == null || solicitud.getDeudaPresentacion().signum() > 0) {
+            throw new ReglaNegocioException("DEUDA_NO_VERIFICADA",
+                    "No se registró una evaluación sin adeudo al presentar la solicitud N.° " + idSolicitud + ".");
         }
+        Contribuyente contribuyente = resolverContribuyente(solicitud.getDocumentoContribuyente());
 
         VersionPlantilla plantilla = versionPlantillaRepository
                 .findByPlantillaCodigoAndVigenteTrue(ConstanciaOperadorService.CODIGO_PLANTILLA)
@@ -241,7 +274,8 @@ public class ConstanciaVentanillaService {
         String rangoFechasTexto = determinarRangoFechasTexto(peticion);
         String numeroConstancia = constanciaRepository.siguienteNumero(ahora.toLocalDate());
 
-        byte[] pdf = generadorPdf.generar(numeroConstancia, contribuyente, ahora, prediosTexto, rangoFechasTexto,
+        byte[] pdf = generadorPdf.generar(numeroConstancia, contribuyente, ahora,
+                solicitud.getFechaSolicitud().toLocalDate(), prediosTexto, rangoFechasTexto,
                 trabajador.getNombreCompleto(), firmador.esSimulado());
         FirmadorGateway.DocumentoFirmado firmado = firmador.firmarComoMunicipalidad(pdf);
         if (!firmado.firma().valida()) {
@@ -315,9 +349,21 @@ public class ConstanciaVentanillaService {
 
     private SolicitudVentanillaRespuesta respuesta(SolicitudConstancia solicitud, TransaccionPago ordenPago,
             DeudaConstanciaRespuesta deuda) {
-        return SolicitudVentanillaRespuesta.desde(solicitud,
-                resolverContribuyente(solicitud.getDocumentoContribuyente()), ordenPago, deuda,
-                numeroDe(solicitud));
+        return respuesta(solicitud, resolverContribuyente(solicitud.getDocumentoContribuyente()), ordenPago,
+                deuda != null ? deuda : deudaPresentacion(solicitud));
+    }
+
+    private SolicitudVentanillaRespuesta respuesta(SolicitudConstancia solicitud, Contribuyente contribuyente,
+            TransaccionPago ordenPago, DeudaConstanciaRespuesta deuda) {
+        return SolicitudVentanillaRespuesta.desde(solicitud, contribuyente, ordenPago,
+                deuda != null ? deuda : deudaPresentacion(solicitud), numeroDe(solicitud));
+    }
+
+    /* La evaluación congelada al presentar se expone como deuda del trámite; el detalle solo se conoce al evaluarla. */
+    private static DeudaConstanciaRespuesta deudaPresentacion(SolicitudConstancia solicitud) {
+        return solicitud.getDeudaPresentacion() == null
+                ? null
+                : new DeudaConstanciaRespuesta(solicitud.getDeudaPresentacion(), List.of());
     }
 
     private TransaccionPago ordenDe(SolicitudConstancia solicitud) {

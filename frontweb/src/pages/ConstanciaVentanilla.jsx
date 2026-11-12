@@ -4,7 +4,8 @@ import { useSesionInterna } from '../context/sesionInterna.js'
 import {
   MAX_DOCUMENTO, MAX_PREDIOS_TEXTO, MAX_RANGO_FECHAS, MINIMO_SUGERENCIAS,
   buscarCoincidenciasVentanilla, confirmarPagoSolicitud, consultarContribuyente,
-  crearSolicitudVentanilla, emitirSolicitud, firmaDePrueba, listarConstancias, normalizarDocumento,
+  crearSolicitudVentanilla, emitirSolicitud, firmaDePrueba, listarConstancias,
+  listarSolicitudesContribuyente, normalizarDocumento,
   obtenerDocumentoFirmaSolicitud, registrarFirmaSolicitud, textoDocumento, urlConstanciaPdf,
   verificarDeudaSolicitud,
 } from '../services/constanciaVentanillaService.js'
@@ -25,7 +26,7 @@ const ETIQUETA_ESTADO = {
   RECHAZADA: 'Solicitud rechazada',
 }
 
-const PASOS = ['Solicitud', 'Firma', 'Deuda y orden', 'Pago', 'Constancia']
+const PASOS = ['Solicitud', 'Firma', 'Orden de pago', 'Pago', 'Constancia']
 
 const PASO_ACTUAL = {
   INICIADA: 1,
@@ -35,6 +36,8 @@ const PASO_ACTUAL = {
   PAGADA: 4,
   EMITIDA: PASOS.length,
 }
+
+const ESTADOS_CERRADOS = new Set(['EMITIDA', 'RECHAZADA'])
 
 function Campo({ etiqueta, valor }) {
   return (
@@ -85,8 +88,8 @@ function EstadoDeuda({ deuda }) {
   return (
     <>
       <div className="alert" role="alert">
-        <strong>Deuda pendiente: {moneda(deuda.total)}.</strong> No se puede emitir la constancia hasta que el
-        contribuyente regularice sus pagos.
+        <strong>Deuda pendiente: {moneda(deuda.total)}.</strong> La constancia de no adeudo requiere que el
+        contribuyente no registre deuda al presentar la solicitud.
       </div>
       {obligaciones.length > 0 && (
         <>
@@ -195,6 +198,9 @@ export default function ConstanciaVentanilla() {
   const [resultado, setResultado] = useState(null)
   const [historial, setHistorial] = useState([])
   const [filtroHistorial, setFiltroHistorial] = useState('')
+  const [solicitudes, setSolicitudes] = useState([])
+  const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false)
+  const [errorSolicitudes, setErrorSolicitudes] = useState('')
   const [error, setError] = useState('')
   const [errorHistorial, setErrorHistorial] = useState('')
   const [ocupado, setOcupado] = useState(null)
@@ -246,7 +252,29 @@ export default function ConstanciaVentanilla() {
   const contribuyente = consulta?.contribuyente
   const predios = consulta?.predios ?? []
   const estadoSolicitud = solicitud?.estado
-  const historialVentanilla = historial.filter((item) => item.canal === 'VENTANILLA')
+  const haySolicitudAbiertaVentanilla = solicitudes.some((item) => (
+    item.canal === 'VENTANILLA' && !ESTADOS_CERRADOS.has(item.estado)
+  ))
+  /* La fila del trámite en curso se pinta con el estado local, sin volver a pedir la lista en cada paso. */
+  const solicitudesVisibles = useMemo(() => {
+    if (!solicitud || resultado) return solicitudes
+    return solicitudes.map((item) => (
+      item.idSolicitud === solicitud.idSolicitud ? { ...item, ...solicitud } : item
+    ))
+  }, [solicitudes, solicitud, resultado])
+
+  async function refrescarSolicitudes(valor) {
+    setCargandoSolicitudes(true)
+    setErrorSolicitudes('')
+    try {
+      setSolicitudes(await listarSolicitudesContribuyente(valor))
+    } catch (err) {
+      setSolicitudes([])
+      setErrorSolicitudes(err.message || 'No se pudieron cargar las solicitudes del contribuyente.')
+    } finally {
+      setCargandoSolicitudes(false)
+    }
+  }
 
   async function refrescarHistorial(filtro = '') {
     setCargandoHistorial(true)
@@ -381,7 +409,10 @@ export default function ConstanciaVentanilla() {
       setConsulta(datos)
       omitirSugerencias.current = true
       setDocumento(datos.contribuyente.numeroDocumento)
-      await refrescarHistorial(datos.contribuyente.numeroDocumento)
+      await Promise.all([
+        refrescarHistorial(datos.contribuyente.numeroDocumento),
+        refrescarSolicitudes(datos.contribuyente.numeroDocumento),
+      ])
     } catch (err) {
       setConsulta(null)
       setError(err.message || 'No se pudo consultar al contribuyente.')
@@ -404,6 +435,7 @@ export default function ConstanciaVentanilla() {
       setPrediosSeleccionados([])
       setPrediosTexto('')
       setRangoFechas('')
+      await refrescarSolicitudes(contribuyente.numeroDocumento)
     })
   }
 
@@ -452,8 +484,34 @@ export default function ConstanciaVentanilla() {
         rangoFechas,
       })
       setResultado(emitida)
-      await refrescarHistorial(emitida.documentoContribuyente)
+      await Promise.all([
+        refrescarHistorial(emitida.documentoContribuyente),
+        refrescarSolicitudes(emitida.documentoContribuyente),
+      ])
     })
+  }
+
+  /* Cierra la vista del trámite sin tocar la solicitud: queda retomable desde la tabla. */
+  function cerrarTramite() {
+    const documentoActual = contribuyente?.numeroDocumento
+    setSolicitud(null)
+    setDocumentoFirma(null)
+    setPrediosSeleccionados([])
+    setPrediosTexto('')
+    setRangoFechas('')
+    setError('')
+    if (documentoActual) refrescarSolicitudes(documentoActual)
+  }
+
+  /* Retoma una solicitud abierta sin crear otra: el flujo sigue desde su estado real. */
+  function continuarSolicitud(item) {
+    setSolicitud(item)
+    setDocumentoFirma(null)
+    setPrediosSeleccionados([])
+    setPrediosTexto('')
+    setRangoFechas('')
+    setResultado(null)
+    setError('')
   }
 
   function nuevaConsulta() {
@@ -465,11 +523,15 @@ export default function ConstanciaVentanilla() {
     setPrediosTexto('')
     setRangoFechas('')
     setResultado(null)
+    setSolicitudes([])
+    setCargandoSolicitudes(false)
+    setErrorSolicitudes('')
     setError('')
     refrescarHistorial()
   }
 
-  const puedeEmitir = Boolean(consulta?.deuda?.puedeSolicitar) && estadoSolicitud === 'PAGADA'
+  /* La condición de no adeudo se congeló al presentar la solicitud; solo falta el pago del trámite. */
+  const puedeEmitir = estadoSolicitud === 'PAGADA'
 
   return (
     <div className="constancia-ventanilla" aria-busy={ocupado !== null}>
@@ -552,21 +614,122 @@ export default function ConstanciaVentanilla() {
             <Campo etiqueta="Código de contribuyente" valor={contribuyente.codigoContribuyente} />
           </div>
           <EstadoDeuda key={contribuyente.numeroDocumento} deuda={consulta.deuda} />
-          {!solicitud && !resultado && (
+          {!solicitud && !resultado && !haySolicitudAbiertaVentanilla && (
             <div className="cv-acciones">
               <button className="btn primary" type="button" onClick={crearSolicitud} disabled={ocupado !== null}>
                 {ocupado === 'solicitud' ? 'Emitiendo solicitud…' : 'Emitir solicitud'}
               </button>
               <p className="hint cv-nota">
-                La solicitud queda a nombre del contribuyente y se retoma si ya tiene una abierta en ventanilla.
+                La solicitud queda a nombre del contribuyente y la deuda se evalúa al presentarla. Si registra deuda
+                pendiente, quedará rechazada y se mostrará el detalle.
               </p>
             </div>
           )}
         </section>
       )}
 
+      {consulta && (
+        <section className="pcard" aria-label="Solicitudes del contribuyente">
+          <h2>Solicitudes del contribuyente</h2>
+          {cargandoSolicitudes ? (
+            <p className="hint" role="status">Cargando solicitudes…</p>
+          ) : errorSolicitudes ? (
+            <div className="alert" role="alert">{errorSolicitudes}</div>
+          ) : solicitudesVisibles.length === 0 ? (
+            <p className="hint">El contribuyente no tiene solicitudes de constancia registradas.</p>
+          ) : (
+            <div className="tabla-scroll" role="region" aria-label="Solicitudes del contribuyente" tabIndex={0}>
+              <table className="tabla">
+                <thead>
+                  <tr>
+                    <th scope="col">N.º</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Canal</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col">Paso</th>
+                    <th scope="col">Orden / constancia</th>
+                    <th scope="col">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solicitudesVisibles.map((item) => {
+                    const abierta = !ESTADOS_CERRADOS.has(item.estado)
+                    const enCurso = solicitud?.idSolicitud === item.idSolicitud
+                    return (
+                      <tr key={item.idSolicitud}>
+                        <th scope="row">N.º {item.idSolicitud}</th>
+                        <td>{fechaHora(item.fechaSolicitud)}</td>
+                        <td>{item.canal === 'VENTANILLA' ? 'Ventanilla' : 'App'}</td>
+                        <td>{ETIQUETA_ESTADO[item.estado] ?? item.estado}</td>
+                        <td>
+                          {PASO_ACTUAL[item.estado] == null
+                            ? '—'
+                            : `${Math.min(PASO_ACTUAL[item.estado] + 1, PASOS.length)}/${PASOS.length}`}
+                        </td>
+                        <td>
+                          {item.numeroConstancia ? (
+                            <span className="cv-constancia">
+                              {item.numeroConstancia}{' '}
+                              <a
+                                className="btn btn-compacto"
+                                href={urlConstanciaPdf(item.numeroConstancia)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Abrir PDF de la constancia ${item.numeroConstancia}`}
+                              >
+                                Ver PDF
+                              </a>
+                            </span>
+                          ) : item.ordenPago ? (
+                            `${moneda(item.ordenPago.monto)} · ${item.ordenPago.comprobante || 'Pendiente de pago'}`
+                          ) : '—'}
+                        </td>
+                        <td>
+                          {abierta && item.canal === 'VENTANILLA' ? (
+                            <button
+                              className="btn btn-compacto"
+                              type="button"
+                              onClick={() => continuarSolicitud(item)}
+                              disabled={ocupado !== null || enCurso}
+                            >
+                              {enCurso ? 'En curso' : 'Continuar'}
+                            </button>
+                          ) : abierta ? (
+                            <span className="hint">Se completa desde la app</span>
+                          ) : item.estado === 'RECHAZADA' ? (
+                            <span className="hint cv-motivo" title={item.motivoRechazo || ''}>
+                              {item.motivoRechazo || '—'}
+                            </span>
+                          ) : '—'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="hint cv-nota">
+            Se muestran las últimas solicitudes del contribuyente en ambos canales; una solicitud emitida incluye su
+            constancia.
+          </p>
+        </section>
+      )}
+
       {solicitud && !resultado && estadoSolicitud !== 'RECHAZADA' && (
         <section className="pcard" aria-label="Trámite de la constancia">
+          <div className="cv-cabecera">
+            <h2>Trámite de la constancia</h2>
+            <button
+              className="btn btn-compacto"
+              type="button"
+              onClick={cerrarTramite}
+              disabled={ocupado !== null}
+              title="Vuelve a la consulta del contribuyente; la solicitud queda retomable"
+            >
+              Cerrar trámite
+            </button>
+          </div>
           <Pasos estado={estadoSolicitud} />
           <div className="pfields">
             <Campo etiqueta="Solicitud" valor={`N.º ${solicitud.idSolicitud}`} />
@@ -617,14 +780,14 @@ export default function ConstanciaVentanilla() {
 
           {(estadoSolicitud === 'FIRMADA' || estadoSolicitud === 'DEUDA_VERIFICADA') && (
             <>
-              <h3>Verificación de deuda</h3>
+              <h3>Orden de pago</h3>
               <p className="hint">
-                Firma registrada. Se consulta la deuda en SAMNET; con deuda 0 se genera la orden de pago del derecho
-                de trámite.
+                La deuda se evaluó al presentar la solicitud ({fechaHora(solicitud.fechaSolicitud)}). Se genera la
+                orden de pago del derecho de trámite.
               </p>
               <div className="cv-acciones">
                 <button className="btn primary" type="button" onClick={verificarDeuda} disabled={ocupado !== null}>
-                  {ocupado === 'verificacion' ? 'Verificando…' : 'Verificar deuda y generar orden'}
+                  {ocupado === 'verificacion' ? 'Generando…' : 'Generar orden de pago'}
                 </button>
               </div>
             </>
@@ -634,6 +797,7 @@ export default function ConstanciaVentanilla() {
             <>
               <h3>Orden de pago</h3>
               <div className="pfields">
+                <Campo etiqueta="Deuda al presentar" valor={solicitud.deuda ? moneda(solicitud.deuda.total) : '—'} />
                 <Campo etiqueta="Derecho de trámite" valor={moneda(solicitud.ordenPago?.monto)} />
                 <Campo etiqueta="Estado de la orden" valor={solicitud.ordenPago?.estado ?? 'Pendiente de pago'} />
                 <Campo etiqueta="Comprobante" valor={solicitud.ordenPago?.comprobante} />
@@ -719,7 +883,7 @@ export default function ConstanciaVentanilla() {
                   className="btn primary"
                   type="submit"
                   disabled={ocupado !== null || !puedeEmitir}
-                  title={puedeEmitir ? undefined : 'Vuelve a consultar la deuda del contribuyente antes de emitir.'}
+                  title={puedeEmitir ? undefined : 'Confirma el pago del derecho de trámite antes de emitir.'}
                 >
                   {ocupado === 'emision' ? 'Emitiendo…' : 'Emitir constancia'}
                 </button>
@@ -787,14 +951,14 @@ export default function ConstanciaVentanilla() {
         </section>
       )}
 
-      <section className="pcard" aria-label="Constancias emitidas en ventanilla">
+      <section className="pcard" aria-label="Constancias emitidas">
         <h2>Constancias emitidas</h2>
         {cargandoHistorial ? (
           <p className="hint" role="status">Cargando constancias…</p>
         ) : errorHistorial ? (
           <div className="alert" role="alert">{errorHistorial}</div>
-        ) : historialVentanilla.length === 0 ? (
-          <p className="hint">No hay constancias emitidas en ventanilla para mostrar.</p>
+        ) : historial.length === 0 ? (
+          <p className="hint">No hay constancias emitidas para mostrar.</p>
         ) : (
           <div className="tabla-scroll" role="region" aria-label="Historial de constancias emitidas" tabIndex={0}>
             <table className="tabla">
@@ -804,17 +968,19 @@ export default function ConstanciaVentanilla() {
                   <th scope="col">Fecha</th>
                   <th scope="col">Contribuyente</th>
                   <th scope="col">Documento</th>
+                  <th scope="col">Canal</th>
                   <th scope="col">Emitida por</th>
                   <th scope="col">PDF</th>
                 </tr>
               </thead>
               <tbody>
-                {historialVentanilla.map((item) => (
+                {historial.map((item) => (
                   <tr key={item.numeroConstancia}>
                     <th scope="row">{item.numeroConstancia}</th>
                     <td>{fechaHora(item.fechaEmision)}</td>
                     <td>{item.nombreContribuyente || '—'}</td>
                     <td>{item.documentoContribuyente}</td>
+                    <td>{item.canal === 'VENTANILLA' ? 'Ventanilla' : 'App'}</td>
                     <td>{item.nombreTrabajadorEmisor || item.trabajadorEmisor || '—'}</td>
                     <td>
                       <a
@@ -835,8 +1001,8 @@ export default function ConstanciaVentanilla() {
         )}
         <p className="hint cv-nota">
           {filtroHistorial
-            ? `Constancias emitidas en ventanilla para el documento ${filtroHistorial}.`
-            : 'Se muestran las últimas constancias emitidas en ventanilla.'}
+            ? `Constancias emitidas para el documento ${filtroHistorial}.`
+            : 'Se muestran las últimas constancias emitidas en ambos canales.'}
         </p>
       </section>
     </div>

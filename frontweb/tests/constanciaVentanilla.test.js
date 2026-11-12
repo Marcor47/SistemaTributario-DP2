@@ -9,6 +9,7 @@ import {
   emitirSolicitud,
   firmaDePrueba,
   listarConstancias,
+  listarSolicitudesContribuyente,
   normalizarDocumento,
   registrarFirmaSolicitud,
   textoDocumento,
@@ -189,6 +190,28 @@ test('HU042: el historial filtra por documento solo cuando se indica', async (t)
   await listarConstancias()
   assert.ok(urls[0].endsWith('/ventanilla/constancias?documento=41028765'))
   assert.ok(urls[1].endsWith('/ventanilla/constancias'))
+})
+
+test('HU042: las solicitudes del contribuyente se piden por documento', async (t) => {
+  const urls = []
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    urls.push(String(url))
+    return json([])
+  })
+
+  const datos = await listarSolicitudesContribuyente(' 41.028.765 ')
+  assert.ok(urls[0].endsWith('/ventanilla/constancias/solicitudes?documento=41028765'))
+  assert.deepEqual(datos, [])
+})
+
+test('HU042: el listado de solicitudes exige un documento válido antes de llamar al servidor', async (t) => {
+  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => json([]))
+
+  await assert.rejects(
+    () => listarSolicitudesContribuyente('   '),
+    (err) => err.codigo === 'DOCUMENTO_REQUERIDO',
+  )
+  assert.equal(fetchSimulado.mock.callCount(), 0)
 })
 
 test('HU042: la descarga apunta al PDF binario de la constancia', () => {

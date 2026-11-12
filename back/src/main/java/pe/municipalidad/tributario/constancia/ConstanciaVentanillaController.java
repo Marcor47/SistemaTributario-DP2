@@ -45,6 +45,13 @@ public class ConstanciaVentanillaController {
         return constanciaVentanillaService.consultar(documento);
     }
 
+    /* Solicitudes del contribuyente (ambos canales y todos los estados) para retomar una abierta o revisar una cerrada. */
+    @GetMapping("/solicitudes")
+    public List<SolicitudVentanillaRespuesta> listarSolicitudes(
+            @RequestParam @NotBlank(message = "El documento o DNI es obligatorio") String documento) {
+        return constanciaVentanillaService.listarSolicitudes(documento);
+    }
+
     /* Crear la solicitud en canal Ventanilla; si el contribuyente ya tiene una abierta, se retoma. */
     @PostMapping("/solicitudes")
     @ResponseStatus(HttpStatus.CREATED)

@@ -1,13 +1,13 @@
 # HU042 — API de Emisión de Constancia de No Adeudo en Ventanilla
 
-Como trabajador de **Ventanilla**, emitir la Constancia de No Adeudo con el DNI del contribuyente, para atenderlo presencialmente (**HU042**, **RF-055**). El flujo se ejecuta por pasos, igual que en el portal (**HU020**): el trabajador crea la solicitud, el contribuyente firma en el dispositivo presencial, se verifica la deuda, se genera la orden de pago, se confirma el cobro presencial y se emite la constancia.
+Como trabajador de **Ventanilla**, emitir la Constancia de No Adeudo con el DNI del contribuyente, para atenderlo presencialmente (**HU042**, **RF-055**). El flujo se ejecuta por pasos: el trabajador presenta la solicitud (momento en que se evalúa la deuda), el contribuyente firma en el dispositivo presencial, se genera la orden de pago, se confirma el cobro presencial y se emite la constancia sin volver a evaluar la deuda.
 
 ---
 
 ## 1. Alcance y Requisitos del Negocio
 
 ### Criterios de Aceptación (HU042)
-1. **Flujo integrado del portal (RF-055, RF-034):** Dado el DNI de un contribuyente, cuando se genera la constancia desde ventanilla, se sigue el mismo flujo del portal: firma de la solicitud, consulta de deuda en el SP de estado de cuenta de SAMNET, cobro del derecho de trámite (S/ 10.00) y emisión. Si la deuda es mayor que 0, se entrega el detalle de la deuda y no se emite la constancia.
+1. **Flujo integrado del portal (RF-055, RF-034):** Dado el DNI de un contribuyente, cuando se genera la constancia desde ventanilla, se sigue el mismo flujo del portal: **evaluación de deuda al presentar la solicitud**, firma de la solicitud, generación de la orden de pago, cobro del derecho de trámite (S/ 10.00) y emisión. La condición es que el contribuyente **no registre deuda a la fecha de presentación**; si la tiene, la solicitud queda `RECHAZADA` con el detalle y no se emite la constancia. La emisión no vuelve a evaluar la deuda.
 2. **Registro del trabajador (RF-055, HU042):** Dado que se emite la constancia, cuando se registra, queda registrado qué trabajador de ventanilla la emitió (en la solicitud, en la constancia emitida y en el texto del documento).
 3. **Asignación correlativa automática (RF-055):** El sistema asigna automáticamente el número o ID oficial de la constancia (`CNA-AAAA-NNNNNN`), sin digitación ni copiado a mano.
 4. **Elección de predios y fechas (RF-055):** Para contribuyentes con muchos predios o trámites específicos, el trabajador puede indicar los predios comprendidos y el rango de fechas que cubre la constancia.
@@ -42,15 +42,15 @@ Cada paso exige el estado anterior (`SECUENCIA_INVALIDA` si no).
 | Contribuyente no existe en padrón / SAMNET | `404 Not Found` | `CONTRIBUYENTE_NO_ENCONTRADO` |
 | Paso fuera de secuencia | `422 Unprocessable Content` | `SECUENCIA_INVALIDA` |
 | Firma rechazada | `422 Unprocessable Content` | `FIRMA_INVALIDA` |
-| Contribuyente registra deuda pendiente (verificación) | `200 OK` con estado `RECHAZADA` y deuda | — |
-| Deuda pendiente al emitir | `422 Unprocessable Content` | `DEUDA_PENDIENTE` |
+| Contribuyente registra deuda al presentar la solicitud | `201 Created` con estado `RECHAZADA` y deuda | — |
+| Emisión sin evaluación de deuda al presentar | `422 Unprocessable Content` | `DEUDA_NO_VERIFICADA` |
 | Orden no pendiente / pago no confirmado | `422 Unprocessable Content` | `ORDEN_NO_PENDIENTE` / `PAGO_REQUERIDO` |
 | Plantilla de constancia no vigente | `422 Unprocessable Content` | `PLANTILLA_NO_DISPONIBLE` |
 
 Los errores siguen el formato estándar:
 ```json
 {
-  "codigo": "DEUDA_PENDIENTE",
+  "codigo": "DEUDA_NO_VERIFICADA",
   "mensaje": "El contribuyente registra deuda pendiente de S/ 150.50. No se puede emitir la constancia de no adeudo; debe regularizar sus pagos.",
   "detalles": []
 }
@@ -60,7 +60,7 @@ Los errores siguen el formato estándar:
 
 ## 3. Endpoints
 
-La API de ventanilla expone ocho operaciones bajo la ruta `/api/ventanilla/constancias`:
+La API de ventanilla expone once operaciones bajo la ruta `/api/ventanilla/constancias`:
 
 ```
 1. GET  /api/ventanilla/constancias/consulta?documento={documento}
@@ -73,6 +73,7 @@ La API de ventanilla expone ocho operaciones bajo la ruta `/api/ventanilla/const
 8. POST /api/ventanilla/constancias/{idSolicitud}/emitir
 9. GET  /api/ventanilla/constancias/{numeroConstancia}/descarga
 10. GET /api/ventanilla/constancias[?documento={documento}]
+11. GET /api/ventanilla/constancias/solicitudes?documento={documento}
 ```
 
 ---
@@ -115,13 +116,13 @@ Respuesta exitosa (`200 OK`):
 }
 ```
 
-*Nota para la pantalla:* si `deuda.puedeSolicitar` es `false`, `deuda.total` contiene el importe adeudado y `deuda.obligaciones` lista las cuotas adeudadas. La creación de la solicitud no se bloquea; la solicitud se rechaza en la verificación (endpoint 5).
+*Nota para la pantalla:* si `deuda.puedeSolicitar` es `false`, `deuda.total` contiene el importe adeudado y `deuda.obligaciones` lista las cuotas adeudadas. La condición se evalúa al presentar la solicitud (endpoint 2): si hay deuda, la solicitud se crea en estado `RECHAZADA` con el detalle y no avanza.
 
 ---
 
 ### Endpoint 2: Crear Solicitud
 
-Crea la solicitud en canal `VENTANILLA` con el trabajador autenticado. Si el contribuyente ya tiene una solicitud abierta en ventanilla, se retoma en lugar de duplicar.
+Presenta la solicitud en canal `VENTANILLA` con el trabajador autenticado. La deuda se evalúa **en este momento** (fecha de presentación) y el resultado se congela. Si el contribuyente ya tiene una solicitud abierta en ventanilla, se retoma sin volver a evaluar la deuda.
 
 ```http
 POST /api/ventanilla/constancias/solicitudes
@@ -145,10 +146,12 @@ Respuesta exitosa (`201 Created`):
   "motivoRechazo": null,
   "firmaContribuyente": null,
   "ordenPago": null,
-  "deuda": null,
+  "deuda": { "total": 0.00, "obligaciones": [], "puedeSolicitar": true },
   "numeroConstancia": null
 }
 ```
+
+Con deuda al presentar, la solicitud se crea igualmente (`201 Created`) pero en estado `RECHAZADA`, con `motivoRechazo` y `deuda` con el detalle de las obligaciones. Esa solicitud ya no avanza a firma ni genera orden de pago; la condición queda registrada con `deuda_presentacion` y `fecha_deuda_presentacion`.
 
 ---
 
@@ -198,9 +201,9 @@ Con firma rechazada: `422 FIRMA_INVALIDA`.
 
 ---
 
-### Endpoint 5: Verificar Deuda y Emitir Orden de Pago
+### Endpoint 5: Generar Orden de Pago
 
-Consulta la deuda en SAMNET. Con deuda 0 crea la orden de pago del derecho de trámite (S/ 10.00) y pasa a `ORDEN_PAGO_EMITIDA`; con deuda, la solicitud queda `RECHAZADA` y la respuesta lleva el detalle de lo pendiente.
+Genera la orden de pago del derecho de trámite (S/ 10.00) y pasa a `ORDEN_PAGO_EMITIDA` usando la deuda congelada al presentar la solicitud; **no vuelve a consultar SAMNET**. Solo las solicitudes anteriores a esta regla (sin evaluación congelada) hacen una única consulta de respaldo, cuyo resultado se guarda; si hay deuda, la solicitud queda `RECHAZADA` con el detalle.
 
 ```http
 POST /api/ventanilla/constancias/{idSolicitud}/verificacion
@@ -263,7 +266,7 @@ Respuesta exitosa (`200 OK`): la solicitud con `estado = "PAGADA"` y `ordenPago.
 
 ### Endpoint 8: Emitir la Constancia
 
-Con la solicitud `PAGADA`, vuelve a exigir deuda 0, genera el PDF con la plantilla vigente, lo firma como Municipalidad, asigna el correlativo, registra la constancia con el trabajador emisor y la deposita en el buzón.
+Con la solicitud `PAGADA`, usa la evaluación de deuda congelada al presentar (no vuelve a consultar SAMNET), genera el PDF con la plantilla vigente, lo firma como Municipalidad, asigna el correlativo, registra la constancia con el trabajador emisor y la deposita en el buzón. Si la solicitud no tiene evaluación congelada, responde `DEUDA_NO_VERIFICADA`.
 
 ```http
 POST /api/ventanilla/constancias/{idSolicitud}/emitir
@@ -320,6 +323,59 @@ GET /api/ventanilla/constancias[?documento={documento}]
 
 ---
 
+### Endpoint 11: Solicitudes del Contribuyente
+
+Lista las últimas 20 solicitudes de constancia del contribuyente para mostrarlas en ventanilla **junto con su constancia**. Incluye ambos canales (`VENTANILLA` y `APP`) y todos los estados: las abiertas permiten retomar el trámite sin crear otra solicitud y las cerradas (`EMITIDA`, `RECHAZADA`) muestran el número de constancia o el motivo del rechazo.
+
+```http
+GET /api/ventanilla/constancias/solicitudes?documento={documento}
+```
+
+| Parámetro | Tipo | Requerido | Descripción |
+| :--- | :--- | :--- | :--- |
+| `documento` | `String` | **Sí** | DNI, RUC o código del contribuyente. |
+
+Respuesta exitosa (`200 OK`): lista de objetos `SolicitudVentanillaRespuesta` (mismo contrato del endpoint 2), ordenada de la más reciente a la más antigua:
+
+```json
+[
+  {
+    "idSolicitud": 15,
+    "canal": "VENTANILLA",
+    "estado": "PAGADA",
+    "fechaSolicitud": "2026-10-19T10:30:00",
+    "documentoContribuyente": "41028765",
+    "tipoDocumento": "DNI",
+    "codigoContribuyente": "014502",
+    "nombreContribuyente": "GARCÍA TORRES, MARÍA ELENA",
+    "motivoRechazo": null,
+    "firmaContribuyente": { "entidadCertificadora": "…", "fechaFirma": "…", "hashDocumento": "…" },
+    "ordenPago": { "idTransaccion": 7, "monto": 10.00, "estado": "CONFIRMADA", "comprobante": "CONST-VENT-7" },
+    "deuda": { "total": 0.00, "obligaciones": [], "puedeSolicitar": true },
+    "numeroConstancia": null
+  },
+  {
+    "idSolicitud": 14,
+    "canal": "APP",
+    "estado": "EMITIDA",
+    "fechaSolicitud": "2026-10-18T09:15:00",
+    "documentoContribuyente": "41028765",
+    "tipoDocumento": "DNI",
+    "codigoContribuyente": "014502",
+    "nombreContribuyente": "GARCÍA TORRES, MARÍA ELENA",
+    "motivoRechazo": null,
+    "firmaContribuyente": null,
+    "ordenPago": null,
+    "deuda": null,
+    "numeroConstancia": "CNA-2026-000123"
+  }
+]
+```
+
+*Nota para la pantalla:* solo las solicitudes abiertas de canal `VENTANILLA` se pueden retomar desde esta vista; las de canal `APP` se completan desde la aplicación del contribuyente. En las solicitudes de ventanilla, `deuda` refleja la evaluación congelada al presentar (`total`; el detalle de obligaciones solo se incluye al evaluarla); en las de app o anteriores a la regla puede ser `null`.
+
+---
+
 ## 4. Datos de Prueba
 
 | Usuario Interno | Rol | Clave | Propósito |
@@ -329,7 +385,7 @@ GET /api/ventanilla/constancias[?documento={documento}]
 | Documento de Prueba | Tipo | Situación en SAMNET | Comportamiento esperado en HU042 |
 | :--- | :--- | :--- | :--- |
 | `41028765` (Código `014502`) | DNI | Deuda S/ 0.00 | **Emisión exitosa**: consulta con `puedeSolicitar: true`, firma simulada y flujo por pasos hasta `EMITIDA`. |
-| `20456781239` (Código `021390`) | RUC | Deuda pendiente | **Bloqueo por deuda**: la verificación rechaza la solicitud con el detalle de las obligaciones. |
+| `20456781239` (Código `021390`) | RUC | Deuda pendiente | **Rechazo al presentar**: la solicitud se crea en estado `RECHAZADA` con el detalle de las obligaciones y no avanza a firma. |
 | `00000000` | DNI | No registrado | Retorna `404 CONTRIBUYENTE_NO_ENCONTRADO`. |
 
 ---
@@ -337,7 +393,8 @@ GET /api/ventanilla/constancias[?documento={documento}]
 ## 5. Trazabilidad con Tablas de Base de Datos
 
 1. **`operativo.solicitud_constancia`:**
-   - Se crea con `canal = 'VENTANILLA'`, `estado = 'INICIADA'`, `documento_contribuyente` y `id_trabajador` apuntando al usuario de ventanilla autenticado; `id_operador` se registra en la verificación y en la emisión.
+   - Se crea con `canal = 'VENTANILLA'`, `documento_contribuyente` y `id_trabajador` apuntando al usuario de ventanilla autenticado; `id_operador` se registra en la generación de la orden y en la emisión.
+   - `deuda_presentacion` y `fecha_deuda_presentacion` congelan la evaluación hecha al presentar. Con deuda > 0, `estado = 'RECHAZADA'` y `motivo_rechazo` con el importe; con deuda 0, `estado = 'INICIADA'`.
 2. **`operativo.firma_digital`:**
    - Registra la firma del contribuyente capturada en el dispositivo presencial (`tipo_firmante = 'CONTRIBUYENTE'`) verificada contra el documento del servidor, y la firma municipal de la constancia.
 3. **`operativo.transaccion_pago`:**

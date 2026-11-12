@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -111,8 +112,15 @@ class ConstanciaVentanillaServiceTest {
 
     /* El estado previo se arma con las reglas del dominio, sin pasar por el servicio que se prueba. */
     private SolicitudConstancia solicitudEn(EstadoConstancia estado) {
+        return solicitudEn(estado, true);
+    }
+
+    private SolicitudConstancia solicitudEn(EstadoConstancia estado, boolean conDeudaPresentacion) {
         SolicitudConstancia solicitud = new SolicitudConstancia(CanalSolicitud.VENTANILLA, DNI_SIN_DEUDA, trabajador,
                 AHORA);
+        if (conDeudaPresentacion) {
+            solicitud.registrarDeudaPresentacion(BigDecimal.ZERO, AHORA);
+        }
         if (estado == EstadoConstancia.INICIADA) {
             return solicitud;
         }
@@ -189,6 +197,7 @@ class ConstanciaVentanillaServiceTest {
     void crearSolicitudQuedaEnCanalVentanillaConElTrabajadorQueAtiende() {
         trabajadorActivo();
         contribuyenteEnSamnet();
+        deudaCero();
         when(solicitudConstanciaRepository
                 .findFirstByDocumentoContribuyenteAndCanalAndEstadoNotInOrderByFechaSolicitudDesc(
                         eq(DNI_SIN_DEUDA), eq(CanalSolicitud.VENTANILLA), any()))
@@ -204,6 +213,30 @@ class ConstanciaVentanillaServiceTest {
         assertThat(respuesta.nombreContribuyente()).isEqualTo("GARCÍA TORRES, MARÍA ELENA");
         assertThat(respuesta.codigoContribuyente()).isEqualTo(CODIGO_SIN_DEUDA);
         assertThat(respuesta.ordenPago()).isNull();
+        assertThat(respuesta.deuda()).isNotNull();
+        assertThat(respuesta.deuda().total()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void crearSolicitudConDeudaQuedaRechazadaConElDetalle() {
+        trabajadorActivo();
+        contribuyenteEnSamnet();
+        when(solicitudConstanciaRepository
+                .findFirstByDocumentoContribuyenteAndCanalAndEstadoNotInOrderByFechaSolicitudDesc(
+                        eq(DNI_SIN_DEUDA), eq(CanalSolicitud.VENTANILLA), any()))
+                .thenReturn(Optional.empty());
+        when(solicitudConstanciaService.consultarDeuda(CODIGO_SIN_DEUDA))
+                .thenReturn(new DeudaConstanciaRespuesta(BigDecimal.valueOf(150.50), List.of()));
+        when(solicitudConstanciaRepository.save(any(SolicitudConstancia.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        SolicitudVentanillaRespuesta respuesta = servicio.crearSolicitud(DNI_SIN_DEUDA, USUARIO_VENTANILLA);
+
+        assertThat(respuesta.estado()).isEqualTo(EstadoConstancia.RECHAZADA);
+        assertThat(respuesta.motivoRechazo()).contains("deuda pendiente");
+        assertThat(respuesta.deuda().total()).isEqualByComparingTo(BigDecimal.valueOf(150.50));
+        assertThat(respuesta.ordenPago()).isNull();
+        verify(transaccionPagoRepository, never()).save(any());
     }
 
     @Test
@@ -220,6 +253,59 @@ class ConstanciaVentanillaServiceTest {
 
         assertThat(respuesta.estado()).isEqualTo(EstadoConstancia.FIRMADA);
         verify(solicitudConstanciaRepository, never()).save(any());
+        verify(solicitudConstanciaService, never()).consultarDeuda(any());
+    }
+
+    @Test
+    void listarSolicitudesDevuelveAmbosCanalesYTodosLosEstadosSinRepetirSamnet() {
+        contribuyenteEnSamnet();
+        SolicitudConstancia ventanilla = solicitudEn(EstadoConstancia.INICIADA);
+        SolicitudConstancia app = new SolicitudConstancia(CanalSolicitud.APP, DNI_SIN_DEUDA, null, AHORA);
+        app.registrarFirma(new FirmaDigital(TipoFirmante.CONTRIBUYENTE, "ENTIDAD DE PRUEBA", AHORA, true,
+                "c".repeat(64)));
+        when(solicitudConstanciaRepository.findTop20ByDocumentoContribuyenteOrderByFechaSolicitudDesc(DNI_SIN_DEUDA))
+                .thenReturn(List.of(app, ventanilla));
+        when(transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(any())).thenReturn(Optional.empty());
+        when(constanciaRepository.findBySolicitud_IdSolicitud(any())).thenReturn(Optional.empty());
+
+        List<SolicitudVentanillaRespuesta> respuesta = servicio.listarSolicitudes(DNI_SIN_DEUDA);
+
+        assertThat(respuesta).hasSize(2);
+        assertThat(respuesta).extracting(SolicitudVentanillaRespuesta::canal)
+                .containsExactly(CanalSolicitud.APP, CanalSolicitud.VENTANILLA);
+        assertThat(respuesta).extracting(SolicitudVentanillaRespuesta::estado)
+                .containsExactly(EstadoConstancia.FIRMADA, EstadoConstancia.INICIADA);
+        assertThat(respuesta.get(1).nombreContribuyente()).isEqualTo("GARCÍA TORRES, MARÍA ELENA");
+        verify(samnet, times(1)).buscarContribuyente(DNI_SIN_DEUDA);
+    }
+
+    @Test
+    void listarSolicitudesIncluyeLaConstanciaDeLaSolicitudEmitida() {
+        contribuyenteEnSamnet();
+        SolicitudConstancia emitida = solicitudEn(EstadoConstancia.PAGADA);
+        emitida.emitir(trabajador, new FirmaDigital(TipoFirmante.MUNICIPALIDAD, "MUNICIPALIDAD", AHORA, true,
+                "d".repeat(64)), AHORA);
+        when(solicitudConstanciaRepository.findTop20ByDocumentoContribuyenteOrderByFechaSolicitudDesc(DNI_SIN_DEUDA))
+                .thenReturn(List.of(emitida));
+        when(transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(any())).thenReturn(Optional.empty());
+        when(constanciaRepository.findBySolicitud_IdSolicitud(any()))
+                .thenReturn(Optional.of(new Constancia("CNA-2026-000001", emitida, null, AHORA, "Todos",
+                        "Hasta emisión", "CNA-2026-000001.pdf", true, trabajador, new byte[0])));
+
+        List<SolicitudVentanillaRespuesta> respuesta = servicio.listarSolicitudes(DNI_SIN_DEUDA);
+
+        assertThat(respuesta).hasSize(1);
+        assertThat(respuesta.get(0).estado()).isEqualTo(EstadoConstancia.EMITIDA);
+        assertThat(respuesta.get(0).numeroConstancia()).isEqualTo("CNA-2026-000001");
+    }
+
+    @Test
+    void listarSolicitudesSinRegistrosDevuelveListaVacia() {
+        contribuyenteEnSamnet();
+        when(solicitudConstanciaRepository.findTop20ByDocumentoContribuyenteOrderByFechaSolicitudDesc(DNI_SIN_DEUDA))
+                .thenReturn(List.of());
+
+        assertThat(servicio.listarSolicitudes(DNI_SIN_DEUDA)).isEmpty();
     }
 
     @Test
@@ -288,12 +374,11 @@ class ConstanciaVentanillaServiceTest {
     }
 
     @Test
-    void verificarDeudaConDeudaCeroEmiteLaOrdenDePago() {
+    void verificarDeudaConDeudaCeroEmiteLaOrdenDePagoSinConsultarSamnet() {
         trabajadorActivo();
         contribuyenteEnSamnet();
         SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.FIRMADA);
         when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
-        deudaCero();
         when(transaccionPagoRepository.save(any(TransaccionPago.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         when(solicitudConstanciaRepository.saveAndFlush(any(SolicitudConstancia.class)))
@@ -306,13 +391,14 @@ class ConstanciaVentanillaServiceTest {
         assertThat(respuesta.ordenPago().monto()).isEqualByComparingTo(BigDecimal.valueOf(10.00));
         assertThat(respuesta.ordenPago().estado()).isEqualTo(EstadoTransaccion.INICIADA);
         assertThat(respuesta.deuda().puedeSolicitar()).isTrue();
+        verify(solicitudConstanciaService, never()).consultarDeuda(any());
     }
 
     @Test
-    void verificarDeudaConDeudaPendienteRechazaLaSolicitudYEntregaElDetalle() {
+    void verificarSolicitudAntiguaSinEvaluacionHaceUnUnicoRespaldoYRechaza() {
         trabajadorActivo();
         contribuyenteEnSamnet();
-        SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.FIRMADA);
+        SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.FIRMADA, false);
         when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
         when(solicitudConstanciaService.consultarDeuda(CODIGO_SIN_DEUDA))
                 .thenReturn(new DeudaConstanciaRespuesta(BigDecimal.valueOf(150.50), List.of()));
@@ -325,6 +411,7 @@ class ConstanciaVentanillaServiceTest {
         assertThat(respuesta.motivoRechazo()).contains("deuda pendiente");
         assertThat(respuesta.ordenPago()).isNull();
         assertThat(respuesta.deuda().total()).isEqualByComparingTo(BigDecimal.valueOf(150.50));
+        assertThat(solicitud.getDeudaPresentacion()).isEqualByComparingTo(BigDecimal.valueOf(150.50));
     }
 
     @Test
@@ -354,7 +441,6 @@ class ConstanciaVentanillaServiceTest {
         SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.PAGADA);
         when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
         contribuyenteEnSamnet();
-        deudaCero();
 
         VersionPlantilla plantilla = org.mockito.Mockito.mock(VersionPlantilla.class);
         when(versionPlantillaRepository.findByPlantillaCodigoAndVigenteTrue("CONSTANCIA_NO_ADEUDO"))
@@ -364,7 +450,8 @@ class ConstanciaVentanillaServiceTest {
 
         byte[] pdfBytes = "PDF SIMULADO".getBytes();
         when(generadorPdf.generar(eq("CNA-2026-000001"), eq(contribuyenteSinDeuda), any(LocalDateTime.class),
-                eq("PRD-001, PRD-002"), eq("2024 - 2026"), eq("Ventanilla de Pruebas"), eq(true)))
+                eq(AHORA.toLocalDate()), eq("PRD-001, PRD-002"), eq("2024 - 2026"),
+                eq("Ventanilla de Pruebas"), eq(true)))
                 .thenReturn(pdfBytes);
 
         FirmadorGateway.ResultadoFirma resultadoFirma = new FirmadorGateway.ResultadoFirma(
@@ -395,6 +482,7 @@ class ConstanciaVentanillaServiceTest {
         assertThat(respuesta.montoDerechoTramite()).isEqualByComparingTo(BigDecimal.valueOf(10.00));
 
         verify(documentoBuzonRepository).save(any(DocumentoBuzon.class));
+        verify(solicitudConstanciaService, never()).consultarDeuda(any());
     }
 
     @Test
@@ -410,18 +498,16 @@ class ConstanciaVentanillaServiceTest {
     }
 
     @Test
-    void emitirConDeudaPendienteEsRechazadoYNoGeneraConstancia() {
+    void emitirSinEvaluacionDeDeudaAlPresentarEsRechazado() {
         trabajadorActivo();
-        SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.PAGADA);
+        SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.PAGADA, false);
         when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
-        contribuyenteEnSamnet();
-        when(solicitudConstanciaService.consultarDeuda(CODIGO_SIN_DEUDA))
-                .thenReturn(new DeudaConstanciaRespuesta(BigDecimal.valueOf(150.50), List.of()));
 
         assertThatThrownBy(() -> servicio.emitir(1L,
                 new EmitirConstanciaVentanillaSolicitud(null, null, null), USUARIO_VENTANILLA))
                 .isInstanceOf(ReglaNegocioException.class)
-                .hasMessageContaining("deuda pendiente");
+                .hasMessageContaining("evaluación sin adeudo");
+        verify(solicitudConstanciaService, never()).consultarDeuda(any());
     }
 
     @Test

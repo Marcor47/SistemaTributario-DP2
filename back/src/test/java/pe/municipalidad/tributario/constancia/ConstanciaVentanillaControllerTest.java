@@ -84,6 +84,25 @@ class ConstanciaVentanillaControllerTest {
     }
 
     @Test
+    void listarSolicitudesDelContribuyenteIncluyeAmbosCanalesYLaConstancia() throws Exception {
+        SolicitudVentanillaRespuesta emitida = new SolicitudVentanillaRespuesta(
+                14L, CanalSolicitud.APP, EstadoConstancia.EMITIDA, AHORA, DNI, "DNI", "014502",
+                "GARCÍA TORRES, MARÍA ELENA", null, null, null, null, "CNA-2026-000001");
+        when(constanciaVentanillaService.listarSolicitudes(DNI)).thenReturn(List.of(solicitud, emitida));
+
+        mockMvc.perform(get(RUTA_VENTANILLA + "/solicitudes").param("documento", DNI))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].idSolicitud", is(15)))
+                .andExpect(jsonPath("$[0].canal", is("VENTANILLA")))
+                .andExpect(jsonPath("$[1].canal", is("APP")))
+                .andExpect(jsonPath("$[1].estado", is("EMITIDA")))
+                .andExpect(jsonPath("$[1].numeroConstancia", is("CNA-2026-000001")));
+
+        verify(constanciaVentanillaService).listarSolicitudes(DNI);
+    }
+
+    @Test
     void crearSolicitudRetorna201ConLaSolicitudEnCanalVentanilla() throws Exception {
         when(constanciaVentanillaService.crearSolicitud(eq(DNI), eq(TRABAJADOR))).thenReturn(solicitud);
 
@@ -96,6 +115,26 @@ class ConstanciaVentanillaControllerTest {
                 .andExpect(jsonPath("$.canal", is("VENTANILLA")))
                 .andExpect(jsonPath("$.estado", is("INICIADA")))
                 .andExpect(jsonPath("$.nombreContribuyente", is("GARCÍA TORRES, MARÍA ELENA")));
+
+        verify(constanciaVentanillaService).crearSolicitud(eq(DNI), eq(TRABAJADOR));
+    }
+
+    @Test
+    void crearSolicitudConDeudaRetorna201ConLaSolicitudRechazada() throws Exception {
+        SolicitudVentanillaRespuesta rechazada = new SolicitudVentanillaRespuesta(
+                15L, CanalSolicitud.VENTANILLA, EstadoConstancia.RECHAZADA, AHORA, DNI, "DNI", "014502",
+                "GARCÍA TORRES, MARÍA ELENA", "El contribuyente tiene deuda pendiente de S/ 150.50.",
+                null, null, new DeudaConstanciaRespuesta(BigDecimal.valueOf(150.50), List.of()), null);
+        when(constanciaVentanillaService.crearSolicitud(eq(DNI), eq(TRABAJADOR))).thenReturn(rechazada);
+
+        mockMvc.perform(post(RUTA_VENTANILLA + "/solicitudes")
+                        .principal(trabajador)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"documentoContribuyente\": \"%s\"}".formatted(DNI)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.estado", is("RECHAZADA")))
+                .andExpect(jsonPath("$.motivoRechazo", is("El contribuyente tiene deuda pendiente de S/ 150.50.")))
+                .andExpect(jsonPath("$.deuda.total", is(150.5)));
 
         verify(constanciaVentanillaService).crearSolicitud(eq(DNI), eq(TRABAJADOR));
     }

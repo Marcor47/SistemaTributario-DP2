@@ -25,6 +25,10 @@
 .cv-paginacion { margin-top: 16px; }
 .cv-vacio { padding: 18px 0 0; }
 .cv-nota { margin-top: 12px; }
+.cv-cabecera { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.cv-cabecera h2 { margin: 0; }
+.cv-constancia { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.cv-motivo { display: inline-block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 600px) {
   .cv-acciones .btn { width: 100%; }
   .cv-filtros .fld { flex-basis: 100%; min-width: 0; }

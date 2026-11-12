@@ -51,6 +51,12 @@ async function cabecerasProtegidas() {
   return { [token.headerName]: token.token, 'Content-Type': 'application/json' }
 }
 
+/* Solicitudes del contribuyente (ambos canales y todos los estados) para retomar o revisar una cerrada. */
+export async function listarSolicitudesContribuyente(documento) {
+  const limpio = documentoValido(documento)
+  return pedir(`/ventanilla/constancias/solicitudes?documento=${encodeURIComponent(limpio)}`)
+}
+
 /* Crear la solicitud; si el contribuyente ya tiene una abierta, el backend la retoma. */
 export async function crearSolicitudVentanilla(documento) {
   const documentoContribuyente = documentoValido(documento)

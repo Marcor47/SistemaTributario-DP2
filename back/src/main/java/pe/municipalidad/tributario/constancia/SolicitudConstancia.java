@@ -53,6 +53,13 @@ public class SolicitudConstancia {
     @Column(name = "motivo_rechazo", length = 400)
     private String motivoRechazo;
 
+    /* HU042: deuda evaluada al presentar la solicitud en ventanilla; se congela para no re-verificar después. */
+    @Column(name = "deuda_presentacion", precision = 12, scale = 2)
+    private BigDecimal deudaPresentacion;
+
+    @Column(name = "fecha_deuda_presentacion")
+    private LocalDateTime fechaDeudaPresentacion;
+
     /* Trabajador de ventanilla, si el canal es VENTANILLA. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_trabajador")
@@ -96,6 +103,25 @@ public class SolicitudConstancia {
         firma.asignarA(this);
         firmas.add(firma);
         estado = EstadoConstancia.FIRMADA;
+    }
+
+    /*
+     * HU042: congela la evaluación de deuda hecha al presentar la solicitud. Es idempotente para no reescribir el
+     * resultado y solo aplica a solicitudes abiertas; las anteriores a esta regla quedan sin valor.
+     */
+    public void registrarDeudaPresentacion(BigDecimal deuda, LocalDateTime fecha) {
+        if (deuda == null || deuda.signum() < 0) {
+            throw new ReglaNegocioException("DEUDA_INVALIDA",
+                    "La deuda evaluada al presentar la solicitud no puede ser negativa.");
+        }
+        if (deudaPresentacion != null) {
+            return;
+        }
+        if (estado == EstadoConstancia.EMITIDA || estado == EstadoConstancia.RECHAZADA) {
+            throw new ReglaNegocioException("SOLICITUD_CERRADA", "La solicitud ya fue " + estado + ".");
+        }
+        this.deudaPresentacion = deuda;
+        this.fechaDeudaPresentacion = fecha;
     }
 
     /* El operador consulta la deuda en SAMNET; continúa solo si es 0, si no, rechaza la solicitud. */
@@ -189,6 +215,14 @@ public class SolicitudConstancia {
 
     public String getMotivoRechazo() {
         return motivoRechazo;
+    }
+
+    public BigDecimal getDeudaPresentacion() {
+        return deudaPresentacion;
+    }
+
+    public LocalDateTime getFechaDeudaPresentacion() {
+        return fechaDeudaPresentacion;
     }
 
     public Usuario getTrabajador() {
