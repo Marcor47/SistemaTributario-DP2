@@ -129,6 +129,15 @@ export const MODULOS = [
     icono: icono(<><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /></>),
   },
   {
+    ruta: '/configuracion/recordatorios',
+    texto: 'Recordatorios',
+    titulo: 'Recordatorios de vencimiento',
+    descripcion: 'Configura con cuántos días de anticipación se envía el recordatorio por correo antes del vencimiento de una obligación.',
+    seccion: 'gestion',
+    roles: ['ADMINISTRADOR'],
+    icono: icono(<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>),
+  },
+  {
     ruta: '/formularios',
     texto: 'Formularios',
     titulo: 'Formularios y plantillas',

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { listarObligacionesVencidas, obtenerEtapaCobranza } from '../services/cobranzaService.js'
+import { obtenerRecordatorioObligacion } from '../services/recordatorioService.js'
 import { fecha } from '../utils/formato.js'
 import { FILTROS_COBRANZA_INICIALES, filtrarObligaciones, opcionesDeCobranza } from '../utils/cobranza.js'
 import { TAMANIOS_PAGINA, paginar } from '../utils/paginacion.js'
@@ -27,6 +28,9 @@ export default function CobranzaPanel({ contribuyente }) {
   const [detalle, setDetalle] = useState(null)
   const [ocupadoDetalle, setOcupadoDetalle] = useState(false)
   const [errorDetalle, setErrorDetalle] = useState('')
+  const [recordatorio, setRecordatorio] = useState(null)
+  const [ocupadoRecordatorio, setOcupadoRecordatorio] = useState(false)
+  const [errorRecordatorio, setErrorRecordatorio] = useState('')
   const [filtros, setFiltros] = useState(FILTROS_COBRANZA_INICIALES)
   const [porPagina, setPorPagina] = useState(TAMANIOS_PAGINA[0])
   const [pagina, setPagina] = useState(1)
@@ -58,12 +62,16 @@ export default function CobranzaPanel({ contribuyente }) {
 
   async function cargarListado() {
     const actual = ++solicitudListado.current
+    solicitudDetalle.current++
     setOcupado(true)
     setError('')
     setObligaciones(null)
     setSeleccionada(null)
     setDetalle(null)
     setErrorDetalle('')
+    setRecordatorio(null)
+    setErrorRecordatorio('')
+    setOcupadoRecordatorio(false)
     setFiltros(FILTROS_COBRANZA_INICIALES)
     setPagina(1)
     try {
@@ -78,12 +86,33 @@ export default function CobranzaPanel({ contribuyente }) {
     }
   }
 
+  async function cargarRecordatorio(obligacion, actual) {
+    setRecordatorio(null)
+    setErrorRecordatorio('')
+    setOcupadoRecordatorio(true)
+    try {
+      const resultado = await obtenerRecordatorioObligacion({
+        id: obligacion.id,
+        fechaVencimiento: obligacion.fechaVencimiento,
+        contribuyenteCodigo: contribuyente.codigo,
+      })
+      if (actual === solicitudDetalle.current) setRecordatorio(resultado)
+    } catch (err) {
+      if (actual === solicitudDetalle.current) {
+        setErrorRecordatorio(err.message || 'No se pudo consultar el recordatorio de vencimiento. Intenta nuevamente.')
+      }
+    } finally {
+      if (actual === solicitudDetalle.current) setOcupadoRecordatorio(false)
+    }
+  }
+
   async function verEtapa(obligacion) {
     const actual = ++solicitudDetalle.current
     setSeleccionada(obligacion)
     setDetalle(null)
     setErrorDetalle('')
     setOcupadoDetalle(true)
+    cargarRecordatorio(obligacion, actual)
     try {
       const resultado = await obtenerEtapaCobranza(obligacion.id)
       if (actual === solicitudDetalle.current) setDetalle(resultado)
@@ -96,12 +125,20 @@ export default function CobranzaPanel({ contribuyente }) {
     }
   }
 
+  function reintentarRecordatorio() {
+    if (!seleccionada) return
+    cargarRecordatorio(seleccionada, solicitudDetalle.current)
+  }
+
   function volverAlListado() {
     solicitudDetalle.current++
     setSeleccionada(null)
     setDetalle(null)
     setErrorDetalle('')
     setOcupadoDetalle(false)
+    setRecordatorio(null)
+    setErrorRecordatorio('')
+    setOcupadoRecordatorio(false)
   }
 
   function cambiarFiltro(evento) {
@@ -130,7 +167,15 @@ export default function CobranzaPanel({ contribuyente }) {
         <button className="btn volver" type="button" onClick={volverAlListado}>← Volver a obligaciones</button>
         {ocupadoDetalle && <p className="hint mensaje-carga" role="status">Consultando etapa de cobranza…</p>}
         {errorDetalle && <div className="alert" role="alert">{errorDetalle}</div>}
-        {!ocupadoDetalle && !errorDetalle && detalle && <DetalleCobranza detalle={detalle} />}
+        {!ocupadoDetalle && !errorDetalle && detalle && (
+          <DetalleCobranza
+            detalle={detalle}
+            recordatorio={recordatorio}
+            ocupadoRecordatorio={ocupadoRecordatorio}
+            errorRecordatorio={errorRecordatorio}
+            onReintentarRecordatorio={reintentarRecordatorio}
+          />
+        )}
       </>
     )
   }

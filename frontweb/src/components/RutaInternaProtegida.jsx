@@ -1,8 +1,9 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { rutaInicialGestion } from '../utils/modulos.jsx'
+import { tieneRolInterno } from '../utils/roles.js'
 
-export default function RutaInternaProtegida({ children, permiso, permitirCambioClave = false }) {
+export default function RutaInternaProtegida({ children, permiso, roles, permitirCambioClave = false }) {
   const { sesion, cargando } = useSesionInterna()
   const ubicacion = useLocation()
   if (cargando) return <main className="pmain"><p className="mensaje-carga" role="status">Comprobando sesión…</p></main>
@@ -10,5 +11,6 @@ export default function RutaInternaProtegida({ children, permiso, permitirCambio
   if (sesion.cambioClavePendiente && !permitirCambioClave) return <Navigate to="/gestion/cambiar-clave" replace />
   if (!sesion.cambioClavePendiente && permitirCambioClave) return <Navigate to={rutaInicialGestion(sesion)} replace />
   if (permiso && !sesion.permisos.includes(permiso)) return <Navigate to="/gestion/sin-acceso" replace />
+  if (roles?.length > 0 && !tieneRolInterno(sesion, roles)) return <Navigate to="/gestion/sin-acceso" replace />
   return children
 }

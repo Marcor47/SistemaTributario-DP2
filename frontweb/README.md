@@ -132,6 +132,35 @@ firmador real queda pendiente.
 El frontend usa `VITE_API_URL` o `http://localhost:8080/api` por defecto. Para entrar con la base
 PostgreSQL se necesita una credencial de contribuyente en `samnet.credencial_web`.
 
+## Recordatorio de vencimiento (HU016)
+
+El backend de HU016 todavía no está implementado, así que esta historia funciona con **mocks
+persistidos en el navegador**. La configuración vive en
+`/configuracion/recordatorios` (menú **Recordatorios**, exclusivo del rol **Administrador**).
+Permite elegir entre 1 y 10 días de anticipación, con 5 como valor por defecto, y restablecer
+los datos simulados. Mientras no exista el backend, el acceso se controla por rol en el
+frontend; cuando se implemente HU016 conviene sustituirlo por un permiso específico
+(`RECORDATORIOS:CONFIGURAR`).
+
+En `/contribuyentes`, pestaña **Cobranza**, al pulsar **Ver etapa** se muestra además el bloque
+**Recordatorio de vencimiento** de la obligación: estado, fecha de envío o programación,
+anticipación y correo destino. Los estados posibles son `Enviado`, `Programado`, `Fallido`,
+`Sin correo registrado` y `No enviado`.
+
+El mock se guarda en `localStorage` con la clave `hu016.recordatorios.v1`. Los avisos ya
+generados conservan la anticipación con la que se crearon; cambiar N solo afecta a los nuevos.
+El botón **Restablecer datos simulados** de la pantalla de configuración borra esa clave y vuelve
+a los valores iniciales.
+
+Para la demostración inicia sesión en `/gestion/login` con `admin` / `admin123` (rol
+Administrador). Gerencia de Rentas ya no tiene acceso a esta configuración y, si intenta abrir
+la ruta directamente, se le redirige a **Sin acceso**. Prueba con los contribuyentes `021390` o
+`045067`. Cuando se implemente el backend, se reemplazan las funciones de
+`frontweb/src/services/recordatorioService.js` por las llamadas a:
+
+- `GET/PUT /api/configuracion/recordatorios`
+- `GET /api/obligaciones/{id}/recordatorio-vencimiento`
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

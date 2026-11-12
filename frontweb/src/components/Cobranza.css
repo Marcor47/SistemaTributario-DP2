@@ -32,6 +32,14 @@
 
 .detalle-cobranza__deuda { margin: 12px 0 4px; }
 
+.detalle-cobranza__recordatorio {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0 4px;
+}
+
 .pestanas-cobranza {
   display: flex;
   flex-wrap: wrap;
