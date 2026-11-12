@@ -1,0 +1,31 @@
+.buzon { position: relative; }
+.buzon__boton, .buzon__cerrar { display: grid; place-items: center; min-width: 44px; min-height: 44px; border: 1px solid var(--borde-fuerte); border-radius: 10px; background: var(--superficie); color: var(--marino-osc); cursor: pointer; }
+.buzon__boton { position: relative; }
+.buzon__boton svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.buzon__boton:hover, .buzon__cerrar:hover { border-color: var(--marino); background: var(--azul-suave); }
+.buzon__boton:focus-visible, .buzon__cerrar:focus-visible, .buzon__mensaje button:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.buzon__contador { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; min-width: 21px; height: 21px; padding: 0 5px; border: 2px solid var(--superficie); border-radius: 999px; background: var(--critico); color: #fff; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.buzon__panel { position: absolute; top: calc(100% + 10px); right: 0; z-index: 30; width: min(420px, calc(100vw - 24px)); max-height: min(620px, calc(100vh - 76px)); overflow: hidden; border: 1px solid var(--borde); border-radius: 14px; background: var(--superficie); box-shadow: 0 18px 45px rgba(11, 55, 103, .22); }
+.buzon__cabecera { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--borde); }
+.buzon__cabecera h2, .buzon__cabecera p { margin: 0; }
+.buzon__cabecera h2 { color: var(--marino-osc); font-size: 20px; }
+.buzon__cabecera p { margin-top: 2px; color: var(--texto-atenuado); font-size: 13px; }
+.buzon__cerrar { border-color: transparent; font-size: 25px; line-height: 1; }
+.buzon__lista { max-height: min(530px, calc(100vh - 150px)); margin: 0; padding: 8px; overflow-y: auto; list-style: none; }
+.buzon__mensaje { padding: 14px; border-bottom: 1px solid var(--borde); }
+.buzon__mensaje:last-child { border-bottom: 0; }
+.buzon__mensaje--nuevo { border-radius: 10px; background: var(--azul-suave); }
+.buzon__mensaje-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; color: var(--marino-osc); }
+.buzon__mensaje-cab span { flex: none; padding: 2px 8px; border-radius: 999px; background: var(--cian); color: var(--marino-osc); font-size: 11px; font-weight: 800; }
+.buzon__mensaje p { margin: 7px 0; color: var(--texto-secundario); line-height: 1.45; }
+.buzon__mensaje time { display: block; color: var(--texto-atenuado); font-size: 12px; }
+.buzon__acciones { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.buzon__mensaje button { min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--marino); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.buzon__ver-todo { display: flex; align-items: center; justify-content: center; min-height: 48px; border-top: 1px solid var(--borde); color: var(--marino); font-weight: 800; text-decoration: none; }
+.buzon__ver-todo:hover { background: var(--azul-suave); }
+.buzon__estado, .buzon__error { margin: 0; padding: 24px 18px; }
+.buzon__error { color: var(--critico); }
+
+@media (max-width: 600px) {
+  .buzon__panel { position: fixed; top: 62px; right: 12px; left: 12px; width: auto; }
+}

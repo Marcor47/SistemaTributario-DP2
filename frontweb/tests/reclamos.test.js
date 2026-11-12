@@ -54,7 +54,7 @@ test('HU050: respeta los máximos de comentario (2000) y referencia (150)', () =
 test('HU050: los cuatro estados del reclamo tienen etiqueta legible', () => {
   assert.equal(estadoReclamo('ENVIADO').etiqueta, 'Enviado')
   assert.equal(estadoReclamo('EN_REVISION').etiqueta, 'En revisión')
-  assert.equal(estadoReclamo('APROBADO_CON_RESPUESTA').etiqueta, 'Aprobado con respuesta')
+  assert.equal(estadoReclamo('APROBADO_CON_RESPUESTA').etiqueta, 'Atendido')
   assert.equal(estadoReclamo('CANCELADO').etiqueta, 'Cancelado')
 })
 

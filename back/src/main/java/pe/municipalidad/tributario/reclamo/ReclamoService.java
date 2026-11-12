@@ -65,7 +65,7 @@ public class ReclamoService {
                         solicitud.fechaHoraIncidente(), comentario, ahora)
                 : Reclamo.deTrabajador(numero, identidad.trabajador(), solicitud.tipoReclamo(), referencia,
                         solicitud.fechaHoraIncidente(), comentario, ahora);
-        return ReclamoRespuesta.desde(reclamos.save(reclamo));
+        return ReclamoRespuesta.desdeParaReclamante(reclamos.save(reclamo));
     }
 
     @Transactional(readOnly = true)
@@ -74,7 +74,7 @@ public class ReclamoService {
         List<Reclamo> propios = identidad.trabajador() == null
                 ? reclamos.buscarDelContribuyente(identidad.documento())
                 : reclamos.buscarDelTrabajador(identidad.trabajador());
-        return propios.stream().map(ReclamoRespuesta::desde).toList();
+        return propios.stream().map(ReclamoRespuesta::desdeParaReclamante).toList();
     }
 
     @Transactional
@@ -88,7 +88,7 @@ public class ReclamoService {
         LocalDateTime ahora = LocalDateTime.now(reloj);
         auditorias.save(new RegistroAuditoria(identidad.trabajador(), "CANCELAR_RECLAMO", "Reclamo",
                 "Abierto", reclamo.getNumeroReclamo(), ahora));
-        return ReclamoRespuesta.desde(reclamo);
+        return ReclamoRespuesta.desdeParaReclamante(reclamo);
     }
 
     @Transactional(readOnly = true)
@@ -123,9 +123,13 @@ public class ReclamoService {
                     "El usuario seleccionado no puede atender reclamos.");
         }
         LocalDateTime ahora = LocalDateTime.now(reloj);
+        boolean primeraAsignacion = reclamo.getDerivaciones().isEmpty();
         DerivacionReclamo derivacion = reclamo.derivar(area, responsable, gestor,
                 normalizarOpcional(solicitud.observacion()), ahora);
         derivaciones.save(derivacion);
+        if (primeraAsignacion && reclamo.getTipoReclamante() == TipoReclamante.CONTRIBUYENTE) {
+            documentosBuzon.save(DocumentoBuzon.asignacionDeReclamo(reclamo, area.getNombre(), ahora));
+        }
         auditorias.save(new RegistroAuditoria(gestor, responsable, "DERIVAR_RECLAMO", "Reclamo",
                 reclamo.getNumeroReclamo(), area.getNombre(), ahora));
         return ReclamoGestionRespuesta.desde(reclamo);

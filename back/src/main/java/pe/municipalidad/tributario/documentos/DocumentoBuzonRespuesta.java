@@ -14,6 +14,9 @@ public record DocumentoBuzonRespuesta(
         LocalDateTime fechaEnvio,
         LocalDateTime fechaPrimeraLectura,
         boolean leido,
+        boolean destacado,
+        boolean archivado,
+        LocalDateTime fechaArchivado,
         String contenido,
         String urlDescarga) {
 
@@ -25,13 +28,17 @@ public record DocumentoBuzonRespuesta(
                 documento.getArchivo(),
                 documento.getFechaEnvio(),
                 documento.getFechaPrimeraLectura(),
-                documento.getFechaPrimeraLectura() != null,
+                documento.isLeidoActualmente(),
+                documento.isDestacado(),
+                documento.isArchivado(),
+                documento.getFechaArchivado(),
                 contenido(documento),
                 documento.getConstancia() != null && documento.getConstancia().getContenidoPdf() != null
                         ? "/buzon/" + documento.getIdDocumento() + "/descarga" : null);
     }
 
     private static String contenido(DocumentoBuzon documento) {
+        if (documento.getContenido() != null) return documento.getContenido();
         if (documento.getReclamo() != null) return documento.getReclamo().getRespuesta();
         if (documento.getSolicitudPredio() != null) {
             var solicitud = documento.getSolicitudPredio();

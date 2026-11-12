@@ -2,7 +2,10 @@ package pe.municipalidad.tributario.documentos;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.auth.SesionContribuyente;
 import pe.municipalidad.tributario.soporte.PruebaIntegracion;
@@ -109,6 +113,67 @@ class BuzonControllerTest {
         mockMvc.perform(get(RUTA + "/" + documento.getIdDocumento()).session(sesion(CONTRIBUYENTE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fechaPrimeraLectura").value("2026-10-17T08:15:00"));
+    }
+
+    @Test
+    void permiteVolverAMarcarUnMensajeComoNoLeido() throws Exception {
+        DocumentoBuzon documento = guardar(DOCUMENTO_CONTRIBUYENTE, "Estado de cuenta 2026-10", ENVIO_RECIENTE);
+        documento.marcarLeido(LocalDateTime.of(2026, 10, 17, 8, 15));
+        buzon.saveAndFlush(documento);
+
+        mockMvc.perform(post(RUTA + "/" + documento.getIdDocumento() + "/no-leido")
+                        .session(sesion(CONTRIBUYENTE)).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.leido").value(false))
+                .andExpect(jsonPath("$.fechaPrimeraLectura").value("2026-10-17T08:15:00"));
+
+        mockMvc.perform(get(RUTA).session(sesion(CONTRIBUYENTE)))
+                .andExpect(jsonPath("$.sinLeer").value(1));
+    }
+
+    @Test
+    void destacaArchivaYRestauraSinEliminarElDocumento() throws Exception {
+        DocumentoBuzon documento = guardar(DOCUMENTO_CONTRIBUYENTE, "Estado de cuenta 2026-10", ENVIO_RECIENTE);
+
+        mockMvc.perform(patch(RUTA + "/" + documento.getIdDocumento() + "/destacado")
+                        .session(sesion(CONTRIBUYENTE)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valor\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.destacado").value(true));
+        mockMvc.perform(get(RUTA + "?vista=DESTACADOS").session(sesion(CONTRIBUYENTE)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1));
+
+        mockMvc.perform(patch(RUTA + "/" + documento.getIdDocumento() + "/archivado")
+                        .session(sesion(CONTRIBUYENTE)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valor\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.archivado").value(true))
+                .andExpect(jsonPath("$.fechaArchivado").value("2026-10-19T12:00:00"));
+        mockMvc.perform(get(RUTA).session(sesion(CONTRIBUYENTE)))
+                .andExpect(jsonPath("$.total").value(0));
+        mockMvc.perform(get(RUTA + "?vista=ARCHIVADOS").session(sesion(CONTRIBUYENTE)))
+                .andExpect(jsonPath("$.total").value(1));
+
+        mockMvc.perform(patch(RUTA + "/" + documento.getIdDocumento() + "/archivado")
+                        .session(sesion(CONTRIBUYENTE)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"valor\":false}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.archivado").value(false))
+                .andExpect(jsonPath("$.fechaArchivado").value(nullValue()));
+        assertThat(buzon.findById(documento.getIdDocumento())).isPresent();
+    }
+
+    @Test
+    void buscaFiltraPaginaYSoloCuentaNoLeidosDeRecibidos() throws Exception {
+        DocumentoBuzon reciente = guardar(DOCUMENTO_CONTRIBUYENTE, "Estado de cuenta octubre", ENVIO_RECIENTE);
+        DocumentoBuzon antiguo = guardar(DOCUMENTO_CONTRIBUYENTE, "Estado de cuenta septiembre", ENVIO_ANTIGUO);
+        antiguo.marcarLeido(LocalDateTime.of(2026, 10, 11, 8, 0));
+        buzon.saveAndFlush(antiguo);
+        guardar(DOCUMENTO_OTRO_CONTRIBUYENTE, "Estado de cuenta octubre ajeno", ENVIO_RECIENTE);
+
+        mockMvc.perform(get(RUTA + "?busqueda=octubre&leido=false&pagina=0&tamanio=1")
+                        .session(sesion(CONTRIBUYENTE)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(1))
+                .andExpect(jsonPath("$.sinLeer").value(1))
+                .andExpect(jsonPath("$.documentos[0].idDocumento").value(reciente.getIdDocumento()))
+                .andExpect(jsonPath("$.pagina").value(0)).andExpect(jsonPath("$.tamanio").value(1));
     }
 
     @Test

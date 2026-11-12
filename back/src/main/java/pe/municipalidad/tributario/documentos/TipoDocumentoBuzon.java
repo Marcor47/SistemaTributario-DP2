@@ -4,5 +4,6 @@ public enum TipoDocumentoBuzon {
     CONSTANCIA,
     ESTADO_CUENTA,
     RESPUESTA_SOLICITUD,
+    ASIGNACION_RECLAMO,
     RESPUESTA_RECLAMO
 }

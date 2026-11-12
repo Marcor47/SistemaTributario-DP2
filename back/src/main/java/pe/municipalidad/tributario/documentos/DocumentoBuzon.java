@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
@@ -51,6 +52,21 @@ public class DocumentoBuzon {
     @Column(name = "fecha_primera_lectura")
     private LocalDateTime fechaPrimeraLectura;
 
+    @Column(name = "leido_actualmente", nullable = false)
+    private boolean leidoActualmente;
+
+    @Column(name = "destacado", nullable = false)
+    private boolean destacado;
+
+    @Column(name = "archivado", nullable = false)
+    private boolean archivado;
+
+    @Column(name = "fecha_archivado")
+    private LocalDateTime fechaArchivado;
+
+    @Column(name = "contenido", columnDefinition = "text")
+    private String contenido;
+
     /* Constancia 1 se deposita 0..1 DocumentoBuzon */
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "numero_constancia", unique = true)
@@ -61,9 +77,9 @@ public class DocumentoBuzon {
     @JoinColumn(name = "id_solicitud_predio", unique = true)
     private SolicitudPredio solicitudPredio;
 
-    /* Reclamo 1 respuesta 0..1 DocumentoBuzon (RF-064) */
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_reclamo", unique = true)
+    /* Un reclamo puede generar el aviso de primera asignación y su respuesta final. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_reclamo")
     private Reclamo reclamo;
 
     protected DocumentoBuzon() {
@@ -92,6 +108,10 @@ public class DocumentoBuzon {
         DocumentoBuzon documento = new DocumentoBuzon(solicitud.getDocumentoContribuyente(),
                 TipoDocumentoBuzon.RESPUESTA_SOLICITUD, titulo, archivo, fechaEnvio);
         documento.solicitudPredio = solicitud;
+        documento.contenido = "Solicitud #" + solicitud.getIdSolicitud() + " · " + solicitud.getTipoTramite()
+                + " · " + solicitud.getEstado()
+                + (solicitud.getCodigoPredio() == null ? "" : "\nPredio: " + solicitud.getCodigoPredio())
+                + (solicitud.getMotivoRechazo() == null ? "" : "\nMotivo: " + solicitud.getMotivoRechazo());
         return documento;
     }
 
@@ -104,6 +124,20 @@ public class DocumentoBuzon {
                 TipoDocumentoBuzon.RESPUESTA_RECLAMO, "Respuesta al reclamo " + reclamo.getNumeroReclamo(), archivo,
                 fechaEnvio);
         documento.reclamo = reclamo;
+        documento.contenido = reclamo.getRespuesta();
+        return documento;
+    }
+
+    public static DocumentoBuzon asignacionDeReclamo(Reclamo reclamo, String area, LocalDateTime fechaEnvio) {
+        if (reclamo.getTipoReclamante() != TipoReclamante.CONTRIBUYENTE) {
+            throw new ReglaNegocioException("RECLAMO_INTERNO", "La asignación de un reclamo interno no va al buzón.");
+        }
+        DocumentoBuzon documento = new DocumentoBuzon(reclamo.getDocumentoContribuyente(),
+                TipoDocumentoBuzon.ASIGNACION_RECLAMO, "Reclamo " + reclamo.getNumeroReclamo() + " en revisión",
+                null, fechaEnvio);
+        documento.reclamo = reclamo;
+        documento.contenido = "Tu reclamo fue asignado al área " + area
+                + ". Desde este momento se encuentra en revisión.";
         return documento;
     }
 
@@ -118,6 +152,7 @@ public class DocumentoBuzon {
         if (fechaPrimeraLectura == null) {
             fechaPrimeraLectura = ahora;
         }
+        leidoActualmente = true;
     }
 
     public Long getIdDocumento() {
@@ -158,5 +193,38 @@ public class DocumentoBuzon {
 
     public Reclamo getReclamo() {
         return reclamo;
+    }
+
+    public String getContenido() {
+        return contenido;
+    }
+
+    public void marcarNoLeido() {
+        leidoActualmente = false;
+    }
+
+    public boolean isLeidoActualmente() {
+        return leidoActualmente;
+    }
+
+    public boolean isDestacado() {
+        return destacado;
+    }
+
+    public boolean isArchivado() {
+        return archivado;
+    }
+
+    public LocalDateTime getFechaArchivado() {
+        return fechaArchivado;
+    }
+
+    public void cambiarDestacado(boolean valor) {
+        destacado = valor;
+    }
+
+    public void cambiarArchivado(boolean valor, LocalDateTime ahora) {
+        archivado = valor;
+        fechaArchivado = valor ? ahora : null;
     }
 }
