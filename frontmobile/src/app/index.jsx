@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Image } from 'expo-image'
-import { useRouter } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Cabecera, { BotonCabecera } from '../components/ui/Cabecera'
 import Icono from '../components/ui/Icono'
 import { useSesion } from '../context/SesionContext'
+import { listarBuzon } from '../services/buzonService'
 import { colores, fuentes, radios, sombra, texto } from '../theme/tokens'
 
 // Servicios del contribuyente. Cada historia agrega aquí su acceso.
@@ -15,6 +16,12 @@ const SERVICIOS = [
     icono: 'documento',
     titulo: 'Mi buzón',
     descripcion: 'Recibe tus documentos y las respuestas a tus solicitudes.',
+  },
+  {
+    ruta: '/reclamos',
+    icono: 'reclamo',
+    titulo: 'Mis reclamos',
+    descripcion: 'Registra un reclamo y consulta su estado y respuesta.',
   },
   {
     ruta: '/estado-cuenta',
@@ -47,6 +54,12 @@ export default function Inicio() {
   const { sesion, salir } = useSesion()
   const { bottom } = useSafeAreaInsets()
   const [saliendo, setSaliendo] = useState(false)
+  const [sinLeer, setSinLeer] = useState(0)
+  useFocusEffect(useCallback(() => {
+    const controlador = new AbortController()
+    listarBuzon({ tamanio: 1, signal: controlador.signal }).then((datos) => setSinLeer(datos.sinLeer)).catch(() => {})
+    return () => controlador.abort()
+  }, []))
 
   async function cerrarSesion() {
     if (saliendo) return
@@ -64,7 +77,12 @@ export default function Inicio() {
         titulo="Te damos la bienvenida"
         subtitulo={`Contribuyente ${sesion.usuario?.codigoContribuyente ?? ''}`}
         izquierda={<Image source={require('../../assets/logo-san-miguel-circulo.png')} style={estilos.logo} accessible={false} />}
-        derecha={<BotonCabecera icono="salir" etiqueta="Cerrar sesión" onPress={cerrarSesion} />}
+        derecha={<View style={estilos.accionesCabecera}>
+          <View><BotonCabecera icono="campana" etiqueta={`Abrir buzón, ${sinLeer} mensajes sin leer`} onPress={() => router.push('/buzon')} />
+            {sinLeer > 0 && <View style={estilos.contador}><Text style={estilos.contadorTexto}>{sinLeer > 99 ? '99+' : sinLeer}</Text></View>}
+          </View>
+          <BotonCabecera icono="salir" etiqueta="Cerrar sesión" onPress={cerrarSesion} />
+        </View>}
       />
       <ScrollView contentContainerStyle={[estilos.contenido, { paddingBottom: bottom + 24 }]}>
         <Text style={texto.subtitulo} accessibilityRole="header">Servicios en línea</Text>
@@ -86,6 +104,7 @@ export default function Inicio() {
                 <Text style={estilos.servicioTitulo}>{s.titulo}</Text>
                 <Text style={texto.secundario}>{s.descripcion}</Text>
               </View>
+              {s.ruta === '/buzon' && sinLeer > 0 ? <View style={estilos.badge}><Text style={estilos.badgeTexto}>{sinLeer} sin leer</Text></View> : null}
               <Icono nombre="chevron-derecha" color={colores.textoAtenuado} />
             </Pressable>
           ))}
@@ -112,4 +131,9 @@ const estilos = StyleSheet.create({
   },
   servicioTextos: { flex: 1, gap: 2 },
   servicioTitulo: { fontFamily: fuentes.negrita, fontSize: 17, lineHeight: 23, color: colores.marinoOsc },
+  accionesCabecera: { flexDirection: 'row', alignItems: 'center' },
+  contador: { position: 'absolute', top: 1, right: 1, minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: colores.critico, borderWidth: 2, borderColor: colores.marino },
+  contadorTexto: { fontFamily: fuentes.negrita, color: colores.blanco, fontSize: 11 },
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: radios.pill, backgroundColor: colores.azulSuave },
+  badgeTexto: { fontFamily: fuentes.negrita, color: colores.marinoOsc, fontSize: 12 },
 })
