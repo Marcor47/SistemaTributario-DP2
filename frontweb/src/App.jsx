@@ -12,6 +12,7 @@ import ConsultaPredio from './pages/ConsultaPredio.jsx'
 import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
 import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
 import ConfiguracionRecordatorios from './pages/ConfiguracionRecordatorios.jsx'
+import ConfiguracionAccesoReportes from './pages/ConfiguracionAccesoReportes.jsx'
 import Formularios from './pages/Formularios.jsx'
 import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Reclamos from './pages/Reclamos.jsx'
@@ -151,6 +152,7 @@ export default function App() {
           <Route path="/dashboard" element={<RutaInternaProtegida permiso="DASHBOARD:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
+          <Route path="/configuracion/reportes" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><ConfiguracionAccesoReportes /></RutaInternaProtegida>} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
           <Route path="/contribuyentes" element={<RutaInternaProtegida permiso="CONTRIBUYENTES:CONSULTAR"><ConsultaContribuyente /></RutaInternaProtegida>} />
           <Route path="/ventanilla/constancias" element={<RutaInternaProtegida permiso="CONSTANCIAS:GESTIONAR"><ConstanciaVentanilla /></RutaInternaProtegida>} />

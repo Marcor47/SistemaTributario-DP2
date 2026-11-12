@@ -11,6 +11,7 @@ import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import SelectorColumnasAgrupadas from '../components/SelectorColumnasAgrupadas.jsx'
 import VisualizacionReporte from '../components/VisualizacionReporte.jsx'
+import AvisoAccesoReportes from '../components/AvisoAccesoReportes.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import ReporteBuenosPagadores from './ReporteBuenosPagadores.jsx'
 import ReportePricos from './ReportePricos.jsx'
@@ -742,6 +743,7 @@ export default function Reportes() {
     series: [serie],
   }
   return <div className="reportes" aria-busy={catalogo.cargando || resultado.cargando}>
+    <AvisoAccesoReportes />
     {catalogo.cargando && <div className="pcard reporte-estado" role="status">Cargando el catálogo de reportes…</div>}
     {catalogo.error && <div className="alert" role="alert"><strong>No se pudo cargar el catálogo.</strong><p>{catalogo.error.message}</p><button className="btn" type="button" onClick={reintentarCatalogo}>Reintentar</button></div>}
     {!catalogo.cargando && !catalogo.error && catalogo.datos.length === 0 && <section className="pcard reporte-estado" role="status"><h2>Sin reportes disponibles</h2><p>Tu perfil no tiene reportes habilitados en este momento.</p></section>}

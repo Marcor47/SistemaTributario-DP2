@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
+import AvisoAccesoReportes from '../components/AvisoAccesoReportes.jsx'
 import IconoReporte from '../components/reporteria/IconoReporte.jsx'
 import MapaSegmentos from '../components/reporteria/MapaSegmentos.jsx'
 import PanelAsistente from '../components/reporteria/PanelAsistente.jsx'
@@ -352,6 +353,7 @@ function Plataforma({ modelo }) {
 
   return (
     <div className="reporteria" aria-busy={cargando}>
+      <AvisoAccesoReportes />
       <div className="rep-acciones">
         <button className="btn" type="button" onClick={() => setGuardando(true)}><IconoReporte nombre="guardar" />Guardar vista</button>
         <div className="rep-desplegable" ref={contenedorVistas}>

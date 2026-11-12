@@ -1,0 +1,24 @@
+/* HU045: aviso compartido por las pantallas de reportes. */
+.aviso-acceso-reportes {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--borde);
+  border-left: 4px solid var(--cian);
+  border-radius: 12px;
+  background: var(--azul-suave);
+  color: var(--texto);
+  line-height: 1.5;
+}
+
+.aviso-acceso-reportes svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--marino-osc);
+}
+
+.aviso-acceso-reportes strong {
+  color: var(--marino-osc);
+}
