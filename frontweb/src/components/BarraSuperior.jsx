@@ -1,21 +1,17 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { etiquetaRol } from '../utils/roles.js'
-import { cerrarSesion } from '../services/authService.js'
+import BuzonNotificaciones from './BuzonNotificaciones.jsx'
 
 /**
- * Barra superior ejecutiva con identidad del usuario y botón Salir.
+ * Barra superior con identidad del usuario y acceso al buzón del contribuyente.
  *
  * @param {object} props
  * @param {'portal'|'gestion'} props.seccion
  */
 export default function BarraSuperior({ seccion }) {
-  const navegar = useNavigate()
-  const { sesion: sesionInterna, salir: salirInterno } = useSesionInterna()
-  const { sesion: sesionAuth, limpiarSesion } = useAuth()
-  const [errorSalida, setErrorSalida] = useState('')
+  const { sesion: sesionInterna } = useSesionInterna()
+  const { sesion: sesionAuth } = useAuth()
 
   /* ── Datos de identidad según sección ─────────────────────────── */
   const esGestion = seccion === 'gestion'
@@ -29,24 +25,6 @@ export default function BarraSuperior({ seccion }) {
     : 'Contribuyente'
 
   const inicialAvatar = nombreMostrado ? nombreMostrado.charAt(0).toUpperCase() : '?'
-
-  /* ── Salir ─────────────────────────────────────────────────────── */
-  async function salir(evento) {
-    evento.preventDefault()
-    setErrorSalida('')
-    try {
-      if (esGestion) {
-        await salirInterno()
-        navegar('/gestion/login', { replace: true })
-      } else {
-        await cerrarSesion()
-        limpiarSesion()
-        navegar('/login', { replace: true })
-      }
-    } catch (err) {
-      setErrorSalida(err.message || 'Error al cerrar sesión')
-    }
-  }
 
   return (
     <header className="barra-superior" role="banner">
@@ -76,24 +54,7 @@ export default function BarraSuperior({ seccion }) {
         </div>
       )}
 
-      {/* Error salida */}
-      {errorSalida && (
-        <span className="barra-superior__error" role="alert">{errorSalida}</span>
-      )}
-
-      {/* Botón Salir */}
-      <button
-        className="barra-superior__salir"
-        onClick={salir}
-        type="button"
-        title="Cerrar sesión"
-      >
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h4" />
-          <path d="M16 17l5-5-5-5M21 12H9" />
-        </svg>
-        <span>Salir</span>
-      </button>
+      {!esGestion && <BuzonNotificaciones />}
     </header>
   )
 }

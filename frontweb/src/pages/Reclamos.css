@@ -1,4 +1,10 @@
 .formulario-reclamo .fld { min-width: 0; }
+.reclamos-pagina { display: flex; flex-direction: column; }
+.reclamos-listado { order: 1; }
+.reclamos-registro { order: 2; }
+#detalle-reclamo { order: 3; }
+.reclamos-acciones-cabecera { display: flex; align-items: flex-end; justify-content: flex-end; flex-wrap: wrap; gap: 12px; }
+.reclamos-listado > .paginacion-tabla { margin-top: 16px; }
 .formulario-reclamo input, .formulario-reclamo select, .formulario-reclamo textarea { width: 100%; }
 .resumen-errores { margin: 12px 0; }
 .resumen-errores h3 { margin: 0 0 6px; font-size: 16px; }
@@ -31,4 +37,6 @@
 @media (max-width: 700px) {
   .datos-reclamo, .formulario-gestion-reclamo { grid-template-columns: 1fr; }
   .formulario-gestion-reclamo > .btn { width: 100%; }
+  .reclamos-acciones-cabecera, .reclamos-acciones-cabecera .btn { width: 100%; }
+  .reclamos-acciones-cabecera .filtro-estado { width: 100%; }
 }

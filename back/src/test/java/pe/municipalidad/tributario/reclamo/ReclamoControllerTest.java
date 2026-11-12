@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.auth.SesionContribuyente;
 import pe.municipalidad.tributario.documentos.DocumentoBuzonRepository;
+import pe.municipalidad.tributario.documentos.TipoDocumentoBuzon;
 import pe.municipalidad.tributario.seguridad.ClaveInternaService;
 import pe.municipalidad.tributario.seguridad.NombreRol;
 import pe.municipalidad.tributario.seguridad.RolRepository;
@@ -81,7 +82,8 @@ class ReclamoControllerTest {
                 .andExpect(jsonPath("$.tipoReclamante").value("CONTRIBUYENTE"));
         mvc.perform(get("/api/reclamos/mios").session(sesion))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].tipoReclamo").value("ATENCION"));
+                .andExpect(jsonPath("$[0].tipoReclamo").value("ATENCION"))
+                .andExpect(jsonPath("$[0].derivaciones").isEmpty());
 
         Reclamo guardado = reclamos.findAll().getFirst();
         assertThat(guardado.getDocumentoContribuyente()).isNotBlank();
@@ -166,13 +168,25 @@ class ReclamoControllerTest {
                 .content("{\"idArea\":" + area.getIdArea() + ",\"idResponsable\":"
                         + responsable.getIdUsuario() + "}"))
                 .andExpect(status().isOk());
+        mvc.perform(get("/api/reclamos/mios").session(sesionCiudadano))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].estado").value("EN_REVISION"))
+                .andExpect(jsonPath("$[0].derivaciones").isEmpty());
+        mvc.perform(post("/api/reclamos/gestion/{id}/derivaciones", reclamo.getIdReclamo())
+                .session(sesionInterna(gestor)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"idArea\":" + area.getIdArea() + ",\"idResponsable\":"
+                        + responsable.getIdUsuario() + ",\"observacion\":\"Segunda asignación interna.\"}"))
+                .andExpect(status().isOk());
         mvc.perform(post("/api/reclamos/asignados/{id}/respuesta", reclamo.getIdReclamo())
                 .session(sesionInterna(responsable)).with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"respuesta\":\"La atención fue revisada y se aplicaron medidas correctivas.\"}"))
                 .andExpect(status().isOk());
-        assertThat(documentosBuzon.findAll()).singleElement()
-                .satisfies(documento -> assertThat(documento.getReclamo().getIdReclamo())
-                        .isEqualTo(reclamo.getIdReclamo()));
+        assertThat(documentosBuzon.findAll()).hasSize(2)
+                .allSatisfy(documento -> assertThat(documento.getReclamo().getIdReclamo())
+                        .isEqualTo(reclamo.getIdReclamo()))
+                .extracting(documento -> documento.getTipo())
+                .containsExactlyInAnyOrder(TipoDocumentoBuzon.ASIGNACION_RECLAMO,
+                        TipoDocumentoBuzon.RESPUESTA_RECLAMO);
     }
 
     @Test

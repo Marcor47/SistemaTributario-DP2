@@ -35,4 +35,12 @@ public record ReclamoRespuesta(
                 reclamo.getFechaHoraIncidente(), reclamo.getComentario(), reclamo.getEstado(),
                 reclamo.getFechaRegistro(), reclamo.getRespuesta(), reclamo.getFechaRespuesta(), derivaciones);
     }
+
+    public static ReclamoRespuesta desdeParaReclamante(Reclamo reclamo) {
+        if (reclamo.getTipoReclamante() == TipoReclamante.TRABAJADOR) return desde(reclamo);
+        return new ReclamoRespuesta(reclamo.getIdReclamo(), reclamo.getNumeroReclamo(),
+                reclamo.getTipoReclamante(), reclamo.getTipoReclamo(), reclamo.getReferencia(),
+                reclamo.getFechaHoraIncidente(), reclamo.getComentario(), reclamo.getEstado(),
+                reclamo.getFechaRegistro(), reclamo.getRespuesta(), reclamo.getFechaRespuesta(), List.of());
+    }
 }

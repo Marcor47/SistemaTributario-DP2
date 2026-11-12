@@ -11,7 +11,7 @@ export const TIPOS_RECLAMO = {
 export const ESTADOS_RECLAMO = {
   ENVIADO: { etiqueta: 'Enviado', clase: 'neutro' },
   EN_REVISION: { etiqueta: 'En revisión', clase: 'aviso' },
-  APROBADO_CON_RESPUESTA: { etiqueta: 'Aprobado con respuesta', clase: 'ok' },
+  APROBADO_CON_RESPUESTA: { etiqueta: 'Atendido', clase: 'ok' },
   CANCELADO: { etiqueta: 'Cancelado', clase: 'critico' },
 }
 
