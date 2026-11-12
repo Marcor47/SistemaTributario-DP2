@@ -154,13 +154,34 @@ public class SolicitudConstancia {
         estado = EstadoConstancia.PAGADA;
     }
 
-    /* El operador emite la constancia; la firma de la Municipalidad se incorpora automáticamente (RF-037). */
+    /*
+     * Emisión manual por el operador. Desde HU024 es el respaldo cuando la firma automática tras el pago no pudo
+     * completarse; la firma de la Municipalidad se incorpora igual (RF-037).
+     */
     public void emitir(Usuario operador, FirmaDigital firmaMunicipalidad, LocalDateTime ahora) {
         exigirEstado(EstadoConstancia.PAGADA);
+        exigirFirmaMunicipal(firmaMunicipalidad);
+        asignarOperador(operador, ahora);
+        incorporarFirmaMunicipal(firmaMunicipalidad);
+    }
+
+    /*
+     * HU024 (RF-037): tras el pago confirmado el sistema firma y emite sin intervención; el operador que verificó la
+     * deuda sigue registrado como responsable de la revisión.
+     */
+    public void emitirAutomaticamente(FirmaDigital firmaMunicipalidad) {
+        exigirEstado(EstadoConstancia.PAGADA);
+        exigirFirmaMunicipal(firmaMunicipalidad);
+        incorporarFirmaMunicipal(firmaMunicipalidad);
+    }
+
+    private static void exigirFirmaMunicipal(FirmaDigital firmaMunicipalidad) {
         if (!firmaMunicipalidad.isValida() || firmaMunicipalidad.getTipoFirmante() != TipoFirmante.MUNICIPALIDAD) {
             throw new ReglaNegocioException("FIRMA_INVALIDA", "La firma de la Municipalidad no es válida.");
         }
-        asignarOperador(operador, ahora);
+    }
+
+    private void incorporarFirmaMunicipal(FirmaDigital firmaMunicipalidad) {
         firmaMunicipalidad.asignarA(this);
         firmas.add(firmaMunicipalidad);
         estado = EstadoConstancia.EMITIDA;

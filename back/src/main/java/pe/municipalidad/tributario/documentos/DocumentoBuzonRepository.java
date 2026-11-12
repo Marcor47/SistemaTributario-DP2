@@ -12,6 +12,10 @@ public interface DocumentoBuzonRepository extends JpaRepository<DocumentoBuzon, 
 
     List<DocumentoBuzon> findByDocumentoContribuyenteOrderByFechaEnvioDesc(String documentoContribuyente);
 
+    Optional<DocumentoBuzon> findByConstancia_NumeroConstancia(String numeroConstancia);
+
+    Optional<DocumentoBuzon> findBySolicitudPredio_IdSolicitud(Long idSolicitud);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from DocumentoBuzon d where d.idDocumento = :id and d.documentoContribuyente = :documento")
     Optional<DocumentoBuzon> bloquearPropio(@Param("id") Long id, @Param("documento") String documento);

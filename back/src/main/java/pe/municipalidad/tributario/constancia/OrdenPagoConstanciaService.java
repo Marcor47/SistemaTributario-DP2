@@ -1,17 +1,20 @@
 package pe.municipalidad.tributario.constancia;
 
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.documentos.DocumentoBuzon;
+import pe.municipalidad.tributario.documentos.DocumentoBuzonRepository;
 import pe.municipalidad.tributario.integracion.niubiz.NiubizGateway;
 
 /*
  * HU020 (RF-036): el contribuyente paga la orden del derecho de trámite que emitió el operador. El pago solo se da
- * por confirmado tras consultar a la pasarela servidor a servidor (RNF-029); con eso la solicitud queda PAGADA y
- * vuelve al operador para emitir la constancia.
+ * por confirmado tras consultar a la pasarela servidor a servidor (RNF-029); con eso la solicitud queda PAGADA y, en
+ * la misma operación, el sistema firma y emite la constancia (HU024, RF-037).
  */
 @Service
 @Transactional(readOnly = true)
@@ -23,15 +26,22 @@ public class OrdenPagoConstanciaService {
     private final SolicitudConstanciaRepository solicitudConstanciaRepository;
     private final TransaccionPagoRepository transaccionPagoRepository;
     private final ContribuyenteService contribuyenteService;
+    private final ConstanciaRepository constanciaRepository;
+    private final DocumentoBuzonRepository documentoBuzonRepository;
     private final NiubizGateway pasarela;
+    private final FirmaAutomaticaConstanciaService firmaAutomatica;
 
     public OrdenPagoConstanciaService(SolicitudConstanciaRepository solicitudConstanciaRepository,
             TransaccionPagoRepository transaccionPagoRepository, ContribuyenteService contribuyenteService,
-            NiubizGateway pasarela) {
+            ConstanciaRepository constanciaRepository, DocumentoBuzonRepository documentoBuzonRepository,
+            NiubizGateway pasarela, FirmaAutomaticaConstanciaService firmaAutomatica) {
         this.solicitudConstanciaRepository = solicitudConstanciaRepository;
         this.transaccionPagoRepository = transaccionPagoRepository;
         this.contribuyenteService = contribuyenteService;
+        this.constanciaRepository = constanciaRepository;
+        this.documentoBuzonRepository = documentoBuzonRepository;
         this.pasarela = pasarela;
+        this.firmaAutomatica = firmaAutomatica;
     }
 
     public OrdenPagoConstanciaRespuesta obtener(String codigoContribuyente, Long idSolicitud) {
@@ -58,7 +68,7 @@ public class OrdenPagoConstanciaService {
         SolicitudConstancia solicitud = buscarPropia(codigoContribuyente, idSolicitud, true);
         TransaccionPago orden = ordenDe(solicitud);
         if (orden.getEstado() == EstadoTransaccion.CONFIRMADA) {
-            return OrdenPagoConstanciaRespuesta.desde(orden, null, null);
+            return confirmada(orden, solicitud);
         }
         ordenPendiente(solicitud);
         if (orden.getIdOrdenPasarela() == null) {
@@ -74,8 +84,21 @@ public class OrdenPagoConstanciaService {
         }
         orden.confirmar(PREFIJO_COMPROBANTE + orden.getIdTransaccion());
         solicitud.confirmarPago(orden);
+        Optional<EmisorConstancia.ConstanciaEmitida> emitida = firmaAutomatica.emitirTrasPago(solicitud);
         solicitudConstanciaRepository.saveAndFlush(solicitud);
-        return OrdenPagoConstanciaRespuesta.desde(orden, null, null);
+        return emitida
+                .map(e -> OrdenPagoConstanciaRespuesta.confirmada(orden, solicitud, e.constancia(),
+                        e.documentoBuzon().getIdDocumento()))
+                .orElseGet(() -> OrdenPagoConstanciaRespuesta.confirmada(orden, solicitud, null, null));
+    }
+
+    /* Repetir la confirmación devuelve el mismo resultado, con la constancia si ya se emitió. */
+    private OrdenPagoConstanciaRespuesta confirmada(TransaccionPago orden, SolicitudConstancia solicitud) {
+        Optional<Constancia> constancia = constanciaRepository.findBySolicitud_IdSolicitud(solicitud.getIdSolicitud());
+        Long idDocumento = constancia.flatMap(c -> documentoBuzonRepository
+                .findByConstancia_NumeroConstancia(c.getNumeroConstancia())).map(DocumentoBuzon::getIdDocumento)
+                .orElse(null);
+        return OrdenPagoConstanciaRespuesta.confirmada(orden, solicitud, constancia.orElse(null), idDocumento);
     }
 
     private TransaccionPago ordenPendiente(SolicitudConstancia solicitud) {

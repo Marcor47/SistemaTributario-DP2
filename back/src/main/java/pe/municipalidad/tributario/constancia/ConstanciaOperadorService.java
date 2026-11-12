@@ -15,50 +15,40 @@ import pe.municipalidad.tributario.common.NoAutenticadoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
-import pe.municipalidad.tributario.documentos.DocumentoBuzon;
-import pe.municipalidad.tributario.documentos.DocumentoBuzonRepository;
-import pe.municipalidad.tributario.documentos.VersionPlantilla;
-import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
-import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.seguridad.Usuario;
 import pe.municipalidad.tributario.seguridad.UsuarioRepository;
 
 /*
- * HU020 (RF-034): la solicitud de Constancia de No Adeudo la recibe un operador. Verifica la deuda en SAMNET; si es
- * 0 emite la orden de pago del derecho de trámite y, cuando el contribuyente la paga, emite la constancia y la envía
- * a su buzón. Ningún paso es automático: cada uno lo ejecuta el operador y queda registrado quién y cuándo.
+ * HU020 (RF-034): la solicitud de Constancia de No Adeudo la recibe un operador. Verifica la deuda en SAMNET y, si
+ * es 0, emite la orden de pago del derecho de trámite; la verificación y el rechazo los hace siempre el operador y
+ * queda registrado quién y cuándo. Desde HU024 la constancia se firma y emite sola al confirmarse el pago
+ * (FirmaAutomaticaConstanciaService); la emisión manual queda como respaldo.
  */
 @Service
 @Transactional(readOnly = true)
 public class ConstanciaOperadorService {
 
-    public static final String CODIGO_PLANTILLA = "CONSTANCIA_NO_ADEUDO";
+    public static final String CODIGO_PLANTILLA = EmisorConstancia.CODIGO_PLANTILLA;
 
     private static final Logger LOG = LoggerFactory.getLogger(ConstanciaOperadorService.class);
     private static final Set<EstadoConstancia> ESTADOS_CERRADOS =
             EnumSet.of(EstadoConstancia.EMITIDA, EstadoConstancia.RECHAZADA);
-    private static final String PREDIOS_INCLUIDOS = "Todos los predios del contribuyente";
-    private static final String RANGO_FECHAS = "Hasta la fecha de emisión";
 
     private final SolicitudConstanciaRepository solicitudConstanciaRepository;
     private final SolicitudConstanciaService solicitudConstanciaService;
     private final TransaccionPagoRepository transaccionPagoRepository;
     private final ConstanciaRepository constanciaRepository;
-    private final DocumentoBuzonRepository documentoBuzonRepository;
-    private final VersionPlantillaRepository versionPlantillaRepository;
     private final UsuarioRepository usuarioRepository;
     private final SamnetGateway samnet;
-    private final FirmadorGateway firmador;
-    private final GeneradorConstanciaPdf generadorPdf;
+    private final EmisorConstancia emisor;
     private final Clock reloj;
     private final BigDecimal derechoTramite;
 
     public ConstanciaOperadorService(SolicitudConstanciaRepository solicitudConstanciaRepository,
             SolicitudConstanciaService solicitudConstanciaService, TransaccionPagoRepository transaccionPagoRepository,
-            ConstanciaRepository constanciaRepository, DocumentoBuzonRepository documentoBuzonRepository,
-            VersionPlantillaRepository versionPlantillaRepository, UsuarioRepository usuarioRepository,
-            SamnetGateway samnet, FirmadorGateway firmador, GeneradorConstanciaPdf generadorPdf, Clock reloj,
+            ConstanciaRepository constanciaRepository, UsuarioRepository usuarioRepository, SamnetGateway samnet,
+            EmisorConstancia emisor, Clock reloj,
             @Value("${tributario.constancia.derecho-tramite}") BigDecimal derechoTramite) {
         if (derechoTramite.signum() <= 0) {
             throw new IllegalArgumentException("El derecho de trámite de la constancia debe ser positivo.");
@@ -67,12 +57,9 @@ public class ConstanciaOperadorService {
         this.solicitudConstanciaService = solicitudConstanciaService;
         this.transaccionPagoRepository = transaccionPagoRepository;
         this.constanciaRepository = constanciaRepository;
-        this.documentoBuzonRepository = documentoBuzonRepository;
-        this.versionPlantillaRepository = versionPlantillaRepository;
         this.usuarioRepository = usuarioRepository;
         this.samnet = samnet;
-        this.firmador = firmador;
-        this.generadorPdf = generadorPdf;
+        this.emisor = emisor;
         this.reloj = reloj;
         this.derechoTramite = derechoTramite;
     }
@@ -119,9 +106,9 @@ public class ConstanciaOperadorService {
     }
 
     /*
-     * Tras el pago confirmado, el operador emite la constancia: se genera con la plantilla vigente, la firma la
-     * Municipalidad (RF-037) y se deposita en el buzón del contribuyente (RF-030). Antes se vuelve a exigir deuda 0:
-     * entre la verificación y la emisión pudo vencer otra cuota.
+     * Respaldo de HU024: la constancia se firma y emite sola al confirmarse el pago; si eso no pudo completarse (deuda
+     * nueva, SAMNET sin respuesta, firmador caído), la solicitud queda PAGADA y el operador la emite aquí. Antes se
+     * vuelve a exigir deuda 0: entre la verificación y la emisión pudo vencer otra cuota.
      */
     @Transactional
     public SolicitudGestionRespuesta emitir(Long idSolicitud, String nombreOperador) {
@@ -138,26 +125,7 @@ public class ConstanciaOperadorService {
                     "El contribuyente registra deuda pendiente de S/ " + deuda.total()
                             + ". No se puede emitir la constancia; rechace la solicitud.");
         }
-        VersionPlantilla plantilla = versionPlantillaRepository.findByPlantillaCodigoAndVigenteTrue(CODIGO_PLANTILLA)
-                .orElseThrow(() -> new ReglaNegocioException("PLANTILLA_NO_DISPONIBLE",
-                        "No hay una versión vigente de la plantilla " + CODIGO_PLANTILLA + "."));
-
-        LocalDateTime ahora = LocalDateTime.now(reloj);
-        String numero = constanciaRepository.siguienteNumero(ahora.toLocalDate());
-        byte[] pdf = generadorPdf.generar(numero, contribuyente, ahora, firmador.esSimulado());
-        FirmadorGateway.DocumentoFirmado firmado = firmador.firmarComoMunicipalidad(pdf);
-        if (!firmado.firma().valida()) {
-            throw new ReglaNegocioException("FIRMA_MUNICIPAL_INVALIDA",
-                    "No se pudo firmar la constancia: " + firmado.firma().motivoRechazo() + ".");
-        }
-
-        solicitud.emitir(operador, new FirmaDigital(TipoFirmante.MUNICIPALIDAD,
-                firmado.firma().entidadCertificadora(), ahora, true, firmado.firma().hashDocumento()), ahora);
-        Constancia constancia = constanciaRepository.save(new Constancia(numero, solicitud, plantilla, ahora,
-                PREDIOS_INCLUIDOS, RANGO_FECHAS, numero + ".pdf", firmador.esSimulado(), operador,
-                firmado.contenido()));
-        documentoBuzonRepository.save(
-                DocumentoBuzon.deConstancia(constancia, solicitud.getDocumentoContribuyente(), ahora));
+        emisor.emitir(solicitud, contribuyente, operador, LocalDateTime.now(reloj));
         return respuesta(solicitudConstanciaRepository.saveAndFlush(solicitud), null);
     }
 
