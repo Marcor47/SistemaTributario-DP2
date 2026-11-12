@@ -1,16 +1,9 @@
 package pe.municipalidad.tributario.constancia;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
@@ -41,13 +34,14 @@ public class ConstanciaDemoService {
     private final ContribuyenteService contribuyentes;
     private final NiubizGateway pasarela;
     private final FirmadorGateway firmador;
+    private final GeneradorConstanciaPdf generadorPdf;
     private final Clock reloj;
     private final BigDecimal derecho;
 
     public ConstanciaDemoService(SolicitudConstanciaRepository solicitudes, SolicitudConstanciaService solicitudService,
             TransaccionPagoRepository transacciones, ConstanciaRepository constancias, DocumentoBuzonRepository buzon,
             VersionPlantillaRepository plantillas, UsuarioRepository usuarios, ContribuyenteService contribuyentes,
-            NiubizGateway pasarela, FirmadorGateway firmador, Clock reloj,
+            NiubizGateway pasarela, FirmadorGateway firmador, GeneradorConstanciaPdf generadorPdf, Clock reloj,
             @Value("${tributario.constancia.demo.derecho}") BigDecimal derecho) {
         this.solicitudes = solicitudes;
         this.solicitudService = solicitudService;
@@ -59,6 +53,7 @@ public class ConstanciaDemoService {
         this.contribuyentes = contribuyentes;
         this.pasarela = pasarela;
         this.firmador = firmador;
+        this.generadorPdf = generadorPdf;
         this.reloj = reloj;
         if (derecho.signum() <= 0) throw new IllegalArgumentException("El derecho de prueba debe ser positivo.");
         this.derecho = derecho;
@@ -141,10 +136,11 @@ public class ConstanciaDemoService {
         LocalDateTime ahora = LocalDateTime.now(reloj);
         String numero = constancias.siguienteNumero(ahora.toLocalDate());
         var contribuyente = contribuyentes.obtenerPorCodigo(codigo);
-        byte[] pdf = generarPdf(numero, contribuyente.getNombreRazonSocial(), contribuyente.getNumeroDocumento(), ahora);
+        Usuario operador = actor();
+        byte[] pdf = generadorPdf.generar(numero, contribuyente, ahora, "Todos los predios",
+                "Hasta la fecha de emisión", operador.getNombreCompleto(), true);
         var firmado = firmador.firmarComoMunicipalidad(pdf);
         if (!firmado.firma().valida()) throw new ReglaNegocioException("FIRMA_MUNICIPAL_INVALIDA", "No se pudo firmar la constancia.");
-        Usuario operador = actor();
         solicitud.emitir(operador, new FirmaDigital(TipoFirmante.MUNICIPALIDAD,
                 firmado.firma().entidadCertificadora(), ahora, true, firmado.firma().hashDocumento()), ahora);
         Constancia constancia = constancias.save(new Constancia(numero, solicitud, plantilla, ahora, "Todos los predios",
@@ -207,33 +203,6 @@ public class ConstanciaDemoService {
     private void exigirDeudaCero(String codigo) {
         if (!solicitudService.consultarDeuda(codigo).puedeSolicitar()) {
             throw new ReglaNegocioException("DEUDA_PENDIENTE", "Tienes deuda pendiente; no se puede emitir la constancia.");
-        }
-    }
-
-    private static byte[] generarPdf(String numero, String nombre, String documento, LocalDateTime fecha) {
-        try (PDDocument pdf = new PDDocument(); ByteArrayOutputStream salida = new ByteArrayOutputStream()) {
-            PDPage pagina = new PDPage();
-            pdf.addPage(pagina);
-            try (PDPageContentStream contenido = new PDPageContentStream(pdf, pagina)) {
-                contenido.beginText();
-                contenido.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
-                contenido.newLineAtOffset(55, 740);
-                contenido.setLeading(22);
-                for (String linea : List.of("DOCUMENTO DE PRUEBA - SIN VALIDEZ LEGAL",
-                        "MUNICIPALIDAD DISTRITAL DE SAN MIGUEL", "CONSTANCIA DE NO ADEUDO",
-                        "Número: " + numero, "Contribuyente: " + nombre, "Documento: " + documento,
-                        "Fecha de emisión: " + fecha.toLocalDate(),
-                        "Se deja constancia de que no registra deuda pendiente a la fecha.",
-                        "Firma municipal simulada")) {
-                    contenido.showText(linea);
-                    contenido.newLine();
-                }
-                contenido.endText();
-            }
-            pdf.save(salida);
-            return salida.toByteArray();
-        } catch (IOException ex) {
-            throw new IllegalStateException("No se pudo generar la constancia.", ex);
         }
     }
 }

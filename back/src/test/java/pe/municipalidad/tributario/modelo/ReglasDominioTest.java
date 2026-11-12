@@ -59,13 +59,15 @@ class ReglasDominioTest {
     }
 
     @Test
-    void enVentanillaNoSeFirmaYElTrabajadorVerificaLaDeuda() {
+    void enVentanillaLaFirmaDelContribuyenteSeCapturaConElDispositivoPresencial() {
         Usuario trabajador = usuario("ventanilla", NombreRol.VENTANILLA);
         SolicitudConstancia solicitud = new SolicitudConstancia(CanalSolicitud.VENTANILLA, "41028765", trabajador,
                 AHORA);
 
-        assertThatThrownBy(() -> solicitud.registrarFirma(firma(TipoFirmante.CONTRIBUYENTE)))
+        assertThatThrownBy(() -> solicitud.verificarDeuda(trabajador, BigDecimal.ZERO, AHORA))
                 .isInstanceOf(ReglaNegocioException.class);
+        solicitud.registrarFirma(firma(TipoFirmante.CONTRIBUYENTE));
+        assertThat(solicitud.getEstado()).isEqualTo(EstadoConstancia.FIRMADA);
         assertThat(solicitud.verificarDeuda(trabajador, BigDecimal.ZERO, AHORA)).isTrue();
     }
 

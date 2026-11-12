@@ -20,12 +20,12 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /*
- * HU042: Módulo de Ventanilla para emisión presencial de la Constancia de No Adeudo (RF-055).
- * Permite al personal con rol VENTANILLA o permiso CONSTANCIAS:GESTIONAR:
+ * HU042: módulo de Ventanilla para la emisión presencial de la Constancia de No Adeudo (RF-055) por pasos.
+ * Permite al personal con permiso CONSTANCIAS:GESTIONAR:
  * - Consultar al contribuyente por DNI/RUC/código y evaluar su estado de deuda y predios.
- * - Emitir la constancia presencialmente reutilizando las reglas del portal, registrando al trabajador.
- * - Descargar o imprimir el documento PDF firmado con firma digital municipal.
- * - Listar las constancias emitidas.
+ * - Crear la solicitud, recibir la firma capturada en el dispositivo presencial (RF-021) y verificar la deuda.
+ * - Emitir la orden de pago del derecho de trámite, confirmar el cobro presencial y emitir la constancia.
+ * - Descargar o imprimir el documento PDF firmado con firma digital municipal y listar las emitidas.
  */
 @RestController
 @RequestMapping("/api/ventanilla/constancias")
@@ -45,13 +45,58 @@ public class ConstanciaVentanillaController {
         return constanciaVentanillaService.consultar(documento);
     }
 
-    /* Emisión de la Constancia de No Adeudo en Ventanilla (RF-055, RF-037, RF-030). */
-    @PostMapping("/emitir")
+    /* Solicitudes del contribuyente (ambos canales y todos los estados) para retomar una abierta o revisar una cerrada. */
+    @GetMapping("/solicitudes")
+    public List<SolicitudVentanillaRespuesta> listarSolicitudes(
+            @RequestParam @NotBlank(message = "El documento o DNI es obligatorio") String documento) {
+        return constanciaVentanillaService.listarSolicitudes(documento);
+    }
+
+    /* Crear la solicitud en canal Ventanilla; si el contribuyente ya tiene una abierta, se retoma. */
+    @PostMapping("/solicitudes")
     @ResponseStatus(HttpStatus.CREATED)
-    public ConstanciaVentanillaRespuesta emitir(
-            @Valid @RequestBody EmitirConstanciaVentanillaSolicitud peticion,
-            Principal trabajador) {
-        return constanciaVentanillaService.emitir(peticion, trabajador.getName());
+    public SolicitudVentanillaRespuesta crearSolicitud(
+            @Valid @RequestBody NuevaSolicitudVentanilla peticion, Principal trabajador) {
+        return constanciaVentanillaService.crearSolicitud(peticion.documentoContribuyente(), trabajador.getName());
+    }
+
+    /* Documento de la solicitud que se muestra en el dispositivo de firma presencial (RF-021). */
+    @GetMapping("/{idSolicitud}/documento-firma")
+    public DocumentoFirmaRespuesta obtenerDocumentoFirma(@PathVariable Long idSolicitud) {
+        return constanciaVentanillaService.obtenerDocumentoFirma(idSolicitud);
+    }
+
+    /* Registrar la firma capturada en el dispositivo presencial frente al contribuyente (RF-021). */
+    @PostMapping("/{idSolicitud}/firma")
+    public SolicitudVentanillaRespuesta registrarFirma(@PathVariable Long idSolicitud,
+            @Valid @RequestBody FirmaSolicitudConstancia firma, Principal trabajador) {
+        return constanciaVentanillaService.registrarFirma(idSolicitud, firma, trabajador.getName());
+    }
+
+    /* Verificación de deuda en SAMNET y, con deuda 0, emisión de la orden de pago (RF-034, RF-036). */
+    @PostMapping("/{idSolicitud}/verificacion")
+    public SolicitudVentanillaRespuesta verificarDeuda(@PathVariable Long idSolicitud, Principal trabajador) {
+        return constanciaVentanillaService.verificarDeuda(idSolicitud, trabajador.getName());
+    }
+
+    /* Orden de pago del derecho de trámite asociada a la solicitud (RF-036). */
+    @GetMapping("/{idSolicitud}/orden-pago")
+    public OrdenPagoConstanciaRespuesta obtenerOrdenPago(@PathVariable Long idSolicitud) {
+        return constanciaVentanillaService.obtenerOrdenPago(idSolicitud);
+    }
+
+    /* Confirmación del cobro presencial del derecho de trámite (RF-055). */
+    @PostMapping("/{idSolicitud}/pago")
+    public SolicitudVentanillaRespuesta confirmarPago(@PathVariable Long idSolicitud, Principal trabajador) {
+        return constanciaVentanillaService.confirmarPago(idSolicitud, trabajador.getName());
+    }
+
+    /* Emisión de la constancia con los parámetros elegidos por el trabajador (RF-055, RF-037, RF-030). */
+    @PostMapping("/{idSolicitud}/emitir")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ConstanciaVentanillaRespuesta emitir(@PathVariable Long idSolicitud,
+            @Valid @RequestBody EmitirConstanciaVentanillaSolicitud peticion, Principal trabajador) {
+        return constanciaVentanillaService.emitir(idSolicitud, peticion, trabajador.getName());
     }
 
     /* Descarga o impresión del PDF oficial con firma digital municipal (RF-055). */
@@ -73,4 +118,3 @@ public class ConstanciaVentanillaController {
         return constanciaVentanillaService.listar(documento);
     }
 }
-

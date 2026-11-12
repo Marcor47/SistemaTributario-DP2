@@ -94,6 +94,15 @@ export const MODULOS = [
     icono: icono(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></>),
   },
   {
+    ruta: '/ventanilla/constancias',
+    texto: 'Constancia de no adeudo',
+    titulo: 'Emisión de constancia en ventanilla',
+    descripcion: 'Consulta al contribuyente por su documento, verifica su deuda y emite la Constancia de No Adeudo para entrega presencial.',
+    seccion: 'gestion',
+    permiso: 'CONSTANCIAS:GESTIONAR',
+    icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /><circle cx="17" cy="18" r="2" /></>),
+  },
+  {
     ruta: '/metas',
     texto: 'Metas',
     titulo: 'Metas de recaudación',

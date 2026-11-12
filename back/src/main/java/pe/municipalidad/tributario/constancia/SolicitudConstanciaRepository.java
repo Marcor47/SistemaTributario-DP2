@@ -13,8 +13,15 @@ public interface SolicitudConstanciaRepository extends JpaRepository<SolicitudCo
 
     List<SolicitudConstancia> findByDocumentoContribuyenteOrderByFechaSolicitudDesc(String documentoContribuyente);
 
+    /* HU042: últimas solicitudes del contribuyente (cualquier canal y estado) para la tabla de ventanilla. */
+    List<SolicitudConstancia> findTop20ByDocumentoContribuyenteOrderByFechaSolicitudDesc(String documentoContribuyente);
+
     Optional<SolicitudConstancia> findFirstByDocumentoContribuyenteAndEstadoNotInOrderByFechaSolicitudDesc(
             String documentoContribuyente, Collection<EstadoConstancia> estados);
+
+    /* HU042 por pasos: la solicitud abierta de ventanilla se retoma, no se duplica. */
+    Optional<SolicitudConstancia> findFirstByDocumentoContribuyenteAndCanalAndEstadoNotInOrderByFechaSolicitudDesc(
+            String documentoContribuyente, CanalSolicitud canal, Collection<EstadoConstancia> estados);
 
     Optional<SolicitudConstancia> findFirstByDocumentoContribuyenteAndEstadoOrderByFechaSolicitudDesc(
             String documentoContribuyente, EstadoConstancia estado);

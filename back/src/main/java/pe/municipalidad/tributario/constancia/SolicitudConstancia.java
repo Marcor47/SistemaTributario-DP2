@@ -24,8 +24,8 @@ import pe.municipalidad.tributario.seguridad.Usuario;
  * Trámite de la Constancia de No Adeudo desde la app o en ventanilla (RF-034, RF-055). La gestiona un operador:
  * el contribuyente firma y envía la solicitud; el operador verifica la deuda en SAMNET y emite la orden de pago;
  * tras el pago, el operador emite la constancia, que se firma automáticamente por la Municipalidad y va al buzón.
- * El servidor controla la secuencia y cada paso exige el anterior (RNF-029). En ventanilla no hay firma del
- * contribuyente y el trabajador actúa como operador. SolicitudConstancia * de 1 Contribuyente.
+ * El servidor controla la secuencia y cada paso exige el anterior (RNF-029). En ventanilla la firma del contribuyente
+ * se captura con el dispositivo presencial y la envía el trabajador. SolicitudConstancia * de 1 Contribuyente.
  */
 @Entity
 @Table(name = "solicitud_constancia", schema = "operativo")
@@ -52,6 +52,13 @@ public class SolicitudConstancia {
 
     @Column(name = "motivo_rechazo", length = 400)
     private String motivoRechazo;
+
+    /* HU042: deuda evaluada al presentar la solicitud en ventanilla; se congela para no re-verificar después. */
+    @Column(name = "deuda_presentacion", precision = 12, scale = 2)
+    private BigDecimal deudaPresentacion;
+
+    @Column(name = "fecha_deuda_presentacion")
+    private LocalDateTime fechaDeudaPresentacion;
 
     /* Trabajador de ventanilla, si el canal es VENTANILLA. */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -86,12 +93,9 @@ public class SolicitudConstancia {
         this.estado = EstadoConstancia.INICIADA;
     }
 
-    /* RF-021: en la app, la solicitud no se envía al operador sin una firma válida del contribuyente. */
+    /* RF-021: la solicitud se firma en la app; en ventanilla la captura el dispositivo presencial y la envía el trabajador. */
     public void registrarFirma(FirmaDigital firma) {
         exigirEstado(EstadoConstancia.INICIADA);
-        if (canal != CanalSolicitud.APP) {
-            throw new ReglaNegocioException("FIRMA_NO_APLICA", "En ventanilla no se firma la solicitud.");
-        }
         if (!firma.isValida() || firma.getTipoFirmante() != TipoFirmante.CONTRIBUYENTE) {
             throw new ReglaNegocioException("FIRMA_INVALIDA",
                     "La firma digital del contribuyente no es válida.");
@@ -101,9 +105,28 @@ public class SolicitudConstancia {
         estado = EstadoConstancia.FIRMADA;
     }
 
+    /*
+     * HU042: congela la evaluación de deuda hecha al presentar la solicitud. Es idempotente para no reescribir el
+     * resultado y solo aplica a solicitudes abiertas; las anteriores a esta regla quedan sin valor.
+     */
+    public void registrarDeudaPresentacion(BigDecimal deuda, LocalDateTime fecha) {
+        if (deuda == null || deuda.signum() < 0) {
+            throw new ReglaNegocioException("DEUDA_INVALIDA",
+                    "La deuda evaluada al presentar la solicitud no puede ser negativa.");
+        }
+        if (deudaPresentacion != null) {
+            return;
+        }
+        if (estado == EstadoConstancia.EMITIDA || estado == EstadoConstancia.RECHAZADA) {
+            throw new ReglaNegocioException("SOLICITUD_CERRADA", "La solicitud ya fue " + estado + ".");
+        }
+        this.deudaPresentacion = deuda;
+        this.fechaDeudaPresentacion = fecha;
+    }
+
     /* El operador consulta la deuda en SAMNET; continúa solo si es 0, si no, rechaza la solicitud. */
     public boolean verificarDeuda(Usuario operador, BigDecimal deuda, LocalDateTime ahora) {
-        exigirEstado(canal == CanalSolicitud.APP ? EstadoConstancia.FIRMADA : EstadoConstancia.INICIADA);
+        exigirEstado(EstadoConstancia.FIRMADA);
         asignarOperador(operador, ahora);
         if (deuda.signum() > 0) {
             rechazar(operador, "El contribuyente tiene deuda pendiente de S/ " + deuda + ".", ahora);
@@ -192,6 +215,14 @@ public class SolicitudConstancia {
 
     public String getMotivoRechazo() {
         return motivoRechazo;
+    }
+
+    public BigDecimal getDeudaPresentacion() {
+        return deudaPresentacion;
+    }
+
+    public LocalDateTime getFechaDeudaPresentacion() {
+        return fechaDeudaPresentacion;
     }
 
     public Usuario getTrabajador() {
