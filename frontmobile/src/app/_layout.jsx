@@ -40,6 +40,8 @@ function Navegacion() {
           <Stack.Screen name="estado-cuenta" />
           <Stack.Screen name="buzon/index" />
           <Stack.Screen name="buzon/[id]" />
+          <Stack.Screen name="reclamos/index" />
+          <Stack.Screen name="reclamos/[id]" />
           <Stack.Screen name="pagos/[id]" />
           <Stack.Screen name="solicitud-predio/index" />
           <Stack.Screen name="solicitud-predio/enviada" options={{ gestureEnabled: false }} />

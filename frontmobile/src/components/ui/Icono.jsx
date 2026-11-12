@@ -44,6 +44,11 @@ const FIGURAS = {
   reloj: [{ c: [12, 12, 9] }, 'M12 7v5l3 2'],
   usuario: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', { c: [12, 7, 4] }],
   candado: [{ r: [3, 11, 18, 11, 2] }, 'M7 11V7a5 5 0 0 1 10 0v4'],
+  campana: ['M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9', 'M10 21h4'],
+  estrella: ['m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2 2 9.3l6.9-1z'],
+  archivo: [{ r: [3, 5, 18, 16, 2] }, 'M3 10h18', 'M8 2h8l2 3H6z', 'M10 14h4'],
+  bandeja: ['M4 4h16v16H4z', 'M4 14h4l2 3h4l2-3h4'],
+  reclamo: ['M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z', 'M8 9h8', 'M8 13h5'],
 }
 
 /** Ícono decorativo: quien lo use pone el texto accesible en el control que lo contiene. */

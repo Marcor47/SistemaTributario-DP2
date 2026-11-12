@@ -3,6 +3,7 @@ export const TIPOS_DOCUMENTO = {
   ESTADO_CUENTA: 'Estado de cuenta',
   RESPUESTA_SOLICITUD: 'Respuesta a solicitud de predio',
   RESPUESTA_RECLAMO: 'Respuesta a reclamo',
+  ASIGNACION_RECLAMO: 'Actualización de reclamo',
 }
 
 export function filtrarDocumentos(documentos, filtro) {
