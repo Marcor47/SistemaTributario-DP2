@@ -307,6 +307,8 @@ $$;
 
 -- Cuotas emitidas hasta el año de la fecha de corte, con su zona para los reportes por zona y la fecha y el canal de
 -- su último pago a la fecha de corte para la plataforma analítica.
+-- Lo pagado y el insoluto son los de la fecha de corte: los pagos posteriores (y su descuento) no cuentan. Así una
+-- carga con fecha pasada reproduce la cuenta corriente de ese día; con la fecha de hoy el resultado es el de siempre.
 -- PostgreSQL no permite cambiar los parámetros OUT mediante CREATE OR REPLACE.
 DROP FUNCTION IF EXISTS samnet.ps_etl_cobranza(DATE);
 CREATE OR REPLACE FUNCTION samnet.ps_etl_cobranza(p_fecha_corte DATE)
@@ -317,8 +319,8 @@ RETURNS TABLE (
     fecha_pago DATE, canal_pago VARCHAR)
 LANGUAGE sql STABLE AS $$
     SELECT o.id_obligacion, o.contribuyente_codigo, o.codigo_predio, p.zona, o.tributo, o.anio, o.cuota,
-           o.fecha_vencimiento, o.monto_emitido, o.monto_pagado, o.insoluto, o.porcentaje_descuento,
-           o.etapa_cobranza, o.fecha_etapa, u.fecha_pago, u.canal
+           o.fecha_vencimiento, o.monto_emitido, o.monto_pagado - d.pagado, o.insoluto + d.pagado + d.descuento,
+           o.porcentaje_descuento, o.etapa_cobranza, o.fecha_etapa, u.fecha_pago, u.canal
     FROM samnet.fn_obligaciones(NULL, NULL) o
     LEFT JOIN samnet.predio p ON p.codigo_predio = o.codigo_predio
     LEFT JOIN LATERAL (
@@ -329,6 +331,12 @@ LANGUAGE sql STABLE AS $$
         ORDER BY sp.fecha_pago DESC, sp.id_pago DESC
         LIMIT 1
     ) u ON TRUE
+    CROSS JOIN LATERAL (
+        SELECT coalesce(sum(po.monto_aplicado), 0) AS pagado, coalesce(sum(po.monto_descuento), 0) AS descuento
+        FROM samnet.pago_obligacion po
+        JOIN samnet.pago sp ON sp.id_pago = po.id_pago
+        WHERE po.id_obligacion = o.id_obligacion AND sp.fecha_pago > p_fecha_corte
+    ) d
     WHERE o.anio <= EXTRACT(YEAR FROM p_fecha_corte);
 $$;
 

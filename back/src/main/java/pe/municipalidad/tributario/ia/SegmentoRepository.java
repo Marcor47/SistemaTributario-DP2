@@ -24,6 +24,9 @@ public interface SegmentoRepository extends JpaRepository<Segmento, Long> {
             """)
     List<Segmento> buscarTodos();
 
+    @Query("select s from Segmento s join fetch s.modelo where s.modelo.idModelo = :idModelo order by s.nombre")
+    List<Segmento> buscarPorModelo(@Param("idModelo") Long idModelo);
+
     @Query("select s from Segmento s join fetch s.modelo where s.idSegmento in :ids")
     List<Segmento> buscarPorIds(@Param("ids") Collection<Long> ids);
 }

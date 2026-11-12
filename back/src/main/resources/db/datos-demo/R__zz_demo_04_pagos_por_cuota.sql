@@ -1,6 +1,7 @@
--- Solo perfil local. Completa la fecha y el canal del último pago en las cargas de demostración, a partir de los pagos
--- sintéticos de SAMNET. Es idempotente y se ejecuta en cada inicio (${flyway:timestamp}) porque
--- R__datos_prueba_10_etl_cobranza vuelve a crear los hechos de su carga cuando cambia.
+-- Solo perfil local. Completa la fecha y el canal del último pago en las cargas de demostración que no pasaron por el
+-- ETL (las anteriores a él y la muestra de R__zz_demo_01), a partir de los pagos sintéticos de SAMNET. Las cargas del
+-- ETL (las que tienen bronce) ya traen la fecha y el canal del último pago a su fecha de corte y no se tocan.
+-- Es idempotente y se ejecuta en cada inicio (${flyway:timestamp}).
 WITH ultimo_pago AS (
     SELECT DISTINCT ON (po.id_obligacion) po.id_obligacion, p.fecha_pago, p.canal
     FROM samnet.pago_obligacion po
@@ -28,4 +29,6 @@ WHERE p.id_predio = h.id_predio
   AND h.anio = c.anio
   AND h.cuota = c.numero_cuota
   AND (c.codigo_predio IS NULL OR p.seudonimo_predio IN (c.predio_carga, c.predio_demo))
-  AND (h.fecha_pago IS DISTINCT FROM c.fecha_pago OR h.canal_pago IS DISTINCT FROM c.canal);
+  AND (h.fecha_pago IS DISTINCT FROM c.fecha_pago OR h.canal_pago IS DISTINCT FROM c.canal)
+  AND h.id_lote IN (SELECT l.id_lote FROM analitica.lote_etl l
+                    WHERE NOT EXISTS (SELECT 1 FROM bronce.extraccion e WHERE e.id_lote = l.id_lote));

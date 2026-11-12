@@ -43,6 +43,8 @@ Se pueden definir como variables de entorno o, en el perfil `local`, en `back/.a
 `.asistente-local.properties.example`. Sin `LLM_URL`, o con el servicio apagado, el panel muestra «Servicio de IA no
 disponible» y el resto de la plataforma funciona con normalidad.
 
+Cómo conectarse al servicio de la máquina con GPU por Tailscale: [ASISTENTE_IA_TAILSCALE.md](ASISTENTE_IA_TAILSCALE.md).
+
 El modelo no escribe SQL ni accede a la base de datos. Propone una consulta en JSON que se valida contra el catálogo y se
 resuelve con los mismos agregados de las pantallas. Solo recibe la pregunta, los filtros, el catálogo y las filas del
 resultado. Cada cifra de su respuesta se compara con esos datos: si inventa una, tiene un reintento y después se muestra

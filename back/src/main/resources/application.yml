@@ -46,6 +46,32 @@ tributario:
   archivos:
     predios: ${PREDIO_FILES_DIR:./storage/predios}
     clave: ${PREDIO_FILES_KEY:}
+  etl:
+    # Claves HMAC de los seudónimos del modelo analítico (RNF-018). Sin ellas el ETL no se ejecuta. Son secretas:
+    # se configuran por variable de entorno y no se cambian una vez cargados datos (cambiarían los seudónimos nuevos).
+    clave-seudonimo-contribuyente: ${ETL_CLAVE_SEUDONIMO_CONTRIBUYENTE:}
+    clave-seudonimo-predio: ${ETL_CLAVE_SEUDONIMO_PREDIO:}
+    # El lote se rechaza si una regla deja fuera más de este porcentaje de registros (R1 a R5).
+    max-rechazo-porcentaje: ${ETL_MAX_RECHAZO:10}
+    # Puntaje desde el que un registro parecido a otro va a la bandeja de homologación (N2) en vez de ser nuevo.
+    umbral-revision: ${ETL_UMBRAL_REVISION:0.65}
+    # Ejecución diaria (cron de Spring, hora de Lima), p. ej. "0 0 2 * * *"; "-" la desactiva.
+    programacion: ${ETL_PROGRAMACION:-}
+  # Segmentación de contribuyentes con K-means (HU030, RF-043). Queda en borrador hasta que la jefatura la apruebe.
+  segmentacion:
+    k-minimo: 2
+    k-maximo: 8
+    # Ningún segmento con menos de este número de contribuyentes, ni del porcentaje del total.
+    tamano-minimo: 3
+    tamano-minimo-porcentaje: 2
+    reinicios: 20
+    semilla: 20261111
+    # Años de cuotas vencidas que miden el comportamiento (% a tiempo y atraso medio).
+    ventana-anios: 3
+    # Sobre más contribuyentes, la silueta se calcula con una muestra fija de este tamaño.
+    muestra-silueta: 5000
+    # true: recalcula el borrador después de cada lote del ETL publicado desde el backend.
+    tras-etl: ${SEGMENTACION_TRAS_ETL:false}
   asistente:
     llm-url: ${LLM_URL:}
     llm-token: ${LLM_TOKEN:}
