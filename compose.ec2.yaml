@@ -1,0 +1,88 @@
+name: tributario
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tributario-db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-municipalidad}
+      POSTGRES_USER: ${DB_USER:-municipalidad}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Se requiere definir DB_PASSWORD en deploy/ec2/.env}
+    volumes:
+      - tributario_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-municipalidad} -d ${DB_NAME:-municipalidad}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tributario-net
+
+  back:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    container_name: tributario-back
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-municipalidad}
+      DB_USER: ${DB_USER:-municipalidad}
+      DB_PASSWORD: ${DB_PASSWORD}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      SESSION_COOKIE_SECURE: "false"
+      INITIAL_ADMIN_ENABLED: ${INITIAL_ADMIN_ENABLED:-false}
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-}
+      INITIAL_ADMIN_FULL_NAME: ${INITIAL_ADMIN_FULL_NAME:-}
+      INITIAL_ADMIN_EMAIL: ${INITIAL_ADMIN_EMAIL:-}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
+      PREDIO_FILES_DIR: /app/storage/predios
+      PREDIO_FILES_KEY: ${PREDIO_FILES_KEY:-}
+      LLM_URL: ${LLM_URL:-}
+      LLM_TOKEN: ${LLM_TOKEN:-}
+      NIUBIZ_MODE: ${NIUBIZ_MODE:-sandbox}
+      NIUBIZ_USERNAME: ${NIUBIZ_USERNAME:-}
+      NIUBIZ_PASSWORD: ${NIUBIZ_PASSWORD:-}
+      NIUBIZ_MERCHANT_ID: ${NIUBIZ_MERCHANT_ID:-}
+      NIUBIZ_CALLBACK_URL: ${NIUBIZ_CALLBACK_URL:-}
+      NIUBIZ_TIMEOUT_URL: ${NIUBIZ_TIMEOUT_URL:-}
+    volumes:
+      - tributario_predios_storage:/app/storage/predios
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks:
+      - tributario-net
+
+  frontweb:
+    build:
+      context: ./frontweb
+      dockerfile: Dockerfile
+    container_name: tributario-frontweb
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      back:
+        condition: service_healthy
+    networks:
+      - tributario-net
+
+volumes:
+  tributario_db_data:
+    name: tributario_db_data
+  tributario_predios_storage:
+    name: tributario_predios_storage
+
+networks:
+  tributario-net:
+    name: tributario_net
+    driver: bridge
+
