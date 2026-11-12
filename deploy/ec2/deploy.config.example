@@ -1,0 +1,9 @@
+# Configuracion de conexion a la instancia EC2 de AWS
+# Copia este archivo como deploy.config (sin .example) y completa tus datos.
+
+EC2_HOST="REEMPLAZAR_CON_TU_IP_ELASTICA"
+EC2_KEY_PATH="C:/ruta/a/tu/clave.pem"
+EC2_USER="ubuntu"
+EC2_PORT="22"
+REMOTE_DIR="/home/ubuntu/tributario"
+

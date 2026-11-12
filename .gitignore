@@ -1,5 +1,8 @@
 # otros
 .env
+.env.*
+deploy/ec2/.env
+deploy/ec2/deploy.config
 back/storage/predios/*
 !back/storage/predios/.gitkeep
 *.log
