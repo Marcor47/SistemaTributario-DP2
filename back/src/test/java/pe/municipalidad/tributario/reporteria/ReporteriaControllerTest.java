@@ -38,6 +38,10 @@ import pe.municipalidad.tributario.seguridad.RolRepository;
 import pe.municipalidad.tributario.seguridad.SesionInterna;
 import pe.municipalidad.tributario.seguridad.Usuario;
 import pe.municipalidad.tributario.seguridad.UsuarioRepository;
+import pe.municipalidad.tributario.reporte.RestriccionReporteRepository;
+import pe.municipalidad.tributario.reporte.RestriccionReporte;
+import pe.municipalidad.tributario.reporte.TipoReporte;
+import pe.municipalidad.tributario.reporte.DimensionRestringida;
 import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
 /*
@@ -73,6 +77,7 @@ class ReporteriaControllerTest {
     private RolRepository roles;
     @Autowired
     private ClaveInternaService claves;
+    @Autowired private RestriccionReporteRepository restricciones;
 
     private MockHttpSession gerencia;
     private LoteETL lote;
@@ -285,6 +290,43 @@ class ReporteriaControllerTest {
                            "filas": [["Z01", 420.5]]}],
              "ranking": {"titulo": "Top 10 morosos", "encabezados": ["Contribuyente", "Deuda vencida"],
                          "filas": [["Contrib. ABC", 420.5]]}}""";
+
+    @Test
+    void filtraLaZonaAntesDeLosTotalesSinCerrarLaPlataformaNiContaminarLaCache() throws Exception {
+        restringirZona("Z01");
+        mvc.perform(get("/api/reporteria/catalogo").session(gerencia)).andExpect(status().isOk());
+        mvc.perform(get(DATOS).param("desde", "2026-01").param("hasta", "2026-10").session(gerencia))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totales.emitido").value(50.0))
+                .andExpect(jsonPath("$.totales.deuda").value(0.0));
+        var analista = sesion(NombreRol.ANALISTA_RENTAS, "analista_sin_restriccion");
+        mvc.perform(get(DATOS).param("desde", "2026-01").param("hasta", "2026-10").session(analista))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totales.emitido").value(900.0));
+        mvc.perform(get(DATOS).param("desde", "2026-01").param("hasta", "2026-10")
+                        .param("zona", "Z01").param("destacado", "0").session(gerencia))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totales.emitido").value(0.0))
+                .andExpect(jsonPath("$.destacado").isEmpty());
+    }
+
+    @Test
+    void exportaSoloDatosAutorizadosAunqueElNavegadorEnvieImportesYFilasAjenos() throws Exception {
+        restringirZona("Z01");
+        String peticion = EXPORTACION.replace("Contrib. ABC", "DATO_NO_AUTORIZADO")
+                .replace("\"pestana\": \"morosos\"", "\"pestana\": \"resumen\"");
+        peticion = peticion.substring(0, peticion.length() - 1)
+                + ",\"consulta\":{\"desde\":\"2026-01\",\"hasta\":\"2026-10\"}}";
+        byte[] pdf = mvc.perform(post("/api/reporteria/exportar").param("formato", "PDF").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(peticion).session(gerencia))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
+        try (var documento = Loader.loadPDF(pdf)) {
+            assertThat(new PDFTextStripper().getText(documento)).contains("Contribuyentes autorizados", "50.00")
+                    .doesNotContain("DATO_NO_AUTORIZADO", "420.50");
+        }
+    }
+
+    private void restringirZona(String zona) {
+        restricciones.saveAndFlush(new RestriccionReporte(roles.findByNombre(NombreRol.GERENCIA).orElseThrow(),
+                TipoReporte.MOROSOS, DimensionRestringida.ZONA, zona, false));
+    }
 
     @Test
     void exportaExcelYPdfYQuedaEnLaAuditoria() throws Exception {

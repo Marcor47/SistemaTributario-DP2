@@ -74,13 +74,20 @@ class ConstanciaOperadorControllerTest {
         MockHttpSession sesion = sesion(SIN_DEUDA);
         mockMvc.perform(get(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago").session(sesion))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.monto").value(10.00));
+                .andExpect(jsonPath("$.monto").value(10.00))
+                .andExpect(jsonPath("$.sesionIniciada").value(false));
         mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/confirmacion").session(sesion))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("PAGO_NO_INICIADO"));
         mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/sesion").session(sesion))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sesionIniciada").value(true))
                 .andExpect(jsonPath("$.urlPasarela").value(startsWith("/pasarela-simulada/")));
+        mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/sesion").session(sesion))
+                .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.codigo").value("PAGO_YA_INICIADO"));
+        mockMvc.perform(post(RUTA_OPERADOR + "/" + id + "/rechazo").with(operador()).with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"motivo\":\"Datos incompletos\"}"))
+                .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.codigo").value("PAGO_EN_CURSO"));
         String confirmada = mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/confirmacion")
                         .session(sesion))
                 .andExpect(status().isOk())
@@ -90,6 +97,8 @@ class ConstanciaOperadorControllerTest {
                 .andExpect(jsonPath("$.numeroConstancia").value(startsWith("CNA-2026-")))
                 .andReturn().getResponse().getContentAsString();
         String numero = JsonPath.read(confirmada, "$.numeroConstancia");
+        mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/confirmacion").session(sesion))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.numeroConstancia").value(numero));
 
         mockMvc.perform(get(RUTA_OPERADOR + "/" + id).with(operador()))
                 .andExpect(jsonPath("$.estado").value("EMITIDA"))

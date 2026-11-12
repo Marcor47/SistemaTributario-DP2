@@ -148,11 +148,13 @@ public class CuboReporteria {
 
     private final JdbcTemplate jdbc;
     private final DashboardRepository cargas;
+    private final AccesoReporteria acceso;
     private volatile Carga vigente;
 
-    public CuboReporteria(JdbcTemplate jdbc, DashboardRepository cargas) {
+    public CuboReporteria(JdbcTemplate jdbc, DashboardRepository cargas, AccesoReporteria acceso) {
         this.jdbc = jdbc;
         this.cargas = cargas;
+        this.acceso = acceso;
     }
 
     Carga carga() {
@@ -423,6 +425,34 @@ public class CuboReporteria {
     }
 
     Agregado calcular(Carga d, Filtro f) {
+        var reglas = acceso.actuales();
+        boolean[] morosoGlobal = new boolean[d.n()];
+        boolean[] buenPagadorGlobal = new boolean[d.n()];
+        boolean[] oculto = new boolean[d.n()];
+        Arrays.fill(buenPagadorGlobal, true);
+        if (!reglas.isEmpty()) {
+            for (int i = 0; i < d.nq(); i++) {
+                int c = d.qc()[i];
+                if (d.qd()[i] > 0) morosoGlobal[c] = true;
+                if (!d.qok()[i]) buenPagadorGlobal[c] = false;
+            }
+            // Se excluye el contribuyente completo si alguna cuota cae en un alcance restringido.
+            // Así los datos de su ficha o sus otros predios no revelan información de la zona oculta.
+            for (int i = 0; i < d.nq(); i++) {
+                int c = d.qc()[i];
+                for (var regla : reglas) {
+                    boolean corresponde = switch (regla.reporte()) {
+                        case PRICOS -> d.cp()[c];
+                        case MOROSOS -> morosoGlobal[c];
+                        case BUENOS_PAGADORES -> buenPagadorGlobal[c];
+                    };
+                    if (corresponde && regla.restringe(d.zonas().get(d.qz()[i]), d.segmentos().get(d.cs()[c]))) {
+                        oculto[c] = true;
+                        break;
+                    }
+                }
+            }
+        }
         int n = d.n();
         int nt = TRIBUTOS.size();
         int nz = d.zonas().size();
@@ -481,6 +511,7 @@ public class CuboReporteria {
             int z = d.qz()[i];
             int t = d.qt()[i];
             int s = d.cs()[c];
+            if (oculto[c]) continue;
             if ((zonaFiltro != -1 && z != zonaFiltro) || (segmentoFiltro != -1 && s != segmentoFiltro)
                     || (tributoFiltro != -1 && t != tributoFiltro)
                     || (contribuyenteFiltro != -1 && c != contribuyenteFiltro)

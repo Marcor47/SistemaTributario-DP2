@@ -109,15 +109,19 @@ public class PagoPortalService {
                 || estado.montoAutorizado().compareTo(transaccion.getMontoTotal()) != 0) {
             throw new ReglaNegocioException("PAGO_NO_AUTORIZADO", "La pasarela aún no autorizó el pago.");
         }
+        String comprobante;
         try {
-            samnet.registrarPagoEnLinea(codigo, id, LocalDate.now(reloj));
+            comprobante = samnet.registrarPagoEnLinea(codigo, id, LocalDate.now(reloj));
         } catch (DataAccessException ex) {
             if (ex.getMostSpecificCause() instanceof SQLException sql && "P0001".equals(sql.getSQLState())) {
                 throw saldoCambio();
             }
             throw ex;
         }
-        transaccion.confirmar("WEB-" + id);
+        if (comprobante == null || comprobante.isBlank() || comprobante.length() > 60) {
+            throw new IllegalStateException("SAMNET no confirmó un comprobante válido; se requiere conciliación.");
+        }
+        transaccion.confirmar(comprobante);
         return PagoRespuesta.desde(transaccion, null);
     }
 

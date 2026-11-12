@@ -136,10 +136,14 @@ public class ConstanciaOperadorService {
             throw new ReglaNegocioException("SOLICITUD_NO_ENVIADA",
                     "El contribuyente aún no firma ni envía esta solicitud.");
         }
+        var orden = transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(idSolicitud);
+        if (orden.filter(pago -> pago.getEstado() == EstadoTransaccion.INICIADA
+                && pago.getIdOrdenPasarela() != null).isPresent()) {
+            throw new ReglaNegocioException("PAGO_EN_CURSO",
+                    "La orden tiene un pago iniciado. Compruebe su resultado antes de rechazar la solicitud.");
+        }
         solicitud.rechazar(operador(nombreOperador), motivo.strip(), LocalDateTime.now(reloj));
-        transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(idSolicitud)
-                .filter(orden -> orden.getEstado() == EstadoTransaccion.INICIADA)
-                .ifPresent(TransaccionPago::rechazar);
+        orden.filter(pago -> pago.getEstado() == EstadoTransaccion.INICIADA).ifPresent(TransaccionPago::rechazar);
         return respuesta(solicitudConstanciaRepository.saveAndFlush(solicitud), null);
     }
 

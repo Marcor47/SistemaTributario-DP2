@@ -16,6 +16,8 @@ public interface AvisoCorreoRepository extends JpaRepository<AvisoCorreo, Long> 
 
     boolean existsByLoteIdLoteAndIdObligacion(Long idLote, String idObligacion);
 
+    boolean existsByTipoAndIdObligacionAndEstado(TipoAviso tipo, String idObligacion, EstadoAviso estado);
+
     @Query("SELECT a FROM AvisoCorreo a WHERE a.documentoContribuyente = :documento ORDER BY a.fechaEnvio DESC NULLS LAST, a.fechaProgramada DESC")
     List<AvisoCorreo> buscarHistorialContribuyente(@Param("documento") String documento);
 }

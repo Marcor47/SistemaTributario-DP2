@@ -165,6 +165,15 @@ export const MODULOS = [
     icono: icono(<><path d="M4 4h16v12H7l-3 3z" /><path d="M9 8h6M9 12h4" /></>),
   },
   {
+    ruta: '/gestion/constancias',
+    texto: 'Solicitudes de constancia',
+    titulo: 'Gestión de Constancias de No Adeudo',
+    descripcion: 'Revisa las solicitudes, verifica la deuda y emite las constancias pagadas.',
+    seccion: 'gestion',
+    permiso: 'CONSTANCIAS:GESTIONAR',
+    icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /></>),
+  },
+  {
     ruta: '/reclamos',
     texto: 'Mis reclamos',
     titulo: 'Mis reclamos laborales',

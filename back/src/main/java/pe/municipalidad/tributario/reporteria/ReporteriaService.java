@@ -142,7 +142,7 @@ public class ReporteriaService {
     }
 
     private static Destacado destacado(Agregado a, Map<String, List<Integer>> rankings, Integer c) {
-        if (c == null || c < 0 || c >= a.carga.n()) {
+        if (c == null || c < 0 || c >= a.carga.n() || (a.cCuotas[c] == 0 && a.cRecaudado[c] == 0)) {
             return null;
         }
         Map<String, Integer> puestos = new LinkedHashMap<>();

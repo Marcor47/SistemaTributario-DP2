@@ -10,6 +10,7 @@ sin `local` no incorpora estas semillas de demostración.
 | Pantalla | Usuario | Contraseña de desarrollo |
 | --- | --- | --- |
 | Web: dashboard de Gerencia | `gerencia` | `gerencia123` |
+| Web: gestión de constancias | `ventanilla.demo` | `VentanillaDemo#2026` |
 | App móvil: Mi buzón | `061177` | `Portal061177!` |
 | App móvil: prueba Niubiz de S/ 1.00 | `099024` | `Portal099024!` |
 
@@ -49,6 +50,11 @@ publicada; no ejecuta ni reemplaza el ETL. La app consulta el buzón propio por 
 
 Para activar el pago de pruebas, sigue [NIUBIZ_SANDBOX.md](NIUBIZ_SANDBOX.md). Las semillas
 no habilitan Niubiz ni generan autorizaciones o cargos externos.
+
+La bandeja `/gestion/constancias` permite que el operador revise solicitudes firmadas, verifique
+la deuda, genere la orden de pago y emita la constancia cuando el pago esté confirmado. El
+contribuyente consulta el resultado y descarga la constancia en su buzón. La firma del perfil
+local es de prueba y no tiene validez legal.
 
 Las cuentas `099023` y `099024` son adicionales y no forman parte de la foto analítica del
 dashboard. Cada una nace con una cuota de S/ 1.00. En este equipo ambas cuotas iniciales se

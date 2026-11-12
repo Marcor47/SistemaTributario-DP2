@@ -64,7 +64,7 @@ test('HU012: las cifras del procesamiento resaltan lo que requiere atención y n
   const cifras = cifrasProcesamiento({
     cuotasEvaluadas: 120, cuotasVencidasDetectadas: 30, alertasEnviadas: 25, sinCorreoRegistrado: 4, alertasFallidas: 1,
   })
-  assert.deepEqual(cifras.map((c) => c.valor), [120, 30, 25, 4, 1])
+  assert.deepEqual(cifras.map((c) => c.valor), [120, 30, 25, 0, 4, 1])
   assert.equal(cifras.find((c) => c.clave === 'alertasEnviadas').tono, 'ok')
   assert.equal(cifras.find((c) => c.clave === 'sinCorreoRegistrado').tono, 'aviso')
   assert.equal(cifras.find((c) => c.clave === 'alertasFallidas').tono, 'critico')

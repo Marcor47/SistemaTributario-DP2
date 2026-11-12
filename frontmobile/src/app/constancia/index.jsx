@@ -1,13 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useFocusEffect, usePreventRemove, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path } from 'react-native-svg'
 import Aviso from '../../components/ui/Aviso'
 import Boton from '../../components/ui/Boton'
 import Cabecera from '../../components/ui/Cabecera'
 import { useSesion } from '../../context/SesionContext'
-import { confirmarPagoConstancia, consultarDeudaConstancia, crearOrdenConstancia, descargarConstancia, emitirConstancia, enviarFirmaConstancia, firmaDePrueba, iniciarConstancia, listarBuzonConstancias, listarConstancias, obtenerConstancia, obtenerDocumentoFirma, obtenerOrdenConstancia, textoDocumento } from '../../services/constanciaService'
+import { usePagos } from '../../context/PagosContext'
+import { confirmarPagoConstancia, consultarDeudaConstancia, enviarFirmaConstancia, firmaDePrueba, iniciarConstancia, iniciarPagoConstancia, listarConstancias, obtenerConstancia, obtenerDocumentoFirma, obtenerOrdenConstancia, textoDocumento } from '../../services/constanciaService'
+import { checkoutValido } from '../../utils/pagos'
+import { seleccionarPagoConstancia } from '../../utils/constancia'
 import { colores, radios, texto } from '../../theme/tokens'
 
 const ESTADOS_CERRADOS = ['EMITIDA', 'RECHAZADA']
@@ -21,10 +24,10 @@ const ESTADOS = {
   RECHAZADA: 'Solicitud rechazada',
 }
 const SIGUIENTE_PASO = {
-  FIRMADA: 'Tu solicitud fue enviada. Genera la orden para pagar el derecho del trámite.',
+  FIRMADA: 'Tu solicitud fue enviada y está pendiente de revisión por el personal municipal.',
   DEUDA_VERIFICADA: 'La revisión de deuda terminó. El personal municipal debe emitir la orden de pago del trámite.',
   ORDEN_PAGO_EMITIDA: 'La orden está lista. Confirma el pago del derecho de trámite.',
-  PAGADA: 'El pago figura registrado. Ya puedes emitir la constancia.',
+  PAGADA: 'El pago fue confirmado. La municipalidad revisará la emisión de tu constancia.',
   EMITIDA: 'Tu constancia se encuentra en el buzón de documentos.',
 }
 
@@ -32,20 +35,23 @@ export default function Constancia() {
   const router = useRouter()
   const { bottom } = useSafeAreaInsets()
   const { sesion } = useSesion()
+  const { abrirPasarela, guardarPago, descartarPago, ultimoPago } = usePagos()
   const [solicitudes, setSolicitudes] = useState([])
   const [deuda, setDeuda] = useState(null)
   const [solicitud, setSolicitud] = useState(null)
   const [documento, setDocumento] = useState(null)
   const [firmaPreparada, setFirmaPreparada] = useState(false)
   const [orden, setOrden] = useState(null)
-  const [documentosBuzon, setDocumentosBuzon] = useState([])
-  const [buzonAbierto, setBuzonAbierto] = useState(false)
+  const [pagoEnPantalla, setPagoEnPantalla] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [cargaFallida, setCargaFallida] = useState(false)
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
+  const liberarPasarela = useRef(null)
+  const procesandoConfirmacion = useRef(false)
+  usePreventRemove(ocupado)
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let activo = true
     Promise.all([listarConstancias(), consultarDeudaConstancia()])
       .then(([lista, estadoDeuda]) => {
@@ -53,15 +59,36 @@ export default function Constancia() {
         setDeuda(estadoDeuda)
         setCargaFallida(false)
         setSolicitudes(lista)
-        setSolicitud(lista.find((item) => !ESTADOS_CERRADOS.includes(item.estado)) ?? lista[0] ?? null)
+        seleccionarSolicitud(lista.find((item) => !ESTADOS_CERRADOS.includes(item.estado)) ?? lista[0] ?? null)
       })
       .catch((err) => { if (activo) { setError(err.message); setCargaFallida(true) } })
       .finally(() => { if (activo) setCargando(false) })
-    return () => { activo = false }
-  }, [sesion.usuario?.codigoContribuyente])
+    return () => {
+      activo = false
+      liberarPasarela.current?.()
+      liberarPasarela.current = null
+    }
+  }, []))
 
   const idSolicitud = solicitud?.idSolicitud
   const estadoSolicitud = solicitud?.estado
+
+  useFocusEffect(useCallback(() => {
+    if (!idSolicitud || !['FIRMADA', 'DEUDA_VERIFICADA', 'PAGADA'].includes(estadoSolicitud)) return
+    let activo = true
+    const intervalo = setInterval(async () => {
+      try {
+        const actual = await obtenerConstancia(idSolicitud)
+        if (activo && actual.estado !== estadoSolicitud) {
+          setSolicitud(actual)
+          setSolicitudes((lista) => [actual, ...lista.filter((item) => item.idSolicitud !== actual.idSolicitud)])
+        }
+      } catch {
+        // La siguiente consulta volverá a comprobar el estado.
+      }
+    }, 15000)
+    return () => { activo = false; clearInterval(intervalo) }
+  }, [idSolicitud, estadoSolicitud]))
 
   useEffect(() => {
     let activo = true
@@ -81,9 +108,12 @@ export default function Constancia() {
   }
 
   function seleccionarSolicitud(nueva) {
+    liberarPasarela.current?.()
+    liberarPasarela.current = null
     setSolicitud(nueva)
     setDocumento(null)
     setFirmaPreparada(false)
+    setPagoEnPantalla(null)
   }
 
   function actualizarSolicitud(nueva, conservarDocumento = false) {
@@ -119,39 +149,55 @@ export default function Constancia() {
     ), true))
   }
 
-  function generarOrden() {
-    ejecutar(async () => {
-      const id = solicitud.idSolicitud
-      setOrden({ ...await crearOrdenConstancia(id), idSolicitud: id })
-      actualizarSolicitud(await obtenerConstancia(id), true)
-    })
+  async function confirmarPago(id, token, idTransaccion) {
+    if (procesandoConfirmacion.current) return
+    procesandoConfirmacion.current = true
+    // Una autorización con resultado incierto no debe volver a enviarse automáticamente.
+    descartarPago(idTransaccion)
+    setOcupado(true)
+    setError('')
+    setPagoEnPantalla(null)
+    liberarPasarela.current = null
+    try {
+      const resultado = await confirmarPagoConstancia(id, token, idTransaccion)
+      setOrden({ ...resultado.orden, idSolicitud: id })
+      if (resultado.error) {
+        setError('No se pudo confirmar el resultado. Consulta a la municipalidad antes de volver a pagar.')
+      } else {
+        actualizarSolicitud(await obtenerConstancia(id), true)
+      }
+    } catch (err) {
+      setError(err.message || 'No se pudo comprobar el pago.')
+    } finally {
+      procesandoConfirmacion.current = false
+      setOcupado(false)
+    }
   }
 
-  function confirmarPago() {
+  function abrirPago() {
     ejecutar(async () => {
       const id = solicitud.idSolicitud
-      setOrden({ ...await confirmarPagoConstancia(id), idSolicitud: id })
-      actualizarSolicitud(await obtenerConstancia(id), true)
-    })
-  }
-
-  async function cargarBuzon() {
-    setDocumentosBuzon(await listarBuzonConstancias())
-    setBuzonAbierto(true)
-  }
-
-  function emitir() {
-    ejecutar(async () => {
-      const id = solicitud.idSolicitud
-      await emitirConstancia(id)
-      actualizarSolicitud(await obtenerConstancia(id), true)
-      await cargarBuzon()
+      let actual = pagoActual ? { idSolicitud: id, pago: pagoActual } : null
+      if (!actual) {
+        const resultado = await iniciarPagoConstancia(id, orden.idTransaccion)
+        actual = { idSolicitud: id, pago: resultado.pago }
+        guardarPago(resultado.pago)
+        setOrden({ ...resultado.orden, idSolicitud: id })
+        setPagoEnPantalla(actual)
+      }
+      if (checkoutValido(actual.pago.checkout)) {
+        liberarPasarela.current = abrirPasarela(actual.pago, {
+          onToken: (token) => confirmarPago(id, token, actual.pago.idTransaccion),
+          onError: () => setError('No se pudo cargar la pasarela. Vuelve a abrir el formulario.'),
+        })
+      }
     })
   }
 
   const pendiente = solicitud?.estado === 'INICIADA' && solicitud?.canal === 'APP'
   const haySinFirma = solicitudes.some((item) => item.estado === 'INICIADA')
   const otras = solicitudes.filter((item) => item.idSolicitud !== solicitud?.idSolicitud)
+  const pagoActual = seleccionarPagoConstancia(pagoEnPantalla, orden, solicitud?.idSolicitud, ultimoPago)
   const lineasDocumento = documento?.tipoContenido?.startsWith('text/')
     ? textoDocumento(documento.contenidoBase64).trim().split('\n')
     : []
@@ -207,13 +253,14 @@ export default function Constancia() {
               <Boton titulo="Enviar solicitud" onPress={enviarSolicitud} deshabilitado={!firmaPreparada || ocupado} cargando={ocupado} />
             </> : pendiente && deuda?.puedeSolicitar ? <Aviso tipo="alerta" titulo="Firma no disponible">La firma real aún no está integrada en este portal.</Aviso> : null}
           </> : null}
-          {solicitud.estado === 'FIRMADA' && deuda?.puedeSolicitar ? <Boton titulo="Generar orden de pago" onPress={generarOrden} cargando={ocupado} /> : null}
           {solicitud.estado === 'ORDEN_PAGO_EMITIDA' && orden?.idSolicitud === solicitud.idSolicitud ? <View style={estilos.tarjeta}>
             <Text style={texto.etiqueta}>Derecho del trámite: S/ {Number(orden.monto).toFixed(2)}</Text>
-            <Text style={texto.secundario}>Pago simulado: no se realiza un cargo real.</Text>
-            <Boton titulo="Confirmar pago" onPress={confirmarPago} deshabilitado={!deuda?.puedeSolicitar} cargando={ocupado} />
+            {orden.sesionIniciada && !pagoActual
+              ? <Aviso tipo="alerta" titulo="Pago iniciado">Consulta con la municipalidad el resultado de esta orden antes de intentar pagar nuevamente.</Aviso>
+              : pagoActual && !checkoutValido(pagoActual.checkout)
+                ? <Boton titulo="Confirmar pago de prueba" onPress={() => confirmarPago(solicitud.idSolicitud, null, pagoActual.idTransaccion)} deshabilitado={!deuda?.puedeSolicitar} cargando={ocupado} />
+                : <Boton titulo={pagoActual ? 'Abrir nuevamente la pasarela' : 'Pagar derecho de trámite'} onPress={abrirPago} deshabilitado={!deuda?.puedeSolicitar} cargando={ocupado} />}
           </View> : null}
-          {solicitud.estado === 'PAGADA' && deuda?.puedeSolicitar ? <Boton titulo="Emitir constancia" onPress={emitir} cargando={ocupado} /> : null}
           {deuda?.puedeSolicitar && !haySinFirma ? <Boton titulo="Crear otra solicitud" onPress={crear} cargando={ocupado} /> : null}
         </View> : null}
         {otras.length ? <View style={estilos.tarjeta}>
@@ -227,14 +274,7 @@ export default function Constancia() {
           />)}
         </View> : null}
         {!cargando && !solicitudes.length && !cargaFallida ? <Text style={texto.secundario}>Aún no tienes solicitudes de constancia.</Text> : null}
-        {!cargando && !cargaFallida ? <Boton titulo={buzonAbierto ? 'Actualizar buzón' : 'Ver mi buzón'} variante="secundario" onPress={() => ejecutar(cargarBuzon)} cargando={ocupado} /> : null}
-        {buzonAbierto ? <View style={estilos.tarjeta}>
-          <Text style={texto.subtitulo}>Buzón de documentos</Text>
-          {documentosBuzon.length ? documentosBuzon.map((item) => <View key={item.id}>
-            <Text style={texto.cuerpo}>{item.titulo}</Text>
-            <Boton titulo="Descargar constancia" variante="secundario" onPress={() => ejecutar(() => descargarConstancia(item.id))} deshabilitado={ocupado} />
-          </View>) : <Text style={texto.cuerpo}>Aún no tienes constancias en tu buzón.</Text>}
-        </View> : null}
+        {!cargando && !cargaFallida ? <Boton titulo="Ir a mi buzón" variante="secundario" onPress={() => router.push('/buzon')} deshabilitado={ocupado} /> : null}
       </ScrollView>
     </View>
   )

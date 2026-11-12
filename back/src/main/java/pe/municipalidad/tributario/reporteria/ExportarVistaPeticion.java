@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.time.YearMonth;
 
 /*
  * Lo que la pantalla muestra al exportar: filtros, indicadores, datos de cada gráfico en su orden visible y el ranking
@@ -20,7 +21,14 @@ public record ExportarVistaPeticion(
         @Size(max = 200, message = "es demasiado largo") String resaltado,
         @NotNull(message = "es obligatorio") @Size(max = 12, message = "tiene demasiados elementos") List<List<String>> indicadores,
         @NotNull(message = "es obligatorio") @Size(max = 12, message = "tiene demasiados elementos") List<@Valid TablaExportada> graficos,
-        @Valid TablaExportada ranking) {
+        @Valid TablaExportada ranking,
+        @Valid Consulta consulta) {
+
+    public record Consulta(@NotNull YearMonth desde, @NotNull YearMonth hasta,
+                           @Size(max = 20) String zona, @Size(max = 25) String tributo,
+                           @Size(max = 80) String segmento) {
+        CuboReporteria.Filtro filtro() { return new CuboReporteria.Filtro(desde, hasta, zona, tributo, segmento, null, null); }
+    }
 
     public record TablaExportada(
             @NotBlank(message = "es obligatorio") @Size(max = 160, message = "es demasiado largo") String titulo,

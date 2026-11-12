@@ -20,18 +20,27 @@ public record OrdenPagoConstanciaRespuesta(
         NiubizGateway.Checkout checkout,
         EstadoConstancia estadoSolicitud,
         String numeroConstancia,
-        String urlDescarga) {
+        String urlDescarga,
+        boolean sesionIniciada) {
 
     /* Orden sin datos de la constancia: la usan los flujos que no emiten al pagar (p. ej. ventanilla, HU042). */
     public OrdenPagoConstanciaRespuesta(Long idTransaccion, BigDecimal monto, EstadoTransaccion estado,
             LocalDateTime fechaEmision, String comprobante, String urlPasarela, NiubizGateway.Checkout checkout) {
-        this(idTransaccion, monto, estado, fechaEmision, comprobante, urlPasarela, checkout, null, null, null);
+        this(idTransaccion, monto, estado, fechaEmision, comprobante, urlPasarela, checkout, null, null, null, false);
+    }
+
+    public OrdenPagoConstanciaRespuesta(Long idTransaccion, BigDecimal monto, EstadoTransaccion estado,
+            LocalDateTime fechaEmision, String comprobante, String urlPasarela, NiubizGateway.Checkout checkout,
+            boolean sesionIniciada) {
+        this(idTransaccion, monto, estado, fechaEmision, comprobante, urlPasarela, checkout,
+                null, null, null, sesionIniciada);
     }
 
     static OrdenPagoConstanciaRespuesta desde(TransaccionPago orden, String urlPasarela,
             NiubizGateway.Checkout checkout) {
         return new OrdenPagoConstanciaRespuesta(orden.getIdTransaccion(), orden.getMontoTotal(), orden.getEstado(),
-                orden.getFechaHora(), orden.getComprobante(), urlPasarela, checkout);
+                orden.getFechaHora(), orden.getComprobante(), urlPasarela, checkout,
+                orden.getIdOrdenPasarela() != null);
     }
 
     static OrdenPagoConstanciaRespuesta confirmada(TransaccionPago orden, SolicitudConstancia solicitud,
@@ -39,6 +48,7 @@ public record OrdenPagoConstanciaRespuesta(
         return new OrdenPagoConstanciaRespuesta(orden.getIdTransaccion(), orden.getMontoTotal(), orden.getEstado(),
                 orden.getFechaHora(), orden.getComprobante(), null, null, solicitud.getEstado(),
                 constancia == null ? null : constancia.getNumeroConstancia(),
-                idDocumentoBuzon == null ? null : "/buzon/" + idDocumentoBuzon + "/descarga");
+                idDocumentoBuzon == null ? null : "/buzon/" + idDocumentoBuzon + "/descarga",
+                orden.getIdOrdenPasarela() != null);
     }
 }
