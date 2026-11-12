@@ -4,4 +4,6 @@ package pe.municipalidad.tributario.integracion.correo;
 public interface CorreoGateway {
 
     void enviarCorreo(String destino, String asunto, String cuerpo);
+
+    default boolean esSimulado() { return false; }
 }

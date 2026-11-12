@@ -129,6 +129,11 @@ y muestra que la firma no tiene validez legal. También acepta un archivo de fir
 y el texto del certificado para enviarlos al contrato actual de la API. La integración con un
 firmador real queda pendiente.
 
+El personal de ventanilla con permiso `CONSTANCIAS:GESTIONAR` usa
+`/gestion/constancias` para revisar la deuda, generar la orden y emitir la constancia tras
+el pago. En el perfil local se crea la cuenta ficticia `ventanilla.demo` / `VentanillaDemo#2026`
+sin modificar cuentas existentes. El ciudadano recibe el PDF en su buzón.
+
 El frontend usa `VITE_API_URL` o `http://localhost:8080/api` por defecto. Para entrar con la base
 PostgreSQL se necesita una credencial de contribuyente en `samnet.credencial_web`.
 

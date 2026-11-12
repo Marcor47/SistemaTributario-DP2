@@ -1,6 +1,5 @@
-import { Platform } from 'react-native'
-import { File, Paths } from 'expo-file-system'
-import { API, pedir } from './api'
+import { pedir } from './api'
+import { normalizarOrdenConstancia, ordenDeOperacion, pasarelaConstancia } from '../utils/constancia'
 
 export const listarConstancias = () => pedir('/constancias')
 export const consultarDeudaConstancia = () => pedir('/constancias/deuda')
@@ -10,27 +9,30 @@ export const obtenerDocumentoFirma = (id) => pedir(`/constancias/${encodeURIComp
 export const enviarFirmaConstancia = (id, firmaBase64, certificado) => pedir(`/constancias/${encodeURIComponent(id)}/firma`, {
   method: 'POST', body: JSON.stringify({ firmaBase64, certificado }),
 })
-export const crearOrdenConstancia = (id) => pedir(`/constancias/${encodeURIComponent(id)}/orden`, { method: 'POST' })
-export const obtenerOrdenConstancia = (id) => pedir(`/constancias/${encodeURIComponent(id)}/orden`)
-export const confirmarPagoConstancia = (id) => pedir(`/constancias/${encodeURIComponent(id)}/pago`, { method: 'POST' })
-export const emitirConstancia = (id) => pedir(`/constancias/${encodeURIComponent(id)}/emitir`, { method: 'POST' })
-export const listarBuzonConstancias = () => pedir('/constancias/buzon')
+export async function obtenerOrdenConstancia(id) {
+  return normalizarOrdenConstancia(await pedir(`/constancias/${encodeURIComponent(id)}/orden-pago`, { cache: 'no-store' }))
+}
 
-export async function descargarConstancia(id) {
-  const respuesta = await fetch(`${API}/constancias/buzon/${encodeURIComponent(id)}/descarga`, { credentials: 'include' })
-  if (!respuesta.ok) throw new Error('No se pudo descargar la constancia. Inténtalo nuevamente.')
-  if (Platform.OS === 'web') {
-    const url = URL.createObjectURL(await respuesta.blob())
-    const enlace = document.createElement('a')
-    enlace.href = url
-    enlace.download = `constancia-${id}.pdf`
-    enlace.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  } else {
-    const archivo = new File(Paths.document, `constancia-${id}-${Date.now()}.pdf`)
-    archivo.create()
-    archivo.write(new Uint8Array(await respuesta.arrayBuffer()))
-    await archivo.preview()
+export async function iniciarPagoConstancia(id, idTransaccion) {
+  const orden = ordenDeOperacion(await pedir(`/constancias/${encodeURIComponent(id)}/orden-pago/sesion`, { method: 'POST' }), idTransaccion)
+  return { orden, pago: pasarelaConstancia(orden) }
+}
+
+export async function confirmarPagoConstancia(id, transactionToken, idTransaccion) {
+  try {
+    const orden = ordenDeOperacion(await pedir(`/constancias/${encodeURIComponent(id)}/orden-pago/confirmacion`, {
+      method: 'POST', body: JSON.stringify(transactionToken ? { transactionToken } : {}),
+    }), idTransaccion)
+    return { orden, error: null }
+  } catch (error) {
+    if (error.estado >= 400 && error.estado < 500) throw error
+    try {
+      const orden = ordenDeOperacion(await obtenerOrdenConstancia(id), idTransaccion)
+      return { orden, error: orden.estado === 'CONFIRMADA' ? null : error }
+    } catch (consultaError) {
+      if (consultaError.estado === 401) throw consultaError
+      throw Object.assign(new Error('No se pudo comprobar el resultado. Consulta el estado antes de intentar de nuevo.'), { codigo: 'RESULTADO_DESCONOCIDO' })
+    }
   }
 }
 

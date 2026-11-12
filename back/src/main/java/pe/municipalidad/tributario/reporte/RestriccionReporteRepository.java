@@ -7,4 +7,6 @@ import pe.municipalidad.tributario.seguridad.Rol;
 public interface RestriccionReporteRepository extends JpaRepository<RestriccionReporte, Long> {
 
     List<RestriccionReporte> findByRolAndTipoReporte(Rol rol, TipoReporte tipoReporte);
+
+    boolean existsByRolAndPermitidoFalse(Rol rol);
 }

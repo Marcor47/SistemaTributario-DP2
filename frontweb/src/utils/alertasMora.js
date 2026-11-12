@@ -4,6 +4,7 @@ export const PERMISOS_PROCESAR_ALERTAS = ['ALERTAS:EVALUAR', 'ETL:GESTIONAR']
 
 export const ESTADOS_AVISO = {
   ENVIADO: { texto: 'Enviado', clase: 'ok' },
+  SIMULADO: { texto: 'Simulado', clase: 'aviso' },
   PENDIENTE: { texto: 'Pendiente', clase: 'aviso' },
   FALLIDO: { texto: 'Fallido', clase: 'critico' },
 }
@@ -65,6 +66,7 @@ export function cifrasProcesamiento(resultado) {
     { clave: 'cuotasEvaluadas', etiqueta: 'Cuotas evaluadas', valor: n(resultado?.cuotasEvaluadas), tono: null },
     { clave: 'cuotasVencidasDetectadas', etiqueta: 'Cuotas vencidas sin pago', valor: n(resultado?.cuotasVencidasDetectadas), tono: null },
     { clave: 'alertasEnviadas', etiqueta: 'Avisos enviados', valor: n(resultado?.alertasEnviadas), tono: 'ok' },
+    { clave: 'alertasSimuladas', etiqueta: 'Avisos simulados', valor: n(resultado?.alertasSimuladas), tono: 'aviso' },
     { clave: 'sinCorreoRegistrado', etiqueta: 'Sin correo registrado', valor: n(resultado?.sinCorreoRegistrado), tono: n(resultado?.sinCorreoRegistrado) > 0 ? 'aviso' : null },
     { clave: 'alertasFallidas', etiqueta: 'Envíos fallidos', valor: n(resultado?.alertasFallidas), tono: n(resultado?.alertasFallidas) > 0 ? 'critico' : null },
   ]

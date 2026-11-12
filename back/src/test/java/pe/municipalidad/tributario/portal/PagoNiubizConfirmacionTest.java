@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import java.math.BigDecimal;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,10 +16,12 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.auth.SesionContribuyente;
 import pe.municipalidad.tributario.integracion.niubiz.NiubizGateway;
+import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
 @PruebaIntegracion
@@ -27,6 +30,7 @@ class PagoNiubizConfirmacionTest {
     @Autowired MockMvc mvc;
     @Autowired JdbcTemplate jdbc;
     @MockitoBean NiubizGateway pasarela;
+    @MockitoSpyBean SamnetGateway samnet;
     private final MockHttpSession sesion = new MockHttpSession();
     private String orden;
     private BigDecimal monto;
@@ -53,7 +57,11 @@ class PagoNiubizConfirmacionTest {
         confirmar(id).andExpect(status().isOk());
         verify(pasarela, times(1)).autorizar(orden, monto, "token-niubiz");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.pago WHERE id_pago=?", Integer.class, "WEB-" + id)).isEqualTo(1);
-        mvc.perform(get("/api/portal/estado-cuenta").session(sesion)).andExpect(status().isOk());
+        String cuenta = mvc.perform(get("/api/portal/estado-cuenta").session(sesion))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        List<Number> deudas = JsonPath.read(cuenta, "$.filas[*].deuda");
+        assertThat(deudas).isNotEmpty().allSatisfy(deuda ->
+                assertThat(new BigDecimal(deuda.toString())).isEqualByComparingTo(BigDecimal.ZERO));
         assertThat(saldoPendiente()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
@@ -65,6 +73,21 @@ class PagoNiubizConfirmacionTest {
     @Test
     void unImporteAutorizadoDiferenteTampocoSeRegistra() throws Exception {
         comprobarSinRegistro(true, true);
+    }
+
+    @Test
+    void noConfirmaSiSamnetNoDevuelveComprobante() throws Exception {
+        BigDecimal saldo = saldoPendiente();
+        int id = iniciar();
+        when(pasarela.autorizar(orden, monto, "token-niubiz"))
+                .thenReturn(new NiubizGateway.EstadoPagoPasarela(orden, true, "ABC123", monto));
+        doReturn(null).when(samnet).registrarPagoEnLinea(anyString(), anyLong(), any());
+
+        confirmar(id).andExpect(status().isInternalServerError());
+        mvc.perform(get("/api/portal/pagos/" + id).session(sesion))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("INICIADA"))
+                .andExpect(jsonPath("$.comprobante").doesNotExist());
+        assertThat(saldoPendiente()).isEqualByComparingTo(saldo);
     }
 
     private void comprobarSinRegistro(boolean autorizado, boolean alterarMonto) throws Exception {

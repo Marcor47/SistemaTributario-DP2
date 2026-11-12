@@ -61,6 +61,12 @@ public class SamnetApiGateway implements SamnetGateway {
     /* SQLSTATE de no_data_found, con el que ps_traspasarpredio avisa que el predio no existe. */
     private static final String ERROR_SIN_DATOS = "P0002";
 
+    @Override
+    public List<Map<String, Object>> obtenerVencimientos(LocalDate desde, LocalDate hasta) {
+        return invocar(() -> jdbc.queryForList("SELECT * FROM samnet.ps_recordatorios_vencimiento(?, ?)",
+                Date.valueOf(desde), Date.valueOf(hasta)));
+    }
+
     /* Procedimientos que el ETL puede extraer y si reciben la fecha de corte. */
     private static final Map<String, Boolean> PROCEDIMIENTOS_ETL = Map.of(
             "ps_etl_contribuyentes", false,

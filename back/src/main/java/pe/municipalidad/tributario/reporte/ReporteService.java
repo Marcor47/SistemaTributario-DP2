@@ -347,7 +347,7 @@ public class ReporteService {
                         || contribuyentesPuntuales.contains(cartera.codigo()))
                 .filter(cartera -> aplicados.zona() == null
                         || cartera.zonas().stream().anyMatch(zona -> zona.equalsIgnoreCase(aplicados.zona())))
-                .filter(cartera -> cartera.zonas().stream().allMatch(acceso::puedeVerZona))
+                .filter(cartera -> acceso.puedeVerCartera(cartera.zonas()))
                 .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.regimen() == null
                         || aplicados.regimen().equalsIgnoreCase(regimenDe(cartera)))
                 .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.tipoDocumento() == null
@@ -1023,8 +1023,7 @@ public class ReporteService {
     }
 
     /*
-     * Restricciones de cada rol del usuario sobre un reporte. Con varios roles basta que uno lo permita; un rol sin
-     * restricciones lo ve todo.
+     * Denegaciones explícitas de todos los roles: un segundo rol no anula una restricción.
      */
     private record Acceso(TipoReporte tipo, List<List<RestriccionReporte>> porRol) {
 
@@ -1036,8 +1035,18 @@ public class ReporteService {
             return permite(DimensionRestringida.ZONA, zona);
         }
 
+        boolean puedeVerCartera(List<String> zonas) {
+            return !porRol.isEmpty() && porRol.stream().allMatch(reglas ->
+                    reglas.stream().allMatch(regla -> regla.permite(tipo, DimensionRestringida.REPORTE, null))
+                    && (zonas.isEmpty()
+                        ? reglas.stream().noneMatch(regla -> regla.getDimension() == DimensionRestringida.ZONA
+                                && !regla.isPermitido())
+                        : zonas.stream().allMatch(zona -> reglas.stream()
+                                .allMatch(regla -> regla.permite(tipo, DimensionRestringida.ZONA, zona))))) ;
+        }
+
         private boolean permite(DimensionRestringida dimension, String valor) {
-            return porRol.stream().anyMatch(reglas -> reglas.stream()
+            return !porRol.isEmpty() && porRol.stream().allMatch(reglas -> reglas.stream()
                     .allMatch(regla -> regla.permite(tipo, dimension, valor)));
         }
     }

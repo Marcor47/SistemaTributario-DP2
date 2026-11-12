@@ -80,13 +80,14 @@ class AlertaMoraControllerTest {
                 .andExpect(jsonPath("$.idLote").value(lote.getIdLote()))
                 .andExpect(jsonPath("$.cuotasEvaluadas").value(1))
                 .andExpect(jsonPath("$.cuotasVencidasDetectadas").value(1))
-                .andExpect(jsonPath("$.alertasEnviadas").value(1))
+                .andExpect(jsonPath("$.alertasEnviadas").value(0))
+                .andExpect(jsonPath("$.alertasSimuladas").value(1))
                 .andExpect(jsonPath("$.sinCorreoRegistrado").value(0))
                 .andExpect(jsonPath("$.avisos", hasSize(1)))
                 .andExpect(jsonPath("$.avisos[0].tipo").value("MORA_TEMPRANA"))
                 .andExpect(jsonPath("$.avisos[0].documentoContribuyente").value("41028765"))
                 .andExpect(jsonPath("$.avisos[0].correoDestino").value("maria.garcia@correo.test"))
-                .andExpect(jsonPath("$.avisos[0].estado").value("ENVIADO"))
+                .andExpect(jsonPath("$.avisos[0].estado").value("SIMULADO"))
                 .andExpect(jsonPath("$.avisos[0].idObligacion").value("OBL-7001"))
                 .andExpect(jsonPath("$.avisos[0].fechaEnvio").isNotEmpty());
 
@@ -125,7 +126,7 @@ class AlertaMoraControllerTest {
                 .andExpect(jsonPath("$[0].documentoContribuyente").value("20456781239"))
                 .andExpect(jsonPath("$[0].correoDestino").value("cobranzas@costaazul.test"))
                 .andExpect(jsonPath("$[0].idObligacion").value("OBL-8001"))
-                .andExpect(jsonPath("$[0].estado").value("ENVIADO"));
+                .andExpect(jsonPath("$[0].estado").value("SIMULADO"));
 
         // Consultar historial por endpoint de alertas (/api/alertas-mora/contribuyentes/021390)
         mockMvc.perform(get(RUTA_ALERTAS + "/contribuyentes/021390"))
@@ -240,12 +241,14 @@ class AlertaMoraControllerTest {
         // Primer procesamiento: envía la alerta
         mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.alertasEnviadas").value(1));
+                .andExpect(jsonPath("$.alertasEnviadas").value(0))
+                .andExpect(jsonPath("$.alertasSimuladas").value(1));
 
         // Segundo procesamiento idéntico: no duplica el aviso
         mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.alertasEnviadas").value(0));
+                .andExpect(jsonPath("$.alertasEnviadas").value(0))
+                .andExpect(jsonPath("$.alertasSimuladas").value(0));
     }
 
     @Test
