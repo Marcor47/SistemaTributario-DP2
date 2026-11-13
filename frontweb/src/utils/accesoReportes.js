@@ -10,10 +10,11 @@ import { normalizar } from './formato.js'
  * guarda en el navegador (ver accesoReportesService.js) y sirve de contrato para la API.
  */
 
-export const VERSION_ACCESO_REPORTES = 1
+export const VERSION_ACCESO_REPORTES = 2
 export const MAX_VALORES_ALCANCE = 30
 export const MAX_LONGITUD_VALOR_ALCANCE = 60
 export const ZONAS_SUGERIDAS = ['Z1', 'Z2', 'Z3']
+export const ROLES_CON_ACCESO_REPORTES_POR_DEFECTO = ['GERENCIA', 'ANALISTA_RENTAS']
 
 export const MODULOS_ACCESO_REPORTES = [
   {
@@ -307,13 +308,23 @@ export function clonarConfiguracion(configuracion) {
   return JSON.parse(JSON.stringify(configuracion))
 }
 
-export function configuracionPorDefecto() {
+function rolesConAccesoSet(rolesConAcceso) {
+  const lista = Array.isArray(rolesConAcceso)
+    ? rolesConAcceso
+    : ROLES_CON_ACCESO_REPORTES_POR_DEFECTO
+  return new Set(lista.filter((rol) => ROLES_ACCESO_REPORTES.includes(rol)))
+}
+
+export function configuracionPorDefecto(
+  rolesConAcceso = ROLES_CON_ACCESO_REPORTES_POR_DEFECTO,
+) {
+  const conAcceso = rolesConAccesoSet(rolesConAcceso)
   const roles = {}
   for (const rol of ROLES_ACCESO_REPORTES) {
     const reportes = {}
     for (const reporte of REPORTES_CONFIGURABLES) {
       reportes[reporte.id] = {
-        permitido: true,
+        permitido: conAcceso.has(rol),
         zonas: [],
         segmentos: [],
         columnas: [...reporte.columnasPredeterminadas],
@@ -356,10 +367,15 @@ function columnasValidas(columnas, reporte) {
   return (reporte?.columnas ?? []).filter((columna) => fijas.has(columna) || seleccionadas.has(columna))
 }
 
-export function normalizarConfiguracion(datos) {
-  const base = configuracionPorDefecto()
+export function normalizarConfiguracion(
+  datos,
+  rolesConAcceso = ROLES_CON_ACCESO_REPORTES_POR_DEFECTO,
+) {
+  const conAcceso = rolesConAccesoSet(rolesConAcceso)
+  const base = configuracionPorDefecto(rolesConAcceso)
   if (!datos || typeof datos !== 'object') return base
 
+  const migrar = Number(datos.version ?? 1) < VERSION_ACCESO_REPORTES
   if (typeof datos.actualizadoEn === 'string') base.actualizadoEn = datos.actualizadoEn
   if (typeof datos.actualizadoPor === 'string') base.actualizadoPor = datos.actualizadoPor
 
@@ -374,6 +390,16 @@ export function normalizarConfiguracion(datos) {
         zonas: normalizarLista(guardado.zonas),
         segmentos: normalizarLista(guardado.segmentos),
         columnas: columnasValidas(guardado.columnas, reporte),
+      }
+    }
+  }
+
+  // Migración del mock anterior: los roles sin REPORTES:CONSULTAR parten con reportes desactivados.
+  if (migrar) {
+    for (const rol of ROLES_ACCESO_REPORTES) {
+      if (conAcceso.has(rol)) continue
+      for (const reporte of REPORTES_CONFIGURABLES) {
+        base.roles[rol].reportes[reporte.id].permitido = false
       }
     }
   }
@@ -438,12 +464,17 @@ export function copiarConfiguracionRol(configuracion, rolOrigen, rolDestino) {
   return copia
 }
 
-export function aplicarConfiguracionATodosLosRoles(configuracion, rolOrigen) {
+export function aplicarConfiguracionATodosLosRoles(
+  configuracion,
+  rolOrigen,
+  rolesDestino = ROLES_ACCESO_REPORTES,
+) {
   const copia = clonarConfiguracion(configuracion)
   if (!copia?.roles?.[rolOrigen]) return copia
   const origen = clonarConfiguracion(copia.roles[rolOrigen])
-  for (const rol of ROLES_ACCESO_REPORTES) {
-    copia.roles[rol] = clonarConfiguracion(origen)
+  const destinos = Array.isArray(rolesDestino) ? rolesDestino : ROLES_ACCESO_REPORTES
+  for (const rol of destinos) {
+    if (copia.roles[rol]) copia.roles[rol] = clonarConfiguracion(origen)
   }
   return copia
 }

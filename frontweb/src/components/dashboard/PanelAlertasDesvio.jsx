@@ -1,4 +1,4 @@
-import CarruselAlertas from './CarruselAlertas.jsx'
+import TarjetaAlerta from './TarjetaAlerta.jsx'
 
 export default function PanelAlertasDesvio({ alertas, total }) {
   if (alertas.length === 0) return null
@@ -8,14 +8,19 @@ export default function PanelAlertasDesvio({ alertas, total }) {
       <div className="dashboard-seccion-cab">
         <div>
           <h2 id="dashboard-alertas-titulo">Alertas según los filtros del dashboard</h2>
-          <p className="hint">Se muestran las alertas activas compatibles con los filtros seleccionados.</p>
+          <p className="hint">
+            Se muestran las alertas activas compatibles con los filtros seleccionados. Desplázate para ver las
+            demás.
+          </p>
         </div>
         <div className="dashboard-seccion-cab__resumen">
           <span className="estado neutro">Filtros aplicados</span>
           <span className="hint">{total === 1 ? '1 alerta' : `${total} alertas`}</span>
         </div>
       </div>
-      <CarruselAlertas alertas={alertas} />
+      <div className="dashboard-alertas">
+        {alertas.map((alerta) => <TarjetaAlerta key={alerta.idAlerta} alerta={alerta} />)}
+      </div>
     </section>
   )
 }

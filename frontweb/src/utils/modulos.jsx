@@ -75,6 +75,22 @@ export const MODULOS = [
     ),
   },
   {
+    ruta: '/segmentos',
+    texto: 'Segmentos',
+    titulo: 'Segmentación de contribuyentes',
+    descripcion: 'Revisa las segmentaciones generadas por el modelo y publica la que apruebe la Gerencia de Rentas.',
+    seccion: 'gestion',
+    permiso: 'SEGMENTOS:CONSULTAR',
+    icono: icono(
+      <>
+        <circle cx="6" cy="6" r="3" />
+        <circle cx="18" cy="6" r="3" />
+        <circle cx="12" cy="18" r="3" />
+        <path d="M9 6h6M8.5 8.2 10.8 15M15.5 8.2 13.2 15" />
+      </>
+    ),
+  },
+  {
     ruta: '/administracion/usuarios',
     texto: 'Usuarios',
     titulo: 'Administración de usuarios',

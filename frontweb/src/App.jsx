@@ -5,6 +5,7 @@ import BarraSuperior from './components/BarraSuperior.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Dashboard from './pages/Dashboard.jsx'
+import Segmentos from './pages/Segmentos.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { RutaContribuyente } from './components/RutaProtegida.jsx'
@@ -151,6 +152,7 @@ export default function App() {
           <Route path="/gestion/inicio" element={<InicioGestion />} />
           <Route path="/gestion" element={<Navigate to="/gestion/inicio" replace />} />
           <Route path="/dashboard" element={<RutaInternaProtegida permiso="DASHBOARD:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
+          <Route path="/segmentos" element={<RutaInternaProtegida permiso="SEGMENTOS:CONSULTAR"><Segmentos /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
           <Route path="/configuracion/reportes" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><ConfiguracionAccesoReportes /></RutaInternaProtegida>} />

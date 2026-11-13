@@ -180,7 +180,8 @@ public class DashboardService {
     private static DashboardRespuesta.PorSegmento porSegmento(MontosSegmento montos) {
         Totales totales = new Totales(montos.montoEmitido(), montos.montoRecaudado(), montos.montoVencidoNoPagado());
         return new DashboardRespuesta.PorSegmento(montos.idSegmento(), montos.nombre(), montos.contribuyentes(),
-                totales.emitido(), totales.recaudado(), totales.porcentajeRecaudacion(), totales.indiceMorosidad());
+                totales.emitido(), totales.recaudado(), totales.vencidoNoPagado(), totales.porcentajeRecaudacion(),
+                totales.indiceMorosidad());
     }
 
     /* Nulo cuando la base es 0: el porcentaje no está definido. */

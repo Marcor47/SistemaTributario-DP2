@@ -4,6 +4,7 @@ import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
 import SelectorColumnasAgrupadas from '../components/SelectorColumnasAgrupadas.jsx'
 import SelectorMultiple from '../components/SelectorMultiple.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
+import { listarRolesInternos } from '../services/authInternaService.js'
 import {
   ACCESOS_REPORTES_SIMULADOS,
   guardarConfiguracionAccesoReportes,
@@ -14,6 +15,7 @@ import { listarSegmentosPublicados } from '../services/segmentosService.js'
 import {
   MODULOS_ACCESO_REPORTES,
   ROLES_ACCESO_REPORTES,
+  ROLES_CON_ACCESO_REPORTES_POR_DEFECTO,
   ZONAS_SUGERIDAS,
   actualizarReporte,
   aplicarConfiguracionATodosLosRoles,
@@ -26,11 +28,11 @@ import {
   resumenDeRol,
 } from '../utils/accesoReportes.js'
 import { fechaHora } from '../utils/formato.js'
-import { etiquetaRol } from '../utils/roles.js'
+import { etiquetaRol, rolTienePermiso } from '../utils/roles.js'
 import './Reportes.css'
 import './ConfiguracionAccesoReportes.css'
 
-const ROL_INICIAL = ROLES_ACCESO_REPORTES[0]
+const PERMISOS_REPORTES_POR_DEFECTO = 'REPORTES:CONSULTAR,REPORTES:EXPORTAR,SEGMENTOS:CONSULTAR'
 const IDS_REPORTES = MODULOS_ACCESO_REPORTES.flatMap((modulo) => (
   reportesDelModulo(modulo.id).map((reporte) => reporte.id)
 ))
@@ -222,15 +224,29 @@ export default function ConfiguracionAccesoReportes() {
   const [errorCarga, setErrorCarga] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [notificacion, setNotificacion] = useState(null)
-  const [rolSeleccionado, setRolSeleccionado] = useState(ROL_INICIAL)
+  const [rolSeleccionado, setRolSeleccionado] = useState('')
   const [rolOrigen, setRolOrigen] = useState('')
   const [confirmacion, setConfirmacion] = useState(null)
+  const [roles, setRoles] = useState({ cargando: true, datos: [], error: '' })
   const [segmentosPublicados, setSegmentosPublicados] = useState({ cargando: true, opciones: [], error: '' })
   const [reportesExpandidos, setReportesExpandidos] = useState({})
   const contadorNotificacion = useRef(0)
   const arrastreColumnas = useRef(false)
 
-  const resumen = config ? resumenDeRol(config, rolSeleccionado) : null
+  const rolesConfigurables = roles.datos.filter((rol) => (
+    ROLES_ACCESO_REPORTES.includes(rol.nombre) && rol.nombre !== 'ADMINISTRADOR'
+  ))
+  const nombresRolesConfigurables = rolesConfigurables.map((rol) => rol.nombre)
+  const nombresConAccesoReal = roles.datos
+    .filter((rol) => ROLES_ACCESO_REPORTES.includes(rol.nombre)
+      && rolTienePermiso(rol, 'REPORTES:CONSULTAR'))
+    .map((rol) => rol.nombre)
+  const rolActual = rolesConfigurables.find((rol) => rol.nombre === rolSeleccionado) ?? null
+  const rolActualTieneAccesoReal = rolActual ? rolTienePermiso(rolActual, 'REPORTES:CONSULTAR') : false
+  const puedeExportarRol = rolActual ? rolTienePermiso(rolActual, 'REPORTES:EXPORTAR') : false
+  const puedeVerSegmentosRol = rolActual ? rolTienePermiso(rolActual, 'SEGMENTOS:CONSULTAR') : false
+  const resumen = config && rolSeleccionado ? resumenDeRol(config, rolSeleccionado) : null
+  const cargandoTodo = cargando || roles.cargando
   const hayCambios = Boolean(config && original
     && JSON.stringify(config.roles) !== JSON.stringify(original.roles))
 
@@ -241,7 +257,49 @@ export default function ConfiguracionAccesoReportes() {
 
   useEffect(() => {
     let activo = true
-    obtenerConfiguracionAccesoReportes()
+
+    function aplicarRoles(datos, error = '') {
+      if (!activo) return
+      setRoles({ cargando: false, datos, error })
+      setRolSeleccionado((actual) => {
+        const disponibles = datos
+          .filter((rol) => ROLES_ACCESO_REPORTES.includes(rol.nombre)
+            && rol.nombre !== 'ADMINISTRADOR')
+          .map((rol) => rol.nombre)
+        return disponibles.includes(actual) ? actual : (disponibles[0] ?? '')
+      })
+    }
+
+    listarRolesInternos()
+      .then((datos) => aplicarRoles(datos))
+      .catch(() => {
+        const respaldo = ROLES_ACCESO_REPORTES
+          .filter((nombre) => nombre !== 'ADMINISTRADOR')
+          .map((nombre) => ({
+            nombre,
+            descripcion: '',
+            permisos: ROLES_CON_ACCESO_REPORTES_POR_DEFECTO.includes(nombre)
+              ? PERMISOS_REPORTES_POR_DEFECTO
+              : '',
+          }))
+        aplicarRoles(
+          respaldo,
+          'No se pudieron consultar los permisos reales. Se muestran los roles definidos por defecto en las migraciones.',
+        )
+      })
+
+    return () => { activo = false }
+  }, [])
+
+  useEffect(() => {
+    if (roles.cargando) return undefined
+    let activo = true
+    const rolesConAcceso = roles.datos
+      .filter((rol) => ROLES_ACCESO_REPORTES.includes(rol.nombre)
+        && rolTienePermiso(rol, 'REPORTES:CONSULTAR'))
+      .map((rol) => rol.nombre)
+
+    obtenerConfiguracionAccesoReportes({ rolesConAcceso })
       .then((datos) => {
         if (!activo) return
         setConfig(datos)
@@ -254,8 +312,9 @@ export default function ConfiguracionAccesoReportes() {
       .finally(() => {
         if (activo) setCargando(false)
       })
+
     return () => { activo = false }
-  }, [])
+  }, [roles])
 
   useEffect(() => {
     const controlador = new AbortController()
@@ -319,8 +378,8 @@ export default function ConfiguracionAccesoReportes() {
   function aplicarATodos() {
     setConfirmacion({
       tipo: 'aplicar',
-      titulo: 'Aplicar a todos los roles',
-      mensaje: `Se copiará la configuración de ${etiquetaRol(rolSeleccionado)} a los ${ROLES_ACCESO_REPORTES.length} roles. Los cambios actuales de los demás roles se reemplazarán.`,
+      titulo: 'Aplicar a los roles con acceso',
+      mensaje: `Se copiará la configuración de ${etiquetaRol(rolSeleccionado)} a los ${nombresRolesConfigurables.length} roles configurables. Los cambios actuales de esos roles se reemplazarán.`,
       textoConfirmar: 'Aplicar a todos',
     })
   }
@@ -329,7 +388,7 @@ export default function ConfiguracionAccesoReportes() {
     setConfirmacion({
       tipo: 'restablecer',
       titulo: 'Restablecer configuración',
-      mensaje: 'Se descartarán los cambios sin guardar y todos los roles volverán a tener todos los reportes, sin restricciones de zona o segmento y con todas las columnas.',
+      mensaje: 'Se descartarán los cambios sin guardar y todos los roles con acceso a reportes volverán a tener todos los reportes, sin restricciones de zona o segmento y con todas las columnas.',
       textoConfirmar: 'Restablecer',
       peligro: true,
     })
@@ -341,18 +400,20 @@ export default function ConfiguracionAccesoReportes() {
     if (!accion) return
 
     if (accion.tipo === 'aplicar') {
-      setConfig((actual) => (actual ? aplicarConfiguracionATodosLosRoles(actual, rolSeleccionado) : actual))
-      notificar(`La configuración de ${etiquetaRol(rolSeleccionado)} se aplicó a todos los roles. Guarda para conservarla.`)
+      setConfig((actual) => (actual
+        ? aplicarConfiguracionATodosLosRoles(actual, rolSeleccionado, nombresRolesConfigurables)
+        : actual))
+      notificar(`La configuración de ${etiquetaRol(rolSeleccionado)} se aplicó a todos los roles configurables. Guarda para conservarla.`)
       return
     }
 
     if (accion.tipo === 'restablecer') {
       reiniciarConfiguracionAccesoReportes()
       try {
-        const datos = await obtenerConfiguracionAccesoReportes()
+        const datos = await obtenerConfiguracionAccesoReportes({ rolesConAcceso: nombresConAccesoReal })
         setConfig(datos)
         setOriginal(clonarConfiguracion(datos))
-        setRolSeleccionado(ROL_INICIAL)
+        setRolSeleccionado(nombresRolesConfigurables[0] ?? '')
         notificar('La configuración se restableció a los valores iniciales.')
       } catch (error) {
         notificar(error.message || 'No se pudo restablecer la configuración.', 'error')
@@ -375,10 +436,10 @@ export default function ConfiguracionAccesoReportes() {
     }
   }
 
-  const configuracionRol = config ? configuracionDeRol(config, rolSeleccionado) : null
+  const configuracionRol = config && rolSeleccionado ? configuracionDeRol(config, rolSeleccionado) : null
 
   return (
-    <div className="config-acceso-reportes" aria-busy={cargando || guardando}>
+    <div className="config-acceso-reportes" aria-busy={cargandoTodo || guardando}>
       <section className="pcard acceso-reportes-cabecera">
         <div>
           <h2>Acceso y alcance de reportes</h2>
@@ -408,9 +469,15 @@ export default function ConfiguracionAccesoReportes() {
         </div>
       )}
 
-      {cargando && <p className="hint mensaje-carga" role="status">Consultando la configuración de acceso…</p>}
+      {roles.error && !roles.cargando && (
+        <div className="info acceso-reportes-permisos-aviso" role="note">
+          <strong>Permisos de respaldo.</strong> {roles.error}
+        </div>
+      )}
 
-      {!cargando && errorCarga && (
+      {cargandoTodo && <p className="hint mensaje-carga" role="status">Consultando la configuración y los permisos de los roles…</p>}
+
+      {!cargandoTodo && errorCarga && (
         <div className="alert" role="alert">
           <p>{errorCarga}</p>
           <button
@@ -419,7 +486,7 @@ export default function ConfiguracionAccesoReportes() {
             onClick={() => {
               setCargando(true)
               setErrorCarga('')
-              obtenerConfiguracionAccesoReportes()
+              obtenerConfiguracionAccesoReportes({ rolesConAcceso: nombresConAccesoReal })
                 .then((datos) => {
                   setConfig(datos)
                   setOriginal(clonarConfiguracion(datos))
@@ -433,23 +500,29 @@ export default function ConfiguracionAccesoReportes() {
         </div>
       )}
 
-      {!cargando && !errorCarga && config && configuracionRol && (
+      {!cargandoTodo && !errorCarga && config && rolesConfigurables.length === 0 && (
+        <div className="alert" role="alert">
+          <p>No hay roles configurables. El Administrador no se configura en esta pantalla.</p>
+        </div>
+      )}
+
+      {!cargandoTodo && !errorCarga && config && rolSeleccionado && configuracionRol && (
         <div className="acceso-reportes-layout">
           <aside className="pcard acceso-reportes-roles" aria-labelledby="acceso-reportes-roles-titulo">
             <h2 id="acceso-reportes-roles-titulo">Roles</h2>
-            <p className="hint">Selecciona el tipo de usuario que quieres configurar.</p>
+            <p className="hint">Se muestran todos los roles excepto Administrador.</p>
             <div className="acceso-reportes-rol-lista">
-              {ROLES_ACCESO_REPORTES.map((rol) => {
-                const resumenRol = resumenDeRol(config, rol)
+              {rolesConfigurables.map((rol) => {
+                const resumenRol = resumenDeRol(config, rol.nombre)
                 return (
                   <button
-                    key={rol}
+                    key={rol.nombre}
                     type="button"
                     className="acceso-reportes-rol"
-                    aria-pressed={rol === rolSeleccionado}
-                    onClick={() => setRolSeleccionado(rol)}
+                    aria-pressed={rol.nombre === rolSeleccionado}
+                    onClick={() => setRolSeleccionado(rol.nombre)}
                   >
-                    <strong>{etiquetaRol(rol)}</strong>
+                    <strong>{etiquetaRol(rol.nombre)}</strong>
                     <small>
                       {resumenRol.permitidos}/{resumenRol.total} reportes
                       {' · '}
@@ -458,6 +531,10 @@ export default function ConfiguracionAccesoReportes() {
                   </button>
                 )
               })}
+            </div>
+            <div className="acceso-reportes-sin-acceso">
+              <p className="acceso-reportes-etiqueta">Administrador</p>
+              <p className="hint">El rol Administrador no se configura en esta pantalla.</p>
             </div>
           </aside>
 
@@ -471,6 +548,35 @@ export default function ConfiguracionAccesoReportes() {
                   {resumen.columnasLimitadas > 0 ? ` · ${resumen.columnasLimitadas} con columnas limitadas` : ''}
                   {resumen.conAlcance > 0 ? ` · ${resumen.conAlcance} con zonas o segmentos restringidos` : ' · sin restricciones de alcance'}.
                 </p>
+                <div className="acceso-reportes-permisos" aria-label="Permisos reales del rol">
+                  <span
+                    className={`estado ${rolActualTieneAccesoReal ? 'ok' : 'neutro'}`}
+                    title="REPORTES:CONSULTAR"
+                  >
+                    {rolActualTieneAccesoReal ? 'Consulta de reportes' : 'Sin permiso en la BD'}
+                  </span>
+                  <span
+                    className={`estado ${puedeExportarRol ? 'ok' : 'neutro'}`}
+                    title="REPORTES:EXPORTAR"
+                  >
+                    {puedeExportarRol ? 'Exportación' : 'Sin exportación'}
+                  </span>
+                  <span
+                    className={`estado ${puedeVerSegmentosRol ? 'ok' : 'neutro'}`}
+                    title="SEGMENTOS:CONSULTAR"
+                  >
+                    {puedeVerSegmentosRol ? 'Mapa de segmentos' : 'Sin mapa de segmentos'}
+                  </span>
+                </div>
+                <p className="hint">
+                  Permisos reales del rol. Esta pantalla no modifica los permisos; solo configura el alcance de los reportes.
+                </p>
+                {!rolActualTieneAccesoReal && (
+                  <div className="info acceso-reportes-permiso-base-aviso" role="note">
+                    <strong>Sin REPORTES:CONSULTAR en la base de datos.</strong> Los switches de esta
+                    pantalla solo cambian la configuración simulada; no habilitan el acceso real del rol.
+                  </div>
+                )}
               </div>
               <div className="acceso-reportes-acciones">
                 <button className="btn" type="button" onClick={() => cambiarTodosLosReportesExpandidos(true)}>Expandir todos</button>
@@ -482,7 +588,7 @@ export default function ConfiguracionAccesoReportes() {
 
             <section className="pcard acceso-reportes-bulk" aria-labelledby="acceso-reportes-bulk-titulo">
               <h2 id="acceso-reportes-bulk-titulo">Acciones en bloque</h2>
-              <p className="hint">Reutiliza la configuración de otro rol o aplícala a todos los roles de una vez.</p>
+              <p className="hint">Reutiliza la configuración de otro rol o aplícala a todos los roles configurables.</p>
               <div className="acceso-reportes-bulk-fila">
                 <label htmlFor="acceso-reportes-rol-origen">Copiar configuración de</label>
                 <select
@@ -491,12 +597,14 @@ export default function ConfiguracionAccesoReportes() {
                   onChange={(evento) => setRolOrigen(evento.target.value)}
                 >
                   <option value="">Selecciona un rol</option>
-                  {ROLES_ACCESO_REPORTES.filter((rol) => rol !== rolSeleccionado).map((rol) => (
-                    <option key={rol} value={rol}>{etiquetaRol(rol)}</option>
-                  ))}
+                  {rolesConfigurables
+                    .filter((rol) => rol.nombre !== rolSeleccionado)
+                    .map((rol) => (
+                      <option key={rol.nombre} value={rol.nombre}>{etiquetaRol(rol.nombre)}</option>
+                    ))}
                 </select>
                 <button className="btn" type="button" onClick={copiarDeRol} disabled={!rolOrigen}>Copiar</button>
-                <button className="btn" type="button" onClick={aplicarATodos}>Aplicar esta configuración a todos</button>
+                <button className="btn" type="button" onClick={aplicarATodos}>Aplicar a los roles configurables</button>
               </div>
             </section>
 
