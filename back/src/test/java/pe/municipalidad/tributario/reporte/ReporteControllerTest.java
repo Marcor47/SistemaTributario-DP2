@@ -360,6 +360,19 @@ class ReporteControllerTest {
                 false));
     }
 
+    @Test
+    void unSegundoRolNoAnulaUnaDenegacionEnNingunaRutaDePricos() throws Exception {
+        var sesion = sesion(NombreRol.GERENCIA);
+        var usuario = usuarios.findById((Long) sesion.getAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO)).orElseThrow();
+        usuario.asignarRol(roles.findByNombre(NombreRol.ANALISTA_RENTAS).orElseThrow());
+        usuarios.saveAndFlush(usuario);
+        restringir(NombreRol.GERENCIA, TipoReporte.PRICOS, DimensionRestringida.REPORTE, null);
+        mvc.perform(get("/api/reportes/PRICOS").session(sesion)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/reportes/pricos").session(sesion)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/reportes/PRICOS/exportar").param("formato", "PDF").session(sesion))
+                .andExpect(status().isForbidden());
+    }
+
     private MockHttpSession sesion(NombreRol rol) {
         String nombre = "usuario_" + rol.name().toLowerCase();
         Usuario usuario = usuarios.save(new Usuario(nombre, "Usuario " + rol, nombre + "@example.org",

@@ -13,6 +13,9 @@ import org.springframework.stereotype.Component;
 @Component
 public class CorreoSimuladoGateway implements CorreoGateway {
 
+    @Override
+    public boolean esSimulado() { return true; }
+
     private static final Logger LOG = LoggerFactory.getLogger(CorreoSimuladoGateway.class);
 
     public record CorreoEnviado(String destino, String asunto, String cuerpo) {

@@ -126,7 +126,7 @@ class SeguridadPermisosControllerTest {
     private MockHttpSession sesion(NombreRol nombreRol) {
         String sufijo = nombreRol.name().toLowerCase();
         Usuario usuario = usuarios.save(new Usuario("prueba_" + sufijo, "Prueba " + nombreRol,
-                sufijo + "@example.org", claves.hashear("PruebaSM#2026"), rol(nombreRol),
+                "matriz-permisos-" + sufijo + "@example.org", claves.hashear("PruebaSM#2026"), rol(nombreRol),
                 LocalDateTime.now()));
         MockHttpSession sesion = new MockHttpSession();
         sesion.setAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO, usuario.getIdUsuario());

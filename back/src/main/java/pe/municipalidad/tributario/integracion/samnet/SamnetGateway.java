@@ -82,4 +82,6 @@ public interface SamnetGateway {
 
     /* RF-038: extracción de un SP de Rentas para el ETL. */
     List<Map<String, Object>> extraerParaETL(String procedimiento, LocalDate fechaCorte);
+
+    List<Map<String, Object>> obtenerVencimientos(LocalDate desde, LocalDate hasta);
 }

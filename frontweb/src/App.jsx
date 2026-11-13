@@ -19,6 +19,7 @@ import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
 import Reclamos from './pages/Reclamos.jsx'
 import ResumenEjecutivo from './pages/ResumenEjecutivo.jsx'
 import GestionReclamos from './pages/GestionReclamos.jsx'
+import GestionConstancias from './pages/GestionConstancias.jsx'
 import Reportes from './pages/Reportes.jsx'
 import SolicitudesReportes from './pages/SolicitudesReportes.jsx'
 import Constancia from './pages/Constancia.jsx'
@@ -170,6 +171,7 @@ export default function App() {
           <Route path="/alertas-mora" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><AlertasMora /></RutaInternaProtegida>} />
           <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />
           <Route path="/gestion/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:GESTIONAR"><GestionReclamos modo="gestion" /></RutaInternaProtegida>} />
+          <Route path="/gestion/constancias" element={<RutaInternaProtegida permiso="CONSTANCIAS:GESTIONAR"><GestionConstancias /></RutaInternaProtegida>} />
           <Route path="/reclamos/asignados" element={<RutaInternaProtegida permiso="RECLAMOS:ATENDER"><GestionReclamos modo="asignados" /></RutaInternaProtegida>} />
           <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>

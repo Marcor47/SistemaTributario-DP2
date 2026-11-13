@@ -531,5 +531,6 @@ export function vistaExportada({ modelo, estado, seleccion, indicadoresVista, gr
     indicadores: indicadoresVista.map((k) => [k.etiqueta, k.valor, k.detalle || '']),
     graficos,
     ranking,
+    consulta: consultaDeFiltros(modelo, estado.filtros),
   }
 }

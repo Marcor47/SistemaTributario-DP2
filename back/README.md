@@ -184,6 +184,16 @@ documento y las firmas son de prueba, sin validez legal; la revisión es automá
 técnico simulado, no una aprobación real de un operador municipal. La tarifa de prueba se configura
 en `tributario.constancia.demo.derecho` y la funcionalidad está deshabilitada fuera de `local`.
 
+### Flujo con revisión del operador
+
+El personal autorizado utiliza `GET /api/gestion/constancias` y las operaciones de verificación y
+emisión. El contribuyente consulta su orden desde la app móvil con
+`GET /api/constancias/{id}/orden-pago`, inicia la pasarela con `POST .../orden-pago/sesion` y envía
+el token con `POST .../orden-pago/confirmacion`. No se reemplaza una sesión ya iniciada: si se pierde
+su resultado, debe conciliarse antes de reintentar. La referencia de Niubiz usa el ID global de la
+transacción. Tras confirmar el pago, HU024 firma y emite la constancia y la deposita en `/api/buzon`.
+Si la emisión automática falla, se conserva el pago y el operador puede atender la emisión pendiente.
+
 ## Integraciones pendientes
 
 - Sustituir `DemoPredioGateway` por `SamnetGateway.buscarPredio` (SP `ps_predio`).

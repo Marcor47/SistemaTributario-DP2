@@ -114,13 +114,20 @@ del servidor recibidas en `archivo`. El dashboard de Rentas (HU011) es un módul
 
 Validación: `npm test`, `npm run lint`, `npm run typecheck` y `npx expo export --platform android`.
 
-## Solicitud de Constancia de No Adeudo (HU015)
+## Solicitud de Constancia de No Adeudo (HU015 y HU020)
 
 La pantalla `/constancia` consulta la deuda y muestra las obligaciones pendientes. Sin deuda permite
 iniciar o recuperar una solicitud, revisar el documento y firmarla. La firma visual y el firmador del
 backend son simulados y no tienen validez legal.
 
-En el perfil `local`, el contribuyente puede generar una orden de S/ 10.00, confirmar el pago simulado
-y emitir una constancia de prueba. El PDF se guarda en PostgreSQL y se descarga desde el buzón del
-contribuyente. El proceso registra un actor técnico de prueba; no representa una revisión municipal real.
-Cada paso vuelve a consultar la deuda antes de continuar. En este recorrido no se hacen cargos reales.
+Después de firmar, el contribuyente espera la revisión del operador. Cuando este emite la orden,
+la app consulta `GET /api/constancias/{id}/orden-pago`, inicia la sesión en
+`POST /api/constancias/{id}/orden-pago/sesion` y presenta el checkout de Niubiz sandbox. El token
+se envía a `POST /api/constancias/{id}/orden-pago/confirmacion`; únicamente una respuesta confirmada
+actualiza el trámite. Tras el pago, HU024 firma y emite la constancia automáticamente; si ese paso falla,
+queda PAGADA para atención municipal. El ciudadano consulta la constancia emitida en
+`/buzon`. El simulador de pasarela solo se usa si se configura explícitamente en el backend.
+
+La orden no abre otra sesión si ya se inició una. Si se perdió el resultado, el ciudadano debe
+consultar a la municipalidad antes de volver a pagar. La tarifa y la firma municipal siguen siendo
+de prueba hasta contar con la configuración y el firmador definitivos.

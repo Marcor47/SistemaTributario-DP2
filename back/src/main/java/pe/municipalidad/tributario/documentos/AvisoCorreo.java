@@ -73,7 +73,7 @@ public class AvisoCorreo {
     public void enviar(CorreoGateway correo, String asunto, String cuerpo, LocalDateTime ahora) {
         try {
             correo.enviarCorreo(correoDestino, asunto, cuerpo);
-            this.estado = EstadoAviso.ENVIADO;
+            this.estado = correo.esSimulado() ? EstadoAviso.SIMULADO : EstadoAviso.ENVIADO;
             this.fechaEnvio = ahora;
         } catch (RuntimeException ex) {
             this.estado = EstadoAviso.FALLIDO;

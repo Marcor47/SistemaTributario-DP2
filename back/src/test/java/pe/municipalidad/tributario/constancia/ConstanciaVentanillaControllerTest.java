@@ -183,7 +183,7 @@ class ConstanciaVentanillaControllerTest {
                 15L, CanalSolicitud.VENTANILLA, EstadoConstancia.ORDEN_PAGO_EMITIDA, AHORA, DNI, "DNI", "014502",
                 "GARCÍA TORRES, MARÍA ELENA", null, null,
                 new OrdenPagoConstanciaRespuesta(7L, BigDecimal.valueOf(10.00), EstadoTransaccion.INICIADA, AHORA,
-                        null, null, null),
+                        null, null, null, false),
                 new DeudaConstanciaRespuesta(BigDecimal.ZERO, List.of()), null);
         when(constanciaVentanillaService.verificarDeuda(15L, TRABAJADOR)).thenReturn(verificada);
 
@@ -202,7 +202,7 @@ class ConstanciaVentanillaControllerTest {
                 15L, CanalSolicitud.VENTANILLA, EstadoConstancia.PAGADA, AHORA, DNI, "DNI", "014502",
                 "GARCÍA TORRES, MARÍA ELENA", null, null,
                 new OrdenPagoConstanciaRespuesta(7L, BigDecimal.valueOf(10.00), EstadoTransaccion.CONFIRMADA, AHORA,
-                        "CONST-VENT-7", null, null),
+                        "CONST-VENT-7", null, null, false),
                 null, null);
         when(constanciaVentanillaService.confirmarPago(15L, TRABAJADOR)).thenReturn(pagada);
 

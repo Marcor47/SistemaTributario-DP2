@@ -149,8 +149,7 @@ public class ReportePricosService {
     private void exigirAcceso(Usuario usuario) {
         for (Rol rol : usuario.getRoles()) {
             boolean restringido = restriccionReporteRepository.findByRolAndTipoReporte(rol, TipoReporte.PRICOS)
-                    .stream().anyMatch(restriccion -> !restriccion.permite(TipoReporte.PRICOS,
-                            DimensionRestringida.REPORTE, null));
+                    .stream().anyMatch(restriccion -> !restriccion.isPermitido());
             if (restringido) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tiene permiso para este reporte.");
             }

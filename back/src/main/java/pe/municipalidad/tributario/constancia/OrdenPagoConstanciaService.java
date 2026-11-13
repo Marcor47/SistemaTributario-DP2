@@ -49,14 +49,18 @@ public class OrdenPagoConstanciaService {
         return OrdenPagoConstanciaRespuesta.desde(ordenDe(solicitud), null, null);
     }
 
-    /* Abre la sesión de pago en la pasarela; si la anterior expiró sin pagarse, se abre una nueva. */
+    /* No reemplaza una sesión previa: su resultado puede requerir conciliación antes de otro intento. */
     @Transactional
     public OrdenPagoConstanciaRespuesta iniciarPago(String codigoContribuyente, Long idSolicitud, String ipCliente) {
         SolicitudConstancia solicitud = buscarPropia(codigoContribuyente, idSolicitud, true);
         TransaccionPago orden = ordenPendiente(solicitud);
+        if (orden.getIdOrdenPasarela() != null) {
+            throw new ReglaNegocioException("PAGO_YA_INICIADO",
+                    "La orden ya tiene una sesión de pago. Consulte su estado antes de reintentar.");
+        }
         Contribuyente contribuyente = contribuyenteService.obtenerPorCodigo(codigoContribuyente);
         NiubizGateway.OrdenPago ordenPasarela = pasarela.crearOrdenPago(orden.getMontoTotal(),
-                PREFIJO_REFERENCIA + idSolicitud, contribuyente, ipCliente);
+                PREFIJO_REFERENCIA + orden.getIdTransaccion(), contribuyente, ipCliente);
         orden.iniciar(ordenPasarela.idOrden());
         transaccionPagoRepository.saveAndFlush(orden);
         return OrdenPagoConstanciaRespuesta.desde(orden, ordenPasarela.urlPasarela(), ordenPasarela.checkout());

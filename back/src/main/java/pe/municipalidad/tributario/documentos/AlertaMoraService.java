@@ -74,6 +74,7 @@ public class AlertaMoraService {
         int alertasEnviadas = 0;
         int sinCorreoRegistrado = 0;
         int alertasFallidas = 0;
+        int alertasSimuladas = 0;
         List<AvisoCorreo> avisosGenerados = new ArrayList<>();
         LocalDateTime ahora = LocalDateTime.now(reloj);
         LocalDate fechaCorte = lote.getFechaCorte();
@@ -138,6 +139,8 @@ public class AlertaMoraService {
 
                 if (aviso.getEstado() == EstadoAviso.ENVIADO) {
                     alertasEnviadas++;
+                } else if (aviso.getEstado() == EstadoAviso.SIMULADO) {
+                    alertasSimuladas++;
                 } else {
                     alertasFallidas++;
                 }
@@ -152,6 +155,7 @@ public class AlertaMoraService {
                 alertasEnviadas,
                 sinCorreoRegistrado,
                 alertasFallidas,
+                alertasSimuladas,
                 avisosGenerados.stream().map(AvisoCorreoRespuesta::desde).toList());
     }
 
