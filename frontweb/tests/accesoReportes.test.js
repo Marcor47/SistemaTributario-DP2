@@ -5,6 +5,8 @@ import {
   MAX_LONGITUD_VALOR_ALCANCE,
   REPORTES_CONFIGURABLES,
   ROLES_ACCESO_REPORTES,
+  ROLES_CON_ACCESO_REPORTES_POR_DEFECTO,
+  VERSION_ACCESO_REPORTES,
   actualizarReporte,
   agregarValorAlcance,
   aplicarConfiguracionATodosLosRoles,
@@ -25,6 +27,7 @@ import {
   obtenerConfiguracionAccesoReportes,
   reiniciarConfiguracionAccesoReportes,
 } from '../src/services/accesoReportesService.js'
+import { permisosDeRol, rolTienePermiso } from '../src/utils/roles.js'
 
 function columnasConFijas(idReporte, opcionales = []) {
   const reporte = reporteConfigurable(idReporte)
@@ -34,24 +37,54 @@ function columnasConFijas(idReporte, opcionales = []) {
   ))
 }
 
-test('HU045: la configuración inicial permite todos los reportes y columnas', () => {
+test('HU045: la configuración inicial habilita reportes solo para los roles con acceso por defecto', () => {
   const configuracion = configuracionPorDefecto()
+  assert.equal(configuracion.version, VERSION_ACCESO_REPORTES)
   assert.deepEqual(Object.keys(configuracion.roles), ROLES_ACCESO_REPORTES)
   for (const rol of ROLES_ACCESO_REPORTES) {
+    const conAcceso = ROLES_CON_ACCESO_REPORTES_POR_DEFECTO.includes(rol)
     const resumen = resumenDeRol(configuracion, rol)
-    assert.equal(resumen.permitidos, REPORTES_CONFIGURABLES.length)
+    assert.equal(resumen.permitidos, conAcceso ? REPORTES_CONFIGURABLES.length : 0)
     assert.equal(resumen.total, REPORTES_CONFIGURABLES.length)
     assert.equal(resumen.conAlcance, 0)
     assert.equal(resumen.columnasLimitadas, 0)
     for (const reporte of REPORTES_CONFIGURABLES) {
       const valor = configuracion.roles[rol].reportes[reporte.id]
-      assert.equal(valor.permitido, true)
+      assert.equal(valor.permitido, conAcceso)
       assert.deepEqual(valor.zonas, [])
       assert.deepEqual(valor.segmentos, [])
       assert.deepEqual(valor.columnas, reporte.columnas)
     }
   }
   assert.equal(configuracionDeRol(configuracion, 'ROL_INEXISTENTE'), null)
+})
+
+test('HU045: los valores por defecto se pueden sembrar con los roles que tienen acceso real', () => {
+  const configuracion = configuracionPorDefecto(['GERENCIA'])
+  assert.equal(configuracion.roles.GERENCIA.reportes.MOROSOS.permitido, true)
+  assert.equal(configuracion.roles.ANALISTA_RENTAS.reportes.MOROSOS.permitido, false)
+  assert.equal(configuracion.roles.ADMINISTRADOR.reportes.MOROSOS.permitido, false)
+  assert.deepEqual(
+    configuracion.roles.ANALISTA_RENTAS.reportes.MOROSOS.columnas,
+    reporteConfigurable('MOROSOS').columnas,
+  )
+})
+
+test('HU045: el mock anterior migra los roles sin acceso a reportes desactivados', () => {
+  const anterior = configuracionPorDefecto()
+  anterior.version = 1
+  for (const rol of ROLES_ACCESO_REPORTES) {
+    for (const reporte of REPORTES_CONFIGURABLES) {
+      anterior.roles[rol].reportes[reporte.id].permitido = true
+    }
+  }
+
+  const migrada = normalizarConfiguracion(anterior, ['GERENCIA'])
+  assert.equal(migrada.version, VERSION_ACCESO_REPORTES)
+  assert.equal(migrada.roles.GERENCIA.reportes.MOROSOS.permitido, true)
+  assert.equal(migrada.roles.ANALISTA_RENTAS.reportes.MOROSOS.permitido, false)
+  assert.equal(migrada.roles.VENTANILLA.reportes.MOROSOS.permitido, false)
+  assert.equal(migrada.roles.ADMINISTRADOR.reportes.MOROSOS.permitido, false)
 })
 
 test('HU045: el catálogo cubre ambos módulos y todas las columnas tienen etiqueta', () => {
@@ -174,9 +207,44 @@ test('HU045: las acciones en bloque copian y aplican la configuración por rol',
     assert.deepEqual(aplicada.roles[rol].reportes.MOROSOS.zonas, ['Z2'])
   }
 
+  const conVentanilla = actualizarReporte(configuracion, 'VENTANILLA', 'MOROSOS', { permitido: true })
+  const soloConAcceso = aplicarConfiguracionATodosLosRoles(
+    conVentanilla,
+    'GERENCIA',
+    ['GERENCIA', 'ANALISTA_RENTAS'],
+  )
+  assert.equal(soloConAcceso.roles.GERENCIA.reportes.MOROSOS.permitido, false)
+  assert.equal(soloConAcceso.roles.ANALISTA_RENTAS.reportes.MOROSOS.permitido, false)
+  assert.equal(soloConAcceso.roles.VENTANILLA.reportes.MOROSOS.permitido, true)
+
   const sinReportes = marcarTodosLosReportes(configuracion, 'VENTANILLA', false)
   assert.ok(Object.values(sinReportes.roles.VENTANILLA.reportes).every((reporte) => reporte.permitido === false))
   assert.equal(sinReportes.roles.ANALISTA_RENTAS.reportes.MOROSOS.permitido, true)
+})
+
+test('HU045: los permisos reales identifican qué roles tienen acceso a reportes', () => {
+  assert.deepEqual(
+    permisosDeRol({ permisos: 'USUARIOS:LISTAR, REPORTES:CONSULTAR ,reportes:exportar' }),
+    ['USUARIOS:LISTAR', 'REPORTES:CONSULTAR', 'REPORTES:EXPORTAR'],
+  )
+  assert.deepEqual(permisosDeRol({ permisosLista: ['REPORTES:CONSULTAR'] }), ['REPORTES:CONSULTAR'])
+  assert.deepEqual(permisosDeRol({ permisos: '' }), [])
+  assert.deepEqual(permisosDeRol(null), [])
+
+  assert.equal(rolTienePermiso({ permisos: 'REPORTES:CONSULTAR' }, 'reportes:consultar'), true)
+  assert.equal(rolTienePermiso({ permisos: 'USUARIOS:LISTAR' }, 'REPORTES:CONSULTAR'), false)
+  assert.equal(rolTienePermiso({ permisos: 'USUARIOS:LISTAR' }, ''), false)
+
+  const roles = [
+    { nombre: 'ADMINISTRADOR', permisos: 'USUARIOS:LISTAR,SEGMENTOS:CONSULTAR' },
+    { nombre: 'GERENCIA', permisos: 'REPORTES:CONSULTAR,REPORTES:EXPORTAR' },
+    { nombre: 'ANALISTA_RENTAS', permisos: 'REPORTES:CONSULTAR' },
+    { nombre: 'VENTANILLA', permisos: 'FORMULARIOS:CONSULTAR' },
+  ]
+  assert.deepEqual(
+    roles.filter((rol) => rolTienePermiso(rol, 'REPORTES:CONSULTAR')).map((rol) => rol.nombre),
+    ['GERENCIA', 'ANALISTA_RENTAS'],
+  )
 })
 
 test('HU045: los valores de alcance se agregan sin duplicados y con límites', () => {
@@ -249,6 +317,15 @@ test('HU045: el servicio simulado guarda la configuración y la restablece', asy
   assert.deepEqual(reiniciada.roles.ANALISTA_RENTAS.reportes.MOROSOS.zonas, [])
 })
 
+test('HU045: el servicio siembra los valores iniciales según los roles con acceso', async () => {
+  reiniciarConfiguracionAccesoReportes()
+  const configuracion = await obtenerConfiguracionAccesoReportes({ rolesConAcceso: ['GERENCIA'] })
+  assert.equal(configuracion.roles.GERENCIA.reportes.MOROSOS.permitido, true)
+  assert.equal(configuracion.roles.ANALISTA_RENTAS.reportes.MOROSOS.permitido, false)
+  assert.equal(configuracion.roles.VENTANILLA.reportes.MOROSOS.permitido, false)
+  reiniciarConfiguracionAccesoReportes()
+})
+
 test('HU045: la pantalla, el menú y el aviso quedan conectados', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
   const modulos = readFileSync(new URL('../src/utils/modulos.jsx', import.meta.url), 'utf8')
@@ -270,6 +347,14 @@ test('HU045: la pantalla, el menú y el aviso quedan conectados', () => {
   assert.match(configuracion, /SelectorMultiple/)
   assert.match(configuracion, /listarSegmentosPublicados/)
   assert.match(configuracion, /opcionesSegmentosPublicados/)
+  assert.match(configuracion, /listarRolesInternos/)
+  assert.match(configuracion, /rolTienePermiso/)
+  assert.match(configuracion, /rolesConfigurables/)
+  assert.match(configuracion, /rolesConAcceso/)
+  assert.match(configuracion, /Sin REPORTES:CONSULTAR en la base de datos/)
+  assert.match(configuracion, /El rol Administrador no se configura/)
+  assert.match(configuracion, /Permisos reales del rol/)
+  assert.match(configuracion, /REPORTES:CONSULTAR/)
   assert.match(configuracion, /acceso-reportes-reporte-titulo/)
   assert.match(configuracion, /aria-expanded=/)
   assert.match(configuracion, /aria-controls=/)

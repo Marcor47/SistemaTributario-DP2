@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import { listarAlertasDesvio } from '../src/services/alertaDesvioService.js'
 import {
@@ -207,4 +208,14 @@ test('HU039: filtra alertas por los filtros del dashboard y conserva las TOTAL',
     }).map((alerta) => alerta.idAlerta),
     [1, 5],
   )
+})
+
+test('HU039: las alertas se apilan en una grilla vertical de dos columnas', () => {
+  const panel = readFileSync(new URL('../src/components/dashboard/PanelAlertasDesvio.jsx', import.meta.url), 'utf8')
+  const css = readFileSync(new URL('../src/pages/Dashboard.css', import.meta.url), 'utf8')
+
+  assert.match(panel, /dashboard-alertas/)
+  assert.doesNotMatch(panel, /CarruselAlertas/)
+  assert.match(css, /\.dashboard-alertas\s*\{[^}]*align-items:\s*start/s)
+  assert.doesNotMatch(css, /\.dashboard-carrusel/)
 })

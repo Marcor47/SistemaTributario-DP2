@@ -21,7 +21,7 @@ export const ACCESOS_REPORTES_SIMULADOS = true
 
 const CLAVE_ALMACEN = 'hu045.acceso-reportes.v1'
 
-let memoria = configuracionPorDefecto()
+let memoria = null
 
 function almacenDisponible() {
   try {
@@ -31,14 +31,18 @@ function almacenDisponible() {
   }
 }
 
-function leerEstado() {
+function leerEstado(rolesConAcceso) {
   const almacen = almacenDisponible()
-  if (!almacen) return clonarConfiguracion(memoria)
+  if (!almacen) {
+    return clonarConfiguracion(memoria ?? configuracionPorDefecto(rolesConAcceso))
+  }
   try {
     const crudo = almacen.getItem(CLAVE_ALMACEN)
-    return crudo ? normalizarConfiguracion(JSON.parse(crudo)) : configuracionPorDefecto()
+    return crudo
+      ? normalizarConfiguracion(JSON.parse(crudo), rolesConAcceso)
+      : configuracionPorDefecto(rolesConAcceso)
   } catch {
-    return configuracionPorDefecto()
+    return configuracionPorDefecto(rolesConAcceso)
   }
 }
 
@@ -53,12 +57,15 @@ function guardarEstado(estado) {
   }
 }
 
-export async function obtenerConfiguracionAccesoReportes() {
-  return leerEstado()
+export async function obtenerConfiguracionAccesoReportes({ rolesConAcceso } = {}) {
+  return leerEstado(rolesConAcceso)
 }
 
-export async function guardarConfiguracionAccesoReportes(configuracion, { usuario } = {}) {
-  const normalizada = normalizarConfiguracion(configuracion)
+export async function guardarConfiguracionAccesoReportes(
+  configuracion,
+  { usuario, rolesConAcceso } = {},
+) {
+  const normalizada = normalizarConfiguracion(configuracion, rolesConAcceso)
   normalizada.actualizadoEn = new Date().toISOString()
   normalizada.actualizadoPor = String(usuario ?? '').trim() || 'Administrador'
   guardarEstado(normalizada)
@@ -67,7 +74,7 @@ export async function guardarConfiguracionAccesoReportes(configuracion, { usuari
 
 /** Restablece la configuración de este navegador a los valores iniciales. */
 export function reiniciarConfiguracionAccesoReportes() {
-  memoria = configuracionPorDefecto()
+  memoria = null
   const almacen = almacenDisponible()
   if (!almacen) return
   try {

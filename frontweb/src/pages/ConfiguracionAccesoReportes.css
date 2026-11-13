@@ -69,6 +69,30 @@
   text-transform: uppercase;
 }
 .acceso-reportes-acciones { display: flex; flex-wrap: wrap; gap: 8px; }
+.acceso-reportes-permisos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.acceso-reportes-permisos .estado { font-size: 12px; }
+.acceso-reportes-permisos-aviso { margin-bottom: 20px; }
+.acceso-reportes-permiso-base-aviso { margin: 10px 0 0; }
+
+.acceso-reportes-sin-acceso {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--borde);
+}
+.acceso-reportes-sin-acceso .hint { margin: 4px 0 0; }
+.acceso-reportes-sin-acceso ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  color: var(--texto-secundario);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.acceso-reportes-sin-acceso li { margin: 2px 0; }
 
 .acceso-reportes-bulk { margin-top: 14px; }
 .acceso-reportes-bulk h2 { margin-bottom: 4px; }

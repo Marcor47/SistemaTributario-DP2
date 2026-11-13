@@ -7,8 +7,9 @@ import { useAlertasDesvio } from '../hooks/useAlertasDesvio.js'
 import { obtenerDashboard, obtenerFiltrosDashboard } from '../services/dashboardService.js'
 import { listarIndicadores } from '../services/metaService.js'
 import { useSesionInterna } from '../context/sesionInterna.js'
-import { fecha, moneda } from '../utils/formato.js'
+import { fecha, fechaHora, moneda } from '../utils/formato.js'
 import { formatearPorcentaje, formatearValorIndicador } from '../utils/alertas.js'
+import { nivelMorosidad, prepararBarrasSegmentos, resumirSegmentacionPublicada } from '../utils/segmentos.js'
 import './Dashboard.css'
 
 const INICIALES = { anio: '', numeroPeriodo: '', zona: '', idSegmento: '', tributo: '' }
@@ -22,6 +23,7 @@ export default function DashboardEjecutivo() {
   const [revision, setRevision] = useState(0)
   const [estado, setEstado] = useState({ cargando: true, datos: null, opciones: null, error: null })
   const [alertasAbiertas, setAlertasAbiertas] = useState(true)
+  const [metricaSegmento, setMetricaSegmento] = useState('deuda')
 
   useEffect(() => {
     const controlador = new AbortController()
@@ -47,6 +49,9 @@ export default function DashboardEjecutivo() {
   const { datos, opciones, cargando, error } = estado
   const resumen = datos?.resumen
   const puedeVerAlertas = Boolean(sesion?.permisos?.includes('ALERTAS:CONSULTAR'))
+  const puedeGestionarSegmentos = Boolean(sesion?.permisos?.includes('SEGMENTOS:CONSULTAR'))
+  const segmentacionPublicada = resumirSegmentacionPublicada(opciones?.segmentos)
+  const barrasSegmento = prepararBarrasSegmentos(datos?.porSegmento, metricaSegmento)
   const alertasDesvio = useAlertasDesvio({
     activo: puedeVerAlertas,
     filtros,
@@ -185,12 +190,69 @@ export default function DashboardEjecutivo() {
                   <h2>Recaudación por tributo</h2>
                   <Barras filas={datos.porTributo.map((t) => ({ nombre: t.descripcion, valor: t.montoRecaudado }))} formato={moneda} />
                 </section>
-                <section className="pcard">
-                  <h2>Distribución por segmento</h2>
-                  <Barras filas={datos.porSegmento.map((s) => ({ nombre: s.nombre, valor: s.contribuyentes }))} formato={(n) => `${n} contribuyentes`} />
-                  <p className="hint">Incluye solo asignaciones a segmentos publicados.</p>
-                </section>
               </div>
+
+              <section className="pcard dashboard-segmentos" aria-labelledby="dashboard-segmentos-titulo">
+                <div className="dashboard-segmentos__cab">
+                  <div>
+                    <h2 id="dashboard-segmentos-titulo">Segmentación publicada</h2>
+                    {segmentacionPublicada ? (
+                      <p className="hint">
+                        {segmentacionPublicada.modelo} · {segmentacionPublicada.version}
+                        {' · '}
+                        {segmentacionPublicada.segmentos} {segmentacionPublicada.segmentos === 1 ? 'segmento' : 'segmentos'}
+                        {' · '}
+                        {segmentacionPublicada.contribuyentes} {segmentacionPublicada.contribuyentes === 1 ? 'contribuyente' : 'contribuyentes'}
+                      </p>
+                    ) : (
+                      <p className="hint">Aún no hay una segmentación publicada.</p>
+                    )}
+                    {segmentacionPublicada?.aprobador && (
+                      <p className="hint">
+                        Aprobada por {segmentacionPublicada.aprobador}
+                        {segmentacionPublicada.fechaAprobacion ? ` el ${fechaHora(segmentacionPublicada.fechaAprobacion)}` : ''}.
+                      </p>
+                    )}
+                  </div>
+                  {puedeGestionarSegmentos && (
+                    <Link className="btn" to="/segmentos">Gestionar segmentaciones</Link>
+                  )}
+                </div>
+
+                {segmentacionPublicada ? (
+                  <>
+                    <div className="dashboard-segmentos__control" role="group" aria-label="Métrica del gráfico por segmento">
+                      <button
+                        type="button"
+                        className={metricaSegmento === 'deuda' ? 'activo' : undefined}
+                        aria-pressed={metricaSegmento === 'deuda'}
+                        onClick={() => setMetricaSegmento('deuda')}
+                      >
+                        Deuda vencida
+                      </button>
+                      <button
+                        type="button"
+                        className={metricaSegmento === 'contribuyentes' ? 'activo' : undefined}
+                        aria-pressed={metricaSegmento === 'contribuyentes'}
+                        onClick={() => setMetricaSegmento('contribuyentes')}
+                      >
+                        Contribuyentes
+                      </button>
+                    </div>
+                    <BarrasSegmentos
+                      datos={barrasSegmento}
+                      onSeleccionar={(idSegmento) => cambiar('idSegmento', String(idSegmento))}
+                    />
+                    <p className="hint">
+                      Color de la morosidad: verde &lt; 5 %, ámbar 5–20 %, rojo &gt; 20 %. Haz clic en una barra para
+                      filtrar el dashboard por ese segmento.
+                    </p>
+                  </>
+                ) : (
+                  <p className="hint">El filtro «Segmento» aparecerá cuando Gerencia apruebe una segmentación.</p>
+                )}
+              </section>
+
               <section className="pcard"><h2>Resultados por zona</h2>
                 <div className="dashboard-tabla"><table><thead><tr><th>Zona</th><th>Emitido</th><th>Recaudado</th><th>Recaudación / emisión</th><th>Morosidad</th></tr></thead><tbody>
                   {datos.porZona.map((z) => <tr key={z.zona}><th scope="row">{z.zona}</th><td>{moneda(z.montoEmitido)}</td><td>{moneda(z.montoRecaudado)}</td><td>{formatearPorcentaje(z.porcentajeRecaudacion)}</td><td>{formatearPorcentaje(z.indiceMorosidad)}</td></tr>)}
@@ -265,4 +327,49 @@ function Barras({ filas, formato }) {
     <div><span>{fila.nombre}</span><strong>{formato(fila.valor)}</strong></div>
     <div className="dashboard-barra" aria-hidden="true"><span style={{ width: `${maximo ? Number(fila.valor) / maximo * 100 : 0}%` }} /></div>
   </li>)}</ul>
+}
+
+function BarrasSegmentos({ datos, onSeleccionar }) {
+  const { filas, maximo, metrica } = datos
+  if (filas.length === 0) {
+    return <p className="hint">No hay segmentos publicados para los filtros seleccionados.</p>
+  }
+
+  return (
+    <ul className="dashboard-segmentos__barras">
+      {filas.map((fila) => {
+        const nivel = nivelMorosidad(fila.morosidad)
+        const porcentaje = maximo > 0 ? (fila.valor / maximo) * 100 : 0
+        const contribuyentes = `${fila.contribuyentes} ${fila.contribuyentes === 1 ? 'contribuyente' : 'contribuyentes'}`
+        const principal = metrica === 'deuda' ? moneda(fila.deuda) : contribuyentes
+        const secundaria = metrica === 'deuda' ? contribuyentes : `${moneda(fila.deuda)} vencidos`
+        const morosidad = formatearPorcentaje(fila.morosidad)
+        return (
+          <li key={fila.idSegmento}>
+            <button
+              type="button"
+              className="dashboard-segmentos__fila"
+              onClick={() => onSeleccionar(fila.idSegmento)}
+              aria-label={`${fila.nombre}: ${principal}, ${morosidad === '—' ? 'sin morosidad' : `${morosidad} de morosidad`}. Filtrar el dashboard por este segmento.`}
+            >
+              <span className="dashboard-segmentos__nombre">
+                <strong>{fila.nombre}</strong>
+                <small>{secundaria}</small>
+              </span>
+              <span className="dashboard-segmentos__barra" aria-hidden="true">
+                <span
+                  className={`dashboard-segmentos__relleno nivel-${nivel}`}
+                  style={{ width: `${fila.valor > 0 ? Math.max(porcentaje, 2) : 0}%` }}
+                />
+              </span>
+              <span className="dashboard-segmentos__valor">{principal}</span>
+              <span className={`dashboard-segmentos__morosidad nivel-${nivel}`}>
+                {morosidad === '—' ? 'Sin morosidad' : `${morosidad} morosidad`}
+              </span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
