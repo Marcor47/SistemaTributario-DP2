@@ -94,3 +94,104 @@ export function formatearVariablesCaracteristicas(texto) {
     return String(texto)
   }
 }
+
+/* Nombres legibles de las variables que usa el modelo de comportamiento de pago. */
+const VARIABLES_SEGMENTO = {
+  pctATiempo: { etiqueta: 'Cuotas pagadas a tiempo', ayuda: 'Porcentaje de cuotas pagadas hasta su vencimiento.' },
+  diasAtraso: { etiqueta: 'Atraso en el pago', ayuda: 'Días entre el vencimiento y el pago. Negativo: paga antes de vencer.' },
+  deudaVencidaPct: { etiqueta: 'Deuda vencida', ayuda: 'Parte de lo emitido que está vencida y sin pagar.' },
+  antiguedadDeudaAnios: { etiqueta: 'Antigüedad de la deuda', ayuda: 'Años de la deuda pendiente más antigua.' },
+  mesesSinPago: { etiqueta: 'Tiempo desde el último pago', ayuda: 'Meses transcurridos desde el último pago registrado.' },
+}
+
+const INDICADORES_SEGMENTO = {
+  prediosMediana: { etiqueta: 'Predios por contribuyente', unidad: '' },
+  pctImpuestoPredialMediana: { etiqueta: 'Peso del Impuesto Predial en lo emitido', unidad: '%' },
+  pctPagosEnLineaMediana: { etiqueta: 'Pagos realizados en línea', unidad: '%' },
+}
+
+const NUMERO = new Intl.NumberFormat('es-PE', { maximumFractionDigits: 2 })
+
+function humanizar(clave) {
+  const texto = String(clave).replace(/([a-z])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim().toLowerCase()
+  return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
+function conUnidad(valor, unidad) {
+  if (valor === null || valor === undefined || valor === '') return '—'
+  if (typeof valor !== 'number') return String(valor)
+  const numero = NUMERO.format(valor)
+  if (!unidad) return numero
+  return unidad === '%' ? `${numero} %` : `${numero} ${unidad}`
+}
+
+/* Posición del centro del segmento frente al promedio de todos los contribuyentes (en desviaciones estándar). */
+export function nivelFrenteAlPromedio(centro) {
+  if (typeof centro !== 'number' || Number.isNaN(centro)) return null
+  if (centro >= 1) return { texto: 'Muy por encima del promedio', clase: 'muy-alto' }
+  if (centro >= 0.35) return { texto: 'Por encima del promedio', clase: 'alto' }
+  if (centro > -0.35) return { texto: 'Similar al promedio', clase: 'medio' }
+  if (centro > -1) return { texto: 'Por debajo del promedio', clase: 'bajo' }
+  return { texto: 'Muy por debajo del promedio', clase: 'muy-bajo' }
+}
+
+export function nivelCohesion(silueta) {
+  if (typeof silueta !== 'number' || Number.isNaN(silueta)) return null
+  if (silueta >= 0.5) return 'alta'
+  if (silueta >= 0.25) return 'moderada'
+  return 'baja'
+}
+
+/*
+ * Convierte el JSON de variables características en filas legibles para la pantalla:
+ * variables del modelo (valor típico y comparación con el promedio) e indicadores complementarios.
+ */
+export function interpretarVariablesCaracteristicas(texto) {
+  const vacio = { variables: [], indicadores: [], textoLibre: '' }
+  if (!texto) return vacio
+  let datos
+  try {
+    datos = typeof texto === 'string' ? JSON.parse(texto) : texto
+  } catch {
+    return { ...vacio, textoLibre: String(texto) }
+  }
+  if (!datos || typeof datos !== 'object' || Array.isArray(datos)) return { ...vacio, textoLibre: String(texto) }
+
+  const fuenteVariables = datos.variables && typeof datos.variables === 'object' ? datos.variables : {}
+  const variables = Object.entries(fuenteVariables).map(([clave, valor]) => {
+    const conocida = VARIABLES_SEGMENTO[clave]
+    const detalle = valor && typeof valor === 'object' ? valor : { mediana: valor }
+    return {
+      clave,
+      etiqueta: conocida?.etiqueta ?? humanizar(clave),
+      ayuda: conocida?.ayuda ?? '',
+      valor: conUnidad(detalle.mediana, detalle.unidad),
+      nivel: nivelFrenteAlPromedio(detalle.centroEstandarizado),
+    }
+  })
+
+  const indicadores = []
+  const descriptivas = datos.descriptivas && typeof datos.descriptivas === 'object' ? datos.descriptivas : {}
+  Object.entries(descriptivas).forEach(([clave, valor]) => {
+    const conocido = INDICADORES_SEGMENTO[clave]
+    indicadores.push({
+      clave,
+      etiqueta: conocido?.etiqueta ?? humanizar(clave.replace(/Mediana$/, '')),
+      valor: conUnidad(valor, conocido?.unidad ?? ''),
+    })
+  })
+  if (typeof datos.siluetaMedia === 'number') {
+    indicadores.push({
+      clave: 'siluetaMedia',
+      etiqueta: 'Cohesión del segmento',
+      valor: `${nivelCohesion(datos.siluetaMedia)} (${NUMERO.format(datos.siluetaMedia)})`,
+    })
+  }
+  // Cualquier otro dato simple que entregue el modelo se muestra con su nombre legible.
+  Object.entries(datos).forEach(([clave, valor]) => {
+    if (['variables', 'descriptivas', 'siluetaMedia'].includes(clave)) return
+    if (valor === null || typeof valor === 'object') return
+    indicadores.push({ clave, etiqueta: humanizar(clave), valor: conUnidad(valor, '') })
+  })
+  return { variables, indicadores, textoLibre: '' }
+}

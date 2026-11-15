@@ -15,9 +15,11 @@
 .constancia-recuperar input { width: 200px; max-width: 100%; min-height: 46px; padding: 8px 12px; border: 2px solid var(--borde-fuerte); border-radius: 10px; font: inherit; }
 .constancia-recuperar input:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
 .constancia-archivo { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin: 20px 0; padding: 16px; border: 1px solid var(--borde); border-radius: 12px; }
-.constancia-archivo div { display: flex; flex-direction: column; min-width: 0; }
-.constancia-archivo span { color: var(--texto-atenuado); font-size: 12px; overflow-wrap: anywhere; }
-.constancia-vista { max-height: 330px; overflow: auto; padding: 18px; white-space: pre-wrap; overflow-wrap: anywhere; background: #f7fafd; border: 1px solid var(--borde); border-radius: 10px; font: 13px/1.6 ui-monospace, monospace; }
+.constancia-archivo-info { display: flex; align-items: center; gap: 14px; min-width: 0; flex: 1; }
+.constancia-archivo-info > div { display: flex; flex-direction: column; min-width: 0; }
+.constancia-archivo-info span:not(.constancia-archivo-icono) { color: var(--texto-atenuado); font-size: 12px; overflow-wrap: anywhere; }
+.constancia-archivo-icono { flex: none; display: grid; place-items: center; width: 42px; height: 50px; border-radius: 6px; background: #b42318; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .04em; }
+.constancia-vista { display: block; width: 100%; height: 560px; max-height: 70vh; margin-bottom: 20px; background: #f7fafd; border: 1px solid var(--borde); border-radius: 10px; }
 .constancia-firma { display: flex; flex-direction: column; gap: 16px; margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--borde); }
 .constancia-firma h3 { margin: 0; font-size: 18px; color: var(--marino-osc); }
 .constancia-firma .fld { min-width: 0; }
