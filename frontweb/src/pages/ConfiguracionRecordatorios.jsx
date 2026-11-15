@@ -5,8 +5,10 @@ import {
   procesarRecordatorios,
 } from '../services/recordatorioService.js'
 import {
+  AVISO_SIN_SERVIDOR_CORREO,
   DIAS_RECORDATORIO_POR_DEFECTO,
   calcularFechaProgramada,
+  resumenEnvioRecordatorios,
   textoAnticipacion,
   validarDiasRecordatorio,
 } from '../utils/recordatorios.js'
@@ -62,6 +64,7 @@ export default function ConfiguracionRecordatorios() {
     : (configuracion?.diasAnticipacion ?? DIAS_RECORDATORIO_POR_DEFECTO)
   const fechaVistaPrevia = calcularFechaProgramada(EJEMPLO_VENCIMIENTO, diasVistaPrevia)
   const sinCambios = Boolean(configuracion) && validacion.valido && validacion.valor === configuracion.diasAnticipacion
+  const resumenEnvio = resultadoEnvio ? resumenEnvioRecordatorios(resultadoEnvio) : null
 
   useEffect(() => {
     let activo = true
@@ -279,22 +282,41 @@ export default function ConfiguracionRecordatorios() {
             <button className="btn primary" type="button" onClick={procesarHoy} disabled={procesando}>
               {procesando ? 'Procesando…' : 'Procesar recordatorios de hoy'}
             </button>
-            {resultadoEnvio && (
-              <div className="tabla-scroll" role="region" aria-label="Resultado del envío" tabIndex={0}>
-                <table className="tabla">
-                  <caption className="sr-only">Resultado del envío de recordatorios</caption>
-                  <thead><tr><th scope="col">Cuotas por vencer</th><th scope="col" className="num">Registrados</th><th scope="col" className="num">Sin correo</th><th scope="col" className="num">Ya notificados</th><th scope="col" className="num">Fallidos</th></tr></thead>
-                  <tbody>
-                    <tr>
-                      <th scope="row">{resultadoEnvio.detectados}</th>
-                      <td className="num">{resultadoEnvio.enviados + resultadoEnvio.registrados}</td>
-                      <td className="num">{resultadoEnvio.sinCorreo}</td>
-                      <td className="num">{resultadoEnvio.duplicados}</td>
-                      <td className="num">{resultadoEnvio.fallidos}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+            {resumenEnvio && (
+              <>
+                {resumenEnvio.sinServidorCorreo && (
+                  <div className="alert" role="alert">
+                    <p>{AVISO_SIN_SERVIDOR_CORREO}</p>
+                  </div>
+                )}
+                <div className="tabla-scroll" role="region" aria-label="Resultado del envío" tabIndex={0}>
+                  <table className="tabla">
+                    <caption className="sr-only">Resultado del envío de recordatorios</caption>
+                    <thead>
+                      <tr>
+                        <th scope="col">Cuotas por vencer</th>
+                        <th scope="col" className="num">Enviados</th>
+                        <th scope="col" className="num">Registrados</th>
+                        <th scope="col" className="num">Sin correo</th>
+                        <th scope="col" className="num">Desactivados</th>
+                        <th scope="col" className="num">Ya notificados</th>
+                        <th scope="col" className="num">Fallidos</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <th scope="row">{resumenEnvio.detectados}</th>
+                        <td className="num">{resumenEnvio.enviados}</td>
+                        <td className="num">{resumenEnvio.registrados}</td>
+                        <td className="num">{resumenEnvio.sinCorreo}</td>
+                        <td className="num">{resumenEnvio.desactivados}</td>
+                        <td className="num">{resumenEnvio.duplicados}</td>
+                        <td className="num">{resumenEnvio.fallidos}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </section>
         </>

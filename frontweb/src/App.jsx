@@ -161,7 +161,7 @@ export default function App() {
           <Route path="/segmentos" element={<RutaInternaProtegida permiso="SEGMENTOS:CONSULTAR"><Segmentos /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
-          <Route path="/configuracion/reportes" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><ConfiguracionAccesoReportes /></RutaInternaProtegida>} />
+          <Route path="/configuracion/reportes" element={<RutaInternaProtegida permiso="REPORTES:CONFIGURAR"><ConfiguracionAccesoReportes /></RutaInternaProtegida>} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
           <Route path="/contribuyentes" element={<RutaInternaProtegida permiso="CONTRIBUYENTES:CONSULTAR"><ConsultaContribuyente /></RutaInternaProtegida>} />
           <Route path="/ventanilla/constancias" element={<Navigate to="/gestion/constancias?pestana=ventanilla" replace />} />

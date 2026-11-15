@@ -13,7 +13,29 @@ export const ESTADOS_RECORDATORIO = {
   SIN_CORREO: { texto: 'Sin correo registrado', clase: 'neutro' },
   NO_ENVIADO: { texto: 'No enviado', clase: 'neutro' },
   REGISTRADO: { texto: 'Registrado', clase: 'ok' },
+  DESACTIVADO: { texto: 'Desactivado por el contribuyente', clase: 'neutro' },
   NO_REQUERIDO: { texto: 'No requerido (cuota pagada)', clase: 'neutro' },
+}
+
+export const AVISO_SIN_SERVIDOR_CORREO =
+  'No hay servidor de correo configurado: los avisos quedaron registrados y no se enviaron por Internet.'
+
+/** Cifras del procesamiento, separando lo enviado de lo solo registrado y de lo desactivado. */
+export function resumenEnvioRecordatorios(resultado) {
+  const numero = (valor) => {
+    const cantidad = Number(valor)
+    return Number.isFinite(cantidad) && cantidad >= 0 ? cantidad : 0
+  }
+  return {
+    detectados: numero(resultado?.detectados),
+    enviados: numero(resultado?.enviados),
+    registrados: numero(resultado?.registrados),
+    sinCorreo: numero(resultado?.sinCorreo),
+    desactivados: numero(resultado?.desactivados),
+    duplicados: numero(resultado?.duplicados),
+    fallidos: numero(resultado?.fallidos),
+    sinServidorCorreo: Boolean(resultado?.sinServidorCorreo),
+  }
 }
 
 export function validarDiasRecordatorio(valor) {
@@ -100,6 +122,8 @@ export function descripcionRecordatorio(recordatorio) {
       return 'El contribuyente no tiene correo registrado; no se puede enviar el recordatorio.'
     case 'NO_ENVIADO':
       return 'No se registró un envío de recordatorio para esta obligación.'
+    case 'DESACTIVADO':
+      return 'El contribuyente desactivó los recordatorios de vencimiento en Servicios en Línea.'
     default:
       return `El recordatorio se encuentra en estado ${recordatorio.estado || 'desconocido'}.`
   }

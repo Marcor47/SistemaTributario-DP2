@@ -37,6 +37,7 @@ function Navegacion() {
         </Stack.Protected>
         <Stack.Protected guard={autenticado} redirectTo="/login">
           <Stack.Screen name="index" />
+          <Stack.Screen name="notificaciones" />
           <Stack.Screen name="estado-cuenta" />
           <Stack.Screen name="buzon/index" />
           <Stack.Screen name="buzon/[id]" />

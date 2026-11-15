@@ -3,8 +3,12 @@ package pe.municipalidad.tributario.reporteria;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import pe.municipalidad.tributario.reporte.TipoReporte;
 
-/* Dimensiones de la carga publicada: dan el orden de las listas que devuelve la consulta de datos. */
+/*
+ * Dimensiones de la carga publicada: dan el orden de las listas que devuelve la consulta de datos.
+ * Las listas permitidas son para los filtros y la navegación; las completas mantienen la alineación de los datos.
+ */
 public record CatalogoReporteriaRespuesta(
         LocalDate fechaCorte,
         String primerMes,
@@ -13,7 +17,10 @@ public record CatalogoReporteriaRespuesta(
         List<Opcion> tributos,
         List<String> segmentos,
         List<String> usos,
-        List<Opcion> canales) {
+        List<Opcion> canales,
+        List<String> zonasPermitidas,
+        List<String> segmentosPermitidos,
+        List<TipoReporte> reportesPermitidos) {
 
     public record Opcion(String codigo, String nombre) {
     }

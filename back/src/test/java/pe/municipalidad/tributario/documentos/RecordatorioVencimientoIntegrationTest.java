@@ -3,6 +3,7 @@ package pe.municipalidad.tributario.documentos;
 import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -18,7 +19,39 @@ class RecordatorioVencimientoIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired Clock reloj;
     @Autowired RecordatorioVencimientoService servicio;
+    @Autowired PreferenciaAvisoRepository preferencias;
     @MockitoSpyBean CorreoGateway correo;
+
+    @Test
+    void respetaLaPreferenciaDelContribuyenteYEnviaAlReactivarla() {
+        jdbc.update("""
+                INSERT INTO operativo.preferencia_aviso (codigo_contribuyente, recordatorio_vencimiento)
+                VALUES ('014502', FALSE)
+                """);
+        LocalDate vence = LocalDate.now(reloj).plusDays(3);
+        Long id = jdbc.queryForObject("""
+                INSERT INTO samnet.obligacion (contribuyente_codigo, tributo, anio, numero_cuota,
+                    fecha_vencimiento, monto_emitido, monto_pagado)
+                VALUES ('014502', 'IMPUESTO_PREDIAL', 2099, 2, ?, 100, 0) RETURNING id
+                """, Long.class, vence);
+        assertThat(servicio.estadoDe(id).estado()).isEqualTo("DESACTIVADO");
+        var desactivado = servicio.procesar();
+        assertThat(desactivado.desactivados()).isPositive();
+        assertThat(avisosDe(id)).isZero();
+
+        var preferencia = preferencias.findById("014502").orElseThrow();
+        preferencia.cambiarRecordatorio(true, LocalDateTime.now(reloj));
+        preferencias.saveAndFlush(preferencia);
+        servicio.procesar();
+        assertThat(avisosDe(id)).isEqualTo(1);
+    }
+
+    private int avisosDe(Long id) {
+        return jdbc.queryForObject("""
+                SELECT count(*) FROM operativo.aviso_correo
+                WHERE tipo = 'RECORDATORIO_VENCIMIENTO' AND id_obligacion = ?
+                """, Integer.class, id.toString());
+    }
 
     @Test
     void detectaCuotaPendienteYNoRepiteElEnvio() {

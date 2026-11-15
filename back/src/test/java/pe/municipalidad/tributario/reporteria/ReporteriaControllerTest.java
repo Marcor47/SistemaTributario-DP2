@@ -294,7 +294,9 @@ class ReporteriaControllerTest {
     @Test
     void filtraLaZonaAntesDeLosTotalesSinCerrarLaPlataformaNiContaminarLaCache() throws Exception {
         restringirZona("Z01");
-        mvc.perform(get("/api/reporteria/catalogo").session(gerencia)).andExpect(status().isOk());
+        mvc.perform(get("/api/reporteria/catalogo").session(gerencia)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.zonas[*].codigo", contains("Z01", "Z02")))
+                .andExpect(jsonPath("$.zonasPermitidas", contains("Z02")));
         mvc.perform(get(DATOS).param("desde", "2026-01").param("hasta", "2026-10").session(gerencia))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totales.emitido").value(50.0))
                 .andExpect(jsonPath("$.totales.deuda").value(0.0));

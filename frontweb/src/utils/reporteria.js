@@ -34,9 +34,9 @@ export const etiquetaMesLarga = (m) => `${MESES[m % 12]} ${Math.floor(m / 12)}`
 
 export const PESTANAS = [
   { id: 'resumen', titulo: 'Resumen', descripcion: 'Recaudación, meta y morosidad de un vistazo.' },
-  { id: 'pricos', titulo: 'PRICOS', descripcion: 'Principales contribuyentes: concentración de la emisión y cumplimiento.' },
-  { id: 'morosos', titulo: 'Morosos', descripcion: 'Deuda vencida por zona, tributo, segmento y antigüedad.' },
-  { id: 'buenos', titulo: 'Buenos Pagadores', descripcion: 'Contribuyentes que pagan todas sus cuotas a tiempo.' },
+  { id: 'pricos', reporte: 'PRICOS', titulo: 'PRICOS', descripcion: 'Principales contribuyentes: concentración de la emisión y cumplimiento.' },
+  { id: 'morosos', reporte: 'MOROSOS', titulo: 'Morosos', descripcion: 'Deuda vencida por zona, tributo, segmento y antigüedad.' },
+  { id: 'buenos', reporte: 'BUENOS_PAGADORES', titulo: 'Buenos Pagadores', descripcion: 'Contribuyentes que pagan todas sus cuotas a tiempo.' },
 ]
 
 export const TIPOS_GRAFICO = {
@@ -317,7 +317,14 @@ export function crearModelo(catalogo) {
     morosos: 'Moroso: contribuyente con al menos una cuota del periodo vencida y no pagada a la fecha de corte.',
   }
 
-  return { catalogo, corte, primerMes, periodos, periodoInicial: String(anioCorte), zonas, tributos, segmentos, usos, canales, graficos, rankings, avisos }
+  const zonasPermitidas = catalogo.zonasPermitidas ?? catalogo.zonas.map((zona) => zona.codigo)
+  const segmentosPermitidos = catalogo.segmentosPermitidos ?? catalogo.segmentos
+  const reportesPermitidos = catalogo.reportesPermitidos ?? ['MOROSOS', 'PRICOS', 'BUENOS_PAGADORES']
+
+  return {
+    catalogo, corte, primerMes, periodos, periodoInicial: String(anioCorte), zonas, tributos, segmentos, usos,
+    canales, zonasPermitidas, segmentosPermitidos, reportesPermitidos, graficos, rankings, avisos,
+  }
 }
 
 export function consultaDeFiltros(modelo, filtros, extra = {}) {

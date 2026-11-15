@@ -35,6 +35,22 @@ public class SesionInterna {
         return usuario.getNombreUsuario();
     }
 
+    /* Sin sesión interna: 401. Con sesión pero sin el permiso indicado: 403. */
+    @Transactional(readOnly = true)
+    public String conPermiso(HttpServletRequest request, String modulo, String accion) {
+        HttpSession sesion = request.getSession(false);
+        Object id = sesion == null ? null : sesion.getAttribute(ATRIBUTO_USUARIO_INTERNO);
+        if (!(id instanceof Long idUsuario)) {
+            throw new NoAutenticadoException("SESION_REQUERIDA", "Inicie sesión como usuario interno.");
+        }
+        Usuario usuario = usuarios.findById(idUsuario).orElseThrow(() ->
+                new NoAutenticadoException("SESION_REQUERIDA", "Inicie sesión como usuario interno."));
+        if (!usuario.isActivo() || !usuario.tienePermiso(modulo, accion)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tiene permiso para esta consulta.");
+        }
+        return usuario.getNombreUsuario();
+    }
+
     /* Sin sesión interna: 401. Con sesión pero sin alguno de los roles indicados: 403. */
     @Transactional(readOnly = true)
     public String conRol(HttpServletRequest request, NombreRol... permitidos) {

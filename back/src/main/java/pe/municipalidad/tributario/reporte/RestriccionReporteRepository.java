@@ -8,5 +8,7 @@ public interface RestriccionReporteRepository extends JpaRepository<RestriccionR
 
     List<RestriccionReporte> findByRolAndTipoReporte(Rol rol, TipoReporte tipoReporte);
 
+    List<RestriccionReporte> findByRol(Rol rol);
+
     boolean existsByRolAndPermitidoFalse(Rol rol);
 }
