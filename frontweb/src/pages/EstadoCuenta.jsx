@@ -1,6 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { buscarCoincidencias } from '../services/contribuyenteService.js'
 import { obtenerEstadoCuenta } from '../services/cuentaService.js'
+import { SesionInternaContext } from '../context/sesionInterna.js'
+import { AccesoDenegado } from '../components/AccesoInterno.jsx'
+import '../components/AccesoInterno.css'
 import DetalleCuenta from '../components/DetalleCuenta.jsx'
 import { MINIMO_BUSQUEDA, TIPOS_DOCUMENTO, limpiarDocumento, validarDocumento } from '../utils/documento.js'
 
@@ -19,7 +22,17 @@ function validarBusqueda(tipo, valor) {
 
 // Si la cuenta no se pudo cargar, el contribuyente sigue seleccionado (ficha, pagos, cobranza) y el error se muestra
 // solo en la pestaña del estado de cuenta.
-function Cuenta({ cuenta }) {
+function Cuenta({ cuenta, sesion }) {
+  if (cuenta.esAccesoDenegado) {
+    return (
+      <AccesoDenegado
+        titulo="Acceso restringido — Estado de cuenta"
+        usuario={sesion}
+        descripcion="La consulta del estado de cuenta del contribuyente está restringida al personal autorizado."
+        rolesPermitidos={['ANALISTA_RENTAS', 'GERENCIA']}
+      />
+    )
+  }
   if (cuenta.error) {
     return (
       <section className="pcard" aria-label="Estado de cuenta">
@@ -32,6 +45,8 @@ function Cuenta({ cuenta }) {
 }
 
 export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle, permitirCodigo = false }) {
+  const sesionContexto = useContext(SesionInternaContext)
+  const sesion = sesionContexto?.sesion
   const [tipoDocumento, setTipoDocumento] = useState('DNI')
   const [documento, setDocumento] = useState('')
   const [consulta, setConsulta] = useState('')
@@ -124,6 +139,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
     } catch (err) {
       actualizarCuenta({
         contribuyente,
+        esAccesoDenegado: err.estado === 403 || err.codigo === 'ACCESO_DENEGADO',
         error: err.estado === 403
           ? 'Tu rol no tiene permiso para consultar estados de cuenta.'
           : err.message || 'No se pudo obtener el estado de cuenta. Intenta nuevamente.',
@@ -246,7 +262,7 @@ export default function EstadoCuenta({ onSeleccionarContribuyente, renderDetalle
   }
 
   const tieneCriterios = documento.length >= MINIMO_BUSQUEDA
-  const detalle = cuenta && <Cuenta cuenta={cuenta} />
+  const detalle = cuenta && <Cuenta cuenta={cuenta} sesion={sesion} />
 
   return (
     <>

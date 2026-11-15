@@ -29,15 +29,19 @@ function Estado({ fila }) {
 
 function FilaTotales({ etiqueta, totales }) {
   if (!totales) return null
+  const tieneDeuda = Number(totales.deuda) > 0
+  const tieneDeudaVencida = Number(totales.deudaVencida) > 0
+  const tieneInteres = Number(totales.interesMoratorio) > 0
+  const tieneTotalAPagar = Number(totales.totalAPagar) > 0
   return (
     <tr>
       <th scope="row">{etiqueta}</th>
       <td className="num">{moneda(totales.emitido)}</td>
       <td className="num">{moneda(totales.pagado)}</td>
-      <td className="num">{moneda(totales.deuda)}</td>
-      <td className="num">{moneda(totales.deudaVencida)}</td>
-      <td className="num">{moneda(totales.interesMoratorio)}</td>
-      <td className="num"><strong>{moneda(totales.totalAPagar)}</strong></td>
+      <td className={`num${tieneDeuda ? ' valor-deuda' : ''}`}>{moneda(totales.deuda)}</td>
+      <td className={`num${tieneDeudaVencida ? ' valor-deuda' : ''}`}>{moneda(totales.deudaVencida)}</td>
+      <td className={`num${tieneInteres ? ' valor-deuda' : ''}`}>{moneda(totales.interesMoratorio)}</td>
+      <td className={`num${tieneTotalAPagar ? ' valor-deuda' : ''}`}><strong>{moneda(totales.totalAPagar)}</strong></td>
     </tr>
   )
 }
@@ -109,8 +113,8 @@ function TablaPredial({ cuotas, anio }) {
                   <td>{fecha(fila.fechaVencimiento)}</td>
                   <td className="num">{moneda(fila.emitido)}</td>
                   <td className="num">{moneda(fila.pagado)}</td>
-                  <td className="num">{moneda(fila.deuda)}</td>
-                  <td className="num">{fila.interesMoratorio > 0 ? moneda(fila.interesMoratorio) : '—'}</td>
+                  <td className={`num${Number(fila.deuda) > 0 ? ' valor-deuda' : ''}`}>{moneda(fila.deuda)}</td>
+                  <td className={`num${Number(fila.interesMoratorio) > 0 ? ' valor-deuda' : ''}`}>{fila.interesMoratorio > 0 ? moneda(fila.interesMoratorio) : '—'}</td>
                   <td><Estado fila={fila} /></td>
                   <td>{fila.estado === 'Vencida' ? fila.etapaCobranza ?? 'Mora temprana' : '—'}</td>
                 </tr>
@@ -159,8 +163,8 @@ function ArbitriosDePredio({ grupo }) {
                 <td>{etiquetaCuota(fila)}</td>
                 <td>{fecha(fila.fechaVencimiento)}</td>
                 <td className="num">{moneda(fila.emitido)}</td>
-                <td className="num">{moneda(fila.deuda)}</td>
-                <td className="num">{fila.interesMoratorio > 0 ? moneda(fila.interesMoratorio) : '—'}</td>
+                <td className={`num${Number(fila.deuda) > 0 ? ' valor-deuda' : ''}`}>{moneda(fila.deuda)}</td>
+                <td className={`num${Number(fila.interesMoratorio) > 0 ? ' valor-deuda' : ''}`}>{fila.interesMoratorio > 0 ? moneda(fila.interesMoratorio) : '—'}</td>
                 <td><Estado fila={fila} /></td>
               </tr>
             ))}
@@ -169,8 +173,8 @@ function ArbitriosDePredio({ grupo }) {
             <tr>
               <th scope="row" colSpan={2}>Total del año</th>
               <th className="num">{moneda(totales.emitido)}</th>
-              <th className="num">{moneda(totales.deuda)}</th>
-              <th className="num">{moneda(totales.interesMoratorio)}</th>
+              <th className={`num${Number(totales.deuda) > 0 ? ' valor-deuda' : ''}`}>{moneda(totales.deuda)}</th>
+              <th className={`num${Number(totales.interesMoratorio) > 0 ? ' valor-deuda' : ''}`}>{moneda(totales.interesMoratorio)}</th>
               <th />
             </tr>
           </tfoot>
@@ -252,10 +256,10 @@ export default function DetalleCuenta({ cuenta }) {
           <div className="info" role="status">El contribuyente no tiene cuotas emitidas.</div>
         ) : (
           <div className="resumen">
-            <div><span className="pl">Deuda total</span><strong>{moneda(deudaTotal)}</strong></div>
+            <div className={deudaTotal > 0 ? 'deuda' : ''}><span className="pl">Deuda total</span><strong>{moneda(deudaTotal)}</strong></div>
             <div className={deudaVencida > 0 ? 'deuda' : ''}><span className="pl">Deuda vencida</span><strong>{moneda(deudaVencida)}</strong></div>
             <div className={interes > 0 ? 'deuda' : ''}><span className="pl">Interés moratorio</span><strong>{moneda(interes)}</strong></div>
-            <div><span className="pl">Por pagar hoy (vencido + interés)</span><strong>{moneda(deudaVencida + interes)}</strong></div>
+            <div className={(deudaVencida + interes) > 0 ? 'deuda' : ''}><span className="pl">Por pagar hoy (vencido + interés)</span><strong>{moneda(deudaVencida + interes)}</strong></div>
           </div>
         )}
       </section>

@@ -24,6 +24,7 @@ export default function ConsultaContribuyente() {
   const [ficha, setFicha] = useState(null)
   const [ocupadoFicha, setOcupadoFicha] = useState(false)
   const [errorFicha, setErrorFicha] = useState('')
+  const [errorFichaObj, setErrorFichaObj] = useState(null)
   const [parametros, setParametros] = useSearchParams()
   const botones = useRef([])
   const solicitudFicha = useRef(0)
@@ -42,7 +43,10 @@ export default function ConsultaContribuyente() {
       })
       .catch((err) => {
         if (activo) {
-          setErrorFicha(err.message || 'No se pudo consultar la ficha del contribuyente. Intenta nuevamente.')
+          setErrorFichaObj(err)
+          setErrorFicha(err?.estado === 403 || err?.codigo === 'ACCESO_DENEGADO'
+            ? 'Tu rol no tiene permiso para consultar la ficha oficial de contribuyentes.'
+            : (err.message || 'No se pudo consultar la ficha del contribuyente. Intenta nuevamente.'))
         }
       })
       .finally(() => {
@@ -63,6 +67,7 @@ export default function ConsultaContribuyente() {
     if (mismo) return
     setFicha(null)
     setErrorFicha('')
+    setErrorFichaObj(null)
     setOcupadoFicha(Boolean(nuevo))
   }
 
@@ -70,13 +75,17 @@ export default function ConsultaContribuyente() {
     if (!tipoDoc || !doc) return
     const actual = ++solicitudFicha.current
     setErrorFicha('')
+    setErrorFichaObj(null)
     setOcupadoFicha(true)
     try {
       const resultado = await obtenerContribuyentePorDocumento(tipoDoc, doc)
       if (actual === solicitudFicha.current) setFicha(resultado)
     } catch (err) {
       if (actual === solicitudFicha.current) {
-        setErrorFicha(err.message || 'No se pudo consultar la ficha del contribuyente. Intenta nuevamente.')
+        setErrorFichaObj(err)
+        setErrorFicha(err?.estado === 403 || err?.codigo === 'ACCESO_DENEGADO'
+          ? 'Tu rol no tiene permiso para consultar la ficha oficial de contribuyentes.'
+          : (err.message || 'No se pudo consultar la ficha del contribuyente. Intenta nuevamente.'))
       }
     } finally {
       if (actual === solicitudFicha.current) setOcupadoFicha(false)
@@ -134,6 +143,7 @@ export default function ConsultaContribuyente() {
                 ficha={ficha}
                 ocupado={ocupadoFicha}
                 error={errorFicha}
+                errorObj={errorFichaObj}
                 onReintentar={recargarFicha}
               />
             </div>

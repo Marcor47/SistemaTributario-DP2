@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 import { obtenerRegularidad } from '../services/regularidadService.js'
+import { SesionInternaContext } from '../context/sesionInterna.js'
+import { AccesoDenegado } from '../components/AccesoInterno.jsx'
+import '../components/AccesoInterno.css'
 import { fecha, moneda } from '../utils/formato.js'
 
 function FichaRegularidad({ ficha, comparativaAnterior, ocupado, onAnio }) {
@@ -156,11 +159,18 @@ function FichaRegularidad({ ficha, comparativaAnterior, ocupado, onAnio }) {
 }
 
 export default function RegularidadPago({ contribuyente }) {
+  const sesionContexto = useContext(SesionInternaContext)
+  const sesion = sesionContexto?.sesion
   const [ficha, setFicha] = useState(null)
   const [comparativaAnterior, setComparativaAnterior] = useState(null)
   const [ocupado, setOcupado] = useState(true)
   const [error, setError] = useState('')
+  const [sinPermiso, setSinPermiso] = useState(false)
   const solicitud = useRef(0)
+
+  const puedeConsultar = Boolean(
+    !sesion || sesion.permisos?.includes('REGULARIDAD:CONSULTAR') || sesion.rol === 'GERENCIA'
+  )
 
   async function cargarComparativa(datosFicha, idSolicitud) {
     const anioPrevio = datosFicha.aniosDisponibles?.find((a) => a < datosFicha.anio)
@@ -184,33 +194,70 @@ export default function RegularidadPago({ contribuyente }) {
   useEffect(() => {
     let activo = true
     const actual = ++solicitud.current
+
+    if (sesion && !puedeConsultar) {
+      setOcupado(false)
+      setSinPermiso(true)
+      return () => { activo = false }
+    }
+
+    setOcupado(true)
+    setError('')
+    setSinPermiso(false)
+
     obtenerRegularidad(contribuyente)
       .then((resultado) => {
         if (!activo || actual !== solicitud.current) return
         setFicha(resultado)
         cargarComparativa(resultado, actual)
       })
-      .catch(() => { if (activo && actual === solicitud.current) setError('No se pudo consultar la regularidad. Intenta nuevamente.') })
+      .catch((err) => {
+        if (activo && actual === solicitud.current) {
+          if (err?.estado === 403 || err?.codigo === 'ACCESO_DENEGADO') {
+            setSinPermiso(true)
+          } else {
+            setError(err?.message || 'No se pudo consultar la regularidad. Intenta nuevamente.')
+          }
+        }
+      })
       .finally(() => { if (activo && actual === solicitud.current) setOcupado(false) })
     return () => { activo = false }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contribuyente.codigo])
+  }, [contribuyente?.codigo, sesion, puedeConsultar])
 
   async function cargarFicha(anio) {
     const actual = ++solicitud.current
     setOcupado(true)
     setError('')
+    setSinPermiso(false)
     try {
       const resultado = await obtenerRegularidad(contribuyente, anio)
       if (actual === solicitud.current) {
         setFicha(resultado)
         cargarComparativa(resultado, actual)
       }
-    } catch {
-      if (actual === solicitud.current) setError('No se pudo obtener el indicador. Intenta nuevamente.')
+    } catch (err) {
+      if (actual === solicitud.current) {
+        if (err?.estado === 403 || err?.codigo === 'ACCESO_DENEGADO') {
+          setSinPermiso(true)
+        } else {
+          setError(err?.message || 'No se pudo obtener el indicador. Intenta nuevamente.')
+        }
+      }
     } finally {
       if (actual === solicitud.current) setOcupado(false)
     }
+  }
+
+  if (sinPermiso) {
+    return (
+      <AccesoDenegado
+        titulo="Acceso restringido — Regularidad de pago"
+        usuario={sesion}
+        descripcion="La consulta del indicador de regularidad de pago del contribuyente está reservada exclusivamente para el seguimiento estratégico institucional."
+        rolesPermitidos={['GERENCIA']}
+      />
+    )
   }
 
   return (

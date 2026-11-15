@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { obtenerPagosBeneficios } from '../services/pagosBeneficiosService.js'
+import { SesionInternaContext } from '../context/sesionInterna.js'
+import { AccesoDenegado } from './AccesoInterno.jsx'
+import './AccesoInterno.css'
 import { fecha, moneda } from '../utils/formato.js'
 import './PagosBeneficiosPanel.css'
 
@@ -29,6 +32,8 @@ function mensajeError(error) {
 }
 
 export default function PagosBeneficiosPanel({ contribuyente }) {
+  const sesionContexto = useContext(SesionInternaContext)
+  const sesion = sesionContexto?.sesion
   const [revision, setRevision] = useState(0)
   const [consulta, setConsulta] = useState({ estado: 'cargando', datos: null, error: null })
 
@@ -54,6 +59,17 @@ export default function PagosBeneficiosPanel({ contribuyente }) {
   const puedeReintentar = error?.estado !== 403
   const hayBeneficioSinDetalle = datos?.pagos.some((pago) => pago.beneficioAplicado
     && !datos.beneficiosVigentes.some((beneficio) => beneficio.idBeneficio === pago.beneficioAplicado))
+
+  if (error?.estado === 403 || error?.codigo === 'ACCESO_DENEGADO') {
+    return (
+      <AccesoDenegado
+        titulo="Acceso restringido — Pagos y beneficios"
+        usuario={sesion}
+        descripcion="La consulta del historial de pagos y beneficios tributarios aplicados está restringida al personal autorizado."
+        rolesPermitidos={['ANALISTA_RENTAS', 'GERENCIA']}
+      />
+    )
+  }
 
   return (
     <section className="pcard pagos-beneficios" aria-labelledby="pagos-beneficios-titulo" aria-busy={ocupado}>

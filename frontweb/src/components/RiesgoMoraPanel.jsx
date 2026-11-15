@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { pedir } from '../services/api.js'
+import { SesionInternaContext } from '../context/sesionInterna.js'
+import { AccesoDenegado } from './AccesoInterno.jsx'
+import './AccesoInterno.css'
 import { fecha, moneda } from '../utils/formato.js'
 
 // HU021 (RF-035): probabilidad y categoría del riesgo de mora del contribuyente, con los factores que la explican.
@@ -10,19 +13,38 @@ const CATEGORIAS = {
 }
 
 export default function RiesgoMoraPanel({ contribuyente }) {
-  const [estado, setEstado] = useState({ cargando: true, datos: null, error: '' })
+  const sesionContexto = useContext(SesionInternaContext)
+  const sesion = sesionContexto?.sesion
+  const [estado, setEstado] = useState({ cargando: true, datos: null, error: '', errorObj: null })
 
   useEffect(() => {
     const controlador = new AbortController()
     pedir(`/contribuyentes/${encodeURIComponent(contribuyente.codigo)}/riesgo-mora`, { signal: controlador.signal })
-      .then((datos) => { if (!controlador.signal.aborted) setEstado({ cargando: false, datos, error: '' }) })
+      .then((datos) => { if (!controlador.signal.aborted) setEstado({ cargando: false, datos, error: '', errorObj: null }) })
       .catch((err) => {
-        if (!controlador.signal.aborted) setEstado({ cargando: false, datos: null, error: err.message || 'No se pudo calcular el riesgo de mora.' })
+        if (!controlador.signal.aborted) setEstado({
+          cargando: false,
+          datos: null,
+          error: err.estado === 403
+            ? 'Tu usuario no tiene permiso para consultar el riesgo de mora de contribuyentes.'
+            : (err.message || 'No se pudo calcular el riesgo de mora.'),
+          errorObj: err,
+        })
       })
     return () => controlador.abort()
   }, [contribuyente.codigo])
 
   if (estado.cargando) return <p className="hint" role="status">Calculando el riesgo de mora…</p>
+  if (estado.errorObj?.estado === 403 || estado.errorObj?.codigo === 'ACCESO_DENEGADO') {
+    return (
+      <AccesoDenegado
+        titulo="Acceso restringido — Riesgo de mora"
+        usuario={sesion}
+        descripcion="El cálculo predictivo de riesgo de mora del contribuyente está restringido a perfiles autorizados."
+        rolesPermitidos={['ANALISTA_RENTAS', 'GERENCIA']}
+      />
+    )
+  }
   if (estado.error) return <div className="info" role="status">{estado.error}</div>
   const { datos } = estado
   const categoria = CATEGORIAS[datos.categoria] ?? { texto: datos.categoria, clase: 'neutro' }

@@ -2,6 +2,17 @@
 
 .estado-dias { font-weight: 500; }
 .texto-critico { color: var(--critico); font-weight: 600; }
+.valor-deuda,
+.tabla td.valor-deuda,
+.tabla th.valor-deuda {
+  color: var(--critico, #b42318) !important;
+  font-weight: 700;
+}
+.valor-deuda strong,
+.tabla td.valor-deuda strong,
+.tabla th.valor-deuda strong {
+  color: var(--critico, #b42318) !important;
+}
 
 .predio-arbitrios {
   border: 1px solid var(--borde);
