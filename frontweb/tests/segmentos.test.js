@@ -130,10 +130,10 @@ test('HU031: presenta los estados y el JSON de variables sin reinterpretarlo', (
   assert.equal(formatearVariablesCaracteristicas(''), 'Sin variables registradas.')
 })
 
-test('HU031: la aprobación tiene una pantalla propia y el dashboard solo muestra la publicación', () => {
+test('HU031: la aprobación tiene una pantalla propia y la plataforma filtra por la segmentación publicada', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
   const modulos = readFileSync(new URL('../src/utils/modulos.jsx', import.meta.url), 'utf8')
-  const dashboard = readFileSync(new URL('../src/pages/Dashboard.jsx', import.meta.url), 'utf8')
+  const plataforma = readFileSync(new URL('../src/pages/Reporteria.jsx', import.meta.url), 'utf8')
   const pagina = readFileSync(new URL('../src/pages/Segmentos.jsx', import.meta.url), 'utf8')
 
   assert.match(app, /path="\/segmentos"/)
@@ -142,7 +142,6 @@ test('HU031: la aprobación tiene una pantalla propia y el dashboard solo muestr
   assert.match(modulos, /permiso: 'SEGMENTOS:CONSULTAR'/)
   assert.match(pagina, /SEGMENTOS:APROBAR/)
   assert.match(pagina, /aprobarSegmentacion/)
-  assert.match(dashboard, /Gestionar segmentaciones/)
-  assert.match(dashboard, /segmentacionPublicada/)
-  assert.doesNotMatch(dashboard, /PanelSegmentos/)
+  assert.match(plataforma, /id="rep-segmento"/)
+  assert.match(plataforma, /Mapa de segmentos/)
 })

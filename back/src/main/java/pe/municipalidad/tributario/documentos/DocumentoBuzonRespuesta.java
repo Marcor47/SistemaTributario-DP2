@@ -33,8 +33,14 @@ public record DocumentoBuzonRespuesta(
                 documento.isArchivado(),
                 documento.getFechaArchivado(),
                 contenido(documento),
-                documento.getConstancia() != null && documento.getConstancia().getContenidoPdf() != null
-                        ? "/buzon/" + documento.getIdDocumento() + "/descarga" : null);
+                descargable(documento) ? "/buzon/" + documento.getIdDocumento() + "/descarga" : null);
+    }
+
+    /* La constancia y la resolución de un trámite de predio se descargan en PDF con la plantilla institucional. */
+    private static boolean descargable(DocumentoBuzon documento) {
+        return documento.getConstancia() != null || (documento.getSolicitudPredio() != null
+                && documento.getSolicitudPredio().getEstado()
+                        != pe.municipalidad.tributario.tramitepredio.EstadoSolicitudPredio.EN_REVISION);
     }
 
     private static String contenido(DocumentoBuzon documento) {

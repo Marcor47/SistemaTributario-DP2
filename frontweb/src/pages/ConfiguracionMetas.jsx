@@ -235,9 +235,8 @@ export default function ConfiguracionMetas() {
       <section className="pcard metas-cabecera">
         <div>
           <h2>Metas por indicador</h2>
-          <p className="hint">Registra y consulta los objetivos que usarán el dashboard y las alertas de desvío.</p>
+          <p className="hint">Registra y consulta los objetivos que usan la plataforma analítica y las alertas de desvío.</p>
         </div>
-        <span className="estado neutro">HU009 · RF-010</span>
       </section>
 
       <section className="filters metas-filtros" aria-label="Filtros de metas">
@@ -336,7 +335,7 @@ export default function ConfiguracionMetas() {
                             </div>
                             <p className="detalle-alerta-meta__explicacion">{explicarDesvio(alerta)}</p>
                             <div className="detalle-alerta-meta__acciones">
-                              <Link className="btn btn-compacto" to="/dashboard">Ver dashboard</Link>
+                              <Link className="btn btn-compacto" to="/reporteria">Ver plataforma analítica</Link>
                             </div>
                           </div>
                         </td>

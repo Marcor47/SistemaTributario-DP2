@@ -43,6 +43,14 @@ export const MODULOS = [
     icono: icono(<><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M12 15.5v.01" /></>),
   },
   {
+    ruta: '/portal/tramites-predio',
+    texto: 'Trámites de predio',
+    titulo: 'Mis trámites de predio',
+    descripcion: 'Consulta el estado de tus solicitudes de registro o traspaso de predio y la observación de la Municipalidad.',
+    seccion: 'portal',
+    icono: icono(<><path d="M3 21h18M5 21V8l7-5 7 5v13" /><path d="M9 13h6M9 17h6" /></>),
+  },
+  {
     ruta: '/portal/buzon',
     texto: 'Buzón',
     titulo: 'Buzón municipal',
@@ -59,18 +67,18 @@ export const MODULOS = [
     icono: icono(<><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9M9 20v-6h6v6" /></>),
   },
   {
-    ruta: '/dashboard',
-    texto: 'Dashboard',
-    titulo: 'Dashboard de Rentas',
-    descripcion: 'Consulta recaudación, morosidad, metas y segmentos por periodo, zona y tributo.',
+    ruta: '/segmentos',
+    texto: 'Segmentos',
+    titulo: 'Segmentación de contribuyentes',
+    descripcion: 'Revisa las segmentaciones generadas por el modelo y publica la que apruebe la Gerencia de Rentas.',
     seccion: 'gestion',
-    permiso: 'DASHBOARD:CONSULTAR',
+    permiso: 'SEGMENTOS:CONSULTAR',
     icono: icono(
       <>
-        <rect x="3" y="3" width="7" height="9" rx="1" />
-        <rect x="14" y="3" width="7" height="5" rx="1" />
-        <rect x="14" y="12" width="7" height="9" rx="1" />
-        <rect x="3" y="16" width="7" height="5" rx="1" />
+        <circle cx="6" cy="6" r="3" />
+        <circle cx="18" cy="6" r="3" />
+        <circle cx="12" cy="18" r="3" />
+        <path d="M9 6h6M8.5 8.2 10.8 15M15.5 8.2 13.2 15" />
       </>
     ),
   },
@@ -109,15 +117,6 @@ export const MODULOS = [
     seccion: 'gestion',
     permiso: 'CONTRIBUYENTES:CONSULTAR',
     icono: icono(<><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></>),
-  },
-  {
-    ruta: '/ventanilla/constancias',
-    texto: 'Constancia de no adeudo',
-    titulo: 'Emisión de constancia en ventanilla',
-    descripcion: 'Consulta al contribuyente por su documento, verifica su deuda y emite la Constancia de No Adeudo para entrega presencial.',
-    seccion: 'gestion',
-    permiso: 'CONSTANCIAS:GESTIONAR',
-    icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /><circle cx="17" cy="18" r="2" /></>),
   },
   {
     ruta: '/ventanilla/solicitudes-predio',
@@ -166,21 +165,12 @@ export const MODULOS = [
   },
   {
     ruta: '/gestion/constancias',
-    texto: 'Solicitudes de constancia',
-    titulo: 'Gestión de Constancias de No Adeudo',
-    descripcion: 'Revisa las solicitudes, verifica la deuda y emite las constancias pagadas.',
+    texto: 'Constancias de No Adeudo',
+    titulo: 'Constancias de No Adeudo',
+    descripcion: 'Atiende las solicitudes en línea y en ventanilla, verifica la deuda, emite las constancias y consulta su historial.',
     seccion: 'gestion',
     permiso: 'CONSTANCIAS:GESTIONAR',
     icono: icono(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6M8 15l2 2 5-5" /></>),
-  },
-  {
-    ruta: '/reclamos',
-    texto: 'Mis reclamos',
-    titulo: 'Mis reclamos laborales',
-    descripcion: 'Registra un reclamo por un incidente laboral y consulta su estado, derivaciones y respuesta.',
-    seccion: 'gestion',
-    permiso: 'RECLAMOS:CREAR',
-    icono: icono(<><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /><path d="M12 8v4M12 15.5v.01" /></>),
   },
   {
     ruta: '/reclamos/asignados',
@@ -192,40 +182,22 @@ export const MODULOS = [
     icono: icono(<><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></>),
   },
   {
-    ruta: '/reportes',
-    texto: 'Reportes',
-    titulo: 'Reportes tributarios',
-    descripcion: 'Genera reportes de morosos, principales contribuyentes y buenos pagadores con la información disponible a la fecha de corte.',
-    seccion: 'gestion',
-    permiso: 'REPORTES:CONSULTAR',
-    icono: icono(<><path d="M4 19V9M10 19V5M16 19v-7M22 19H2" /><path d="M4 6l6-3 6 6 5-4" /></>),
-  },
-  {
-    ruta: '/reportes/solicitudes',
-    texto: 'Uso de reportes',
-    titulo: 'Solicitudes de reportes',
-    descripcion: 'Consulta qué reportes tributarios solicitan los usuarios autorizados, cuándo los generan y con qué frecuencia.',
-    seccion: 'gestion',
-    permiso: 'REPORTES:SOLICITUDES',
-    icono: icono(<><path d="M4 4h16v16H4z" /><path d="M8 9h8M8 13h5M8 17h8" /><path d="M15 13h1" /></>),
-  },
-  {
     ruta: '/reporteria',
     texto: 'Plataforma analítica',
     titulo: 'Plataforma analítica de Rentas',
-    descripcion: 'Explora la recaudación, la morosidad, los principales contribuyentes y los buenos pagadores con la información disponible a la fecha de corte; compara, guarda tus vistas y expórtalas.',
+    descripcion: 'Recaudación, morosidad, principales contribuyentes, buenos pagadores, índice de morosidad, resumen ejecutivo con IA y listados exportables a la fecha de corte.',
     seccion: 'gestion',
     permiso: 'REPORTES:CONSULTAR',
     icono: icono(<><path d="M3 3v18h18" /><path d="M7 16v-4M12 16V8M17 16v-7" /></>),
   },
   {
-    ruta: '/morosidad',
-    texto: 'Morosidad',
-    titulo: 'Índice de Morosidad',
-    descripcion: 'Consulta el índice total, por tributo y por zona de cada periodo publicado para priorizar la gestión de cobranza.',
+    ruta: '/calidad-datos',
+    texto: 'Calidad de datos',
+    titulo: 'Calidad de datos y cargas del ETL',
+    descripcion: 'Audita las cargas del ETL y sus reglas de calidad, ejecuta una carga a demanda y resuelve la bandeja de homologación.',
     seccion: 'gestion',
-    permiso: 'INDICADORES:CONSULTAR',
-    icono: icono(<><path d="M3 3v18h18" /><path d="M18 8l-6 6-3-3-5 5" /></>),
+    permiso: 'ETL:GESTIONAR',
+    icono: icono(<><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" /></>),
   },
   {
     ruta: '/alertas-mora',
@@ -235,15 +207,6 @@ export const MODULOS = [
     seccion: 'gestion',
     permiso: 'ALERTAS:CONSULTAR',
     icono: icono(<><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>),
-  },
-  {
-    ruta: '/resumen-ejecutivo',
-    texto: 'Resumen ejecutivo',
-    titulo: 'Resumen ejecutivo con IA',
-    descripcion: 'Genera el resumen del periodo con un modelo local a partir de los indicadores calculados, revísalo y descárgalo.',
-    seccion: 'gestion',
-    permiso: 'INDICADORES:CONSULTAR',
-    icono: icono(<><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h4" /></>),
   },
 ]
 

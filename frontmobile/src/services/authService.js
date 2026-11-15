@@ -9,7 +9,6 @@ const MENSAJES = {
 }
 
 // Acceso ficticio sembrado por Flyway (back/README.md). Solo se muestra en desarrollo.
-export const ACCESO_PRUEBA = { codigo: '021390', password: 'Portal021390!' }
 
 export async function iniciarSesion(codigoContribuyente, password) {
   try {

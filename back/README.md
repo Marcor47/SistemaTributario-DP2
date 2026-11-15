@@ -1,7 +1,6 @@
 # Backend tributario
 
-Para probar el dashboard HU011 y el buzón móvil HU019 con datos incluidos al iniciar el perfil
-`local`, consulta [DEMOSTRACION_LOCAL.md](DEMOSTRACION_LOCAL.md).
+Qué datos carga el perfil `local` y cómo regenerarlos: [PERFIL_LOCAL.md](PERFIL_LOCAL.md).
 
 La plataforma analítica de Rentas y la configuración de su asistente de IA están en [REPORTERIA_API.md](REPORTERIA_API.md).
 
@@ -29,8 +28,8 @@ identidad de esa sesión. Configura `SESSION_COOKIE_SECURE=true` cuando sirvas e
 | `GET /api/portal/solicitudes-predio/{id}/adjuntos/{idAdjunto}` | Descargar un adjunto de una solicitud propia. |
 
 Los pagos usan Niubiz sandbox por defecto; la configuración está en [NIUBIZ_SANDBOX.md](NIUBIZ_SANDBOX.md).
-El simulador requiere `NIUBIZ_MODE=simulado` explícito. Ambos modos se identifican como `dePrueba`,
-no mueven dinero real y actualizan las obligaciones sintéticas de PostgreSQL tras la confirmación. Se cobra
+La pasarela local de contingencia requiere `NIUBIZ_MODE=local` explícito. Ambos modos se identifican con
+`pasarelaLocal` o `proveedor`, no mueven dinero real y actualizan las obligaciones de PostgreSQL tras la confirmación. Se cobra
 el total pendiente con beneficios asignados explícitamente por SAMNET a cada obligación. Si
 la asignación no se puede verificar, se deriva a ventanilla. Si la deuda o los beneficios cambian
 después de crear la orden, la confirmación devuelve `409 SALDO_CAMBIO`.
@@ -64,45 +63,6 @@ Conserva la misma clave para poder leer los archivos ya guardados. No la subas a
 Los requisitos de `db/datos-prueba` son provisionales y deben validarse antes de un despliegue
 municipal.
 
-## APIs de demostración
-
-Las rutas nuevas se activan **solo** con el perfil `demo`. Este perfil usa predios ficticios y
-autenticación simulada. El catálogo de formularios utiliza PostgreSQL, igual que el resto del
-backend. No consulta SAMNET.
-El servidor de demostración escucha únicamente en `127.0.0.1`.
-
-En PowerShell, configura la conexión PostgreSQL y valores de prueba propios antes de arrancar:
-
-```powershell
-$env:DB_URL = 'jdbc:postgresql://localhost:5432/municipalidad'
-$env:DB_USER = 'municipalidad'
-$env:DB_PASSWORD = '<contraseña-local>'
-$env:DEMO_CITIZEN_CODE = 'USUARIO_DE_PRUEBA'
-$env:DEMO_CITIZEN_PASSWORD = '<clave-de-prueba>'
-$env:DEMO_INTERNAL_READ_KEY = '<clave-lectura-distinta>'
-$env:DEMO_INTERNAL_ADMIN_KEY = '<clave-admin-distinta>'
-.\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=demo'
-```
-
-Las versiones de formularios se guardan en la base indicada por `DB_URL`. No se crea una base
-local de demostración. Sin PostgreSQL disponible, el backend no inicia. Las claves de prueba se
-configuran fuera del repositorio. El perfil normal usa las mismas variables de conexión.
-
-| Ruta | Acción | Acceso demo |
-| --- | --- | --- |
-| `GET /api/predios?consulta=...` | Busca por código, titular o documento; `[]` indica sin resultados. | Cabecera `X-Demo-Internal-Key` de lectura o administración |
-| `POST /api/auth/login` | Recibe `codigoContribuyente` y `password`; crea sesión de 10 minutos de inactividad. | Sin cabecera interna |
-| `GET /api/auth/me` | Devuelve el código del contribuyente de la sesión. | Cookie de sesión |
-| `POST /api/auth/logout` | Cierra la sesión. | Cookie de sesión |
-| `GET /api/formularios` | Lista solo las versiones vigentes. | Cabecera interna de lectura o administración |
-| `GET /api/formularios/{codigo}/descarga` | Descarga el PDF o DOCX vigente. | Cabecera interna de lectura o administración |
-| `POST /api/formularios` | Publica una nueva versión con campos multipart `codigo`, `nombre`, `archivo`. | Cabecera interna de administración |
-
-El login devuelve `401` con un mensaje genérico cuando las credenciales fallan y `429` tras
-cinco fallos en quince minutos por usuario o IP. El backend no devuelve la contraseña ni un
-token municipal. Las versiones anteriores de un formulario permanecen registradas, pero
-dejan de aparecer en las consultas vigentes.
-
 ## Base de datos y SAMNET sintético
 
 Hay **una sola base** (`municipalidad`). Flyway la organiza en esquemas, según el Modelo de Análisis
@@ -122,8 +82,8 @@ propias con el nombre y el propósito de los SP reales (`samnet.ps_ctacte`, `ps_
 **nunca** lee las tablas de `samnet` directamente: usa `SamnetGateway`. Si algún día hay acceso a
 SAMNET, solo cambia `SamnetApiGateway`.
 
-Los demás servicios externos tienen implementación simulada con el mismo contrato (`NiubizSimuladoGateway`,
-`FirmadorSimuladoGateway`, `CorreoSimuladoGateway`). La autenticación del contribuyente usa
+Los demás servicios externos tienen una implementación local con el mismo contrato (`NiubizLocalGateway`,
+`FirmadorServiciosEnLineaGateway`, `CorreoRegistroLocalGateway`). La autenticación del contribuyente usa
 `samnet.ps_login`.
 
 ### Accesos del portal con datos ficticios
@@ -148,7 +108,7 @@ ficticios indicados: no crea claves para otros contribuyentes. Si ya existe una
 credencial, conserva su clave y su estado de habilitación; reiniciar no reinicia
 contraseñas. Tampoco registra pagos ni modifica obligaciones o beneficios.
 
-En `frontweb` configura `VITE_API_URL` y usa el backend con su perfil normal (el front no tiene modo demo).
+En `frontweb` configura `VITE_API_URL` y usa el backend con su perfil normal.
 Las claves publicadas aquí son solo para los datos sintéticos de desarrollo;
 excluye `classpath:db/datos-prueba` de las ubicaciones de Flyway en un entorno real.
 
@@ -166,23 +126,14 @@ La segmentación de contribuyentes con K-means (HU030, RF-043) se calcula sobre 
 `POST /api/segmentos/calculos` y queda en borrador para la aprobación de HU031; ver
 [SEGMENTACION_IA.md](SEGMENTACION_IA.md).
 
-Con `tributario.integracion.autenticacion=simulado` se usa en cambio la credencial de
-`tributario.integracion.autenticacion-simulada.documento` y `.clave`.
 
 ## Constancia de No Adeudo en local
 
 `GET /api/constancias/deuda` consulta la deuda del contribuyente autenticado y devuelve el total y
 las obligaciones pendientes. Crear o firmar una solicitud requiere una consulta actual con saldo cero.
-El perfil `local` habilita el recorrido simulado de S/ 10.00 con `POST /api/constancias/{id}/orden`,
-`GET /api/constancias/{id}/orden`, `POST /api/constancias/{id}/pago` y
-`POST /api/constancias/{id}/emitir`. Los pasos se controlan en el servidor y la deuda se consulta
-de nuevo antes de cada operación posterior a la firma. El pago se hace solo con la pasarela simulada.
-
-La emisión guarda el PDF y un registro de buzón en PostgreSQL. `GET /api/constancias/buzon` lista
-las constancias propias y `GET /api/constancias/buzon/{id}/descarga` descarga el PDF propio. El
-documento y las firmas son de prueba, sin validez legal; la revisión es automática con un actor
-técnico simulado, no una aprobación real de un operador municipal. La tarifa de prueba se configura
-en `tributario.constancia.demo.derecho` y la funcionalidad está deshabilitada fuera de `local`.
+La constancia emitida se guarda en PDF con la plantilla institucional y se deposita en el buzón del
+contribuyente. Sin el firmador digital del Estado, la firma es la de Servicios en Línea
+(`FirmadorServiciosEnLineaGateway`).
 
 ### Flujo con revisión del operador
 
@@ -196,14 +147,11 @@ Si la emisión automática falla, se conserva el pago y el operador puede atende
 
 ## Integraciones pendientes
 
-- Sustituir `DemoPredioGateway` por `SamnetGateway.buscarPredio` (SP `ps_predio`).
-- Sustituir `DemoMunicipalAuthClient` por `AutenticacionMunicipalGateway` (SP `ps_login`).
-- Integrar el acceso de los usuarios internos por rol. Las claves de `demo` no son el esquema
-  de autenticación definitivo.
+- Integrar el firmador digital del Estado y un servidor de correo cuando la Municipalidad los habilite.
 - Cargar los archivos oficiales de las plantillas. Se guardan en PostgreSQL, versionados; para el piloto alcanza y
   un almacenamiento de objetos o lakehouse queda para cuando crezca el volumen. Ver
   [MAESTRO_DOCUMENTOS.md](MAESTRO_DOCUMENTOS.md), que también explica cómo editar un formulario con
   `scripts/editar_formulario.py`.
 
-Ejecuta `mvnw.cmd test` para verificar consultas, sesión, control de acceso de demostración y
+Ejecuta `mvnw.cmd test` para verificar consultas, sesión, control de acceso y
 versionado de formularios. Las pruebas levantan un PostgreSQL temporal; no requieren uno instalado.

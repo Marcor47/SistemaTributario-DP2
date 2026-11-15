@@ -21,7 +21,7 @@ import pe.municipalidad.tributario.etl.LoteETL;
 import pe.municipalidad.tributario.etl.LoteETLRepository;
 import pe.municipalidad.tributario.etl.TipoEjecucion;
 import pe.municipalidad.tributario.integracion.correo.CorreoGateway;
-import pe.municipalidad.tributario.integracion.correo.CorreoSimuladoGateway;
+import pe.municipalidad.tributario.integracion.correo.CorreoRegistroLocalGateway;
 import pe.municipalidad.tributario.soporte.PruebaInterna;
 
 /*
@@ -81,18 +81,18 @@ class AlertaMoraControllerTest {
                 .andExpect(jsonPath("$.cuotasEvaluadas").value(1))
                 .andExpect(jsonPath("$.cuotasVencidasDetectadas").value(1))
                 .andExpect(jsonPath("$.alertasEnviadas").value(0))
-                .andExpect(jsonPath("$.alertasSimuladas").value(1))
+                .andExpect(jsonPath("$.alertasRegistradas").value(1))
                 .andExpect(jsonPath("$.sinCorreoRegistrado").value(0))
                 .andExpect(jsonPath("$.avisos", hasSize(1)))
                 .andExpect(jsonPath("$.avisos[0].tipo").value("MORA_TEMPRANA"))
                 .andExpect(jsonPath("$.avisos[0].documentoContribuyente").value("41028765"))
                 .andExpect(jsonPath("$.avisos[0].correoDestino").value("maria.garcia@correo.test"))
-                .andExpect(jsonPath("$.avisos[0].estado").value("SIMULADO"))
+                .andExpect(jsonPath("$.avisos[0].estado").value("REGISTRADO"))
                 .andExpect(jsonPath("$.avisos[0].idObligacion").value("OBL-7001"))
                 .andExpect(jsonPath("$.avisos[0].fechaEnvio").isNotEmpty());
 
-        if (correoGateway instanceof CorreoSimuladoGateway simulado) {
-            assertThat(simulado.getEnviados()).anyMatch(c -> c.destino().equals("maria.garcia@correo.test")
+        if (correoGateway instanceof CorreoRegistroLocalGateway registro) {
+            assertThat(registro.getEnviados()).anyMatch(c -> c.destino().equals("maria.garcia@correo.test")
                     && c.asunto().contains("OBL-7001"));
         }
     }
@@ -126,7 +126,7 @@ class AlertaMoraControllerTest {
                 .andExpect(jsonPath("$[0].documentoContribuyente").value("20456781239"))
                 .andExpect(jsonPath("$[0].correoDestino").value("cobranzas@costaazul.test"))
                 .andExpect(jsonPath("$[0].idObligacion").value("OBL-8001"))
-                .andExpect(jsonPath("$[0].estado").value("SIMULADO"));
+                .andExpect(jsonPath("$[0].estado").value("REGISTRADO"));
 
         // Consultar historial por endpoint de alertas (/api/alertas-mora/contribuyentes/021390)
         mockMvc.perform(get(RUTA_ALERTAS + "/contribuyentes/021390"))
@@ -242,13 +242,13 @@ class AlertaMoraControllerTest {
         mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.alertasEnviadas").value(0))
-                .andExpect(jsonPath("$.alertasSimuladas").value(1));
+                .andExpect(jsonPath("$.alertasRegistradas").value(1));
 
         // Segundo procesamiento idéntico: no duplica el aviso
         mockMvc.perform(post(RUTA_EVALUACIONES).with(csrf()).contentType(MediaType.APPLICATION_JSON).content(json))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.alertasEnviadas").value(0))
-                .andExpect(jsonPath("$.alertasSimuladas").value(0));
+                .andExpect(jsonPath("$.alertasRegistradas").value(0));
     }
 
     @Test

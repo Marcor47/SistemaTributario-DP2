@@ -13,6 +13,20 @@ export function etiquetaRol(rol) {
   return ETIQUETAS_ROL[rol] ?? (rol || 'Sin rol')
 }
 
+/** Permisos de un rol en formato normalizado, venga como texto separado por comas o como lista. */
+export function permisosDeRol(rol) {
+  const fuente = Array.isArray(rol?.permisosLista) ? rol.permisosLista : rol?.permisos
+  const permisos = Array.isArray(fuente) ? fuente : String(fuente ?? '').split(',')
+  return [...new Set(
+    permisos.map((permiso) => String(permiso).trim().toUpperCase()).filter(Boolean),
+  )]
+}
+
+export function rolTienePermiso(rol, permiso) {
+  const buscado = String(permiso ?? '').trim().toUpperCase()
+  return Boolean(buscado) && permisosDeRol(rol).includes(buscado)
+}
+
 // Consultas internas de predios (HU003 y HU005): solo estos roles pueden ver la información.
 export const ROLES_CONSULTA_PREDIO = ['ANALISTA_RENTAS', 'ADMINISTRADOR']
 

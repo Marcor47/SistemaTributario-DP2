@@ -56,7 +56,7 @@ export async function iniciarSesion(codigoContribuyente, password) {
   }
   const sesion = await respuesta.json()
   if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(CLAVE_SESION_PORTAL, JSON.stringify({ codigo: sesion.codigoContribuyente }))
+    sessionStorage.setItem(CLAVE_SESION_PORTAL, JSON.stringify({ codigo: sesion.codigoContribuyente, nombre: sesion.nombre ?? null }))
   }
   return sesion
 }
@@ -69,7 +69,7 @@ export async function obtenerSesionContribuyente() {
   }
   const sesion = await respuesta.json()
   if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(CLAVE_SESION_PORTAL, JSON.stringify({ codigo: sesion.codigoContribuyente }))
+    sessionStorage.setItem(CLAVE_SESION_PORTAL, JSON.stringify({ codigo: sesion.codigoContribuyente, nombre: sesion.nombre ?? null }))
   }
   return sesion
 }

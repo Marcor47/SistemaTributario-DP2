@@ -24,3 +24,11 @@ test('presenta los períodos como meses o trimestres y conserva valores desconoc
   assert.equal(periodoDeuda('2026-13'), '2026-13')
   assert.equal(periodoDeuda(null), 'Período no indicado')
 })
+
+test('incluye los intereses del total a pagar cuando el servidor los devuelve', () => {
+  const [grupo] = agruparDeuda([
+    { id: 1, tributo: 'Predial', deuda: '100.00', totalAPagar: '113.25' },
+    { id: 2, tributo: 'Predial', deuda: '50.00', totalAPagar: '54.10' },
+  ])
+  assert.equal(grupo.total, 167.35)
+})

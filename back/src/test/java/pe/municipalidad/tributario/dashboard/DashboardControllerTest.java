@@ -113,7 +113,9 @@ class DashboardControllerTest {
                 .andExpect(jsonPath("$.porSegmento[0].nombre").value("Alto riesgo"))
                 .andExpect(jsonPath("$.porSegmento[0].contribuyentes").value(1))
                 .andExpect(jsonPath("$.porSegmento[0].montoEmitido").value(850.0))
+                .andExpect(jsonPath("$.porSegmento[0].montoVencidoNoPagado").value(420.0))
                 .andExpect(jsonPath("$.porSegmento[1].nombre").value("Puntual"))
+                .andExpect(jsonPath("$.porSegmento[1].montoVencidoNoPagado").value(0.0))
                 .andExpect(jsonPath("$.porSegmento[1].porcentajeRecaudacion").value(100.0));
     }
 

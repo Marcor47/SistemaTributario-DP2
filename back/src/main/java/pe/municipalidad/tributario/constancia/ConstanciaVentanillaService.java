@@ -158,7 +158,7 @@ public class ConstanciaVentanillaService {
                 SolicitudConstanciaService.TIPO_CONTENIDO_DOCUMENTO,
                 Base64.getEncoder().encodeToString(documento),
                 SolicitudConstanciaService.sha256(documento),
-                firmador.esSimulado(),
+                firmador.firmaLocal(),
                 new DocumentoFirmaRespuesta.DatosContribuyente(contribuyente.getCodigoContribuyente(),
                         contribuyente.getNombreRazonSocial(), contribuyente.getTipoDocumento().name(),
                         contribuyente.getNumeroDocumento()));
@@ -276,7 +276,7 @@ public class ConstanciaVentanillaService {
 
         byte[] pdf = generadorPdf.generar(numeroConstancia, contribuyente, ahora,
                 solicitud.getFechaSolicitud().toLocalDate(), prediosTexto, rangoFechasTexto,
-                trabajador.getNombreCompleto(), firmador.esSimulado());
+                trabajador.getNombreCompleto(), firmador.firmaLocal());
         FirmadorGateway.DocumentoFirmado firmado = firmador.firmarComoMunicipalidad(pdf);
         if (!firmado.firma().valida()) {
             throw new ReglaNegocioException("FIRMA_MUNICIPAL_INVALIDA",
@@ -295,7 +295,7 @@ public class ConstanciaVentanillaService {
                 prediosTexto,
                 rangoFechasTexto,
                 numeroConstancia + ".pdf",
-                firmador.esSimulado(),
+                firmador.firmaLocal(),
                 trabajador,
                 firmado.contenido()));
 
@@ -318,8 +318,12 @@ public class ConstanciaVentanillaService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("CONSTANCIA_NO_ENCONTRADA",
                         "No existe la constancia N.° " + numeroConstancia + "."));
         if (constancia.getContenidoPdf() == null || constancia.getContenidoPdf().length == 0) {
-            throw new RecursoNoEncontradoException("PDF_NO_DISPONIBLE",
-                    "El contenido PDF de la constancia N.° " + numeroConstancia + " no está disponible.");
+            /* Constancias registradas sin archivo: se genera el mismo documento con sus datos. */
+            return generadorPdf.generar(constancia.getNumeroConstancia(),
+                    resolverContribuyente(constancia.getSolicitud().getDocumentoContribuyente()),
+                    constancia.getFechaEmision(), constancia.getPrediosIncluidos(), constancia.getRangoFechas(),
+                    constancia.getTrabajadorEmisor() == null ? null : constancia.getTrabajadorEmisor().getNombreCompleto(),
+                    false);
         }
         return constancia.getContenidoPdf();
     }

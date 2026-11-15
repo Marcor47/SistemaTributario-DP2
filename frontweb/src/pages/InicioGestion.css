@@ -341,3 +341,11 @@
   }
 }
 
+
+.gestion-bienvenida__nombre {
+  margin: 4px 0 10px;
+  font-size: clamp(16px, 2vw, 20px);
+  font-weight: 600;
+  color: inherit;
+  overflow-wrap: anywhere;
+}

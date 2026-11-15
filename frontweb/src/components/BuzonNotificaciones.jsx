@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { abrirMensajeBuzon, cambiarDestacadoBuzon, listarBuzon, marcarMensajeNoLeido } from '../services/buzonService.js'
+import { EVENTO_BUZON_ACTUALIZADO, abrirMensajeBuzon, cambiarDestacadoBuzon, listarBuzon, marcarMensajeNoLeido } from '../services/buzonService.js'
 import './BuzonNotificaciones.css'
+import { fechaHoraLima } from '../utils/formato.js'
 
-const formatoFecha = (fecha) => new Date(fecha).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
+const formatoFecha = (fecha) => fechaHoraLima(fecha)
 
 export default function BuzonNotificaciones() {
   const [buzon, setBuzon] = useState({ total: 0, sinLeer: 0, documentos: [] })
@@ -13,12 +14,23 @@ export default function BuzonNotificaciones() {
   const contenedor = useRef(null)
   const boton = useRef(null)
 
+  // El contador sale siempre del servidor: al iniciar, tras cada cambio en el buzón, al volver a la pestaña y cada minuto.
   useEffect(() => {
     let activo = true
-    listarBuzon({ tamanio: 5 }).then((datos) => { if (activo) setBuzon(datos) })
+    const consultar = () => listarBuzon({ tamanio: 5 }).then((datos) => { if (activo) { setBuzon(datos); setError('') } })
       .catch((err) => { if (activo) setError(err.message || 'No se pudo cargar el buzón.') })
       .finally(() => { if (activo) setCargando(false) })
-    return () => { activo = false }
+    const alVolver = () => { if (document.visibilityState === 'visible') consultar() }
+    consultar()
+    window.addEventListener(EVENTO_BUZON_ACTUALIZADO, consultar)
+    document.addEventListener('visibilitychange', alVolver)
+    const intervalo = window.setInterval(consultar, 60000)
+    return () => {
+      activo = false
+      window.removeEventListener(EVENTO_BUZON_ACTUALIZADO, consultar)
+      document.removeEventListener('visibilitychange', alVolver)
+      window.clearInterval(intervalo)
+    }
   }, [])
 
   useEffect(() => {

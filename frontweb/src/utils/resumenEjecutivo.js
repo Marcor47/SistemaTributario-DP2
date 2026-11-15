@@ -43,10 +43,13 @@ export function formatoValor(indicador) {
 }
 
 // Una cifra es un porcentaje, un monto en soles o un número con decimales; los años y las fechas no cuentan.
-const CIFRA = /S\/\s?\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s?%|\d+[.,]\d+/g
+const CIFRA = /S\/\s?\d{1,3}(?:,\d{3})+(?:\.\d+)?|S\/\s?\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s?%|\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+[.,]\d+/g
 
+// Montos en formato peruano (1,234,567.89) o con coma decimal (12,5 %).
 function aNumero(cifra) {
-  const limpia = cifra.replace(/S\/|%|\s/g, '').replace(',', '.')
+  let limpia = cifra.replace(/S\/|%|\s/g, '')
+  if (limpia.includes('.') || /,\d{3}$/.test(limpia)) limpia = limpia.replace(/,/g, '')
+  else limpia = limpia.replace(',', '.')
   return Number(limpia)
 }
 
@@ -60,5 +63,5 @@ export function verificarCifras(texto, indicadores) {
 }
 
 export function nombreArchivo(periodo) {
-  return `resumen-ejecutivo-${periodo}.txt`
+  return `resumen-ejecutivo-${periodo}.pdf`
 }

@@ -3,19 +3,19 @@
 --   * Impuesto Predial por contribuyente: escala de la Ley de Tributación Municipal sobre la suma de sus predios al
 --     1 de enero (por su porcentaje de propiedad), mínimo 0,6 % UIT, en 4 cuotas (feb, may, ago, nov). El pensionista
 --     deduce 50 UIT de la base (art. 19) y no paga mínimo.
---   * Arbitrios por predio y mes, con el detalle de los 4 servicios; en copropiedad cada titular paga su porcentaje.
+--   * Arbitrios por predio y mes como un solo monto (V49); en copropiedad cada titular paga su porcentaje.
 --     Un predio adquirido en el año paga arbitrios desde el mes siguiente.
 -- Los pagos siguen el perfil de cada contribuyente a la fecha de los datos (2026-10-19): puntual anual, puntual con
 -- atrasos, moroso, dejó de pagar, pago parcial y mixto. Lo impago y vencido genera interés moratorio (TIM) y entra
 -- a la cobranza inductiva.
 -- Es repetible: rehace la cuenta corriente de los contribuyentes de R__datos_prueba_01 cada vez que cambia este
--- archivo. Solo borra la de ellos: las semillas de datos-demo (p. ej. 099023 y 099024 de Niubiz) no se vuelven a
+-- archivo. Solo borra la de ellos: las semillas de datos-padron no se vuelven a
 -- ejecutar al cambiar este archivo y perderían sus obligaciones y pagos.
 CREATE TEMPORARY TABLE contribuyente_sintetico ON COMMIT DROP AS
 SELECT codigo FROM (VALUES ('014502'), ('021390'), ('033218'), ('045067'), ('058934'), ('061177'), ('072405'),
                            ('080245')) AS c (codigo);
 
--- Solo administra 2025 y 2026: la historia anterior (y sus recibos 'RH-') la carga datos-demo y no se toca aquí.
+-- Solo administra 2025 y 2026: la historia anterior (y sus recibos 'RH-') la carga datos-padron y no se toca aquí.
 DELETE FROM samnet.seguimiento_cobranza s
 USING samnet.obligacion o
 WHERE o.id = s.obligacion_id AND o.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico)
@@ -28,17 +28,17 @@ DELETE FROM samnet.pago p
 WHERE p.contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico)
   AND p.id_pago LIKE 'REC-%'
   AND NOT EXISTS (SELECT 1 FROM samnet.pago_obligacion po WHERE po.id_pago = p.id_pago);
--- obligacion_servicio se borra en cascada con su obligación (V31).
 DELETE FROM samnet.obligacion
 WHERE contribuyente_codigo IN (SELECT codigo FROM contribuyente_sintetico) AND anio >= 2025;
 
--- Tasas mensuales de arbitrios 2025 por servicio, categoría de uso y zona; 2026 se reajusta 3 %. Costanera, Maranga
--- y Pando son las tarifas de este archivo; Las Leyendas cuesta como Maranga y Faucett - Libertad como Pando. Las
--- tarifas son ilustrativas, no las de la ordenanza. Los años anteriores los agrega datos-demo.
-DELETE FROM samnet.tasa_arbitrio WHERE anio IN (2025, 2026);
-INSERT INTO samnet.tasa_arbitrio (anio, servicio, categoria_uso, zona, monto_mensual)
+-- Costo mensual de arbitrios 2025 por categoría de uso y zona; 2026 se reajusta 3 %. El costo se calcula con los
+-- componentes del servicio (barrido, recolección, parques y serenazgo) solo para obtener el monto: la tarifa y la
+-- cuota guardan un único monto (V49). Fuera de vivienda, el componente de recolección crece con el área del predio.
+-- Costanera, Maranga y Pando son las tarifas de este archivo; Las Leyendas cuesta como Maranga y Faucett - Libertad
+-- como Pando. Los años anteriores los agrega datos-padron.
+CREATE TEMPORARY TABLE costo_arbitrio ON COMMIT DROP AS
 SELECT a.anio, t.servicio, t.categoria_uso, t.zona,
-       round(t.monto * CASE a.anio WHEN 2026 THEN 1.03 ELSE 1 END, 2)
+       round(t.monto * CASE a.anio WHEN 2026 THEN 1.03 ELSE 1 END, 2) AS monto_mensual
 FROM (VALUES (2025), (2026)) AS a (anio)
 CROSS JOIN (VALUES
     ('BARRIDO_CALLES', 'CASA_HABITACION', 'Costanera', 9.80), ('BARRIDO_CALLES', 'CASA_HABITACION', 'Maranga', 8.60), ('BARRIDO_CALLES', 'CASA_HABITACION', 'Pando', 7.40),
@@ -66,6 +66,12 @@ CROSS JOIN LATERAL (VALUES (z.zona), (CASE z.zona WHEN 'Maranga' THEN 'Las Leyen
                                                    WHEN 'Pando' THEN 'Faucett - Libertad' END)) AS zz (zona_tarifa)
 CROSS JOIN LATERAL (SELECT z.servicio, z.categoria_uso, zz.zona_tarifa AS zona, z.monto) AS t
 WHERE zz.zona_tarifa IS NOT NULL;
+
+DELETE FROM samnet.tasa_arbitrio WHERE anio IN (2025, 2026);
+INSERT INTO samnet.tasa_arbitrio (anio, categoria_uso, zona, monto_mensual)
+SELECT anio, categoria_uso, zona, sum(monto_mensual)
+FROM costo_arbitrio
+GROUP BY anio, categoria_uso, zona;
 
 -- Impuesto Predial: base de cada contribuyente al 1 de enero de cada año y su impuesto anual en 4 cuotas.
 WITH base AS (
@@ -127,7 +133,7 @@ CROSS JOIN LATERAL (SELECT CASE
         ELSE 'SERVICIOS' END AS categoria) cat
 CROSS JOIN (VALUES (2025), (2026)) AS a (anio)
 CROSS JOIN generate_series(1, 12) AS m (mes)
-JOIN samnet.tasa_arbitrio ta
+JOIN costo_arbitrio ta
   ON ta.anio = a.anio AND ta.categoria_uso = cat.categoria AND ta.zona = p.zona
 WHERE make_date(a.anio, m.mes, 1) > coalesce(p.fecha_adquisicion, DATE '1900-01-01')
   AND p.fecha_baja IS NULL
@@ -137,24 +143,15 @@ WITH cuotas AS (
     SELECT contribuyente_codigo, codigo_predio, anio, mes, sum(monto) AS monto
     FROM arbitrio_calculado
     GROUP BY contribuyente_codigo, codigo_predio, anio, mes
-),
-insertadas AS (
-    INSERT INTO samnet.obligacion
-        (contribuyente_codigo, codigo_predio, tributo, anio, numero_cuota, fecha_vencimiento, monto_emitido,
-         monto_pagado)
-    SELECT c.contribuyente_codigo, c.codigo_predio, 'ARBITRIOS', c.anio, c.mes,
-           -- Enero y febrero vencen a fin de febrero; los demás meses, al cierre de su mes.
-           samnet.fn_ultimo_dia_habil(c.anio, greatest(c.mes, 2)), c.monto, 0
-    FROM cuotas c
-    ORDER BY c.contribuyente_codigo, c.anio, c.mes, c.codigo_predio
-    RETURNING id, contribuyente_codigo, codigo_predio, anio, numero_cuota
 )
-INSERT INTO samnet.obligacion_servicio (id_obligacion, servicio, monto)
-SELECT i.id, a.servicio, a.monto
-FROM insertadas i
-JOIN arbitrio_calculado a
-  ON a.contribuyente_codigo = i.contribuyente_codigo AND a.codigo_predio = i.codigo_predio
- AND a.anio = i.anio AND a.mes = i.numero_cuota;
+INSERT INTO samnet.obligacion
+    (contribuyente_codigo, codigo_predio, tributo, anio, numero_cuota, fecha_vencimiento, monto_emitido,
+     monto_pagado)
+SELECT c.contribuyente_codigo, c.codigo_predio, 'ARBITRIOS', c.anio, c.mes,
+       -- Enero y febrero vencen a fin de febrero; los demás meses, al cierre de su mes.
+       samnet.fn_ultimo_dia_habil(c.anio, greatest(c.mes, 2)), c.monto, 0
+FROM cuotas c
+ORDER BY c.contribuyente_codigo, c.anio, c.mes, c.codigo_predio;
 
 -- Perfil de pago de cada contribuyente: qué se pagó, cuándo y cuánto. Lo no listado queda impago.
 --   014502 y 033218: pagan todo el año por adelantado en febrero (sin deuda: pueden pedir constancia).

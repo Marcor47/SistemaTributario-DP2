@@ -63,7 +63,7 @@ class AuditoriaHomologacionTest {
                     return null;
                 });
 
-        AuditoriaHomologacionService servicio = new AuditoriaHomologacionService(repoDecision, repoMaestro);
+        AuditoriaHomologacionService servicio = new AuditoriaHomologacionService(repoDecision, repoMaestro, null);
 
         // 1. Consultar por ID Maestro
         List<DecisionHomologacionRespuesta> respuestas = servicio.listarPorMaestro(idMaestro);
@@ -137,7 +137,7 @@ class AuditoriaHomologacionTest {
                     return null;
                 });
 
-        AuditoriaHomologacionService servicio = new AuditoriaHomologacionService(null, repoMaestro);
+        AuditoriaHomologacionService servicio = new AuditoriaHomologacionService(null, repoMaestro, null);
 
         assertThrows(RecursoNoEncontradoException.class, () -> servicio.listarPorMaestro(999L));
         assertThrows(RecursoNoEncontradoException.class, () -> servicio.listarPorSeudonimo("desconocido"));

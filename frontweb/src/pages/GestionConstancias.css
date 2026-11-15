@@ -9,7 +9,7 @@
 .gc-tabla tbody tr:last-child td { border-bottom: 0; }
 .gc-tabla tbody tr:hover { background: #f7fafd; }
 .gc-tabla .gc-fila--seleccionada { background: #e6f4fb; }
-.gc-tabla td:nth-child(2) { min-width: 200px; overflow-wrap: anywhere; }
+.gc-tabla td:nth-child(3) { min-width: 200px; overflow-wrap: anywhere; }
 .gc-codigo { display: block; margin-top: 4px; color: #526780; font-size: .8rem; }
 .gc-estado { display: inline-block; padding: 5px 10px; border-radius: 20px; background: #edf3fa; font-size: .85rem; }
 .gc-solicitud { padding: 8px 0; border: 0; background: transparent; color: #17406b; text-align: left; cursor: pointer; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }

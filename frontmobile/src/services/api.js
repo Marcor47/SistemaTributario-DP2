@@ -13,7 +13,7 @@ function apiPorDefecto() {
       if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host)) {
         return `http://${host}:8080/api`
       }
-    } catch { /* Sin dirección LAN válida, se usan los valores del simulador. */ }
+    } catch { /* Sin dirección LAN válida, se usan los valores del emulador. */ }
   }
   return respaldo
 }

@@ -82,11 +82,11 @@ class SamnetApiGatewayTest {
         /* 8 cuotas de predial (2025 y 2026) y 258 de arbitrios mensuales de sus 11 predios. */
         assertThat(estadoCuenta.getObligaciones()).hasSize(266);
         assertThat(estadoCuenta.getTotalDeuda()).isEqualByComparingTo("73723.45");
+        /* El arbitrio es un solo concepto por predio y mes (V49): cada cuota trae su predio y su monto total. */
         assertThat(estadoCuenta.getObligaciones()).filteredOn(o -> o.getTributo().name().equals("ARBITRIOS"))
                 .allSatisfy(o -> {
-                    assertThat(o.getServicios()).hasSize(4);
-                    assertThat(o.getServicios().stream().map(s -> s.monto()).reduce(BigDecimal.ZERO, BigDecimal::add))
-                            .isEqualByComparingTo(o.getMontoEmitido());
+                    assertThat(o.getCodigoPredio()).isNotBlank();
+                    assertThat(o.getMontoEmitido()).isPositive();
                 });
         assertThat(estadoCuenta.getPagos()).isNotEmpty();
         assertThat(estadoCuenta.getPagos()).allSatisfy(p -> assertThat(p.diferencia()).isZero());

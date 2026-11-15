@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import PaginacionTabla from '../components/PaginacionTabla.jsx'
+import { fechaHora, moneda } from '../utils/formato.js'
 import {
   emitirSolicitudConstancia,
   listarSolicitudesConstancia,
@@ -16,8 +18,8 @@ const ESTADOS = {
   EMITIDA: 'Emitida',
   RECHAZADA: 'Rechazada',
 }
+const CANALES = { APP: 'Servicios en Línea', VENTANILLA: 'Ventanilla' }
 const estado = (valor) => ESTADOS[valor] || valor
-const soles = (monto) => Number(monto).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 function DetalleDeuda({ deuda }) {
   const grupos = new Map()
@@ -26,13 +28,13 @@ function DetalleDeuda({ deuda }) {
     if (!grupos.has(clave)) grupos.set(clave, { titulo: item.tributo, items: [], centimos: 0 })
     const grupo = grupos.get(clave)
     grupo.items.push(item)
-    grupo.centimos += Math.round(Number(item.deuda) * 100)
+    grupo.centimos += Math.round(Number(item.totalAPagar ?? item.deuda) * 100)
   }
 
   return <section className="gc-deuda" aria-label="Deuda del contribuyente">
     <div className={`gc-deuda-resumen ${Number(deuda.total) === 0 ? 'gc-deuda-resumen--sin-deuda' : ''}`}>
       <div><span className="gc-etiqueta">Deuda pendiente</span>
-        <strong className="gc-deuda-total">S/ {soles(deuda.total)}</strong>
+        <strong className="gc-deuda-total">{moneda(deuda.total)}</strong>
         <span>{Number(deuda.total) > 0 ? 'El contribuyente debe cancelar su deuda para obtener la constancia.' : 'El contribuyente no registra deuda pendiente.'}</span>
       </div>
       <span className="gc-deuda-cantidad">{deuda.obligaciones?.length || 0} obligaciones pendientes</span>
@@ -41,12 +43,12 @@ function DetalleDeuda({ deuda }) {
       <div className="gc-subtitulo"><h3>Detalle por tributo</h3><span>Despliega un tributo para ver sus obligaciones</span></div>
       {[...grupos].map(([clave, grupo]) => <details className="gc-tributo" key={clave}>
         <summary><div><strong>{grupo.titulo}</strong><small>{grupo.items.length} obligaciones · Ver detalle</small></div>
-          <strong className="gc-importe">S/ {soles(grupo.centimos / 100)}</strong></summary>
+          <strong className="gc-importe">{moneda(grupo.centimos / 100)}</strong></summary>
         <div className="gc-deuda-tabla">
           <table><caption className="gc-solo-lectores">Obligaciones de {grupo.titulo}</caption>
             <thead><tr><th scope="col">Período</th><th scope="col">Predio</th><th scope="col">Deuda</th></tr></thead>
             <tbody>{[...grupo.items].sort((a, b) => String(a.periodo).localeCompare(String(b.periodo))).map((item) =>
-              <tr key={item.id}><td>{item.periodo}</td><td>{item.codigoPredio || '—'}</td><td>S/ {soles(item.deuda)}</td></tr>)}</tbody>
+              <tr key={item.id}><td>{item.periodo}</td><td>{item.codigoPredio || '—'}</td><td>{moneda(item.totalAPagar ?? item.deuda)}</td></tr>)}</tbody>
           </table>
         </div>
       </details>)}
@@ -64,9 +66,12 @@ export default function GestionConstancias() {
   const [motivo, setMotivo] = useState('')
   const [pagoRevisado, setPagoRevisado] = useState(false)
   const [errorActualizacion, setErrorActualizacion] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
   const idDetalle = detalle?.idSolicitud
   const estadoDetalle = detalle?.estado
   const sesionPagoDetalle = detalle?.ordenPago?.sesionIniciada
+  const paginaVisible = Math.min(pagina, Math.max(1, Math.ceil(solicitudes.length / tamanio)))
 
   useEffect(() => {
     let activo = true
@@ -138,25 +143,29 @@ export default function GestionConstancias() {
           : <div className="gc-tabla-contenedor">
             <table className="gc-tabla">
               <thead><tr>
-                <th scope="col">Solicitud</th>
+                <th scope="col">Solicitud</th><th scope="col">Fecha</th>
                 <th scope="col">Contribuyente</th>
                 <th scope="col">Documento</th>
-                <th scope="col">Estado</th>
+                <th scope="col">Canal</th><th scope="col">Estado</th>
               </tr></thead>
-              <tbody>{solicitudes.map((item) => <tr key={item.idSolicitud}
+              <tbody>{solicitudes.slice((paginaVisible - 1) * tamanio, paginaVisible * tamanio).map((item) => <tr key={item.idSolicitud}
                 className={detalle?.idSolicitud === item.idSolicitud ? 'gc-fila--seleccionada' : undefined}>
                 <td><button className="gc-solicitud" type="button"
                   onClick={() => seleccionar(item.idSolicitud)} disabled={ocupado}
                   aria-pressed={detalle?.idSolicitud === item.idSolicitud}>
                   Solicitud N.° {item.idSolicitud}
                 </button></td>
+                <td>{fechaHora(item.fechaSolicitud)}</td>
                 <td><strong>{item.nombreContribuyente || 'Nombre no disponible'}</strong>
                   {item.codigoContribuyente && <small className="gc-codigo">Código: {item.codigoContribuyente}</small>}</td>
                 <td>{item.tipoDocumentoContribuyente && <small className="gc-codigo">{item.tipoDocumentoContribuyente}</small>}
                   {item.documentoContribuyente}</td>
+                <td>{CANALES[item.canal] || item.canal}</td>
                 <td><span className="gc-estado">{estado(item.estado)}</span></td>
               </tr>)}</tbody>
             </table>
+            <PaginacionTabla id="solicitudes-constancia" totalRegistros={solicitudes.length} pagina={paginaVisible} tamanio={tamanio}
+              onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} />
           </div>}
       </section>
       {detalle && <section className="gc-panel gc-detalle" aria-label="Detalle de la solicitud">
@@ -175,7 +184,8 @@ export default function GestionConstancias() {
         {detalle.deuda && <DetalleDeuda key={detalle.idSolicitud} deuda={detalle.deuda} />}
         <section className="gc-acciones" aria-label="Gestión del trámite">
         <h3>Gestión del trámite</h3>
-        {detalle.ordenPago && <p><strong>Derecho del trámite:</strong> S/ {soles(detalle.ordenPago.monto)} · {detalle.ordenPago.estado}</p>}
+        {detalle.ordenPago && <p><strong>Derecho del trámite:</strong> {moneda(detalle.ordenPago.monto)} · {detalle.ordenPago.estado}</p>}
+
         {detalle.numeroConstancia && <p><strong>Constancia:</strong> {detalle.numeroConstancia}</p>}
         {detalle.motivoRechazo && <p><strong>Motivo:</strong> {detalle.motivoRechazo}</p>}
         {detalle.estado === 'FIRMADA' && <>

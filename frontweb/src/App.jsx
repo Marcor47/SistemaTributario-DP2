@@ -4,42 +4,41 @@ import MenuLateral from './components/MenuLateral.jsx'
 import BarraSuperior from './components/BarraSuperior.jsx'
 import { MODULOS } from './utils/modulos.jsx'
 import Inicio from './pages/Inicio.jsx'
-import Dashboard from './pages/Dashboard.jsx'
 import Login from './pages/Login.jsx'
 import { AuthProvider } from './context/AuthContext.jsx'
 import { RutaContribuyente } from './components/RutaProtegida.jsx'
-import ConsultaPredio from './pages/ConsultaPredio.jsx'
-import ConsultaContribuyente from './pages/ConsultaContribuyente.jsx'
-import ConfiguracionMetas from './pages/ConfiguracionMetas.jsx'
-import ConfiguracionRecordatorios from './pages/ConfiguracionRecordatorios.jsx'
-import ConfiguracionAccesoReportes from './pages/ConfiguracionAccesoReportes.jsx'
-import Formularios from './pages/Formularios.jsx'
-import IndiceMorosidad from './pages/IndiceMorosidad.jsx'
-import Reclamos from './pages/Reclamos.jsx'
-import ResumenEjecutivo from './pages/ResumenEjecutivo.jsx'
-import GestionReclamos from './pages/GestionReclamos.jsx'
-import GestionConstancias from './pages/GestionConstancias.jsx'
-import Reportes from './pages/Reportes.jsx'
-import SolicitudesReportes from './pages/SolicitudesReportes.jsx'
-import Constancia from './pages/Constancia.jsx'
-import ConstanciaVentanilla from './pages/ConstanciaVentanilla.jsx'
-import SolicitudesPredio from './pages/SolicitudesPredio.jsx'
-import EstadoCuentaPortal from './pages/EstadoCuentaPortal.jsx'
-import InicioPortal from './pages/InicioPortal.jsx'
-import InicioGestion from './pages/InicioGestion.jsx'
-import PasarelaSimulada from './pages/PasarelaSimulada.jsx'
 import LoginInterno from './pages/LoginInterno.jsx'
-import CambiarClaveInterna from './pages/CambiarClaveInterna.jsx'
-import GestionUsuarios from './pages/GestionUsuarios.jsx'
-import AlertasMora from './pages/AlertasMora.jsx'
-import SinAcceso from './pages/SinAcceso.jsx'
-import Buzon from './pages/Buzon.jsx'
 import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
 import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
 import TransicionLoginProvider from './components/TransicionLogin.jsx'
 import { useTransicionLogin } from './context/transicionLogin.js'
 
+// Cada pantalla se descarga al abrirla: el inicio de sesión no carga el código de todo el sistema.
+const Segmentos = lazy(() => import('./pages/Segmentos.jsx'))
+const ConsultaPredio = lazy(() => import('./pages/ConsultaPredio.jsx'))
+const ConsultaContribuyente = lazy(() => import('./pages/ConsultaContribuyente.jsx'))
+const ConfiguracionMetas = lazy(() => import('./pages/ConfiguracionMetas.jsx'))
+const ConfiguracionRecordatorios = lazy(() => import('./pages/ConfiguracionRecordatorios.jsx'))
+const ConfiguracionAccesoReportes = lazy(() => import('./pages/ConfiguracionAccesoReportes.jsx'))
+const Formularios = lazy(() => import('./pages/Formularios.jsx'))
+const Reclamos = lazy(() => import('./pages/Reclamos.jsx'))
+const GestionReclamos = lazy(() => import('./pages/GestionReclamos.jsx'))
+const Constancia = lazy(() => import('./pages/Constancia.jsx'))
+const SolicitudesPredio = lazy(() => import('./pages/SolicitudesPredio.jsx'))
+const TramitesPredio = lazy(() => import('./pages/TramitesPredio.jsx'))
+const EstadoCuentaPortal = lazy(() => import('./pages/EstadoCuentaPortal.jsx'))
+const InicioPortal = lazy(() => import('./pages/InicioPortal.jsx'))
+const InicioGestion = lazy(() => import('./pages/InicioGestion.jsx'))
+const PasarelaPago = lazy(() => import('./pages/PasarelaPago.jsx'))
+const CambiarClaveInterna = lazy(() => import('./pages/CambiarClaveInterna.jsx'))
+const GestionUsuarios = lazy(() => import('./pages/GestionUsuarios.jsx'))
+const AlertasMora = lazy(() => import('./pages/AlertasMora.jsx'))
+const SinAcceso = lazy(() => import('./pages/SinAcceso.jsx'))
+const Buzon = lazy(() => import('./pages/Buzon.jsx'))
 const Reporteria = lazy(() => import('./pages/Reporteria.jsx'))
+const ConstanciasNoAdeudo = lazy(() => import('./pages/ConstanciasNoAdeudo.jsx'))
+const CalidadDatos = lazy(() => import('./pages/CalidadDatos.jsx'))
+const cargando = <p className="mensaje-carga" role="status">Cargando…</p>
 
 const moduloDeRuta = (pathname, seccion) => MODULOS
   .filter((modulo) => modulo.seccion === seccion && pathname.startsWith(modulo.ruta))
@@ -73,8 +72,7 @@ function LayoutPortal() {
           <Outlet />
         </main>
         <footer className="pie">
-          Todos los nombres, códigos y montos son <strong>ficticios</strong>, generados para la demostración; no
-          representan a contribuyentes reales.
+          © {new Date().getFullYear()} Municipalidad Distrital de San Miguel · Gerencia de Rentas · Av. Federico Gallese 370, San Miguel, Lima
         </footer>
       </div>
     </div>
@@ -89,7 +87,6 @@ function LayoutGestion() {
   const { activa: entradaLogin } = useTransicionLogin()
   const { pathname } = useLocation()
   const modulo = moduloDeRuta(pathname, 'gestion')
-  const esDashboard = pathname.startsWith('/dashboard')
   const esMetas = pathname.startsWith('/metas')
   const esReportes = pathname.startsWith('/reportes') || pathname.startsWith('/reporteria')
   const [menuVisible, setMenuVisible] = useState(true)
@@ -109,12 +106,11 @@ function LayoutGestion() {
             <p className="pagina-cab__desc">{modulo.descripcion}</p>
           </header>
         )}
-        <main className={`pmain${esDashboard ? ' pmain--dashboard' : ''}${esMetas ? ' pmain--metas' : ''}${esReportes ? ' pmain--reportes' : ''}`}>
+        <main className={`pmain${esMetas ? ' pmain--metas' : ''}${esReportes ? ' pmain--reportes' : ''}`}>
           <Outlet />
         </main>
         <footer className="pie">
-          Todos los nombres, códigos y montos son <strong>ficticios</strong>, generados para la demostración; no
-          representan a contribuyentes reales.
+          © {new Date().getFullYear()} Municipalidad Distrital de San Miguel · Gerencia de Rentas · Av. Federico Gallese 370, San Miguel, Lima
         </footer>
       </div>
     </div>
@@ -127,14 +123,15 @@ export default function App() {
       <AuthProvider>
         <SesionInternaProvider>
           <TransicionLoginProvider>
+          <Suspense fallback={cargando}>
           <Routes>
             <Route path="/" element={<Inicio />} />
             <Route path="/login" element={<Login />} />
             <Route path="/gestion/login" element={<LoginInterno />} />
             <Route path="/interno/login" element={<Navigate to="/gestion/login" replace />} />
             <Route path="/gestion/cambiar-clave" element={<RutaInternaProtegida permitirCambioClave><CambiarClaveInterna /></RutaInternaProtegida>} />
-            <Route path="/pasarela-simulada/:idOrden" element={<PasarelaSimulada />} />
-            <Route path="/pagos/:id" element={<PasarelaSimulada />} />
+            <Route path="/pasarela/:idOrden" element={<PasarelaPago />} />
+            <Route path="/pagos/:id" element={<PasarelaPago />} />
 
           {/* Rutas del portal del Contribuyente (HU014 / HU041) */}
           <Route element={<RutaContribuyente />}>
@@ -147,6 +144,7 @@ export default function App() {
               <Route path="/constancias" element={<Constancia />} />
               <Route path="/portal/reclamos" element={<Reclamos reclamante="CONTRIBUYENTE" />} />
               <Route path="/portal/buzon" element={<Buzon />} />
+              <Route path="/portal/tramites-predio" element={<TramitesPredio />} />
             </Route>
           </Route>
 
@@ -154,30 +152,35 @@ export default function App() {
         <Route element={<RutaInternaProtegida><LayoutGestion /></RutaInternaProtegida>}>
           <Route path="/gestion/inicio" element={<InicioGestion />} />
           <Route path="/gestion" element={<Navigate to="/gestion/inicio" replace />} />
-          <Route path="/dashboard" element={<RutaInternaProtegida permiso="DASHBOARD:CONSULTAR"><Dashboard /></RutaInternaProtegida>} />
+          {/* Las vistas de análisis viven en la Plataforma analítica; las rutas anteriores llevan a su subpestaña. */}
+          <Route path="/dashboard" element={<Navigate to="/reporteria" replace />} />
+          <Route path="/morosidad" element={<Navigate to="/reporteria?pestana=morosidad" replace />} />
+          <Route path="/resumen-ejecutivo" element={<Navigate to="/reporteria?pestana=resumen-ia" replace />} />
+          <Route path="/reportes" element={<Navigate to="/reporteria?pestana=listados" replace />} />
+          <Route path="/reportes/solicitudes" element={<Navigate to="/reporteria?pestana=uso" replace />} />
+          <Route path="/segmentos" element={<RutaInternaProtegida permiso="SEGMENTOS:CONSULTAR"><Segmentos /></RutaInternaProtegida>} />
           <Route path="/administracion/usuarios" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><GestionUsuarios /></RutaInternaProtegida>} />
           <Route path="/usuarios" element={<Navigate to="/administracion/usuarios" replace />} />
           <Route path="/configuracion/reportes" element={<RutaInternaProtegida permiso="USUARIOS:LISTAR"><ConfiguracionAccesoReportes /></RutaInternaProtegida>} />
           <Route path="/predios" element={<RutaInternaProtegida permiso="PREDIOS:CONSULTAR"><ConsultaPredio /></RutaInternaProtegida>} />
           <Route path="/contribuyentes" element={<RutaInternaProtegida permiso="CONTRIBUYENTES:CONSULTAR"><ConsultaContribuyente /></RutaInternaProtegida>} />
-          <Route path="/ventanilla/constancias" element={<RutaInternaProtegida permiso="CONSTANCIAS:GESTIONAR"><ConstanciaVentanilla /></RutaInternaProtegida>} />
+          <Route path="/ventanilla/constancias" element={<Navigate to="/gestion/constancias?pestana=ventanilla" replace />} />
           <Route path="/ventanilla/solicitudes-predio/:idSolicitud?" element={<RutaInternaProtegida permiso="SOLICITUDES_PREDIO:REVISAR"><SolicitudesPredio /></RutaInternaProtegida>} />
           <Route path="/metas" element={<RutaInternaProtegida permiso="METAS:GESTIONAR"><ConfiguracionMetas /></RutaInternaProtegida>} />
           <Route path="/configuracion/recordatorios" element={<RutaInternaProtegida roles={['ADMINISTRADOR']}><ConfiguracionRecordatorios /></RutaInternaProtegida>} />
           <Route path="/formularios" element={<RutaInternaProtegida permiso="FORMULARIOS:CONSULTAR"><Formularios /></RutaInternaProtegida>} />
-          <Route path="/morosidad" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><IndiceMorosidad /></RutaInternaProtegida>} />
-          <Route path="/resumen-ejecutivo" element={<RutaInternaProtegida permiso="INDICADORES:CONSULTAR"><ResumenEjecutivo /></RutaInternaProtegida>} />
-          <Route path="/reportes" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Reportes /></RutaInternaProtegida>} />
-          <Route path="/reportes/solicitudes" element={<RutaInternaProtegida permiso="REPORTES:SOLICITUDES"><SolicitudesReportes /></RutaInternaProtegida>} />
           <Route path="/reporteria" element={<RutaInternaProtegida permiso="REPORTES:CONSULTAR"><Suspense fallback={<p className="mensaje-carga" role="status">Cargando la plataforma analítica…</p>}><Reporteria /></Suspense></RutaInternaProtegida>} />
+          <Route path="/calidad-datos" element={<RutaInternaProtegida permiso="ETL:GESTIONAR"><CalidadDatos /></RutaInternaProtegida>} />
           <Route path="/alertas-mora" element={<RutaInternaProtegida permiso="ALERTAS:CONSULTAR"><AlertasMora /></RutaInternaProtegida>} />
-          <Route path="/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:CREAR"><Reclamos reclamante="TRABAJADOR" /></RutaInternaProtegida>} />
+          {/* Los reclamos solo los registra el contribuyente desde Servicios en Línea. */}
+          <Route path="/reclamos" element={<Navigate to="/gestion/inicio" replace />} />
           <Route path="/gestion/reclamos" element={<RutaInternaProtegida permiso="RECLAMOS:GESTIONAR"><GestionReclamos modo="gestion" /></RutaInternaProtegida>} />
-          <Route path="/gestion/constancias" element={<RutaInternaProtegida permiso="CONSTANCIAS:GESTIONAR"><GestionConstancias /></RutaInternaProtegida>} />
+          <Route path="/gestion/constancias" element={<RutaInternaProtegida permiso="CONSTANCIAS:GESTIONAR"><Suspense fallback={cargando}><ConstanciasNoAdeudo /></Suspense></RutaInternaProtegida>} />
           <Route path="/reclamos/asignados" element={<RutaInternaProtegida permiso="RECLAMOS:ATENDER"><GestionReclamos modo="asignados" /></RutaInternaProtegida>} />
           <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>
           </Routes>
+          </Suspense>
           </TransicionLoginProvider>
         </SesionInternaProvider>
       </AuthProvider>

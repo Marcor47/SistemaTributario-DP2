@@ -17,7 +17,7 @@ public record RespuestaProcesamientoAlertasMora(
         int alertasEnviadas,
         int sinCorreoRegistrado,
         int alertasFallidas,
-        int alertasSimuladas,
+        int alertasRegistradas,
         List<AvisoCorreoRespuesta> avisos) {
 }
 

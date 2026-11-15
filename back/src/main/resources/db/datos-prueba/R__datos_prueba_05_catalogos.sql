@@ -1,4 +1,4 @@
--- Catálogos de demostración pendientes de validar con la Municipalidad: documentos requeridos por tipo de
+-- Catálogos pendientes de validar con la Municipalidad: documentos requeridos por tipo de
 -- trámite y de predio (RF-061) y áreas a las que se derivan los reclamos (RF-064). Las dos primeras áreas son
 -- las que la Municipalidad nombró para la cobranza inductiva (24/10/2026); las demás son provisionales.
 INSERT INTO operativo.area_municipal (codigo, nombre)

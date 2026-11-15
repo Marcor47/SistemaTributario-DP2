@@ -9,7 +9,7 @@ const checkout = { sessionKey: 'sesion-niubiz', merchantId: '123456789', purchas
   checkoutUrl: 'https://static-content-qas.vnforapps.com/env/sandbox/js/checkout.js',
   callbackUrl: 'https://municipalidad.example/retorno', timeoutUrl: 'https://municipalidad.example/timeout' }
 const pago = { idTransaccion: 47, estado: 'INICIADA', montoBase: 30, montoDescuento: 4.5,
-  montoTotal: 25.5, obligaciones: ['101'], dePrueba: true, checkout }
+  montoTotal: 25.5, obligaciones: ['101'], pasarelaLocal: true, checkout }
 const siguiente = { ...pago, idTransaccion: 48, montoBase: 40, montoDescuento: 0, montoTotal: 40,
   checkout: { ...checkout, sessionKey: 'otra-sesion-nueva', purchaseNumber: '000000000048' } }
 

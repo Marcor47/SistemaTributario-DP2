@@ -9,7 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ConstanciaRepository extends JpaRepository<Constancia, String> {
 
-    /* Número asignado por el sistema (RF-055): CNA-AAAA-NNNNNN. */
+    /* Código único y no predecible asignado por el sistema (RF-055): CND-AAAA-XXXXXX (V52). */
     @Query(value = "SELECT operativo.fn_siguiente_numero_constancia(:fecha)", nativeQuery = true)
     String siguienteNumero(@Param("fecha") LocalDate fecha);
 

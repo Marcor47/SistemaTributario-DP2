@@ -53,7 +53,7 @@ public class EmisorConstancia {
                         "No hay una versión vigente de la plantilla " + CODIGO_PLANTILLA + "."));
 
         String numero = constanciaRepository.siguienteNumero(ahora.toLocalDate());
-        byte[] pdf = generadorPdf.generar(numero, contribuyente, ahora, firmador.esSimulado());
+        byte[] pdf = generadorPdf.generar(numero, contribuyente, ahora, firmador.firmaLocal());
         FirmadorGateway.DocumentoFirmado firmado = firmador.firmarComoMunicipalidad(pdf);
         if (!firmado.firma().valida()) {
             throw new ReglaNegocioException("FIRMA_MUNICIPAL_INVALIDA",
@@ -68,7 +68,7 @@ public class EmisorConstancia {
             solicitud.emitir(operador, firmaMunicipal, ahora);
         }
         Constancia constancia = constanciaRepository.save(new Constancia(numero, solicitud, plantilla, ahora,
-                PREDIOS_INCLUIDOS, RANGO_FECHAS, numero + ".pdf", firmador.esSimulado(), operador,
+                PREDIOS_INCLUIDOS, RANGO_FECHAS, numero + ".pdf", firmador.firmaLocal(), operador,
                 firmado.contenido()));
         DocumentoBuzon enBuzon = documentoBuzonRepository.save(
                 DocumentoBuzon.deConstancia(constancia, solicitud.getDocumentoContribuyente(), ahora));

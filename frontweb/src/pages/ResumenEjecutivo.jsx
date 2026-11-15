@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { descargarResumen, generarResumen, marcarRevisado } from '../services/resumenEjecutivoService.js'
+import { guardarArchivo } from '../services/api.js'
 import { obtenerPeriodosMorosidad } from '../services/morosidadService.js'
 import {
   ETIQUETAS_ESTADO, MAXIMO_PALABRAS, MESES, armarPeriodo, contarPalabras, formatoPeriodo, formatoValor,
@@ -7,16 +8,6 @@ import {
 } from '../utils/resumenEjecutivo.js'
 import './ConsultasTributarias.css'
 import './ResumenEjecutivo.css'
-
-// El navegador guarda el archivo; no se envía nada a ningún servidor.
-function guardarArchivo({ nombreArchivo, contenido }) {
-  const url = URL.createObjectURL(new Blob([contenido], { type: 'text/plain;charset=utf-8' }))
-  const enlace = document.createElement('a')
-  enlace.href = url
-  enlace.download = nombreArchivo
-  enlace.click()
-  URL.revokeObjectURL(url)
-}
 
 export default function ResumenEjecutivo() {
   const [filtros, setFiltros] = useState({ anio: '', mes: '' })
@@ -152,7 +143,7 @@ export default function ResumenEjecutivo() {
               </button>
             )}
             <button type="button" className={revisado ? 'btn primary' : 'btn'} onClick={descargar} disabled={!revisado || trabajando !== null}>
-              {trabajando === 'descargar' ? 'Descargando…' : 'Descargar (.txt)'}
+              {trabajando === 'descargar' ? 'Descargando…' : 'Descargar PDF'}
             </button>
             {!revisado && <p className="hint">Solo se puede descargar después de marcarlo como revisado.</p>}
           </div>

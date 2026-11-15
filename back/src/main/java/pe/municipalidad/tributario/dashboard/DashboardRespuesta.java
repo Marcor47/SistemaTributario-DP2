@@ -52,6 +52,7 @@ public record DashboardRespuesta(
     }
 
     public record PorSegmento(Long idSegmento, String nombre, long contribuyentes, BigDecimal montoEmitido,
-            BigDecimal montoRecaudado, BigDecimal porcentajeRecaudacion, BigDecimal indiceMorosidad) {
+            BigDecimal montoRecaudado, BigDecimal montoVencidoNoPagado, BigDecimal porcentajeRecaudacion,
+            BigDecimal indiceMorosidad) {
     }
 }

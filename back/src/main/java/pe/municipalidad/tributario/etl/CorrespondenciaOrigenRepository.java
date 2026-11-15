@@ -21,4 +21,15 @@ public interface CorrespondenciaOrigenRepository extends JpaRepository<Correspon
             """)
     List<CorrespondenciaOrigen> buscarPorSeudonimos(@Param("seudonimos") Collection<String> seudonimos,
             @Param("tipoEntidad") TipoEntidad tipoEntidad, @Param("sistemaOrigen") String sistemaOrigen);
+
+    /* HU040: entidades maestras a las que está vinculado un código de SAMNET. */
+    @Query("""
+            select c from CorrespondenciaOrigen c
+              join fetch c.entidadMaestra e
+            where c.sistemaOrigen = :sistemaOrigen
+              and e.tipoEntidad = :tipoEntidad
+              and c.claveOrigen = :claveOrigen
+            """)
+    List<CorrespondenciaOrigen> buscarPorClave(@Param("claveOrigen") String claveOrigen,
+            @Param("tipoEntidad") TipoEntidad tipoEntidad, @Param("sistemaOrigen") String sistemaOrigen);
 }

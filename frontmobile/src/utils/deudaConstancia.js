@@ -15,7 +15,7 @@ export function agruparDeuda(obligaciones = []) {
     if (!grupos.has(clave)) grupos.set(clave, { clave, titulo: item.tributo, items: [], centimos: 0 })
     const grupo = grupos.get(clave)
     grupo.items.push(item)
-    grupo.centimos += Math.round(Number(item.deuda) * 100)
+    grupo.centimos += Math.round(Number(item.totalAPagar ?? item.deuda) * 100)
   }
   return [...grupos.values()].map((grupo) => ({
     ...grupo,

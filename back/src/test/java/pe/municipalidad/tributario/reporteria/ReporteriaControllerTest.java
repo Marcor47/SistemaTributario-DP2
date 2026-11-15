@@ -368,7 +368,7 @@ class ReporteriaControllerTest {
         mvc.perform(get("/api/reporteria/asistente/estado").session(gerencia))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.disponible").value(false))
-                .andExpect(jsonPath("$.mensaje").value("El servicio de IA no está configurado en este servidor."));
+                .andExpect(jsonPath("$.mensaje").value("El análisis inteligente no está disponible en este momento."));
         mvc.perform(post("/api/reporteria/asistente/preguntas").with(csrf()).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"pregunta\": \"¿Cuánto se debe?\", \"desde\": \"2026-01\", \"hasta\": \"2026-10\"}")
                         .session(gerencia))

@@ -12,11 +12,12 @@ import {
 } from '../utils/reclamos.js'
 import { paginar } from '../utils/paginacion.js'
 import './Reclamos.css'
+import { fechaHoraLima } from '../utils/formato.js'
 
 const FORMULARIO_VACIO = { tipoReclamo: '', fechaHoraIncidente: '', referencia: '', comentario: '' }
 
 const formatoFechaHora = (iso) =>
-  iso ? new Date(iso).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : '—'
+  iso ? fechaHoraLima(iso) : '—'
 
 const CAMPOS = [
   ['tipoReclamo', 'reclamo-tipo'],

@@ -1,78 +1,29 @@
-import {
-  clonarConfiguracion,
-  configuracionPorDefecto,
-  normalizarConfiguracion,
-} from '../utils/accesoReportes.js'
+import { pedir } from './api.js'
 
 /*
- * HU045 (RF-060): acceso y alcance de la información en reportes.
- *
- * El backend de esta historia todavía no está implementado. Este servicio mantiene el mismo
- * contrato que tendrá la API y guarda la configuración en el navegador para la demostración.
- * Cuando se publique el backend, basta con reemplazar los cuerpos de las funciones por:
- *
- *   GET /api/configuracion/reportes-acceso
- *   PUT /api/configuracion/reportes-acceso  { "roles": { ... } }
- *
- * y eliminar el almacenamiento local. La aplicación de las restricciones al visualizar y
- * exportar los reportes también corresponde al backend.
+ * HU045 (RF-060): restricciones de acceso a los reportes por rol, aplicadas por el backend al consultar y exportar.
+ *   GET    /api/admin/restricciones-reportes            -> [{ id, rol, tipoReporte, dimension, valor, permitido }]
+ *   GET    /api/admin/restricciones-reportes/opciones   -> { zonas, roles, reportes, dimensiones }
+ *   POST   /api/admin/restricciones-reportes            { rol, tipoReporte, dimension, valor }
+ *   DELETE /api/admin/restricciones-reportes/{id}
  */
-export const ACCESOS_REPORTES_SIMULADOS = true
+const RUTA = '/admin/restricciones-reportes'
 
-const CLAVE_ALMACEN = 'hu045.acceso-reportes.v1'
-
-let memoria = configuracionPorDefecto()
-
-function almacenDisponible() {
-  try {
-    return typeof globalThis.localStorage !== 'undefined' ? globalThis.localStorage : null
-  } catch {
-    return null
-  }
+export function listarRestriccionesReportes(opciones = {}) {
+  return pedir(RUTA, opciones)
 }
 
-function leerEstado() {
-  const almacen = almacenDisponible()
-  if (!almacen) return clonarConfiguracion(memoria)
-  try {
-    const crudo = almacen.getItem(CLAVE_ALMACEN)
-    return crudo ? normalizarConfiguracion(JSON.parse(crudo)) : configuracionPorDefecto()
-  } catch {
-    return configuracionPorDefecto()
-  }
+export function obtenerOpcionesRestricciones(opciones = {}) {
+  return pedir(`${RUTA}/opciones`, opciones)
 }
 
-function guardarEstado(estado) {
-  memoria = clonarConfiguracion(estado)
-  const almacen = almacenDisponible()
-  if (!almacen) return
-  try {
-    almacen.setItem(CLAVE_ALMACEN, JSON.stringify(estado))
-  } catch {
-    // El fallback en memoria mantiene la configuración durante la sesión.
-  }
+export function crearRestriccionReporte({ rol, tipoReporte, dimension, valor }) {
+  return pedir(RUTA, {
+    method: 'POST',
+    body: JSON.stringify({ rol, tipoReporte, dimension, valor: dimension === 'ZONA' ? valor : null }),
+  })
 }
 
-export async function obtenerConfiguracionAccesoReportes() {
-  return leerEstado()
-}
-
-export async function guardarConfiguracionAccesoReportes(configuracion, { usuario } = {}) {
-  const normalizada = normalizarConfiguracion(configuracion)
-  normalizada.actualizadoEn = new Date().toISOString()
-  normalizada.actualizadoPor = String(usuario ?? '').trim() || 'Administrador'
-  guardarEstado(normalizada)
-  return clonarConfiguracion(normalizada)
-}
-
-/** Restablece la configuración de este navegador a los valores iniciales. */
-export function reiniciarConfiguracionAccesoReportes() {
-  memoria = configuracionPorDefecto()
-  const almacen = almacenDisponible()
-  if (!almacen) return
-  try {
-    almacen.removeItem(CLAVE_ALMACEN)
-  } catch {
-    // Sin almacenamiento disponible, el estado en memoria ya quedó restablecido.
-  }
+export function eliminarRestriccionReporte(id) {
+  return pedir(`${RUTA}/${encodeURIComponent(id)}`, { method: 'DELETE' })
 }

@@ -578,7 +578,7 @@ public class ReporteExportador {
                     cs.beginText();
                     cs.setFont(fontRegular, 8);
                     cs.newLineAtOffset(anchoPagina / 2 - 20, margen - 10);
-                    cs.showText("Pagina " + paginaActual);
+                    cs.showText("Página " + paginaActual);
                     cs.endText();
                     cs.close();
 
@@ -606,7 +606,7 @@ public class ReporteExportador {
                     cs.beginText();
                     cs.setFont(fontRegular, 8);
                     cs.newLineAtOffset(anchoPagina / 2 - 20, margen - 10);
-                    cs.showText("Pagina " + paginaActual);
+                    cs.showText("Página " + paginaActual);
                     cs.endText();
                     cs.close();
 
@@ -632,7 +632,7 @@ public class ReporteExportador {
                         cs.beginText();
                         cs.setFont(fontRegular, 8);
                         cs.newLineAtOffset(anchoPagina / 2 - 20, margen - 10);
-                        cs.showText("Pagina " + paginaActual);
+                        cs.showText("Página " + paginaActual);
                         cs.endText();
                         cs.close();
 
@@ -654,7 +654,7 @@ public class ReporteExportador {
             cs.beginText();
             cs.setFont(fontRegular, 8);
             cs.newLineAtOffset(anchoPagina / 2 - 20, margen - 10);
-            cs.showText("Pagina " + paginaActual);
+            cs.showText("Página " + paginaActual);
             cs.endText();
             cs.close();
 

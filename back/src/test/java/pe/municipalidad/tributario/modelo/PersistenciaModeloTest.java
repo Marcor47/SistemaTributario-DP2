@@ -121,7 +121,9 @@ class PersistenciaModeloTest {
     void elSistemaNumeraLasConstanciasYLosReclamos() {
         LocalDate hoy = LocalDate.of(2026, 10, 19);
 
-        assertThat(constancias.siguienteNumero(hoy)).matches("CNA-2026-[0-9]{6}");
+        String constancia = constancias.siguienteNumero(hoy);
+        assertThat(constancia).matches("CND-2026-[2-9A-HJKMNP-Z]{6}");
+        assertThat(constancias.siguienteNumero(hoy)).isNotEqualTo(constancia);
         String primero = reclamos.siguienteNumero(hoy);
         assertThat(primero).matches("REC-2026-[0-9]{6}");
         assertThat(reclamos.siguienteNumero(hoy)).isNotEqualTo(primero);

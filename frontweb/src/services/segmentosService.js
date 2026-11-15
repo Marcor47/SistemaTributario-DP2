@@ -1,7 +1,7 @@
 import { pedir } from './api.js'
 import { EVENTO_SESION_INTERNA_EXPIRADA } from './authInternaService.js'
 
-// HU031 / RF-043: revisión, aprobación y publicación de segmentos en el dashboard.
+// HU031 / RF-043: revisión, aprobación y publicación de segmentos en la plataforma analítica.
 function controlarSesion(error) {
   if (error.estado === 401 && typeof window !== 'undefined') {
     window.dispatchEvent(new Event(EVENTO_SESION_INTERNA_EXPIRADA))

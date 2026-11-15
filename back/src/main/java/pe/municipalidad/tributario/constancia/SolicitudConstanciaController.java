@@ -4,6 +4,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -58,6 +60,17 @@ public class SolicitudConstanciaController {
             HttpServletRequest request) {
         return solicitudConstanciaService.obtenerDocumentoParaFirma(SesionContribuyente.codigoContribuyente(request),
                 idSolicitud);
+    }
+
+    @GetMapping("/{idSolicitud}/documento-firma/pdf")
+    public ResponseEntity<byte[]> documentoParaFirmaPdf(@PathVariable Long idSolicitud,
+            HttpServletRequest request) {
+        byte[] pdf = solicitudConstanciaService.documentoParaFirmaPdf(SesionContribuyente.codigoContribuyente(request),
+                idSolicitud);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"solicitud-constancia-" + idSolicitud + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF).body(pdf);
     }
 
     @PostMapping("/{idSolicitud}/firma")

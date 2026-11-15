@@ -1,4 +1,4 @@
-/* HU031: presentación de las segmentaciones que la jefatura aprueba y publica en el dashboard. */
+/* HU031: presentación de las segmentaciones que la jefatura aprueba y publica en la plataforma analítica. */
 
 const ETIQUETAS_ESTADO = {
   BORRADOR: 'Pendiente de aprobación',

@@ -67,7 +67,7 @@ function GrupoDeuda({ grupo }) {
             <Text style={estilos.nombrePeriodo}>{periodoDeuda(item.periodo)}</Text>
             {item.codigoPredio ? <Text style={texto.pequeno}>Predio {item.codigoPredio}</Text> : null}
           </View>
-          <Text style={estilos.importePeriodo}>{soles(item.deuda)}</Text>
+          <Text style={estilos.importePeriodo}>{soles(item.totalAPagar ?? item.deuda)}</Text>
         </View>)}
       </View> : null}
     </View>
