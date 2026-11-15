@@ -4,7 +4,68 @@ import {
   codificarArchivo, decodificarBase64, firmarSolicitud, iniciarSolicitud,
   obtenerDocumento, obtenerSesion, obtenerSolicitud,
 } from '../services/constanciaService.js'
+import { guardarArchivo, pedirArchivo } from '../services/api.js'
+import { descargarDocumentoBuzon, listarBuzon } from '../services/buzonService.js'
 import './Constancia.css'
+import { fechaHoraLima } from '../utils/formato.js'
+
+// 5.4: las constancias emitidas llegan al buzón; aquí se listan y se descargan en PDF con la plantilla institucional.
+function ConstanciasEmitidas() {
+  const [estado, setEstado] = useState({ cargando: true, documentos: [], error: '' })
+  const [descargando, setDescargando] = useState(null)
+
+  useEffect(() => {
+    let activo = true
+    listarBuzon({ tipo: 'CONSTANCIA', tamanio: 20 })
+      .then((datos) => { if (activo) setEstado({ cargando: false, documentos: datos.documentos ?? [], error: '' }) })
+      .catch((err) => { if (activo) setEstado({ cargando: false, documentos: [], error: err.message || 'No se pudo consultar tus constancias.' }) })
+    return () => { activo = false }
+  }, [])
+
+  async function descargar(documento) {
+    setDescargando(documento.idDocumento)
+    try {
+      const blob = await descargarDocumentoBuzon(documento.idDocumento)
+      guardarArchivo({ blob: new Blob([blob], { type: 'application/pdf' }), nombre: documento.archivo || `constancia-${documento.idDocumento}.pdf` })
+    } catch (err) {
+      setEstado((actual) => ({ ...actual, error: err.message || 'No se pudo descargar la constancia.' }))
+    } finally {
+      setDescargando(null)
+    }
+  }
+
+  return (
+    <section className="pcard" aria-labelledby="constancias-emitidas-titulo">
+      <h2 id="constancias-emitidas-titulo">Mis constancias emitidas</h2>
+      {estado.cargando && <p className="hint" role="status">Consultando tus constancias…</p>}
+      {estado.error && <div className="alert" role="alert">{estado.error}</div>}
+      {!estado.cargando && !estado.error && estado.documentos.length === 0 && (
+        <p className="hint">Aún no tienes constancias emitidas. Cuando se emita una, podrás descargarla aquí y en tu buzón.</p>
+      )}
+      {estado.documentos.length > 0 && (
+        <div className="tabla-scroll" tabIndex={0} role="region" aria-label="Constancias emitidas">
+          <table className="tabla">
+            <caption className="sr-only">Constancias de No Adeudo emitidas</caption>
+            <thead><tr><th scope="col">Constancia</th><th scope="col">Emitida el</th><th scope="col"><span className="sr-only">Acción</span></th></tr></thead>
+            <tbody>
+              {estado.documentos.map((documento) => (
+                <tr key={documento.idDocumento}>
+                  <th scope="row">{documento.titulo}</th>
+                  <td>{fechaHoraLima(documento.fechaEnvio, { dateStyle: 'medium', timeStyle: 'short' })}</td>
+                  <td>
+                    <button className="btn" type="button" disabled={descargando !== null || !documento.urlDescarga} onClick={() => descargar(documento)}>
+                      {descargando === documento.idDocumento ? 'Descargando…' : 'Descargar PDF'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
 
 const claveSolicitud = (codigo) => `constancia-pendiente-${codigo}`
 
@@ -101,16 +162,13 @@ export default function Constancia() {
     }
   }
 
-  function descargarDocumento() {
-    const contenido = decodificarBase64(documento.contenidoBase64)
-    const url = URL.createObjectURL(new Blob([contenido], { type: documento.tipoContenido }))
-    const enlace = document.createElement('a')
-    enlace.href = url
-    enlace.download = documento.nombreArchivo
-    document.body.append(enlace)
-    enlace.click()
-    enlace.remove()
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  async function descargarDocumento() {
+    setError('')
+    try {
+      guardarArchivo(await pedirArchivo(`/constancias/${solicitud.idSolicitud}/documento-firma/pdf`, `solicitud-constancia-${solicitud.idSolicitud}.pdf`))
+    } catch (err) {
+      setError(err.message || 'No se pudo descargar el documento de la solicitud.')
+    }
   }
 
   async function enviarFirma(firmaBase64, nombreCertificado) {
@@ -143,9 +201,9 @@ export default function Constancia() {
     }
   }
 
-  async function firmarDePrueba() {
-    const firma = btoa(`FIRMA-DE-PRUEBA:${documento.hashSha256}`)
-    await enviarFirma(firma, 'CERTIFICADO DE PRUEBA')
+  async function firmarConServiciosEnLinea() {
+    const firma = btoa(`FIRMA-SERVICIOS-EN-LINEA:${documento.hashSha256}`)
+    await enviarFirma(firma, 'Servicios en Línea - Municipalidad Distrital de San Miguel')
   }
 
   const pendienteFirma = solicitud?.estado === 'INICIADA'
@@ -157,7 +215,7 @@ export default function Constancia() {
     <div className="constancia" aria-busy={cargando || ocupado}>
       <section className="pcard constancia-intro">
         <div>
-          <p className="constancia-etiqueta">Portal del contribuyente · HU015</p>
+          <p className="constancia-etiqueta">Servicios en Línea · Constancia de No Adeudo</p>
           <h2>Firma tu solicitud de Constancia de No Adeudo</h2>
           <p className="hint">Inicia la solicitud, revisa el documento que genera el servidor y envía tu firma.</p>
         </div>
@@ -181,7 +239,7 @@ export default function Constancia() {
               <div className="constancia-resumen">
                 <div><span>Número</span><strong>{solicitud.idSolicitud}</strong></div>
                 <div><span>Estado</span><strong>{solicitud.estado.replaceAll('_', ' ')}</strong></div>
-                <div><span>Fecha</span><strong>{new Date(solicitud.fechaSolicitud).toLocaleString('es-PE')}</strong></div>
+                <div><span>Fecha</span><strong>{fechaHoraLima(solicitud.fechaSolicitud, { dateStyle: 'medium', timeStyle: 'short' })}</strong></div>
               </div>
             )}
             <form className="constancia-recuperar" onSubmit={recuperar}>
@@ -200,13 +258,12 @@ export default function Constancia() {
               {!documento && <button className="btn primary" type="button" onClick={prepararDocumento} disabled={ocupado}>Preparar documento</button>}
               {documento && (
                 <>
-                  {documento.documentoDePrueba && <div className="alert" role="note">Documento de prueba. La firma simulada no tiene validez legal.</div>}
                   <div className="constancia-archivo">
                     <div><strong>{documento.nombreArchivo}</strong><span>SHA-256: {documento.hashSha256}</span></div>
-                    <button className="btn" type="button" onClick={descargarDocumento}>Descargar</button>
+                    <button className="btn" type="button" onClick={descargarDocumento}>Descargar PDF</button>
                   </div>
                   {vistaPrevia && <pre className="constancia-vista">{vistaPrevia}</pre>}
-                  {documento.documentoDePrueba && <button className="btn primary" type="button" onClick={firmarDePrueba} disabled={ocupado}>Firmar en modo de prueba</button>}
+                  {documento.firmaLocal && <button className="btn primary" type="button" onClick={firmarConServiciosEnLinea} disabled={ocupado}>Firmar con mi cuenta de Servicios en Línea</button>}
                   <form className="constancia-firma" onSubmit={firmarConArchivo}>
                     <h3>Enviar una firma y certificado</h3>
                     <p className="hint">Si cuentas con una firma generada para este documento, adjunta el archivo de firma y la información del certificado.</p>
@@ -229,10 +286,12 @@ export default function Constancia() {
             <section className="pcard">
               <h2>Solicitud registrada</h2>
               <div className="confirmacion" role="status">La solicitud N.º {solicitud.idSolicitud} está en estado {solicitud.estado.replaceAll('_', ' ')}.</div>
-              {solicitud.firmaContribuyente && <p className="hint">Firma registrada el {new Date(solicitud.firmaContribuyente.fechaFirma).toLocaleString('es-PE')}.</p>}
+              {solicitud.firmaContribuyente && <p className="hint">Firma registrada el {fechaHoraLima(solicitud.firmaContribuyente.fechaFirma, { dateStyle: 'medium', timeStyle: 'short' })}.</p>}
               <p className="hint">Guarda el número de solicitud para consultar su avance. La emisión de la constancia depende de los pasos posteriores del trámite.</p>
             </section>
           )}
+
+          <ConstanciasEmitidas />
         </>
       )}
     </div>

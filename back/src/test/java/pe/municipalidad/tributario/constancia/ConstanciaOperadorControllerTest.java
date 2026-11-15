@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.constancia;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.not;
@@ -31,7 +32,7 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
 /*
  * HU020: la solicitud firmada llega al operador, que verifica la deuda en SAMNET y emite la orden de pago; tras el
- * pago, la constancia se firma y llega al buzón sola (HU024) y la emisión del operador queda como respaldo. Se usan la pasarela y el firmador simulados y los
+ * pago, la constancia se firma y llega al buzón sola (HU024) y la emisión del operador queda como respaldo. Se usan la pasarela local y la firma de Servicios en Línea, y los
  * contribuyentes de prueba: 014502 (DNI 41028765, sin deuda) y 021390 (RUC 20456781239, con deuda).
  */
 @PruebaIntegracion
@@ -57,10 +58,15 @@ class ConstanciaOperadorControllerTest {
 
         mockMvc.perform(get(RUTA_OPERADOR).with(operador()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].idSolicitud", hasItem((int) id)));
+                .andExpect(jsonPath("$[*].idSolicitud", hasItem((int) id)))
+                .andExpect(jsonPath("$[?(@.idSolicitud == " + id + ")].codigoContribuyente", hasItem(SIN_DEUDA)))
+                .andExpect(jsonPath("$[?(@.idSolicitud == " + id + ")].nombreContribuyente",
+                        hasItem("GARCÍA TORRES, MARÍA ELENA")));
         mockMvc.perform(get(RUTA_OPERADOR + "/" + id).with(operador()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("FIRMADA"))
+                .andExpect(jsonPath("$.nombreContribuyente").value("GARCÍA TORRES, MARÍA ELENA"))
+                .andExpect(jsonPath("$.tipoDocumentoContribuyente").value("DNI"))
                 .andExpect(jsonPath("$.deuda.puedeSolicitar").value(true))
                 .andExpect(jsonPath("$.firmaContribuyente.hashDocumento").value(notNullValue()));
 
@@ -82,7 +88,7 @@ class ConstanciaOperadorControllerTest {
         mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/sesion").session(sesion))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.sesionIniciada").value(true))
-                .andExpect(jsonPath("$.urlPasarela").value(startsWith("/pasarela-simulada/")));
+                .andExpect(jsonPath("$.urlPasarela").value(startsWith("/pasarela/")));
         mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/sesion").session(sesion))
                 .andExpect(status().isUnprocessableContent()).andExpect(jsonPath("$.codigo").value("PAGO_YA_INICIADO"));
         mockMvc.perform(post(RUTA_OPERADOR + "/" + id + "/rechazo").with(operador()).with(csrf())
@@ -94,7 +100,7 @@ class ConstanciaOperadorControllerTest {
                 .andExpect(jsonPath("$.estado").value("CONFIRMADA"))
                 .andExpect(jsonPath("$.comprobante").value(startsWith("CONST-")))
                 .andExpect(jsonPath("$.estadoSolicitud").value("EMITIDA"))
-                .andExpect(jsonPath("$.numeroConstancia").value(startsWith("CNA-2026-")))
+                .andExpect(jsonPath("$.numeroConstancia").value(matchesPattern("CND-2026-[2-9A-HJKMNP-Z]{6}")))
                 .andReturn().getResponse().getContentAsString();
         String numero = JsonPath.read(confirmada, "$.numeroConstancia");
         mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/orden-pago/confirmacion").session(sesion))
@@ -110,7 +116,7 @@ class ConstanciaOperadorControllerTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM operativo.documento_buzon "
                 + "WHERE numero_constancia = ? AND documento_contribuyente = '41028765'", Integer.class, numero))
                 .isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT es_de_prueba FROM operativo.constancia WHERE numero_constancia = ?",
+        assertThat(jdbc.queryForObject("SELECT firma_local FROM operativo.constancia WHERE numero_constancia = ?",
                 Boolean.class, numero)).isTrue();
         mockMvc.perform(get(RUTA_OPERADOR).with(operador()))
                 .andExpect(jsonPath("$[*].idSolicitud", not(hasItem((int) id))));

@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.constancia;
 
 import java.time.LocalDateTime;
+import pe.municipalidad.tributario.contribuyente.Contribuyente;
 
 /*
  * Solicitud de constancia vista por el operador (HU020). La deuda solo viene en el detalle y en la verificación,
@@ -12,6 +13,9 @@ public record SolicitudGestionRespuesta(
         EstadoConstancia estado,
         LocalDateTime fechaSolicitud,
         String documentoContribuyente,
+        String nombreContribuyente,
+        String codigoContribuyente,
+        String tipoDocumentoContribuyente,
         String operador,
         LocalDateTime fechaRevision,
         String motivoRechazo,
@@ -21,13 +25,16 @@ public record SolicitudGestionRespuesta(
         DeudaConstanciaRespuesta deuda) {
 
     static SolicitudGestionRespuesta desde(SolicitudConstancia solicitud, TransaccionPago ordenPago,
-            String numeroConstancia, DeudaConstanciaRespuesta deuda) {
+            String numeroConstancia, DeudaConstanciaRespuesta deuda, Contribuyente contribuyente) {
         return new SolicitudGestionRespuesta(
                 solicitud.getIdSolicitud(),
                 solicitud.getCanal(),
                 solicitud.getEstado(),
                 solicitud.getFechaSolicitud(),
                 solicitud.getDocumentoContribuyente(),
+                contribuyente == null ? null : contribuyente.getNombreRazonSocial(),
+                contribuyente == null ? null : contribuyente.getCodigoContribuyente(),
+                contribuyente == null ? null : contribuyente.getTipoDocumento().name(),
                 solicitud.getOperador() == null ? null : solicitud.getOperador().getNombreUsuario(),
                 solicitud.getFechaRevision(),
                 solicitud.getMotivoRechazo(),

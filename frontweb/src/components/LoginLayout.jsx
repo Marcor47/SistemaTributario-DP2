@@ -4,10 +4,10 @@ import { MotionConfig, motion } from 'framer-motion'
 import '../pages/Login.css'
 
 /** Estructura común de las pantallas de acceso: panel lateral institucional y caja del formulario. */
-export default function LoginLayout({ titulo, lateralTitulo, lateralTexto, children }) {
+export default function LoginLayout({ titulo, lateralTitulo, lateralTexto, children, institucional = false }) {
   return (
     <MotionConfig reducedMotion="user">
-      <div className="lg">
+      <div className={`lg${institucional ? ' lg--institucional' : ''}`}>
         <aside className="lg-lado">
           <img className="lg-lado__foto" src="/municipalidad.jpg" alt="" />
           <div className="lg-lado__velo" aria-hidden="true" />
@@ -26,7 +26,7 @@ export default function LoginLayout({ titulo, lateralTitulo, lateralTexto, child
         <main className="lg-panel">
           <motion.div
             className="lg-caja"
-            initial={{ opacity: 0, y: 24 }}
+            initial={institucional ? false : { opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: 'easeOut' }}
           >
@@ -94,7 +94,7 @@ export function CampoClave({ id, valor, onCambio, idError, conError }) {
 
 export function BotonEnviar({ enviando }) {
   return (
-    <button type="submit" className="lg-enviar" disabled={enviando}>
+    <button type="submit" className="lg-enviar" disabled={enviando} aria-busy={enviando}>
       {enviando ? (
         <>
           <span className="lg-spinner" aria-hidden="true" />

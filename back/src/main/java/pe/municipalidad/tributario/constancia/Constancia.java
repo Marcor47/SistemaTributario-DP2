@@ -45,9 +45,9 @@ public class Constancia {
     @Column(name = "archivo_pdf", nullable = false, length = 250)
     private String archivoPdf;
 
-    /* Lleva la marca "DOCUMENTO DE PRUEBA" si se emitió con un servicio simulado (RNF-015). */
-    @Column(name = "es_de_prueba", nullable = false)
-    private boolean esDePrueba;
+    /* Firmada con la firma electrónica de Servicios en Línea, sin el firmador digital del Estado (RNF-015). */
+    @Column(name = "firma_local", nullable = false)
+    private boolean firmaLocal;
 
     @Column(name = "contenido_pdf")
     private byte[] contenidoPdf;
@@ -61,7 +61,7 @@ public class Constancia {
 
     public Constancia(String numeroConstancia, SolicitudConstancia solicitud, VersionPlantilla versionPlantilla,
             LocalDateTime fechaEmision, String prediosIncluidos, String rangoFechas, String archivoPdf,
-            boolean esDePrueba, Usuario trabajadorEmisor, byte[] contenidoPdf) {
+            boolean firmaLocal, Usuario trabajadorEmisor, byte[] contenidoPdf) {
         this.numeroConstancia = numeroConstancia;
         this.solicitud = solicitud;
         this.versionPlantilla = versionPlantilla;
@@ -69,7 +69,7 @@ public class Constancia {
         this.prediosIncluidos = prediosIncluidos;
         this.rangoFechas = rangoFechas;
         this.archivoPdf = archivoPdf;
-        this.esDePrueba = esDePrueba;
+        this.firmaLocal = firmaLocal;
         this.trabajadorEmisor = trabajadorEmisor;
         this.contenidoPdf = contenidoPdf.clone();
     }
@@ -106,8 +106,8 @@ public class Constancia {
         return contenidoPdf == null ? null : contenidoPdf.clone();
     }
 
-    public boolean isEsDePrueba() {
-        return esDePrueba;
+    public boolean isFirmaLocal() {
+        return firmaLocal;
     }
 
     public Usuario getTrabajadorEmisor() {

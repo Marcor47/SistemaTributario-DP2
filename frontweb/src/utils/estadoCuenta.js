@@ -1,17 +1,10 @@
 import { normalizar } from './formato.js'
 
 // Así emite San Miguel: el Impuesto Predial por contribuyente en 4 cuotas trimestrales y los arbitrios por predio y
-// mes, con el monto de cada servicio. Estas funciones ordenan la respuesta de /estado-cuenta para la pantalla.
+// mes, como un solo concepto con su monto total. Estas funciones ordenan la respuesta de /estado-cuenta.
 
 export const TRIBUTO_PREDIAL = 'IMPUESTO_PREDIAL'
 export const TRIBUTO_ARBITRIOS = 'ARBITRIOS'
-
-export const SERVICIOS = [
-  { codigo: 'BARRIDO_CALLES', corto: 'Barrido' },
-  { codigo: 'RECOLECCION_RESIDUOS', corto: 'Recolección' },
-  { codigo: 'PARQUES_JARDINES', corto: 'Parques' },
-  { codigo: 'SERENAZGO', corto: 'Serenazgo' },
-]
 
 const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Setiembre', 'Octubre',
   'Noviembre', 'Diciembre']
@@ -48,10 +41,6 @@ export function cuotasPredial(cuenta, anio) {
     .sort((a, b) => a.cuota - b.cuota)
 }
 
-export function montoServicio(fila, codigo) {
-  return fila.servicios?.find((servicio) => servicio.servicio === codigo)?.monto ?? 0
-}
-
 export function totalesDe(filas) {
   return {
     emitido: sumar(filas, 'emitido'),
@@ -81,10 +70,6 @@ export function arbitriosPorPredio(cuenta, anio) {
         predio: predios.get(codigoPredio) ?? { codigoPredio },
         filas: ordenadas,
         totales: totalesDe(ordenadas),
-        porServicio: SERVICIOS.map((servicio) => ({
-          ...servicio,
-          monto: Math.round(ordenadas.reduce((total, fila) => total + Number(montoServicio(fila, servicio.codigo)), 0) * 100) / 100,
-        })),
       }
     })
     .sort((a, b) => a.codigoPredio.localeCompare(b.codigoPredio))

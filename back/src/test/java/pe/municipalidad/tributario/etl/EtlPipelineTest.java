@@ -282,6 +282,24 @@ class EtlPipelineTest {
         mvc.perform(get("/api/homologacion/maestros/{id}/decisiones", empresa).session(responsable))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[*].tipoDecision", hasItem("HUMANA")));
+
+        /* HU040: también se ubica por el código de SAMNET del registro reasignado. */
+        mvc.perform(get("/api/homologacion/decisiones").param("tipoEntidad", "CONTRIBUYENTE").param("codigo", "921390")
+                        .session(responsable))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].tipoDecision", hasItem("HUMANA")))
+                .andExpect(jsonPath("$[*].idMaestro", hasItem(empresa.intValue())));
+    }
+
+    @Test
+    void laAuditoriaPorCodigoAvisaSiNoEstaHomologadoYExigeElRol() throws Exception {
+        mvc.perform(get("/api/homologacion/decisiones").param("tipoEntidad", "CONTRIBUYENTE").param("codigo", "000000")
+                        .session(sesion(NombreRol.RESPONSABLE_DATOS)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.codigo").value("CODIGO_SIN_HOMOLOGAR"));
+        mvc.perform(get("/api/homologacion/decisiones").param("tipoEntidad", "CONTRIBUYENTE").param("codigo", "014502")
+                        .session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isForbidden());
     }
 
     @Test

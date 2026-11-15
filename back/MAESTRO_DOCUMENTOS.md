@@ -14,7 +14,7 @@ adjuntos de predios. Los formularios se publican, retiran y descargan con `/api/
 
 ## Decisión: se queda así para el piloto
 
-Para la demostración y un piloto de unos 10 usuarios internos, guardar los archivos en la misma base es suficiente: los
+Para la presentación y un piloto de unos 10 usuarios internos, guardar los archivos en la misma base es suficiente: los
 formularios son pocos y pequeños (decenas de KB), se publican pocas veces y un solo respaldo (`pg_dump`) cubre datos y
 documentos. No hay otro servicio que operar.
 

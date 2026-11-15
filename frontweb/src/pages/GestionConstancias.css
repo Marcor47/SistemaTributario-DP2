@@ -2,8 +2,17 @@
 .gc-panel { background: #fff; border: 1px solid #d6e2ef; border-radius: 14px; padding: 20px; }
 .gc-panel h2 { margin: 0 0 16px; color: #17406b; font-size: 1.25rem; }
 .gc-panel p { margin: 10px 0; line-height: 1.5; }
-.gc-lista { display: grid; gap: 10px; }
-.gc-solicitud { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; width: 100%; padding: 14px; border: 1px solid #b9c8da; border-radius: 9px; background: #f7fafd; color: #17406b; text-align: left; cursor: pointer; font: inherit; }
+.gc-tabla-contenedor { overflow-x: auto; }
+.gc-tabla { width: 100%; min-width: 640px; border-collapse: collapse; color: #17406b; text-align: left; }
+.gc-tabla th { padding: 12px 14px; background: #edf3fa; font-size: .85rem; border-bottom: 2px solid #d6e2ef; }
+.gc-tabla td { padding: 16px 14px; border-bottom: 1px solid #e3ebf4; vertical-align: middle; }
+.gc-tabla tbody tr:last-child td { border-bottom: 0; }
+.gc-tabla tbody tr:hover { background: #f7fafd; }
+.gc-tabla .gc-fila--seleccionada { background: #e6f4fb; }
+.gc-tabla td:nth-child(3) { min-width: 200px; overflow-wrap: anywhere; }
+.gc-codigo { display: block; margin-top: 4px; color: #526780; font-size: .8rem; }
+.gc-estado { display: inline-block; padding: 5px 10px; border-radius: 20px; background: #edf3fa; font-size: .85rem; }
+.gc-solicitud { padding: 8px 0; border: 0; background: transparent; color: #17406b; text-align: left; cursor: pointer; font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
 .gc-solicitud:hover:not(:disabled) { background: #e6f4fb; }
 .gc-solicitud:focus-visible { outline: 3px solid #19c3f3; outline-offset: 2px; }
 .gc-panel form { display: grid; gap: 8px; margin-top: 24px; max-width: 560px; }
@@ -11,3 +20,46 @@
 .gc-panel form button { justify-self: start; }
 .gc-aviso { padding: 12px 16px; border-radius: 8px; background: #ecfdf3; color: #067647; }
 .gc-aviso--error { background: #fdf1f0; color: #8a1c12; }
+.gc-detalle { display: grid; gap: 24px; }
+.gc-detalle-cabecera { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid #e3ebf4; }
+.gc-detalle-cabecera h2 { margin: 6px 0 0; font-size: 1.5rem; }
+.gc-etiqueta { display: block; font-size: .8rem; font-weight: 600; letter-spacing: .03em; }
+.gc-detalle-cabecera .gc-etiqueta { color: #526780; }
+.gc-detalle h3 { margin: 0; color: #17406b; font-size: 1rem; }
+.gc-contribuyente { background: #f7fafd; border: 1px solid #e3ebf4; border-radius: 12px; padding: 20px; }
+.gc-contribuyente-nombre { display: block; margin-top: 10px; color: #17406b; font-size: 1.15rem; overflow-wrap: anywhere; }
+.gc-datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 18px 0 0; }
+.gc-datos dt { color: #526780; font-size: .8rem; margin-bottom: 5px; }
+.gc-datos dd { margin: 0; color: #17406b; font-weight: 600; overflow-wrap: anywhere; }
+.gc-deuda-resumen { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px; border: 1px solid #f1d29a; border-left: 4px solid #d48a21; border-radius: 12px; background: #fff8eb; color: #74470d; }
+.gc-deuda-total { display: block; margin: 8px 0; font-size: clamp(1.6rem, 4vw, 2rem); font-variant-numeric: tabular-nums; }
+.gc-deuda-resumen > div > span:last-child { font-size: .85rem; line-height: 1.5; }
+.gc-deuda-resumen--sin-deuda { background: #ecfdf3; border-color: #a6dfc0; border-left-color: #067647; color: #067647; }
+.gc-deuda-cantidad { flex-shrink: 0; font-size: .8rem; padding: 8px 12px; border-radius: 20px; background: #fff; }
+.gc-deuda-grupos { margin-top: 22px; display: grid; gap: 10px; }
+.gc-subtitulo { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.gc-subtitulo > span { color: #526780; font-size: .8rem; }
+.gc-tributo { border: 1px solid #d6e2ef; border-radius: 10px; overflow: hidden; }
+.gc-tributo summary { display: flex; align-items: center; gap: 12px; padding: 16px; cursor: pointer; color: #17406b; background: #f7fafd; }
+.gc-tributo summary::before { content: '›'; font-size: 1.4rem; transition: transform .15s; }
+.gc-tributo[open] summary::before { transform: rotate(90deg); }
+.gc-tributo summary::-webkit-details-marker { display: none; }
+.gc-tributo summary:focus-visible { outline: 3px solid #19c3f3; outline-offset: -3px; }
+.gc-tributo summary small { display: block; margin-top: 5px; font-size: .8rem; color: #526780; }
+.gc-importe { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gc-deuda-tabla { max-height: 340px; overflow: auto; }
+.gc-deuda-tabla table { width: 100%; border-collapse: collapse; text-align: left; font-size: .85rem; }
+.gc-deuda-tabla th { position: sticky; top: 0; background: #edf3fa; color: #526780; }
+.gc-deuda-tabla th, .gc-deuda-tabla td { padding: 12px 16px; border-bottom: 1px solid #e3ebf4; white-space: nowrap; }
+.gc-deuda-tabla th:last-child, .gc-deuda-tabla td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.gc-deuda-tabla tbody tr:nth-child(even) { background: #f7fafd; }
+.gc-acciones { padding-top: 22px; border-top: 1px solid #e3ebf4; }
+.gc-acciones > h3 { margin-bottom: 14px; }
+.gc-solo-lectores { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 600px) {
+  .gc-detalle { gap: 18px; }
+  .gc-contribuyente, .gc-deuda-resumen { padding: 16px; }
+  .gc-datos { grid-template-columns: 1fr; gap: 14px; }
+  .gc-deuda-resumen { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .gc-tributo summary { flex-wrap: wrap; padding: 12px; }
+}

@@ -1,6 +1,6 @@
 import { pedir } from './api.js'
 
-// HU015: la solicitud, el documento y la firma los maneja siempre el backend; no hay modo de demostración.
+// HU015: la solicitud, el documento y la firma los maneja siempre el backend.
 export const obtenerSesion = () => pedir('/auth/me')
 export const iniciarSolicitud = () => pedir('/constancias', { method: 'POST' })
 export const obtenerSolicitud = (id) => pedir(`/constancias/${encodeURIComponent(id)}`)

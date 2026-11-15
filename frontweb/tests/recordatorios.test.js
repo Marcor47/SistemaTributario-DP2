@@ -14,14 +14,9 @@ import {
   guardarConfiguracionRecordatorio,
   obtenerConfiguracionRecordatorio,
   obtenerRecordatorioObligacion,
-  reiniciarDatosSimulados,
 } from '../src/services/recordatorioService.js'
 
-function isoEnDias(dias) {
-  const fecha = new Date()
-  fecha.setUTCDate(fecha.getUTCDate() + dias)
-  return fecha.toISOString().slice(0, 10)
-}
+const json = (cuerpo, estado = 200) => new Response(JSON.stringify(cuerpo), { status: estado })
 
 test('HU016: los días de anticipación son un entero entre 1 y 10', () => {
   for (const valor of [1, '1', 5, '10', 10]) {
@@ -69,79 +64,31 @@ test('HU016: los estados y textos del recordatorio son legibles', () => {
   assert.match(descripcionRecordatorio({ estado: 'NO_ENVIADO' }), /No se registró un envío/)
 })
 
-test('HU016: la configuración inicia en 5 días y persiste el cambio', async () => {
-  reiniciarDatosSimulados()
-  const inicial = await obtenerConfiguracionRecordatorio()
-  assert.equal(inicial.diasAnticipacion, DIAS_RECORDATORIO_POR_DEFECTO)
-  assert.equal(inicial.valorPorDefecto, DIAS_RECORDATORIO_POR_DEFECTO)
-  assert.equal(inicial.minimo, 1)
-  assert.equal(inicial.maximo, 10)
-
-  await assert.rejects(guardarConfiguracionRecordatorio(11), {
-    codigo: 'DIAS_RECORDATORIO_INVALIDO',
-    estado: 400,
+test('HU016: la configuración se lee y se guarda en el servidor con la anticipación validada', async (t) => {
+  const llamadas = []
+  t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
+    llamadas.push({ ruta: new URL(url).pathname, metodo: opciones.method ?? 'GET', cuerpo: opciones.body })
+    if (String(url).endsWith('/auth/interno/csrf')) return json({ headerName: 'X-XSRF-TOKEN', token: 'token' })
+    return json({ diasAnticipacion: 7, minimo: 1, maximo: 10, valorPorDefecto: DIAS_RECORDATORIO_POR_DEFECTO, actualizadoEn: '2026-11-14T09:00:00', actualizadoPor: 'María Fernanda Quispe Rojas' })
   })
-
-  const actualizada = await guardarConfiguracionRecordatorio(7, { usuario: 'Gerencia de Rentas' })
-  assert.equal(actualizada.diasAnticipacion, 7)
-  assert.equal(actualizada.actualizadoPor, 'Gerencia de Rentas')
-  assert.ok(actualizada.actualizadoEn)
-  assert.equal((await obtenerConfiguracionRecordatorio()).diasAnticipacion, 7)
-
-  reiniciarDatosSimulados()
-  assert.equal((await obtenerConfiguracionRecordatorio()).diasAnticipacion, DIAS_RECORDATORIO_POR_DEFECTO)
+  await assert.rejects(guardarConfiguracionRecordatorio(11), { codigo: 'DIAS_RECORDATORIO_INVALIDO' })
+  const guardada = await guardarConfiguracionRecordatorio(7)
+  assert.equal(guardada.diasAnticipacion, 7)
+  const enviada = llamadas.find((l) => l.metodo === 'PUT')
+  assert.equal(enviada.ruta, '/api/recordatorios-vencimiento/configuracion')
+  assert.deepEqual(JSON.parse(enviada.cuerpo), { diasAnticipacion: 7 })
+  const leida = await obtenerConfiguracionRecordatorio()
+  assert.equal(leida.valorPorDefecto, DIAS_RECORDATORIO_POR_DEFECTO)
 })
 
-test('HU016: el aviso simulado es determinista y conserva la anticipación con la que se generó', async () => {
-  reiniciarDatosSimulados()
-  await guardarConfiguracionRecordatorio(5)
-
-  const obligacion = {
-    id: 10,
-    fechaVencimiento: isoEnDias(-40),
-    contribuyenteCodigo: '021390',
-  }
-  const primero = await obtenerRecordatorioObligacion(obligacion)
-  assert.equal(primero.estado, 'ENVIADO')
-  assert.equal(primero.diasAnticipacion, 5)
-  assert.equal(primero.idAviso, 'SIM-10')
-  assert.equal(primero.idObligacion, '10')
-  assert.ok(primero.fechaEnvio)
-  assert.match(primero.correoDestino, /@correo\.test$/)
-
-  await guardarConfiguracionRecordatorio(9)
-  const historico = await obtenerRecordatorioObligacion(obligacion)
-  assert.equal(historico.diasAnticipacion, 5, 'Un cambio de N no reescribe los avisos ya generados')
-
-  const nuevo = await obtenerRecordatorioObligacion({
-    id: 11,
-    fechaVencimiento: isoEnDias(-40),
-    contribuyenteCodigo: '021390',
+test('HU016: el estado del recordatorio de una cuota viene del servidor', async (t) => {
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    assert.equal(new URL(url).pathname, '/api/recordatorios-vencimiento/obligaciones/10')
+    return json({ idAviso: 55, idObligacion: '10', estado: 'ENVIADO', correoDestino: 'mquispe.rojas@gmail.com', fechaProgramada: '2026-11-20T08:00:00', fechaEnvio: '2026-11-20T08:00:05', diasAnticipacion: 5 })
   })
-  assert.equal(nuevo.diasAnticipacion, 9)
-  assert.equal(nuevo.estado, 'ENVIADO')
-
-  reiniciarDatosSimulados()
-})
-
-test('HU016: el mock representa avisos sin correo, fallidos y programados', async () => {
-  reiniciarDatosSimulados()
-  await guardarConfiguracionRecordatorio(5)
-
-  const sinCorreo = await obtenerRecordatorioObligacion({ id: 13, fechaVencimiento: isoEnDias(-40) })
-  assert.equal(sinCorreo.estado, 'SIN_CORREO')
-  assert.equal(sinCorreo.correoDestino, null)
-
-  const fallido = await obtenerRecordatorioObligacion({ id: 12, fechaVencimiento: isoEnDias(-40) })
-  assert.equal(fallido.estado, 'FALLIDO')
-  assert.ok(fallido.fechaEnvio)
-
-  const programado = await obtenerRecordatorioObligacion({ id: 14, fechaVencimiento: isoEnDias(30) })
-  assert.equal(programado.estado, 'PROGRAMADO')
-  assert.equal(programado.fechaEnvio, null)
-  assert.ok(programado.fechaProgramada)
-
-  reiniciarDatosSimulados()
+  const recordatorio = await obtenerRecordatorioObligacion({ id: 10 })
+  assert.equal(recordatorio.estado, 'ENVIADO')
+  assert.equal(recordatorio.diasAnticipacion, 5)
 })
 
 test('HU016: la configuración tiene una ruta y un menú propios solo para el administrador', () => {
@@ -157,6 +104,6 @@ test('HU016: la configuración tiene una ruta y un menú propios solo para el ad
   assert.doesNotMatch(modulos.slice(inicioModulo, inicioModulo + 500), /METAS:GESTIONAR/)
 })
 
-test('HU016: una obligación sin identificador no consulta el mock', async () => {
+test('HU016: una obligación sin identificador no consulta al servidor', async () => {
   await assert.rejects(obtenerRecordatorioObligacion({}), { codigo: 'OBLIGACION_INVALIDA' })
 })

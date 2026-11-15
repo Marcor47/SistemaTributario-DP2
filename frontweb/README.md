@@ -1,6 +1,6 @@
-# React + Vite
+# Front web
 
-## Pago total en línea y pasarela simulada (HU022)
+## Pago total en línea (HU022)
 
 En `/estado-cuenta`, **Revisar pago total** crea una orden con
 `POST /api/portal/pagos` y body `{}`. El backend determina todas las obligaciones
@@ -9,7 +9,7 @@ Con una sesión del backend requiere una cuenta actualizada. Las copias
 desactualizadas no habilitan pagos.
 
 El portal usa siempre la sesión y los datos del backend: no crea pagos ni saldos
-en `sessionStorage`. No hay datos de demostración ni mocks: todas las pantallas y las opciones
+en `sessionStorage`. No hay datos fijos en el código: todas las pantallas y las opciones
 de sus filtros se leen del backend. `.env.development` apunta a
 `http://localhost:8080/api`. Inicia el backend con su perfil normal y PostgreSQL;
 el login acepta el código o el documento de un contribuyente con credencial
@@ -17,16 +17,11 @@ habilitada en `samnet.credencial_web`. Flyway crea automáticamente los accesos 
 los seis contribuyentes ficticios activos mediante `R__datos_prueba_07_credenciales_portal.sql`,
 sin sobrescribir credenciales existentes. Por ejemplo, usa `021390` con
 `Portal021390!`; los demás accesos están en `back/README.md`.
-`DEMO-0001` es un acceso local antiguo y no sirve para realizar este flujo con la BD.
-En desarrollo, el login muestra un recuadro amarillo con `021390` / `Portal021390!`
-y el botón **Usar estos datos** para completar el formulario. El botón no inicia
-sesión automáticamente; **Ingresar** autentica mediante el backend.
 
-La URL local `/pasarela-simulada/SIM-…?transaccion=…` abre una pantalla de prueba
-con saldo base, descuento y total recibidos del servidor. No pide tarjetas ni
-conecta al sandbox real de Niubiz. Solo un clic en **Confirmar pago**
-envía `POST /api/portal/pagos/{id}/confirmacion`. Volver a la cuenta no confirma
-ni cancela la orden. La simulación sí registra pagos en los datos del backend.
+Con `NIUBIZ_MODE=local` en el backend, la URL `/pasarela/OPL-…?transaccion=…` abre la pasarela local
+con saldo base, descuento, interés y total recibidos del servidor. No pide tarjetas ni conecta al
+sandbox de Niubiz. Solo **Confirmar pago** envía `POST /api/portal/pagos/{id}/confirmacion`.
+Volver a la cuenta no confirma ni cancela la orden.
 
 El comprobante solo aparece tras una respuesta `CONFIRMADA`. La ruta `/pagos/{id}`
 permite recuperar una orden por su ID y una recarga consulta su estado sin volver
@@ -46,7 +41,7 @@ recibos; la API actual no incluye los comprobantes en las filas de la cuenta.
 `SALDO_CAMBIO` obliga a revisar la cuenta y crear una orden nueva.
 `BENEFICIO_INDETERMINADO` y `SIN_COBRO_VIRTUAL` indican atención en ventanilla.
 Una sesión vencida solicita iniciar sesión; una orden expirada o no reconocida
-no se confirma. Contrato y datos: `back/HU022_API.md`. La orden simulada pendiente
+no se confirma. Contrato y datos: `back/HU022_API.md`. Una orden pendiente de la pasarela local
 puede perderse al reiniciar el backend porque la pasarela conserva órdenes en memoria.
 
 ## Declaración jurada del predio (HU003)
@@ -54,8 +49,7 @@ puede perderse al reiniciar el backend porque la pasarela conserva órdenes en m
 En `/predios`, busca y selecciona un predio. Las minipestañas **Resumen**,
 **Declaración jurada** y **Arbitrios** conservan el mismo predio seleccionado. La segunda consulta
 `GET /api/predios/{codigoPredio}/declaracion-jurada` mediante `VITE_API_URL`
-(por defecto `http://localhost:8080/api`). Requiere el backend disponible, incluso
-si otras pantallas están en modo demostración; no sustituye errores por una DJ ficticia.
+(por defecto `http://localhost:8080/api`). Requiere el backend disponible; no sustituye errores por una DJ ficticia.
 
 La pestaña **Declaración jurada** exige sesión interna con rol `ANALISTA_RENTAS` o
 `ADMINISTRADOR`, igual que **Arbitrios** (`back/HU005_API.md`): sin sesión o sin rol muestra
@@ -68,8 +62,7 @@ deduce por el año. Las consultas fallidas permiten reintentar; cambiar de predi
 descarta la consulta anterior. Un importe ausente se muestra como no disponible.
 
 Para probar la integración, usa `014502-01` (vigente 2024 e histórica 2012) o
-`021390-01` (solo vigente). La búsqueda y el resumen de HU002 siguen usando los
-datos de demostración existentes; conectarlos a su API queda fuera de HU003.
+`021390-01` (solo vigente). La búsqueda y el resumen de HU002 usan la API de predios.
 
 ## Arbitrios de un predio (HU005)
 
@@ -91,9 +84,7 @@ reingresar.
 Para probar, inicia sesión en `/interno/login` con `admin` / `admin123` (usuario de
 desarrollo creado por `R__datos_prueba_08_usuarios_internos.sql`) y usa `014502-01`
 (todas pagadas), `021390-01` (3 pagadas y 3 vencidas), `045067-01` o `058934-01`
-(copropiedad, 12 cuotas). La búsqueda de predios sigue usando los datos de
-demostración de HU002, así que solo esos códigos se pueden seleccionar en la pantalla;
-el `404` de un predio inexistente se comprueba llamando directamente a la API.
+(copropiedad, 12 cuotas). La búsqueda de predios usa la API de HU002; el `404` de un predio inexistente se comprueba llamando directamente a la API.
 
 ## Morosidad (HU008) y mi estado de cuenta (HU014)
 
@@ -124,47 +115,26 @@ documento que genera el backend, y enviar la firma. Requiere una sesión iniciad
 `POST /api/auth/login`; el frontend envía la cookie en las peticiones. El botón **Salir** cierra
 esa sesión en el backend.
 
-Mientras el backend use `FirmadorSimuladoGateway`, la pantalla ofrece **Firmar en modo de prueba**
-y muestra que la firma no tiene validez legal. También acepta un archivo de firma de hasta 48 KB
-y el texto del certificado para enviarlos al contrato actual de la API. La integración con un
-firmador real queda pendiente.
+Mientras no se integre el firmador digital del Estado, la firma es la electrónica de Servicios en Línea
+(`FirmadorServiciosEnLineaGateway` en el backend). La pantalla también acepta un archivo de firma de hasta
+48 KB y el texto del certificado para el contrato de la API.
 
 El personal de ventanilla con permiso `CONSTANCIAS:GESTIONAR` usa
 `/gestion/constancias` para revisar la deuda, generar la orden y emitir la constancia tras
-el pago. En el perfil local se crea la cuenta ficticia `ventanilla.demo` / `VentanillaDemo#2026`
-sin modificar cuentas existentes. El ciudadano recibe el PDF en su buzón.
+el pago. El ciudadano recibe el PDF en su buzón.
 
 El frontend usa `VITE_API_URL` o `http://localhost:8080/api` por defecto. Para entrar con la base
 PostgreSQL se necesita una credencial de contribuyente en `samnet.credencial_web`.
 
 ## Recordatorio de vencimiento (HU016)
 
-El backend de HU016 todavía no está implementado, así que esta historia funciona con **mocks
-persistidos en el navegador**. La configuración vive en
-`/configuracion/recordatorios` (menú **Recordatorios**, exclusivo del rol **Administrador**).
-Permite elegir entre 1 y 10 días de anticipación, con 5 como valor por defecto, y restablecer
-los datos simulados. Mientras no exista el backend, el acceso se controla por rol en el
-frontend; cuando se implemente HU016 conviene sustituirlo por un permiso específico
-(`RECORDATORIOS:CONFIGURAR`).
+La configuración vive en `/configuracion/recordatorios` (menú **Recordatorios**, rol Administrador) y se
+guarda en el backend (`GET/PUT /api/recordatorios-vencimiento/configuracion`), con registro en la auditoría.
+Permite elegir entre 1 y 10 días de anticipación (5 por defecto) y procesar los recordatorios del día.
 
-En `/contribuyentes`, pestaña **Cobranza**, al pulsar **Ver etapa** se muestra además el bloque
-**Recordatorio de vencimiento** de la obligación: estado, fecha de envío o programación,
-anticipación y correo destino. Los estados posibles son `Enviado`, `Programado`, `Fallido`,
-`Sin correo registrado` y `No enviado`.
-
-El mock se guarda en `localStorage` con la clave `hu016.recordatorios.v1`. Los avisos ya
-generados conservan la anticipación con la que se crearon; cambiar N solo afecta a los nuevos.
-El botón **Restablecer datos simulados** de la pantalla de configuración borra esa clave y vuelve
-a los valores iniciales.
-
-Para la demostración inicia sesión en `/gestion/login` con `admin` / `admin123` (rol
-Administrador). Gerencia de Rentas ya no tiene acceso a esta configuración y, si intenta abrir
-la ruta directamente, se le redirige a **Sin acceso**. Prueba con los contribuyentes `021390` o
-`045067`. Cuando se implemente el backend, se reemplazan las funciones de
-`frontweb/src/services/recordatorioService.js` por las llamadas a:
-
-- `GET/PUT /api/configuracion/recordatorios`
-- `GET /api/obligaciones/{id}/recordatorio-vencimiento`
+En `/contribuyentes`, pestaña **Cobranza**, **Ver etapa** muestra el recordatorio de la obligación
+(`GET /api/recordatorios-vencimiento/obligaciones/{id}`): estado, fecha de envío o programación, anticipación
+y correo destino.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

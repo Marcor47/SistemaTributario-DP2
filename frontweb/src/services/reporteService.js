@@ -1,6 +1,7 @@
 import { pedir } from './api.js'
 import { EVENTO_SESION_INTERNA_EXPIRADA } from './authInternaService.js'
 import { parametrosPricos, parametrosReporte } from '../utils/reportes.js'
+import { hoyLima } from '../utils/formato.js'
 
 function controlarSesion(error) {
   if (error.estado === 401 && typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_SESION_INTERNA_EXPIRADA))
@@ -105,7 +106,7 @@ export function nombreDesdeCabecera(cabecera) {
 
 export function nombreDescarga(ruta) {
   const extension = /[?&]formato=PDF(?:&|$)/i.test(ruta) ? 'pdf' : 'xlsx'
-  const fecha = new Date().toLocaleDateString('en-CA').replaceAll('-', '')
+  const fecha = hoyLima().replaceAll('-', '')
   const tipo = ruta.match(/\/reportes\/(PRICOS|MOROSOS|morosos-zona|buenos-pagadores-zona)\/exportar/i)?.[1]?.toLowerCase()
   const nombreTipo = tipo === 'pricos' ? 'pricos'
     : tipo?.includes('morosos') ? 'morosos'

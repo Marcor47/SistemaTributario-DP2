@@ -4,8 +4,8 @@ import java.math.BigDecimal;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 
 /*
- * Pasarela de pagos que ya usa la Municipalidad (RF-036, RNF-011). En la demostración solo se usa su
- * entorno de pruebas. El simulador de contingencia se activa explícitamente por configuración (RNF-015).
+ * Pasarela de pagos que ya usa la Municipalidad (RF-036, RNF-011). Se usa su entorno
+ * sandbox; la pasarela local de contingencia se activa por configuración (tributario.niubiz.mode=local, RNF-015).
  */
 public interface NiubizGateway {
 

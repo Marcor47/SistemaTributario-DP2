@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.pagos;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -30,6 +31,7 @@ import pe.municipalidad.tributario.gestiontributaria.EstadoCuenta;
 import pe.municipalidad.tributario.integracion.niubiz.NiubizGateway;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.obligacion.Obligacion;
+import pe.municipalidad.tributario.obligacion.TasaInteresMoratorio;
 
 @Service
 public class PagoPortalService {
@@ -39,15 +41,17 @@ public class PagoPortalService {
     private final NiubizGateway pasarela;
     private final Clock reloj;
     private final JdbcTemplate jdbc;
+    private final TasaInteresMoratorio tim;
 
     public PagoPortalService(TransaccionPagoRepository transacciones, ContribuyenteService contribuyentes,
-            SamnetGateway samnet, NiubizGateway pasarela, Clock reloj, JdbcTemplate jdbc) {
+            SamnetGateway samnet, NiubizGateway pasarela, Clock reloj, JdbcTemplate jdbc, TasaInteresMoratorio tim) {
         this.transacciones = transacciones;
         this.contribuyentes = contribuyentes;
         this.samnet = samnet;
         this.pasarela = pasarela;
         this.reloj = reloj;
         this.jdbc = jdbc;
+        this.tim = tim;
     }
 
     @Transactional
@@ -171,12 +175,12 @@ public class PagoPortalService {
                 throw ventanilla();
             }
             detalles.add(new DetallePago(obligacion.getIdObligacion(), obligacion.saldo(),
-                    obligacion.saldo().subtract(obligacion.montoConBeneficio()), idBeneficio));
+                    obligacion.saldo().subtract(obligacion.montoConBeneficio()), interes(obligacion), idBeneficio));
         }
         if (!beneficios.isEmpty() && detalles.stream().noneMatch(d -> d.getIdBeneficio() != null)) {
             throw ventanilla();
         }
-        var total = detalles.stream().map(d -> d.getMontoBase().subtract(d.getMontoDescuento()))
+        var total = detalles.stream().map(d -> d.getMontoBase().subtract(d.getMontoDescuento()).add(d.getMontoInteres()))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         if (total.signum() == 0) {
             throw new ReglaNegocioException("SIN_COBRO_VIRTUAL",
@@ -191,9 +195,22 @@ public class PagoPortalService {
             DetallePago anterior = original.get(actual.getIdObligacion());
             if (anterior == null || anterior.getMontoBase().compareTo(actual.getMontoBase()) != 0
                     || anterior.getMontoDescuento().compareTo(actual.getMontoDescuento()) != 0
+                    || anterior.getMontoInteres().compareTo(actual.getMontoInteres()) != 0
                     || !Objects.equals(anterior.getIdBeneficio(), actual.getIdBeneficio())) return true;
         }
         return false;
+    }
+
+    /*
+     * Interés moratorio a la fecha del pago sobre el insoluto; si un beneficio descuenta la cuota, el interés se
+     * reduce en la misma proporción.
+     */
+    private BigDecimal interes(Obligacion obligacion) {
+        BigDecimal interes = obligacion.interesMoratorioAl(LocalDate.now(reloj), tim.mensual());
+        BigDecimal porcentaje = obligacion.getPorcentajeDescuento() == null ? BigDecimal.ZERO
+                : obligacion.getPorcentajeDescuento();
+        return interes.multiply(BigDecimal.valueOf(100).subtract(porcentaje))
+                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
     }
 
     private static ReglaNegocioException ventanilla() {

@@ -12,7 +12,7 @@ import {
 } from '../utils/arbitrios.js'
 import { TAMANIOS_PAGINA, paginar } from '../utils/paginacion.js'
 import { ROLES_CONSULTA_PREDIO, tieneRolInterno } from '../utils/roles.js'
-import { SERVICIOS, montoServicio, nombreMes } from '../utils/estadoCuenta.js'
+import { nombreMes } from '../utils/estadoCuenta.js'
 import { fecha, moneda } from '../utils/formato.js'
 import './AccesoInterno.css'
 import './ArbitriosPanel.css'
@@ -99,8 +99,7 @@ function GrupoCuotas({ grupo }) {
               <th scope="col">Año</th>
               <th scope="col">Mes</th>
               <th scope="col">Vencimiento</th>
-              {SERVICIOS.map((servicio) => <th key={servicio.codigo} scope="col" className="num">{servicio.corto}</th>)}
-              <th scope="col" className="num">Emitido</th>
+              <th scope="col" className="num">Arbitrio emitido</th>
               <th scope="col" className="num">Pagado</th>
               <th scope="col" className="num">Descontado</th>
               <th scope="col" className="num">Saldo</th>
@@ -117,9 +116,6 @@ function GrupoCuotas({ grupo }) {
                   <td>{cuota.anio}</td>
                   <td>{nombreMes(cuota.cuota)}</td>
                   <td>{fecha(cuota.fechaVencimiento)}</td>
-                  {SERVICIOS.map((servicio) => (
-                    <td key={servicio.codigo} className="num">{moneda(montoServicio(cuota, servicio.codigo))}</td>
-                  ))}
                   <td className="num">{moneda(cuota.emitido)}</td>
                   <td className="num">{moneda(cuota.pagado)}</td>
                   <td className="num">{moneda(cuota.descontado)}</td>
@@ -214,13 +210,6 @@ function ResultadoArbitrios({ datos }) {
                 <span className="pl">Interés moratorio</span><strong>{moneda(resumen.totalInteresMoratorio)}</strong>
               </div>
             </div>
-            {resumen.porServicio?.length > 0 && (
-              <dl className="arb-servicios" aria-label="Emitido por servicio">
-                {resumen.porServicio.map((servicio) => (
-                  <div key={servicio.servicio}><dt>{servicio.descripcion}</dt><dd>{moneda(servicio.emitido)}</dd></div>
-                ))}
-              </dl>
-            )}
             <div className="arb-conteo">
               <span className="estado ok">{conteo(resumen.cuotasPagadas, 'cuota pagada', 'cuotas pagadas')}</span>
               <span className="estado aviso">{conteo(resumen.cuotasPendientes, 'cuota pendiente', 'cuotas pendientes')}</span>
@@ -307,9 +296,8 @@ function ResultadoArbitrios({ datos }) {
       )}
 
       <p className="hint arb-nota">
-        Consulta de solo lectura. Los arbitrios se emiten por mes y cada cuota suma los servicios de barrido de
-        calles, recolección de residuos sólidos, parques y jardines y serenazgo, según el uso y la zona del predio.
-        El interés moratorio corre sobre las cuotas vencidas.
+        Consulta de solo lectura. Los arbitrios municipales se emiten por mes como un solo monto, según el uso y la
+        zona del predio. El interés moratorio corre sobre las cuotas vencidas.
       </p>
     </section>
   )

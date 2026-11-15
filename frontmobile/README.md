@@ -45,9 +45,8 @@ de `src/app/index.jsx`. Las rutas nuevas que requieran sesión van dentro de
 
 `/login` llama a `POST /api/auth/login`; el backend responde con una cookie de sesión que la app
 reenvía en cada petición. Al abrir la app se consulta `GET /api/auth/me` para recuperar la sesión.
-Si una petición responde 401 (la sesión vence a los 10 minutos de inactividad), la app vuelve al
-login y lo avisa. En desarrollo el login muestra el acceso de prueba `021390` / `Portal021390!`
-con el botón **Usar estos datos** (no inicia sesión por sí solo).
+Si una petición responde 401 (la sesión vence tras 60 minutos de inactividad), la app vuelve al
+login y lo avisa.
 
 ## Registro o traspaso de predio (HU046)
 
@@ -98,7 +97,7 @@ abrirla. Si se pierde una confirmación, se consulta la misma orden; no se crea 
 Una copia desactualizada no habilita el pago. Los errores de beneficios indeterminados o de cobertura del
 100 % derivan a ventanilla. Un cambio de saldo requiere volver a la cuenta y generar una cotización nueva.
 El contrato completo está en `back/HU022_API.md`. La configuración del sandbox está en
-`back/NIUBIZ_SANDBOX.md`. El simulador solo se activa explícitamente con `NIUBIZ_MODE=simulado`.
+`back/NIUBIZ_SANDBOX.md`. La pasarela local solo se activa explícitamente con `NIUBIZ_MODE=local`.
 
 ## Buzón del ciudadano (HU019)
 
@@ -117,8 +116,8 @@ Validación: `npm test`, `npm run lint`, `npm run typecheck` y `npx expo export 
 ## Solicitud de Constancia de No Adeudo (HU015 y HU020)
 
 La pantalla `/constancia` consulta la deuda y muestra las obligaciones pendientes. Sin deuda permite
-iniciar o recuperar una solicitud, revisar el documento y firmarla. La firma visual y el firmador del
-backend son simulados y no tienen validez legal.
+iniciar o recuperar una solicitud, revisar el documento y firmarla. Mientras no se integre el firmador digital del
+Estado, la firma es la electrónica de Servicios en Línea.
 
 Después de firmar, el contribuyente espera la revisión del operador. Cuando este emite la orden,
 la app consulta `GET /api/constancias/{id}/orden-pago`, inicia la sesión en
@@ -126,7 +125,7 @@ la app consulta `GET /api/constancias/{id}/orden-pago`, inicia la sesión en
 se envía a `POST /api/constancias/{id}/orden-pago/confirmacion`; únicamente una respuesta confirmada
 actualiza el trámite. Tras el pago, HU024 firma y emite la constancia automáticamente; si ese paso falla,
 queda PAGADA para atención municipal. El ciudadano consulta la constancia emitida en
-`/buzon`. El simulador de pasarela solo se usa si se configura explícitamente en el backend.
+`/buzon`. La pasarela local solo se usa si se configura explícitamente en el backend.
 
 La orden no abre otra sesión si ya se inició una. Si se perdió el resultado, el ciudadano debe
 consultar a la municipalidad antes de volver a pagar. La tarifa y la firma municipal siguen siendo

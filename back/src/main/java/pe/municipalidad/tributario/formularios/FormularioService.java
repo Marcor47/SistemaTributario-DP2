@@ -38,12 +38,17 @@ public class FormularioService {
 
     @Transactional(readOnly = true)
     public List<Resumen> vigentes() {
-        return versiones.findByVigenteTrueOrderByPlantillaCodigoAsc().stream().map(Resumen::from).toList();
+        /* Solo los formularios y plantillas para descarga: las plantillas internas (p. ej. la constancia) las usa el
+         * sistema para generar documentos y no se publican en este catálogo. */
+        return versiones.findByVigenteTrueOrderByPlantillaCodigoAsc().stream()
+                .filter(v -> v.getPlantilla().getTipo() == TipoPlantilla.FORMULARIO_MANUAL)
+                .map(Resumen::from).toList();
     }
 
     @Transactional(readOnly = true)
     public VersionPlantilla vigente(String codigo) {
-        return versiones.findByPlantillaCodigoAndVigenteTrue(codigo).orElseThrow(
+        return versiones.findByPlantillaCodigoAndVigenteTrue(codigo)
+                .filter(v -> v.getPlantilla().getTipo() == TipoPlantilla.FORMULARIO_MANUAL).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Formulario no encontrado"));
     }
 

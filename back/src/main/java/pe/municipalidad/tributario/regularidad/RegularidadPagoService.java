@@ -76,8 +76,8 @@ public class RegularidadPagoService {
                     BigDecimal.ZERO.setScale(2),
                     "SIN_EMISIONES",
                     totalCuotas == 0
-                            ? "No se registran cuotas emitidas para el contribuyente en el anio " + anioEvaluado + "."
-                            : "Ninguna cuota del anio " + anioEvaluado + " ha vencido todavia.",
+                            ? "No se registran cuotas emitidas para el contribuyente en el año " + anioEvaluado + "."
+                            : "Ninguna cuota del año " + anioEvaluado + " ha vencido todavía.",
                     fechaCorte, aniosDisponibles, detalle
             );
         }

@@ -78,7 +78,8 @@ public class AuthInternaController {
         HttpSession anterior = request.getSession(false);
         if (anterior != null) anterior.invalidate();
         HttpSession sesion = request.getSession(true);
-        sesion.setMaxInactiveInterval(900);
+        /* La sesión del personal dura una hora sin actividad (6.5). */
+        sesion.setMaxInactiveInterval(3600);
         sesion.setAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO, usuario.getIdUsuario());
         registrarEvento(TipoEventoSeguridad.LOGIN_OK, usuario.getNombreUsuario(), request, "Inicio de sesión interno");
         return respuesta(usuario);

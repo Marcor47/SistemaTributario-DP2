@@ -11,10 +11,11 @@ import { etiquetaRol } from '../utils/roles.js'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import { paginar } from '../utils/paginacion.js'
 import './Reclamos.css'
+import { fechaHoraLima } from '../utils/formato.js'
 
 const MAXIMO_OBSERVACION = 400
 const MAXIMO_RESPUESTA = 4000
-const formatoFechaHora = (iso) => iso ? new Date(iso).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' }) : '—'
+const formatoFechaHora = (iso) => iso ? fechaHoraLima(iso) : '—'
 
 export default function GestionReclamos({ modo }) {
   const esGestion = modo === 'gestion'

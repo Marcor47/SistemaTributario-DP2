@@ -1,5 +1,14 @@
 import { API, pedir } from './api.js'
 
+// Cada cambio en el buzón (leer, marcar no leído, archivar, destacar) avisa a la campana de la barra superior para
+// que vuelva a contar los mensajes sin leer desde el servidor.
+export const EVENTO_BUZON_ACTUALIZADO = 'buzon-actualizado'
+
+function avisarCambio(resultado) {
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_BUZON_ACTUALIZADO))
+  return resultado
+}
+
 async function csrf() {
   const token = await pedir('/auth/interno/csrf')
   return { 'Content-Type': 'application/json', [token.headerName]: token.token }
@@ -13,19 +22,19 @@ export function listarBuzon({ vista = 'RECIBIDOS', busqueda = '', tipo = '', lei
   return pedir(`/buzon?${parametros}`, { signal })
 }
 
-export const abrirMensajeBuzon = (idDocumento) => pedir(`/buzon/${idDocumento}`)
+export const abrirMensajeBuzon = (idDocumento) => pedir(`/buzon/${idDocumento}`).then(avisarCambio)
 
 export const marcarMensajeNoLeido = async (idDocumento) => pedir(`/buzon/${idDocumento}/no-leido`, {
   method: 'POST',
   headers: await csrf(),
-})
+}).then(avisarCambio)
 
 async function cambiarEstado(idDocumento, accion, valor) {
   return pedir(`/buzon/${idDocumento}/${accion}`, {
     method: 'PATCH',
     headers: await csrf(),
     body: JSON.stringify({ valor }),
-  })
+  }).then(avisarCambio)
 }
 
 export const cambiarDestacadoBuzon = (idDocumento, valor) => cambiarEstado(idDocumento, 'destacado', valor)

@@ -4,13 +4,14 @@ import { iniciarSesionInterna } from '../services/authInternaService.js'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import LoginLayout, { AlertaLogin, BotonEnviar, CampoClave } from '../components/LoginLayout.jsx'
 import { rutaInicialGestion } from '../utils/modulos.jsx'
+import { useTransicionLogin } from '../context/transicionLogin.js'
 
-const ACCESO_INTERNO_PRUEBA = { usuario: 'admin.local', password: 'AdminLocalSM#2026' }
 
 export default function LoginInterno() {
   const navegar = useNavigate()
   const ubicacion = useLocation()
   const { sesion, setSesion, cargando } = useSesionInterna()
+  const { iniciar: iniciarTransicion } = useTransicionLogin()
   const idUsuario = useId()
   const idClave = useId()
   const idError = useId()
@@ -32,6 +33,7 @@ export default function LoginInterno() {
     setEnviando(true)
     try {
       const nuevaSesion = await iniciarSesionInterna(usuario.trim(), clave)
+      iniciarTransicion()
       setSesion(nuevaSesion)
       navegar(nuevaSesion.cambioClavePendiente ? '/gestion/cambiar-clave' : ubicacion.state?.from || rutaInicialGestion(nuevaSesion), { replace: true })
     } catch (err) {
@@ -42,14 +44,10 @@ export default function LoginInterno() {
     }
   }
 
-  function usarAccesoPrueba() {
-    setUsuario(ACCESO_INTERNO_PRUEBA.usuario)
-    setClave(ACCESO_INTERNO_PRUEBA.password)
-    setError('')
-  }
 
   return (
     <LoginLayout
+      institucional
       titulo="Acceso institucional"
       lateralTitulo="Gestión tributaria para el personal municipal."
       lateralTexto="Accede a las funciones autorizadas según el rol asignado a tu cuenta institucional."
@@ -77,14 +75,6 @@ export default function LoginInterno() {
         <CampoClave id={idClave} valor={clave} onCambio={setClave} idError={idError} conError={Boolean(error)} />
         <BotonEnviar enviando={enviando} />
       </form>
-
-      {import.meta.env.DEV && (
-        <div className="lg-demo" role="note">
-          <strong>Acceso de prueba</strong>
-          <p className="lg-demo__datos">Usuario: <code>{ACCESO_INTERNO_PRUEBA.usuario}</code><br />Contraseña: <code>{ACCESO_INTERNO_PRUEBA.password}</code></p>
-          <button className="lg-demo__usar" type="button" onClick={usarAccesoPrueba} disabled={enviando}>Usar estos datos</button>
-        </div>
-      )}
 
       <p className="lg-ayuda">
         ¿Eres contribuyente? <Link to="/login">Ingresa a Servicios en Línea</Link>

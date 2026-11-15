@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import {
-  SERVICIOS,
   aniosDeCuenta,
   anioInicial,
   arbitriosPorPredio,
   cuotasPredial,
   etiquetaCuota,
   filtrarGrupos,
-  montoServicio,
   resumenDelAnio,
 } from '../utils/estadoCuenta.js'
 import { paginar } from '../utils/paginacion.js'
@@ -149,8 +147,7 @@ function ArbitriosDePredio({ grupo }) {
             <tr>
               <th scope="col">Mes</th>
               <th scope="col">Vence</th>
-              {SERVICIOS.map((servicio) => <th key={servicio.codigo} scope="col" className="num">{servicio.corto}</th>)}
-              <th scope="col" className="num">Total</th>
+              <th scope="col" className="num">Arbitrio</th>
               <th scope="col" className="num">Deuda</th>
               <th scope="col" className="num">Interés</th>
               <th scope="col">Estado</th>
@@ -161,9 +158,6 @@ function ArbitriosDePredio({ grupo }) {
               <tr key={fila.id}>
                 <td>{etiquetaCuota(fila)}</td>
                 <td>{fecha(fila.fechaVencimiento)}</td>
-                {SERVICIOS.map((servicio) => (
-                  <td key={servicio.codigo} className="num">{moneda(montoServicio(fila, servicio.codigo))}</td>
-                ))}
                 <td className="num">{moneda(fila.emitido)}</td>
                 <td className="num">{moneda(fila.deuda)}</td>
                 <td className="num">{fila.interesMoratorio > 0 ? moneda(fila.interesMoratorio) : '—'}</td>
@@ -174,7 +168,6 @@ function ArbitriosDePredio({ grupo }) {
           <tfoot>
             <tr>
               <th scope="row" colSpan={2}>Total del año</th>
-              {grupo.porServicio.map((servicio) => <th key={servicio.codigo} className="num">{moneda(servicio.monto)}</th>)}
               <th className="num">{moneda(totales.emitido)}</th>
               <th className="num">{moneda(totales.deuda)}</th>
               <th className="num">{moneda(totales.interesMoratorio)}</th>
@@ -201,7 +194,7 @@ function ArbitriosPorPredio({ grupos, anio }) {
       <p className="hint">
         {grupos.length === 0
           ? `No hay arbitrios emitidos en ${anio}.`
-          : `${grupos.length} ${grupos.length === 1 ? 'predio' : 'predios'}. Despliega uno para ver sus meses y lo que corresponde a barrido de calles, recolección de residuos, parques y jardines y serenazgo.`}
+          : `${grupos.length} ${grupos.length === 1 ? 'predio' : 'predios'}. Despliega uno para ver el arbitrio de cada mes, su deuda y el interés moratorio.`}
       </p>
       {conFiltros && (
         <div className="filtros-predios">

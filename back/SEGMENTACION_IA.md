@@ -47,10 +47,10 @@ silueta de cada k y los tamaños).
 - **Corrida nueva:** borra los borradores anteriores de este modelo que nadie aprobó (la traza queda) y crea los
   nuevos (`201`). Lo aprobado, publicado o retirado no se toca.
 
-**Perfil `local` (demostración):** al iniciar, `SegmentacionDemoLocal` calcula la segmentación y, si queda en
+**Perfil `local`:** al iniciar, `SegmentacionInicialLocal` calcula la segmentación y, si queda en
 borrador, la aprueba como `gerencia` por el mismo camino de HU031. Así el filtro «Segmento» de la plataforma analítica,
-el dashboard y el mapa muestran los segmentos K-means en cada máquina de desarrollo (los segmentos fijos de la semilla
-`DEMO_HU011` quedan retirados). Se apaga con `tributario.segmentacion.publicar-al-iniciar: false`. En producción no
+y el mapa muestran los segmentos K-means en cada máquina de desarrollo (los segmentos fijos de semillas anteriores
+los retira la migración V54). Se apaga con `tributario.segmentacion.publicar-al-iniciar: false`. En producción no
 existe: la jefatura aprueba con `POST /api/segmentos/aprobaciones`.
 
 ## API

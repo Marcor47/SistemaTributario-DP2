@@ -1,5 +1,6 @@
 import { pedir } from './api.js'
 import { EVENTO_SESION_INTERNA_EXPIRADA } from './authInternaService.js'
+import { hoyLima } from '../utils/formato.js'
 
 const API = import.meta.env?.VITE_API_URL || 'http://localhost:8080/api'
 
@@ -70,7 +71,7 @@ export async function exportarVista(formato, vista) {
   }
   const extension = formato === 'PDF' ? 'pdf' : 'xlsx'
   const nombre = respuesta.headers.get('content-disposition')?.match(/filename="?([^";]+)"?/i)?.[1]
-    || `plataforma-analitica-${vista.pestana}-${new Date().toLocaleDateString('en-CA')}.${extension}`
+    || `plataforma-analitica-${vista.pestana}-${hoyLima()}.${extension}`
   return { blob: await respuesta.blob(), nombre }
 }
 

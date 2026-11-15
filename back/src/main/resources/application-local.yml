@@ -1,8 +1,8 @@
 spring:
   config:
-    import: optional:file:./back/.niubiz-sandbox-local.properties,optional:file:./.niubiz-sandbox-local.properties,optional:file:./back/.asistente-local.properties,optional:file:./.asistente-local.properties
+    import: optional:file:./back/.niubiz-sandbox-local.properties,optional:file:./.niubiz-sandbox-local.properties,optional:file:./back/.asistente-local.properties,optional:file:./.asistente-local.properties,optional:file:./back/asistente-local.properties,optional:file:./asistente-local.properties
   flyway:
-    locations: classpath:db/migration,classpath:db/datos-prueba,classpath:db/datos-demo
+    locations: classpath:db/migration,classpath:db/datos-prueba,classpath:db/datos-padron
 
 server:
   servlet:
@@ -19,14 +19,10 @@ tributario:
   indicadores:
     morosidad:
       calcular-al-iniciar: true
-  # Demostración: al iniciar calcula la segmentación K-means y la publica (aprobada como el usuario de la jefatura de
-  # las semillas), para que el filtro «Segmento», el dashboard y el mapa la muestren. En producción se aprueba a mano.
+  # Perfil local: al iniciar calcula la segmentación K-means de la última carga y la publica (aprobada como el usuario
+  # de la jefatura), para que el filtro «Segmento» y el mapa la muestren. En producción la aprueba la Gerencia.
   segmentacion:
     publicar-al-iniciar: true
-    aprobador-demo: gerencia
-  constancia:
-    demo:
-      habilitado: true
-      derecho: 10.00
+    aprobador-inicial: gerencia
   seguridad:
     cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:8081}

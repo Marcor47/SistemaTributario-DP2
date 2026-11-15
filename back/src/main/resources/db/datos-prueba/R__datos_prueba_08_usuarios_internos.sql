@@ -1,16 +1,17 @@
--- Usuarios internos de desarrollo para el login de personal municipal (/api/auth/interno/login).
+-- Usuarios internos para el login de personal municipal (/api/auth/interno/login), con nombres y correos
+-- institucionales del personal ficticio de la Gerencia de Rentas.
 -- Las claves son públicas; esta carpeta no se carga en producción.
 -- No sobrescribe usuarios existentes ni sus claves ni sus roles.
 WITH accesos (nombre_usuario, nombre_completo, correo, clave, rol) AS (
     VALUES
-        ('admin', 'Administrador de Pruebas', 'admin@example.org', 'admin123', 'ADMINISTRADOR'),
-        ('analista', 'Analista de Rentas de Pruebas', 'analista@example.org', 'analista123', 'ANALISTA_RENTAS'),
-        ('gestor.local', 'Gestora de Reclamos de Pruebas', 'gestor.local@example.org',
+        ('admin', 'Carlos Alberto Mendoza Ríos', 'cmendoza@munisanmiguel.gob.pe', 'admin123', 'ADMINISTRADOR'),
+        ('analista', 'Diego Alonso Huamán Torres', 'dhuaman@munisanmiguel.gob.pe', 'analista123', 'ANALISTA_RENTAS'),
+        ('gestor.local', 'Verónica Isabel Aguilar Montoya', 'vaguilar@munisanmiguel.gob.pe',
          'GestorLocalSM#2026', 'GESTOR_RECLAMOS'),
-        ('responsable.local', 'Responsable de Rentas de Pruebas', 'responsable.local@example.org',
+        ('responsable.local', 'Ricardo Andrés Salazar Núñez', 'rsalazar@munisanmiguel.gob.pe',
          'ResponsableSM#2026', 'GERENCIA'),
-        ('gerencia', 'Gerencia de Rentas de Pruebas', 'gerencia.local@example.org', 'gerencia123', 'GERENCIA'),
-        ('ventanilla', 'Trabajador de Ventanilla de Pruebas', 'ventanilla@example.org', 'ventanilla123', 'VENTANILLA')
+        ('gerencia', 'María Fernanda Quispe Rojas', 'mquispe@munisanmiguel.gob.pe', 'gerencia123', 'GERENCIA'),
+        ('ventanilla', 'José Antonio Vargas Medina', 'jvargas@munisanmiguel.gob.pe', 'ventanilla123', 'VENTANILLA')
 ),
 nuevos AS (
     INSERT INTO seguridad.usuario (nombre_usuario, nombre_completo, correo, clave_hash, activo, fecha_creacion)

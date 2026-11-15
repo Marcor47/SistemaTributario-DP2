@@ -1,4 +1,4 @@
-import { SERVICIOS, TRIBUTO_ARBITRIOS, TRIBUTO_PREDIAL, montoServicio, nombreMes } from './estadoCuenta.js'
+import { TRIBUTO_ARBITRIOS, TRIBUTO_PREDIAL, nombreMes } from './estadoCuenta.js'
 import { normalizar } from './formato.js'
 
 const importe = (valor) => Number.isFinite(Number(valor)) ? Number(valor) : 0
@@ -78,10 +78,6 @@ export function agruparCuentaPorPeriodo(filas) {
       ...grupo, emitido: totales.emitido, pagado: totales.pagado, deuda: totales.deuda, interes: totales.interes,
       estado, fechaVencimiento: vencimientos.length === 1 ? vencimientos[0] : null,
       idsPendientes: grupo.conceptos.filter((fila) => fila.deuda > 0).map((fila) => fila.id),
-      porServicio: SERVICIOS.map((servicio) => ({
-        ...servicio,
-        monto: redondear(grupo.conceptos.reduce((total, fila) => total + importe(montoServicio(fila, servicio.codigo)), 0)),
-      })).filter((servicio) => servicio.monto > 0),
     }
   })
 }

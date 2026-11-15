@@ -6,8 +6,8 @@ import pe.municipalidad.tributario.constancia.TransaccionPago;
 import pe.municipalidad.tributario.integracion.niubiz.NiubizGateway;
 
 public record PagoRespuesta(Long idTransaccion, String estado, BigDecimal montoBase, BigDecimal montoDescuento,
-        BigDecimal montoTotal, Set<String> obligaciones,
-        String urlPasarela, String comprobante, boolean dePrueba, NiubizGateway.Checkout checkout, String proveedor) {
+        BigDecimal montoInteres, BigDecimal montoTotal, Set<String> obligaciones,
+        String urlPasarela, String comprobante, boolean pasarelaLocal, NiubizGateway.Checkout checkout, String proveedor) {
 
     public static PagoRespuesta desde(TransaccionPago transaccion, String urlPasarela) {
         return desde(transaccion, urlPasarela, null);
@@ -15,10 +15,10 @@ public record PagoRespuesta(Long idTransaccion, String estado, BigDecimal montoB
 
     public static PagoRespuesta desde(TransaccionPago transaccion, String urlPasarela, NiubizGateway.Checkout checkout) {
         return new PagoRespuesta(transaccion.getIdTransaccion(), transaccion.getEstado().name(),
-                transaccion.getMontoBase(), transaccion.getMontoDescuento(),
+                transaccion.getMontoBase(), transaccion.getMontoDescuento(), transaccion.getMontoInteres(),
                 transaccion.getMontoTotal(), transaccion.getObligaciones(), urlPasarela,
                 transaccion.getComprobante(), true, checkout,
-                transaccion.getIdOrdenPasarela() != null && transaccion.getIdOrdenPasarela().startsWith("SIM-")
-                        ? "SIMULADO" : "NIUBIZ_SANDBOX");
+                transaccion.getIdOrdenPasarela() != null && transaccion.getIdOrdenPasarela().startsWith("OPL-")
+                        ? "PASARELA_LOCAL" : "NIUBIZ_SANDBOX");
     }
 }

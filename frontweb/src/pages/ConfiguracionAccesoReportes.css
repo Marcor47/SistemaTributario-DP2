@@ -11,8 +11,6 @@
 .acceso-reportes-cabecera h2 { margin-bottom: 6px; }
 .acceso-reportes-cabecera .hint { max-width: 78ch; }
 .acceso-reportes-cabecera .estado { white-space: nowrap; }
-.acceso-reportes-demo { margin: 16px 0 20px; }
-.acceso-reportes-demo p { margin: 6px 0 0; }
 
 .acceso-reportes-layout {
   display: grid;

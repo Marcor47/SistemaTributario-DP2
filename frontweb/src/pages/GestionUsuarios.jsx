@@ -2,13 +2,13 @@ import { useEffect, useId, useRef, useState } from 'react'
 import BarraBusqueda from '../components/BarraBusqueda.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { cambiarRol, cargarUsuariosYRoles, crearUsuario } from '../services/usuarioAdminService.js'
-import { normalizar } from '../utils/formato.js'
+import { fechaHoraLima, normalizar } from '../utils/formato.js'
 import { etiquetaRol } from '../utils/roles.js'
 import './GestionInterna.css'
 
 const FORMULARIO_VACIO = { nombreUsuario: '', nombreCompleto: '', correo: '', rol: '' }
 const MAXIMO_MOTIVO = 200
-const formatoFechaHora = (iso) => new Date(iso).toLocaleString('es-PE', { dateStyle: 'short', timeStyle: 'short' })
+const formatoFechaHora = (iso) => fechaHoraLima(iso)
 
 export default function GestionUsuarios() {
   const { sesion } = useSesionInterna()

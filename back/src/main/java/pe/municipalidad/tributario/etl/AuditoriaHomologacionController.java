@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import pe.municipalidad.tributario.seguridad.NombreRol;
 import pe.municipalidad.tributario.seguridad.SesionInterna;
@@ -42,6 +43,16 @@ public class AuditoriaHomologacionController {
             HttpServletRequest request) {
         sesion.conRol(request, NombreRol.RESPONSABLE_DATOS, NombreRol.ADMINISTRADOR);
         return servicio.listarPorSeudonimo(seudonimo.trim());
+    }
+
+    /* HU040: búsqueda por el código de SAMNET del contribuyente o predio. Solo lectura. */
+    @GetMapping("/decisiones")
+    public List<DecisionHomologacionRespuesta> listarPorCodigo(
+            @RequestParam TipoEntidad tipoEntidad,
+            @RequestParam String codigo,
+            HttpServletRequest request) {
+        sesion.conRol(request, NombreRol.RESPONSABLE_DATOS, NombreRol.ADMINISTRADOR);
+        return servicio.listarPorCodigo(tipoEntidad, codigo.trim());
     }
 
     @GetMapping("/decisiones/{idDecision}")

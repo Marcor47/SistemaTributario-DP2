@@ -10,9 +10,12 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
@@ -112,6 +115,20 @@ public class EtlService {
         } catch (RuntimeException ex) {
             LOG.error("ETL programado: el lote falló y no se publicó nada", ex);
         }
+    }
+
+    /* HU029: últimas cargas para auditarlas, sin el detalle de reglas (se consulta por lote). */
+    @Transactional(readOnly = true)
+    public List<EvaluacionCalidadRespuesta> recientes(int limite) {
+        int tope = Math.min(Math.max(limite, 1), 200);
+        return lotes.findAll(PageRequest.of(0, tope,
+                        Sort.by(Sort.Direction.DESC,
+                                "idLote")))
+                .stream().map(lote -> new EvaluacionCalidadRespuesta(lote.getIdLote(), lote.getFuente(),
+                        lote.getFechaCorte(), lote.getEstado(), lote.getTipoEjecucion(), lote.getFechaInicio(),
+                        lote.getFechaFin(), lote.getRegistrosLeidos(), lote.getRegistrosAceptados(),
+                        lote.getRegistrosRechazados(), lote.getEstado() == EstadoLote.PUBLICADO, List.of()))
+                .toList();
     }
 
     public EvaluacionCalidadRespuesta obtener(Long idLote) {

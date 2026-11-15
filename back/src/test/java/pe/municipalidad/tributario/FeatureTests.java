@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.charset.StandardCharsets;
 import java.io.ByteArrayOutputStream;
+import java.util.Optional;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,6 @@ import org.springframework.context.annotation.Import;
 import pe.municipalidad.tributario.soporte.PostgresEmbebidoConfig;
 import org.springframework.web.server.ResponseStatusException;
 import pe.municipalidad.tributario.auth.AuthController;
-import pe.municipalidad.tributario.auth.DemoMunicipalAuthClient;
 import pe.municipalidad.tributario.auth.LoginLimiter;
 import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 import pe.municipalidad.tributario.formularios.FormularioService;
@@ -31,8 +31,9 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-/* El perfil local aplica también las semillas de datos-demo: se usa una base propia para no contaminar la común. */
-@SpringBootTest(properties = { "tributario.niubiz.mode=simulado", "tributario.test.base=perfil_local" })
+/* El perfil local aplica también las semillas de datos-padron: se usa una base propia para no contaminar la común. */
+@SpringBootTest(properties = { "tributario.niubiz.mode=local", "tributario.test.base=perfil_local",
+        "spring.flyway.placeholders.volumen_padron=120" })
 @ActiveProfiles("local")
 @AutoConfigureMockMvc
 @Import(PostgresEmbebidoConfig.class)
@@ -43,14 +44,15 @@ class FeatureTests {
 
     @Test
     void loginNoDevuelvePasswordYBloqueaTrasCincoFallos() {
-        AuthController auth = new AuthController(new DemoMunicipalAuthClient("CIUDADANO", "secreto-de-prueba"),
+        AuthController auth = new AuthController((codigo, clave) -> "CIUDADANO".equals(codigo) && "clave-segura".equals(clave)
+                ? Optional.of(codigo) : Optional.empty(),
                 new LoginLimiter());
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRemoteAddr("127.0.0.42");
-        assertEquals("CIUDADANO", auth.login(new AuthController.LoginRequest("CIUDADANO", "secreto-de-prueba"),
+        assertEquals("CIUDADANO", auth.login(new AuthController.LoginRequest("CIUDADANO", "clave-segura"),
                 request).codigoContribuyente());
         assertEquals("CIUDADANO", auth.me(request).codigoContribuyente());
-        assertEquals(600, request.getSession(false).getMaxInactiveInterval());
+        assertEquals(3600, request.getSession(false).getMaxInactiveInterval());
         auth.logout(request);
         assertEquals(HttpStatus.UNAUTHORIZED, assertThrows(ResponseStatusException.class,
                 () -> auth.me(request)).getStatusCode());

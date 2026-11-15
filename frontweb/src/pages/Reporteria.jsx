@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
 import AvisoAccesoReportes from '../components/AvisoAccesoReportes.jsx'
 import IconoReporte from '../components/reporteria/IconoReporte.jsx'
-import MapaSegmentos from '../components/reporteria/MapaSegmentos.jsx'
 import PanelAsistente from '../components/reporteria/PanelAsistente.jsx'
 import TablaRanking from '../components/reporteria/TablaRanking.jsx'
 import TarjetaGrafico from '../components/reporteria/TarjetaGrafico.jsx'
@@ -21,11 +21,50 @@ import {
 import { contextoGrafico, tablaDeGrafico } from '../utils/reporteriaGraficos.js'
 import './Reporteria.css'
 
-const PESTANA_MAPA = {
-  id: 'mapa',
-  titulo: 'Mapa de segmentos',
-  descripcion: 'Cada punto es un contribuyente, con el color del segmento que le asignó el modelo según cómo paga.',
-}
+// Vistas que antes eran pestañas separadas del menú (Dashboard, Reportes, Morosidad, Resumen ejecutivo y Uso de
+// reportes): ahora viven aquí como subpestañas, cada una con el permiso que ya exigía. No usan los filtros globales.
+const PESTANAS_MODULO = [
+  {
+    id: 'mapa',
+    titulo: 'Mapa de segmentos',
+    descripcion: 'Cada punto es un contribuyente, con el color del segmento que le asignó el modelo según cómo paga.',
+    permiso: 'SEGMENTOS:CONSULTAR',
+    Componente: lazy(() => import('../components/reporteria/MapaSegmentos.jsx')),
+  },
+  {
+    id: 'morosidad',
+    titulo: 'Índice de morosidad',
+    descripcion: 'Índice oficial de cada cierre publicado, total, por tributo y por zona.',
+    permiso: 'INDICADORES:CONSULTAR',
+    Componente: lazy(() => import('./IndiceMorosidad.jsx')),
+  },
+  {
+    id: 'alertas',
+    titulo: 'Alertas de desvío',
+    descripcion: 'Indicadores de la última carga publicada que quedaron fuera de su meta, con el desvío y su explicación.',
+    permiso: 'ALERTAS:CONSULTAR',
+    Componente: lazy(() => import('../components/reporteria/AlertasDesvio.jsx')),
+  },
+  {
+    id: 'resumen-ia',
+    titulo: 'Resumen ejecutivo IA',
+    descripcion: 'Resumen del mes redactado por el modelo de lenguaje con los indicadores calculados; se revisa antes de descargarlo en PDF.',
+    Componente: lazy(() => import('./ResumenEjecutivo.jsx')),
+  },
+  {
+    id: 'listados',
+    titulo: 'Listados y exportación',
+    descripcion: 'Listados completos de morosos, PRICOS y buenos pagadores con filtros, columnas y vistas guardadas, para exportar.',
+    Componente: lazy(() => import('./Reportes.jsx')),
+  },
+  {
+    id: 'uso',
+    titulo: 'Uso de reportes',
+    descripcion: 'Qué reportes generan los usuarios autorizados, cuándo y con qué frecuencia.',
+    permiso: 'REPORTES:SOLICITUDES',
+    Componente: lazy(() => import('./SolicitudesReportes.jsx')),
+  },
+]
 
 const estadoInicial = (modelo) => ({
   pestana: 'resumen',
@@ -83,10 +122,17 @@ function Plataforma({ modelo }) {
   const { sesion } = useSesionInterna()
   const puedeExportar = sesion?.permisos?.includes('REPORTES:EXPORTAR')
   // HU030: el mapa de segmentos es una pestaña aparte; no usa los filtros ni se guarda en las vistas.
-  const puedeVerMapa = sesion?.permisos?.includes('SEGMENTOS:CONSULTAR')
-  const [vistaMapa, setVistaMapa] = useState(false)
-  const pestanasVisibles = puedeVerMapa ? [...PESTANAS, PESTANA_MAPA] : PESTANAS
-  const [estado, setEstado] = useState(() => estadoInicial(modelo))
+  const [parametros, setParametros] = useSearchParams()
+  const modulosVisibles = PESTANAS_MODULO.filter((p) => !p.permiso || sesion?.permisos?.includes(p.permiso))
+  const [vistaModulo, setVistaModulo] = useState(() => modulosVisibles.find((p) => p.id === parametros.get('pestana'))?.id ?? null)
+  const moduloActivo = modulosVisibles.find((p) => p.id === vistaModulo) ?? null
+  const vistaMapa = Boolean(moduloActivo)
+  const pestanasVisibles = [...PESTANAS, ...modulosVisibles]
+  const [estado, setEstado] = useState(() => {
+    const inicial = estadoInicial(modelo)
+    const solicitada = parametros.get('pestana')
+    return PESTANAS.some((p) => p.id === solicitada) ? { ...inicial, pestana: solicitada } : inicial
+  })
   const [seleccion, setSeleccion] = useState(null)
   const [respuesta, setRespuesta] = useState({ clave: null, A: null, S: null, R: null, error: null })
   const [revision, setRevision] = useState(0)
@@ -240,11 +286,12 @@ function Plataforma({ modelo }) {
   }
 
   function cambiarPestana(id) {
-    if (id === PESTANA_MAPA.id) {
-      setVistaMapa(true)
+    setParametros(id === 'resumen' ? {} : { pestana: id }, { replace: true })
+    if (modulosVisibles.some((p) => p.id === id)) {
+      setVistaModulo(id)
       return
     }
-    setVistaMapa(false)
+    setVistaModulo(null)
     setEstado((actual) => ({ ...actual, pestana: id }))
   }
 
@@ -346,7 +393,7 @@ function Plataforma({ modelo }) {
   }
 
   const datosPestana = PESTANAS.find((p) => p.id === pestana)
-  const pestanaActiva = vistaMapa ? PESTANA_MAPA.id : pestana
+  const pestanaActiva = moduloActivo ? moduloActivo.id : pestana
   const nombreSugerido = `${datosPestana.titulo} · ${periodo.etiqueta}`.slice(0, 60)
   const fechaCorte = fecha(modelo.catalogo.fechaCorte)
   const error = respuesta.error
@@ -458,13 +505,15 @@ function Plataforma({ modelo }) {
       </section>
 
       <div className={`rep-distribucion${asistenteAbierto ? ' rep-distribucion--con-panel' : ''}`}>
-        {vistaMapa && (
-          <div id="rep-panel" className="rep-contenido" role="tabpanel" aria-labelledby={`rep-pestana-${PESTANA_MAPA.id}`}>
+        {moduloActivo && (
+          <div id="rep-panel" className="rep-contenido" role="tabpanel" aria-labelledby={`rep-pestana-${moduloActivo.id}`}>
             <div className="rep-titulo-pestana">
-              <h2>{PESTANA_MAPA.titulo}</h2>
-              <p>{PESTANA_MAPA.descripcion}</p>
+              <h2>{moduloActivo.titulo}</h2>
+              <p>{moduloActivo.descripcion}</p>
             </div>
-            <MapaSegmentos />
+            <Suspense fallback={<p className="mensaje-carga" role="status">Cargando…</p>}>
+              <moduloActivo.Componente />
+            </Suspense>
           </div>
         )}
         <div id={vistaMapa ? undefined : 'rep-panel'} className="rep-contenido" role="tabpanel" aria-labelledby={`rep-pestana-${pestana}`} hidden={vistaMapa}>

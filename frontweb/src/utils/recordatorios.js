@@ -12,6 +12,8 @@ export const ESTADOS_RECORDATORIO = {
   FALLIDO: { texto: 'Fallido', clase: 'critico' },
   SIN_CORREO: { texto: 'Sin correo registrado', clase: 'neutro' },
   NO_ENVIADO: { texto: 'No enviado', clase: 'neutro' },
+  REGISTRADO: { texto: 'Registrado', clase: 'ok' },
+  NO_REQUERIDO: { texto: 'No requerido (cuota pagada)', clase: 'neutro' },
 }
 
 export function validarDiasRecordatorio(valor) {

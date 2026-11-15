@@ -3,7 +3,6 @@ package pe.municipalidad.tributario.arbitrio;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,16 +13,13 @@ import pe.municipalidad.tributario.arbitrio.ArbitrioPredioRespuesta.CuotaArbitri
 import pe.municipalidad.tributario.arbitrio.ArbitrioPredioRespuesta.PredioResumen;
 import pe.municipalidad.tributario.arbitrio.ArbitrioPredioRespuesta.Resumen;
 import pe.municipalidad.tributario.arbitrio.ArbitrioPredioRespuesta.Titular;
-import pe.municipalidad.tributario.arbitrio.ArbitrioPredioRespuesta.TotalServicio;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.gestiontributaria.Predio;
 import pe.municipalidad.tributario.gestiontributaria.Titularidad;
-import pe.municipalidad.tributario.estadocuenta.EstadoCuentaFilaRespuesta.ServicioRespuesta;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.obligacion.EstadoObligacion;
 import pe.municipalidad.tributario.obligacion.Obligacion;
-import pe.municipalidad.tributario.obligacion.ServicioArbitrio;
 import pe.municipalidad.tributario.obligacion.TasaInteresMoratorio;
 import pe.municipalidad.tributario.obligacion.Tributo;
 
@@ -93,10 +89,7 @@ public class ArbitrioPredioService {
                 o.etiquetaPeriodo(), o.getFechaVencimiento(), o.getMontoEmitido(), o.getMontoPagado(),
                 o.getMontoDescontado(), o.saldo().max(BigDecimal.ZERO), estado,
                 estado == EstadoObligacion.VENCIDA ? o.diasVencidaAl(fechaCorte) : 0,
-                o.interesMoratorioAl(fechaCorte, timMensual),
-                o.getServicios().stream()
-                        .map(m -> new ServicioRespuesta(m.servicio().name(), m.servicio().getDescripcion(), m.monto()))
-                        .toList());
+                o.interesMoratorioAl(fechaCorte, timMensual));
     }
 
     private static Resumen resumenDe(List<CuotaArbitrio> cuotas) {
@@ -108,19 +101,7 @@ public class ArbitrioPredioService {
                 contar(cuotas, EstadoObligacion.PAGADA),
                 contar(cuotas, EstadoObligacion.PENDIENTE),
                 contar(cuotas, EstadoObligacion.VENCIDA),
-                suma(cuotas, CuotaArbitrio::interesMoratorio),
-                porServicio(cuotas));
-    }
-
-    /* Cuánto se emitió en total por cada servicio, en el orden de la ordenanza. */
-    private static List<TotalServicio> porServicio(List<CuotaArbitrio> cuotas) {
-        Map<String, BigDecimal> totales = new LinkedHashMap<>();
-        cuotas.stream().flatMap(c -> c.servicios().stream())
-                .forEach(s -> totales.merge(s.servicio(), s.monto(), BigDecimal::add));
-        return Arrays.stream(ServicioArbitrio.values())
-                .filter(s -> totales.containsKey(s.name()))
-                .map(s -> new TotalServicio(s.name(), s.getDescripcion(), totales.get(s.name())))
-                .toList();
+                suma(cuotas, CuotaArbitrio::interesMoratorio));
     }
 
     private static BigDecimal suma(List<CuotaArbitrio> cuotas,

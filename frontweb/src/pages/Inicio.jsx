@@ -6,10 +6,10 @@ import './Inicio.css'
 
 const MODULOS = [
   {
-    titulo: 'Dashboard y alertas',
-    ruta: '/dashboard',
+    titulo: 'Plataforma analítica',
+    ruta: '/reporteria',
     imagen: '/modulos/metas.jpg',
-    texto: 'Revisa las alertas activas cuando un indicador se desvía de su meta configurada.',
+    texto: 'Analiza la recaudación, la morosidad y los principales contribuyentes, con un asistente de IA.',
     icono: (
       <>
         <rect x="3" y="3" width="7" height="9" rx="1" />
@@ -65,9 +65,9 @@ const MODULOS = [
   },
   {
     titulo: 'Índice de morosidad',
-    ruta: '/morosidad',
+    ruta: '/reporteria?pestana=morosidad',
     imagen: '/modulos/metas.jpg',
-    texto: 'Consulta la morosidad total, por tributo y por zona de las cargas publicadas.',
+    texto: 'Consulta la morosidad total, por tributo y por zona de cada cierre publicado.',
     icono: <><path d="M3 3v18h18" /><path d="M7 9h3v8H7zM13 6h3v11h-3zM19 12h2v5h-2z" /></>,
   },
   {
@@ -297,8 +297,7 @@ export default function Inicio() {
         <footer className="in-pie">
           <img src="/logo-san-miguel.png" alt="Municipalidad San Miguel" width="142" height="59" />
           <p>
-            Gerencia de Rentas · Municipalidad de San Miguel. Los datos mostrados en la demostración son
-            ficticios.
+            Gerencia de Rentas · Municipalidad Distrital de San Miguel · Av. Federico Gallese 370, San Miguel, Lima
           </p>
         </footer>
         <SelectorAcceso abierto={selectorAbierto} onCerrar={() => setSelectorAbierto(false)} />

@@ -112,11 +112,11 @@ export default function PanelAsistente({ abierto, onCerrar, filtros }) {
         </div>
         <p className="rep-asistente__nota"><strong>Asistente con IA.</strong> Responde con los mismos datos de la plataforma y comprueba las cifras antes de mostrarlas. Si no indicas periodo o zona, usa los filtros actuales. Revisa las respuestas antes de usarlas en una decisión.</p>
         <div className={`rep-asistente__estado rep-asistente__estado--${estado.tipo}`} role="status">
-          {estado.tipo === 'espera' && 'Conectando con el servicio de IA…'}
+          {estado.tipo === 'espera' && 'Conectando con el asistente…'}
           {estado.tipo === 'ok' && `Conectado · ${estado.modelo || 'modelo local'}`}
           {estado.tipo === 'error' && (
             <>
-              <strong>Servicio de IA no disponible. </strong>{estado.mensaje} El resto de la plataforma sigue funcionando.
+              <strong>{estado.mensaje}</strong> El resto de la plataforma analítica sigue disponible con los datos registrados.
               <button className="rep-accion" type="button" onClick={() => verificar()}>Reintentar</button>
             </>
           )}

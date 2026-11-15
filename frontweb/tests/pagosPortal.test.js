@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { iniciarPagoPortal, consultarPagoPortal, confirmarPagoYRecuperarResultado } from '../src/services/portalCuentaService.js'
-import { idPagoValido, mensajeErrorPago, normalizarPago, rutaPasarelaSimulada } from '../src/utils/pagosPortal.js'
+import { idPagoValido, mensajeErrorPago, normalizarPago, rutaPasarelaPago } from '../src/utils/pagosPortal.js'
 
 const orden = {
   idTransaccion: 42, estado: 'INICIADA', montoBase: 300, montoDescuento: 25, montoTotal: 275,
-  obligaciones: ['101', '102'], urlPasarela: '/pasarela-simulada/SIM-00000000-0000-0000-0000-000000000042',
-  comprobante: null, dePrueba: true,
+  obligaciones: ['101', '102'], urlPasarela: '/pasarela/OPL-00000000-0000-0000-0000-000000000042',
+  comprobante: null, pasarelaLocal: true,
 }
 const confirmada = { ...orden, estado: 'CONFIRMADA', urlPasarela: null, comprobante: 'WEB-42' }
 const json = (datos, status = 200) => new Response(JSON.stringify(datos), { status })
@@ -39,13 +39,13 @@ test('HU022: consultar la orden permite recuperar el resultado sin confirmar ni 
   assert.equal((await consultarPagoPortal(42, { signal: controlador.signal })).comprobante, 'WEB-42')
 })
 
-test('HU022: una URL solo abre la pasarela local si la orden es de prueba y la ruta es válida', () => {
-  assert.equal(rutaPasarelaSimulada(orden), `${orden.urlPasarela}?transaccion=42`)
+test('HU022: una URL solo abre la pasarela local si la orden es de la pasarela local y la ruta es válida', () => {
+  assert.equal(rutaPasarelaPago(orden), `${orden.urlPasarela}?transaccion=42`)
   for (const urlPasarela of ['https://otro.example/pagar', '//otro.example/pagar', '/login', `${orden.urlPasarela}?importe=1`, 'javascript:alert(1)']) {
-    assert.throws(() => rutaPasarelaSimulada({ ...orden, urlPasarela }), { codigo: 'PASARELA_SIMULADA_INVALIDA' })
+    assert.throws(() => rutaPasarelaPago({ ...orden, urlPasarela }), { codigo: 'PASARELA_LOCAL_INVALIDA' })
   }
-  assert.throws(() => rutaPasarelaSimulada({ ...orden, dePrueba: false }), { codigo: 'PASARELA_SIMULADA_INVALIDA' })
-  assert.throws(() => rutaPasarelaSimulada(confirmada), { codigo: 'PASARELA_SIMULADA_INVALIDA' })
+  assert.throws(() => rutaPasarelaPago({ ...orden, pasarelaLocal: false }), { codigo: 'PASARELA_LOCAL_INVALIDA' })
+  assert.throws(() => rutaPasarelaPago(confirmada), { codigo: 'PASARELA_LOCAL_INVALIDA' })
 })
 
 test('HU022: conserva los importes del servidor y distingue descuento cero de un importe ausente', () => {

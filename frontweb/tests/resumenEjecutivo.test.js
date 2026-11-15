@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import test from 'node:test'
+import test, { before } from 'node:test'
+import { obtenerTokenCsrf } from '../src/services/api.js'
 import { descargarResumen, generarResumen, marcarRevisado } from '../src/services/resumenEjecutivoService.js'
 import {
   armarPeriodo, contarPalabras, esPeriodoValido, formatoPeriodo, formatoValor, nombreArchivo,
@@ -12,6 +13,14 @@ const indicadores = [
 ]
 const sinConexion = () => { throw new TypeError('fetch failed') }
 const json = (cuerpo, estado = 200) => new Response(JSON.stringify(cuerpo), { status: estado })
+
+// El token CSRF se pide una vez y queda en memoria: así cada prueba solo ve sus propias llamadas.
+before(async () => {
+  const original = globalThis.fetch
+  globalThis.fetch = async () => json({ headerName: 'X-XSRF-TOKEN', token: 'token-prueba' })
+  await obtenerTokenCsrf({ renovar: true })
+  globalThis.fetch = original
+})
 
 test('HU017: el periodo se arma y se valida como AAAA-MM', () => {
   assert.equal(armarPeriodo('2026', '3'), '2026-03')
@@ -49,7 +58,7 @@ test('HU017: los montos en soles también se verifican', () => {
 test('HU017: los valores se muestran con dos decimales y el símbolo de porcentaje', () => {
   assert.match(formatoValor({ valor: 14.8, unidad: 'PORCENTAJE' }), /^14[.,]80 %$/)
   assert.equal(formatoValor({ valor: null, unidad: 'PORCENTAJE' }), 'No disponible')
-  assert.equal(nombreArchivo('2026-10'), 'resumen-ejecutivo-2026-10.txt')
+  assert.equal(nombreArchivo('2026-10'), 'resumen-ejecutivo-2026-10.pdf')
 })
 
 test('HU017: genera el resumen en el servidor con el periodo elegido', async (t) => {
@@ -66,9 +75,9 @@ test('HU017: genera el resumen en el servidor con el periodo elegido', async (t)
 })
 
 test('HU017: un periodo mal formado no llega al servidor', async (t) => {
-  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => json({}))
+  const fetchFalso = t.mock.method(globalThis, 'fetch', async () => json({}))
   await assert.rejects(generarResumen('2026-13'), { codigo: 'PERIODO_INVALIDO' })
-  assert.equal(fetchSimulado.mock.callCount(), 0)
+  assert.equal(fetchFalso.mock.callCount(), 0)
 })
 
 test('HU017: los errores del servidor distintos de «no disponible» se conservan', async (t) => {
@@ -81,9 +90,9 @@ test('HU017: sin conexión se informa el error; no se inventa un resumen', async
   await assert.rejects(generarResumen('2026-10'), { codigo: 'SIN_CONEXION' })
 })
 
-test('HU017: si el servicio aún no existe en el servidor se avisa que no está disponible', async (t) => {
-  t.mock.method(globalThis, 'fetch', async () => json({ codigo: 'RUTA_NO_ENCONTRADA', mensaje: 'La ruta no existe.' }, 404))
-  await assert.rejects(generarResumen('2026-10'), { codigo: 'SERVICIO_NO_DISPONIBLE', estado: 404 })
+test('HU017: si el servicio de IA no responde se conserva el aviso del servidor', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => json({ codigo: 'IA_NO_DISPONIBLE', mensaje: 'El análisis inteligente no está disponible en este momento.' }, 503))
+  await assert.rejects(generarResumen('2026-10'), { codigo: 'IA_NO_DISPONIBLE', estado: 503 })
 })
 
 test('HU017: un periodo sin indicadores calculados conserva el error del servidor', async (t) => {
@@ -100,13 +109,16 @@ test('HU017: revisa y descarga en el servidor', async (t) => {
   const urls = []
   t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
     urls.push(`${opciones.method ?? 'GET'} ${new URL(url).pathname}`)
-    return String(url).endsWith('/descarga')
-      ? json({ texto: 'Texto revisado.' })
+    return String(url).endsWith('/pdf')
+      ? new Response(new Blob(['%PDF-1.7'], { type: 'application/pdf' }), {
+        status: 200, headers: { 'Content-Disposition': 'attachment; filename="resumen-ejecutivo-2026-10.pdf"' },
+      })
       : json({ idResumen: 7, periodo: '2026-10', texto: 'Texto revisado.', estado: 'REVISADO', indicadoresUsados: [] })
   })
   const revisado = await marcarRevisado({ idResumen: 7, periodo: '2026-10', estado: 'GENERADO' })
   assert.equal(revisado.estado, 'REVISADO')
   const archivo = await descargarResumen(revisado)
-  assert.equal(archivo.contenido, 'Texto revisado.')
-  assert.deepEqual(urls, ['POST /api/resumenes-ejecutivos/7/revision', 'GET /api/resumenes-ejecutivos/7/descarga'])
+  assert.equal(archivo.nombre, 'resumen-ejecutivo-2026-10.pdf')
+  assert.equal(archivo.blob.type, 'application/pdf')
+  assert.deepEqual(urls, ['POST /api/resumenes-ejecutivos/7/revision', 'GET /api/resumenes-ejecutivos/7/pdf'])
 })

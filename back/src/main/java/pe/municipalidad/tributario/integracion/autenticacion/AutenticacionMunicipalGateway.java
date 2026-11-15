@@ -4,8 +4,7 @@ import java.util.Optional;
 
 /*
  * Servicio de autenticación de la Municipalidad para el contribuyente y validación de identidad por DNI
- * (RF-054, RNF-028). Se elige con tributario.integracion.autenticacion: api (por defecto, ps_login sobre
- * la BD sintética) o simulado.
+ * (RF-054, RNF-028). Lo implementa AutenticacionMunicipalApiGateway con ps_login sobre SAMNET.
  */
 public interface AutenticacionMunicipalGateway {
 

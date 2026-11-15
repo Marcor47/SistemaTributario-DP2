@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useRouter, usePreventRemove } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Cabecera, { BotonCabecera } from '../components/ui/Cabecera'
 import Boton from '../components/ui/Boton'
 import Aviso from '../components/ui/Aviso'
+import Icono from '../components/ui/Icono'
 import PeriodoCuenta from '../components/cuenta/PeriodoCuenta'
 import { usePagos } from '../context/PagosContext'
 import useEstadoCuenta from '../hooks/useEstadoCuenta'
@@ -14,14 +15,16 @@ import { fecha, moneda } from '../utils/formato'
 import { mensajeErrorPago } from '../utils/pagos'
 import { colores, fuentes, radios, sombra, texto } from '../theme/tokens'
 
+const PERIODOS_POR_PAGINA = 6
+
 // ─── PDF / Impresión ──────────────────────────────────────────────────────────
 // Genera el HTML del Estado de Cuenta oficial e imprime vía window.print().
 // El documento sigue el diseño institucional: cabecera con datos del municipio,
 // resumen ejecutivo de importes y tabla detallada de obligaciones por periodo.
 function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas }) {
   const ahora = new Date()
-  const emitidoFecha = ahora.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })
-  const emitidoHora  = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+  const emitidoFecha = ahora.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Lima' })
+  const emitidoHora  = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })
   const periodoMin   = filas.length ? filas.reduce((min, f) => f.periodo < min ? f.periodo : min, filas[0].periodo) : '—'
   const periodoMax   = filas.length ? filas.reduce((max, f) => f.periodo > max ? f.periodo : max, filas[0].periodo) : '—'
   const colorDeuda   = resumen.deuda > 0 ? '#B42318' : '#067647'
@@ -144,8 +147,8 @@ function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas })
 </div>
 <div class="kpis">
   <div class="kpi kpi-principal">
-    <div class="lbl">Saldo pendiente total</div>
-    <div class="val">${moneda(resumen.deuda)}</div>
+    <div class="lbl">Total a pagar (incluye interés moratorio)</div>
+    <div class="val">${moneda(resumen.totalAPagar)}</div>
     <div class="badge-estado">${resumen.deuda > 0 ? 'CON DEUDA PENDIENTE' : 'AL DÍA'}</div>
     <div class="sub">Al ${fecha(fechaCorte)}</div>
   </div>
@@ -156,6 +159,10 @@ function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas })
   <div class="kpi kpi-secundario">
     <div class="lbl">Pagos aplicados</div>
     <div class="val" style="color:#067647">${moneda(resumen.pagado)}</div>
+  </div>
+  <div class="kpi kpi-secundario">
+    <div class="lbl">Interés moratorio</div>
+    <div class="val" style="color:${resumen.interes > 0 ? '#B42318' : '#1E2B3C'}">${moneda(resumen.interes)}</div>
   </div>
   ${kpiVencido}
   ${kpiDescuento}
@@ -186,9 +193,9 @@ function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas })
 </table>
 <div class="pie">
   <div class="aviso">
-    ⚠ Este documento es referencial. Los importes definitivos y los descuentos por beneficios aplicables
-    se calculan al momento del pago. Para obtener la deuda exacta, acércate a la Municipalidad de San Miguel
-    o inicia el proceso de pago en Servicios en Línea.
+    Documento informativo. El interés moratorio se calcula a la fecha de corte con la Tasa de Interés Moratorio
+    vigente y se actualiza diariamente hasta la fecha de pago. Los beneficios aplicables se verifican al pagar en
+    Servicios en Línea o en ventanilla.
   </div>
   <div class="firma">
     Emitido por <strong>Servicios en Línea</strong><br/>
@@ -208,6 +215,9 @@ export default function EstadoCuenta() {
   const [vista, setVista] = useState('todos')
   const [categoria, setCategoria] = useState('todos')
   const [anio, setAnio] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const listaRef = useRef(null)
+  const altoCabecera = useRef(0)
   const [creando, setCreando] = useState(false)
   const [errorPago, setErrorPago] = useState(null)
   const enCurso = useRef(false)
@@ -237,6 +247,20 @@ export default function EstadoCuenta() {
     && (vista !== 'pendientes' || periodo.deuda > 0)
     && (vista !== 'pagos' || periodo.pagado > 0)
     && (vista !== 'vencidas' || periodo.estado === 'Vencida'))
+  const totalPaginas = Math.max(1, Math.ceil(visibles.length / PERIODOS_POR_PAGINA))
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const inicioPagina = (paginaActual - 1) * PERIODOS_POR_PAGINA
+  const periodosPagina = visibles.slice(inicioPagina, inicioPagina + PERIODOS_POR_PAGINA)
+
+  function cambiarFiltro(actualizarFiltro, valor) {
+    actualizarFiltro(valor)
+    setPagina(1)
+  }
+
+  function cambiarPagina(nueva) {
+    setPagina(Math.max(1, Math.min(nueva, totalPaginas)))
+    listaRef.current?.scrollToOffset({ offset: Math.max(0, altoCabecera.current - 100), animated: true })
+  }
 
   const pendiente = ultimoPago?.estado === 'INICIADA' && !ultimoPago.descartado
   const avisoPago = errorPago ? mensajeErrorPago(errorPago) : null
@@ -270,7 +294,7 @@ export default function EstadoCuenta() {
     } else {
       Alert.alert(
         'Estado de Cuenta oficial',
-        `Contribuyente: ${cuenta?.contribuyente?.nombre}\nFecha de corte: ${fecha(cuenta?.fechaCorte)}\nSaldo pendiente: ${moneda(resumen.deuda)}\n\nEl documento oficial en PDF se ha preparado para descarga.`,
+        `Contribuyente: ${cuenta?.contribuyente?.nombre}\nFecha de corte: ${fecha(cuenta?.fechaCorte)}\nTotal a pagar: ${moneda(resumen.totalAPagar)}\n\nEl documento oficial en PDF se ha preparado para descarga.`,
         [{ text: 'Aceptar' }]
       )
     }
@@ -307,14 +331,15 @@ export default function EstadoCuenta() {
         derecha={!ocupado && !creando ? <BotonCabecera icono="reintentar" etiqueta="Actualizar estado de cuenta" onPress={actualizarCuenta} /> : null}
       />
       <FlatList
-        data={cuenta ? visibles : []}
+        ref={listaRef}
+        data={cuenta ? periodosPagina : []}
         keyExtractor={(periodo) => periodo.id}
         renderItem={({ item }) => <PeriodoCuenta periodo={item} />}
         refreshing={ocupado && Boolean(cuenta)}
         onRefresh={creando ? undefined : actualizarCuenta}
         contentContainerStyle={[estilos.lista, { paddingBottom: bottom + 24 }]}
         ListHeaderComponent={(
-          <View style={estilos.cabeceraLista}>
+          <View style={estilos.cabeceraLista} onLayout={(evento) => { altoCabecera.current = evento.nativeEvent.layout.height }}>
             {ocupado && !cuenta && (
               <View style={estilos.carga} accessibilityLiveRegion="polite">
                 <ActivityIndicator color={colores.marino} />
@@ -349,11 +374,12 @@ export default function EstadoCuenta() {
                   <View style={[estilos.bloqueDeuda, resumen.deuda > 0 && estilos.bloqueDeudaActiva]}>
                     <View style={estilos.bloqueDeudaTextos}>
                       <Text style={[estilos.etiquetaSaldo, resumen.deuda > 0 && estilos.etiquetaSaldoRojo]}>
-                        Saldo pendiente total
+                        Total a pagar
                       </Text>
                       <Text style={[estilos.total, resumen.deuda > 0 && estilos.totalRojo]}>
-                        {moneda(resumen.deuda)}
+                        {moneda(resumen.totalAPagar)}
                       </Text>
+                      {resumen.interes > 0 && <Text style={texto.pequeno}>{'Incluye ' + moneda(resumen.interes) + ' de interés moratorio'}</Text>}
                       <Text style={texto.pequeno}>{'Fecha de corte: ' + fecha(cuenta.fechaCorte)}</Text>
                     </View>
                     {resumen.deuda > 0 && (
@@ -373,6 +399,7 @@ export default function EstadoCuenta() {
                     <Indicador etiqueta="Emitido total" valor={resumen.emitido} />
                     <Indicador etiqueta="Pagos aplicados" valor={resumen.pagado} positivo />
                     <Indicador etiqueta="Deuda vencida" valor={resumen.vencido} alerta={resumen.vencido > 0} />
+                    <Indicador etiqueta="Interés moratorio" valor={resumen.interes} alerta={resumen.interes > 0} />
                     {resumen.descuento > 0 ? (
                       <Indicador etiqueta="Beneficios/Desc." valor={resumen.descuento} descuento />
                     ) : null}
@@ -411,7 +438,7 @@ export default function EstadoCuenta() {
 
                 <View style={estilos.filtros}>
                   <Text style={texto.subtitulo} accessibilityRole="header">Detalle por periodo</Text>
-
+                  <View style={estilos.filaFiltros}>
                   {/* Filtro por estado */}
                   <Filtro
                     etiqueta="Mostrar por estado"
@@ -422,7 +449,7 @@ export default function EstadoCuenta() {
                       { valor: 'vencidas', nombre: 'Vencidas' },
                       { valor: 'pagos', nombre: 'Con pagos' },
                     ]}
-                    onCambiar={setVista}
+                    onCambiar={(valor) => cambiarFiltro(setVista, valor)}
                   />
 
                   {/* Filtro por categoría tributaria */}
@@ -435,7 +462,7 @@ export default function EstadoCuenta() {
                       { valor: 'arbitrios', nombre: 'Arbitrios Municipales' },
                       { valor: 'multas', nombre: 'Multas y Sanciones' },
                     ]}
-                    onCambiar={setCategoria}
+                    onCambiar={(valor) => { cambiarFiltro(setCategoria, valor); setAnio('') }}
                   />
 
                   {/* Filtro por año */}
@@ -447,16 +474,34 @@ export default function EstadoCuenta() {
                         { valor: '', nombre: 'Todos los años' },
                         ...anios.map((valor) => ({ valor, nombre: String(valor) })),
                       ]}
-                      onCambiar={setAnio}
+                      onCambiar={(valor) => cambiarFiltro(setAnio, valor)}
                     />
                   )}
 
-                  <Text style={texto.pequeno}>{visibles.length + ' periodos · Toca uno para ver sus conceptos.'}</Text>
+                  </View>
+                  {(vista !== 'todos' || categoria !== 'todos' || anio) ? <Boton titulo="Limpiar filtros" variante="texto"
+                    onPress={() => { setVista('todos'); setCategoria('todos'); setAnio(''); setPagina(1) }} /> : null}
+                  <Text style={texto.pequeno} accessibilityLiveRegion="polite">{visibles.length
+                    ? `${inicioPagina + 1}–${inicioPagina + periodosPagina.length} de ${visibles.length} períodos · Toca uno para ver sus conceptos.`
+                    : '0 períodos encontrados'}</Text>
                 </View>
               </>
             )}
           </View>
         )}
+        ListFooterComponent={cuenta && visibles.length > PERIODOS_POR_PAGINA ? <View style={estilos.paginacion}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Página anterior" disabled={paginaActual === 1}
+            accessibilityState={{ disabled: paginaActual === 1 }} onPress={() => cambiarPagina(paginaActual - 1)}
+            style={[estilos.botonPagina, paginaActual === 1 && estilos.paginaDeshabilitada]}>
+            <Icono nombre="flecha-izquierda" tamano={18} /><Text style={texto.etiqueta}>Anterior</Text>
+          </Pressable>
+          <Text style={texto.pequeno} accessibilityLiveRegion="polite">{paginaActual} de {totalPaginas}</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Página siguiente" disabled={paginaActual === totalPaginas}
+            accessibilityState={{ disabled: paginaActual === totalPaginas }} onPress={() => cambiarPagina(paginaActual + 1)}
+            style={[estilos.botonPagina, paginaActual === totalPaginas && estilos.paginaDeshabilitada]}>
+            <Text style={texto.etiqueta}>Siguiente</Text><Icono nombre="chevron-derecha" tamano={18} />
+          </Pressable>
+        </View> : null}
         ListEmptyComponent={!ocupado && cuenta ? (
           <Aviso>
             {categoria === 'multas'
@@ -515,20 +560,42 @@ function Indicador({ etiqueta, valor, alerta = false, descuento = false, positiv
 }
 
 function Filtro({ etiqueta, opciones, valor, onCambiar }) {
+  const [abierto, setAbierto] = useState(false)
+  const seleccion = opciones.find((opcion) => opcion.valor === valor)
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={estilos.opciones} accessibilityLabel={etiqueta}>
-      {opciones.map((opcion) => (
+    <View style={estilos.filtroCompacto}>
+      <Pressable onPress={() => setAbierto(true)} accessibilityRole="button"
+        accessibilityLabel={`${etiqueta}: ${seleccion?.nombre || 'Todos'}`} accessibilityState={{ expanded: abierto }} style={estilos.selectorFiltro}>
+        <View style={estilos.textosFiltro}><Text style={texto.pequeno}>{etiqueta}</Text>
+          <Text style={estilos.opcionTexto} numberOfLines={1}>{seleccion?.nombre || 'Todos'}</Text></View>
+        <Icono nombre="chevron-abajo" tamano={16} />
+      </Pressable>
+      <Modal visible={abierto} transparent animationType="fade" onRequestClose={() => setAbierto(false)}>
+        <View style={estilos.fondoFiltro}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAbierto(false)} accessibilityLabel="Cerrar filtro" accessibilityRole="button" />
+          <View style={estilos.hojaFiltro} accessibilityViewIsModal>
+            <View style={estilos.tituloFiltro}><Text style={texto.subtitulo}>{etiqueta}</Text>
+              <Pressable onPress={() => setAbierto(false)} accessibilityLabel="Cerrar filtro" accessibilityRole="button" style={estilos.cerrarFiltro}>
+                <Icono nombre="cerrar" />
+              </Pressable></View>
+            <ScrollView contentContainerStyle={estilos.opciones}>
+              {opciones.map((opcion) => (
         <Pressable
           key={opcion.valor}
-          onPress={() => onCambiar(opcion.valor)}
-          accessibilityRole="button"
-          accessibilityState={{ selected: valor === opcion.valor }}
+          onPress={() => { onCambiar(opcion.valor); setAbierto(false) }}
+          accessibilityRole="radio"
+          accessibilityState={{ checked: valor === opcion.valor }}
           style={({ pressed }) => [estilos.opcion, valor === opcion.valor && estilos.opcionActiva, pressed && estilos.opcionPresionada]}
         >
           <Text style={[estilos.opcionTexto, valor === opcion.valor && estilos.opcionTextoActivo]}>{opcion.nombre}</Text>
+          {valor === opcion.valor ? <Icono nombre="check" tamano={18} color={colores.blanco} /> : null}
         </Pressable>
       ))}
-    </ScrollView>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
   )
 }
 
@@ -594,9 +661,20 @@ const estilos = StyleSheet.create({
 
   // ── Filtros
   filtros: { gap: 10, paddingTop: 4 },
+  filaFiltros: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filtroCompacto: { flexGrow: 1, flexBasis: 150, minWidth: 130 },
+  selectorFiltro: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 60, padding: 12, borderWidth: 1, borderColor: colores.bordeFuerte, borderRadius: radios.md, backgroundColor: colores.superficie },
+  textosFiltro: { flex: 1, gap: 4 },
+  fondoFiltro: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24, backgroundColor: colores.sombraModal },
+  hojaFiltro: { width: '100%', maxWidth: 420, maxHeight: '75%', padding: 18, borderRadius: radios.lg, backgroundColor: colores.superficie },
+  tituloFiltro: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  cerrarFiltro: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  paginacion: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingVertical: 12 },
+  botonPagina: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 10, minHeight: 48, backgroundColor: colores.superficie, borderWidth: 1, borderColor: colores.borde, borderRadius: radios.md },
+  paginaDeshabilitada: { opacity: .4 },
   opciones: { gap: 8, paddingVertical: 2 },
   opcion: {
-    minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 8,
+    minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8, paddingHorizontal: 16, paddingVertical: 8,
     borderRadius: radios.pill, borderWidth: 1, borderColor: colores.bordeFuerte, backgroundColor: colores.superficie,
   },
   opcionActiva: { backgroundColor: colores.marino, borderColor: colores.marino },
