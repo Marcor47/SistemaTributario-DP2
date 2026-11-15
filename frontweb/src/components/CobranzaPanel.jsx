@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { listarObligacionesVencidas, obtenerEtapaCobranza } from '../services/cobranzaService.js'
 import { obtenerRecordatorioObligacion } from '../services/recordatorioService.js'
 import { fecha } from '../utils/formato.js'
 import { FILTROS_COBRANZA_INICIALES, filtrarObligaciones, opcionesDeCobranza } from '../utils/cobranza.js'
 import { TAMANIOS_PAGINA, paginar } from '../utils/paginacion.js'
+import { SesionInternaContext } from '../context/sesionInterna.js'
+import { AccesoDenegado } from './AccesoInterno.jsx'
+import './AccesoInterno.css'
 import DetalleCobranza from './DetalleCobranza.jsx'
 import EtiquetaDeudaVencida from './EtiquetaDeudaVencida.jsx'
 import './Cobranza.css'
@@ -21,9 +24,12 @@ function Etapa({ etapa, nombre }) {
 }
 
 export default function CobranzaPanel({ contribuyente }) {
+  const sesionContexto = useContext(SesionInternaContext)
+  const sesion = sesionContexto?.sesion
   const [obligaciones, setObligaciones] = useState(null)
   const [ocupado, setOcupado] = useState(true)
   const [error, setError] = useState('')
+  const [errorObj, setErrorObj] = useState(null)
   const [seleccionada, setSeleccionada] = useState(null)
   const [detalle, setDetalle] = useState(null)
   const [ocupadoDetalle, setOcupadoDetalle] = useState(false)
@@ -51,7 +57,10 @@ export default function CobranzaPanel({ contribuyente }) {
       })
       .catch((err) => {
         if (activo && actual === solicitudListado.current) {
-          setError(err.message || 'No se pudo consultar la cobranza. Intenta nuevamente.')
+          setErrorObj(err)
+          setError(err?.estado === 403 || err?.codigo === 'ACCESO_DENEGADO'
+            ? 'Tu usuario no tiene permiso para consultar las obligaciones y cobranza de contribuyentes.'
+            : (err.message || 'No se pudo consultar la cobranza. Intenta nuevamente.'))
         }
       })
       .finally(() => {
@@ -65,6 +74,7 @@ export default function CobranzaPanel({ contribuyente }) {
     solicitudDetalle.current++
     setOcupado(true)
     setError('')
+    setErrorObj(null)
     setObligaciones(null)
     setSeleccionada(null)
     setDetalle(null)
@@ -79,7 +89,10 @@ export default function CobranzaPanel({ contribuyente }) {
       if (actual === solicitudListado.current) setObligaciones(resultado)
     } catch (err) {
       if (actual === solicitudListado.current) {
-        setError(err.message || 'No se pudo consultar la cobranza. Intenta nuevamente.')
+        setErrorObj(err)
+        setError(err?.estado === 403 || err?.codigo === 'ACCESO_DENEGADO'
+          ? 'Tu usuario no tiene permiso para consultar las obligaciones y cobranza de contribuyentes.'
+          : (err.message || 'No se pudo consultar la cobranza. Intenta nuevamente.'))
       }
     } finally {
       if (actual === solicitudListado.current) setOcupado(false)
@@ -185,6 +198,16 @@ export default function CobranzaPanel({ contribuyente }) {
   }
 
   if (error) {
+    if (errorObj?.estado === 403 || errorObj?.codigo === 'ACCESO_DENEGADO') {
+      return (
+        <AccesoDenegado
+          titulo="Acceso restringido — Cobranza"
+          usuario={sesion}
+          descripcion="La consulta de obligaciones tributarias y estado de cobranza del contribuyente está restringida al personal autorizado."
+          rolesPermitidos={['ANALISTA_RENTAS', 'GERENCIA']}
+        />
+      )
+    }
     return (
       <div className="alert" role="alert">
         <p>{error}</p>

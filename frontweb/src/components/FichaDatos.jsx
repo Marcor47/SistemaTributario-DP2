@@ -1,4 +1,8 @@
+import { useContext } from 'react'
 import TablaPredios from './TablaPredios.jsx'
+import { SesionInternaContext } from '../context/sesionInterna.js'
+import { AccesoDenegado } from './AccesoInterno.jsx'
+import './AccesoInterno.css'
 import { moneda } from '../utils/formato.js'
 
 function Campo({ etiqueta, valor }) {
@@ -15,12 +19,25 @@ const TIPO_PERSONA = {
   JURIDICA: 'Persona jurídica',
 }
 
-export default function FichaDatos({ ficha, ocupado, error, onReintentar }) {
+export default function FichaDatos({ ficha, ocupado, error, errorObj, onReintentar }) {
+  const sesionContexto = useContext(SesionInternaContext)
+  const sesion = sesionContexto?.sesion
+
   if (ocupado) {
     return <p className="hint mensaje-carga" role="status">Consultando ficha del contribuyente…</p>
   }
 
   if (error) {
+    if (errorObj?.estado === 403 || errorObj?.codigo === 'ACCESO_DENEGADO') {
+      return (
+        <AccesoDenegado
+          titulo="Acceso restringido — Ficha del contribuyente"
+          usuario={sesion}
+          descripcion="La consulta de la ficha oficial del contribuyente en SAMNET requiere rol autorizado."
+          rolesPermitidos={['ANALISTA_RENTAS', 'GERENCIA', 'VENTANILLA']}
+        />
+      )
+    }
     return (
       <div className="alert" role="alert">
         <p>{error}</p>
