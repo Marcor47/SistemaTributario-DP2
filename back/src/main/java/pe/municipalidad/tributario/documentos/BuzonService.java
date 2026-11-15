@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.tramitepredio.EstadoSolicitudPredio;
 
 /*
  * HU019 (RF-030): el contribuyente ve los documentos de su buzón y, al abrir uno, queda registrada la fecha y hora
@@ -23,9 +24,11 @@ public class BuzonService {
     private final DocumentoBuzonRepository documentoBuzonRepository;
     private final ContribuyenteService contribuyenteService;
     private final Clock reloj;
+    private final DocumentoBuzonPdfService pdfs;
 
     public BuzonService(DocumentoBuzonRepository documentoBuzonRepository,
-            ContribuyenteService contribuyenteService, Clock reloj) {
+            ContribuyenteService contribuyenteService, Clock reloj, DocumentoBuzonPdfService pdfs) {
+        this.pdfs = pdfs;
         this.documentoBuzonRepository = documentoBuzonRepository;
         this.contribuyenteService = contribuyenteService;
         this.reloj = reloj;
@@ -72,11 +75,17 @@ public class BuzonService {
     public byte[] descargar(String codigoContribuyente, Long idDocumento) {
         DocumentoBuzon buscado = documentoBuzonRepository.bloquearPropio(idDocumento, documentoDe(codigoContribuyente))
                 .orElseThrow(() -> new RecursoNoEncontradoException("DOCUMENTO_NO_ENCONTRADO", "No existe ese documento."));
-        if (buscado.getConstancia() == null || buscado.getConstancia().getContenidoPdf() == null) {
+        byte[] pdf;
+        if (buscado.getConstancia() != null) {
+            pdf = pdfs.constancia(buscado.getConstancia());
+        } else if (buscado.getSolicitudPredio() != null
+                && buscado.getSolicitudPredio().getEstado() != EstadoSolicitudPredio.EN_REVISION) {
+            pdf = pdfs.respuestaSolicitudPredio(buscado.getSolicitudPredio());
+        } else {
             throw new RecursoNoEncontradoException("ARCHIVO_NO_DISPONIBLE", "Este documento no tiene un archivo descargable.");
         }
         buscado.marcarLeido(LocalDateTime.now(reloj));
-        return buscado.getConstancia().getContenidoPdf();
+        return pdf;
     }
 
     @Transactional

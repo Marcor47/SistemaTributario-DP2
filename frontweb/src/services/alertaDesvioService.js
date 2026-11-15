@@ -1,6 +1,6 @@
 import { pedir } from './api.js'
 
-// HU039: alertas activas de desvío de meta que alimentan el dashboard.
+// HU039: alertas activas de desvío de meta que muestra la plataforma analítica.
 export function listarAlertasDesvio({ indicadorCodigo, signal } = {}) {
   const parametros = new URLSearchParams()
   const filtro = indicadorCodigo?.trim()

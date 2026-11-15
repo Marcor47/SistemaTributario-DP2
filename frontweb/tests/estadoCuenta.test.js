@@ -50,15 +50,14 @@ test('separa el Impuesto Predial en sus cuotas y nombra los meses de los arbitri
   assert.equal(etiquetaCuota({ tributoCodigo: 'ARBITRIOS', cuota: 9 }), 'Setiembre')
 })
 
-test('agrupa los arbitrios por predio con sus totales y lo que corresponde a cada servicio', () => {
+test('agrupa los arbitrios por predio con sus totales', () => {
   const grupos = arbitriosPorPredio(cuenta, 2026)
   assert.deepEqual(grupos.map((grupo) => grupo.codigoPredio), ['021390-01', '021390-02'])
   const principal = grupos[0]
   assert.deepEqual(principal.filas.map((fila) => fila.cuota), [1, 2])
   assert.equal(principal.predio.ubicacion, 'Jr. Los Precursores 220')
   assert.deepEqual(principal.totales, { emitido: 305.64, pagado: 0, deuda: 305.64, interesMoratorio: 21, totalAPagar: 326.64, vencidas: 2 })
-  assert.deepEqual(principal.porServicio.slice(0, 2).map((s) => s.monto), [33.38, 179.56])
-  assert.equal(principal.porServicio[3].monto, 0)
+  assert.equal(principal.porServicio, undefined)
 })
 
 test('en listas largas filtra los predios por código, dirección o deuda', () => {

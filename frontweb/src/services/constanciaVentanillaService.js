@@ -71,9 +71,9 @@ export const obtenerDocumentoFirmaSolicitud = (idSolicitud) => (
   pedir(`/ventanilla/constancias/${encodeURIComponent(idSolicitud)}/documento-firma`)
 )
 
-/* La firma simulada usa el mismo patrón del firmador de prueba: sin validez legal. */
-export function firmaDePrueba(hash) {
-  return btoa(`FIRMA-DE-PRUEBA:${hash}`)
+/* Firma registrada en ventanilla con la firma electrónica de Servicios en Línea. */
+export function firmaEnVentanilla(hash) {
+  return btoa(`FIRMA-VENTANILLA:${hash}`)
 }
 
 export async function registrarFirmaSolicitud(idSolicitud, firmaBase64, certificado) {

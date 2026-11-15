@@ -11,7 +11,18 @@ const DESCRIPCIONES_ROL = {
   RESPONSABLE_DATOS: 'Homologación de información, aseguramiento de la calidad de datos y auditoría de procesos.',
   VENTANILLA: 'Atención presencial a los vecinos y emisión de constancias tributarias en plataforma.',
   TERMINALISTA: 'Recepción, verificación y procesamiento de formularios y declaraciones juradas tributarias.',
-  GESTOR_RECLAMOS: 'Recepción, clasificación, derivación y seguimiento integral de reclamos ciudadanos y laborales.',
+  GESTOR_RECLAMOS: 'Recepción, clasificación, derivación y seguimiento integral de los reclamos de los contribuyentes.',
+}
+
+// Cargo con el que se saluda al usuario en la bienvenida; viene del rol de su sesión.
+const TITULO_ROL = {
+  ADMINISTRADOR: 'Administrador(a) del sistema',
+  GERENCIA: 'Gerente de Rentas',
+  ANALISTA_RENTAS: 'Analista de Rentas',
+  RESPONSABLE_DATOS: 'Responsable de datos',
+  VENTANILLA: 'Personal de ventanilla',
+  TERMINALISTA: 'Terminalista',
+  GESTOR_RECLAMOS: 'Gestor(a) de reclamos',
 }
 
 export default function InicioGestion() {
@@ -29,7 +40,7 @@ export default function InicioGestion() {
       puedeAccederModulo(modulo, sesion)
   )
 
-  const nombreUsuario = sesion?.nombreCompleto || sesion?.nombreUsuario || 'Funcionario Municipal'
+  const nombreUsuario = sesion?.nombreCompleto || sesion?.nombreUsuario || ''
 
   return (
     <div className="gestion-inicio">
@@ -42,8 +53,9 @@ export default function InicioGestion() {
             </span>
           </div>
           <h2 id="gestion-bienvenida-titulo">
-            Bienvenido(a), <strong>{nombreUsuario}</strong>
+            Bienvenido(a), <strong>{TITULO_ROL[rolCodigo] || rolTexto}</strong>
           </h2>
+          <p className="gestion-bienvenida__nombre">{nombreUsuario}</p>
           <p className="gestion-bienvenida__desc">
             {descripcionRol} Selecciona cualquiera de las herramientas habilitadas para tu perfil o utiliza el menú lateral para navegar.
           </p>

@@ -1,12 +1,12 @@
 package pe.municipalidad.tributario.constancia;
 
-import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.EnumSet;
@@ -23,11 +23,13 @@ import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.ContribuyenteService;
+import pe.municipalidad.tributario.documentos.DocumentoInstitucionalPdf;
+import pe.municipalidad.tributario.documentos.DocumentoInstitucionalPdf.Dato;
 import pe.municipalidad.tributario.estadocuenta.EstadoCuentaFilaRespuesta;
-import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
-import pe.municipalidad.tributario.obligacion.TasaInteresMoratorio;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway.ResultadoFirma;
+import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
+import pe.municipalidad.tributario.obligacion.TasaInteresMoratorio;
 
 /*
  * HU015 (RF-021, RNF-007): el contribuyente firma digitalmente su solicitud de Constancia de No Adeudo desde la
@@ -41,7 +43,6 @@ public class SolicitudConstanciaService {
     private static final Set<EstadoConstancia> ESTADOS_CERRADOS =
             EnumSet.of(EstadoConstancia.EMITIDA, EstadoConstancia.RECHAZADA);
     static final String TIPO_CONTENIDO_DOCUMENTO = "text/plain; charset=UTF-8";
-    private static final String MARCA_DOCUMENTO_DE_PRUEBA = "DOCUMENTO DE PRUEBA";
 
     private final SolicitudConstanciaRepository solicitudConstanciaRepository;
     private final ContribuyenteService contribuyenteService;
@@ -65,8 +66,8 @@ public class SolicitudConstanciaService {
     public SolicitudConstanciaRespuesta iniciarSolicitud(String codigoContribuyente) {
         exigirSinDeuda(codigoContribuyente);
         String documento = documentoDe(codigoContribuyente);
-        /* El firmador simulado permite repetir la demostración después de firmar; la solicitud sin firmar se retoma. */
-        var enCurso = firmador.esSimulado()
+        /* Con la firma de Servicios en Línea se puede volver a firmar una solicitud; la solicitud sin firmar se retoma. */
+        var enCurso = firmador.firmaLocal()
                 ? solicitudConstanciaRepository.findFirstByDocumentoContribuyenteAndEstadoOrderByFechaSolicitudDesc(
                         documento, EstadoConstancia.INICIADA)
                 : solicitudConstanciaRepository.findFirstByDocumentoContribuyenteAndEstadoNotInOrderByFechaSolicitudDesc(
@@ -94,6 +95,34 @@ public class SolicitudConstanciaService {
                 .stream().map(SolicitudConstanciaRespuesta::desde).toList();
     }
 
+    /*
+     * 5.4: el mismo documento de la solicitud en PDF con la plantilla institucional, para leerlo o imprimirlo. La firma
+     * se verifica siempre contra el texto canónico; el PDF muestra su huella SHA-256.
+     */
+    public byte[] documentoParaFirmaPdf(String codigoContribuyente, Long idSolicitud) {
+        SolicitudConstancia solicitud = buscarPropia(codigoContribuyente, idSolicitud);
+        Contribuyente contribuyente = contribuyenteService.obtenerPorCodigo(codigoContribuyente);
+        byte[] texto = documentoParaFirma(solicitud);
+        return new DocumentoInstitucionalPdf("Gerencia de Rentas",
+                "Solicitud de Constancia de No Adeudo", "SCN-" + solicitud.getIdSolicitud(), solicitud.getFechaSolicitud())
+                .seccion("Datos del solicitante")
+                .datos(List.of(
+                        new Dato("Contribuyente:",
+                                contribuyente.getNombreRazonSocial()),
+                        new Dato("Documento:",
+                                contribuyente.getTipoDocumento().name() + " " + contribuyente.getNumeroDocumento()),
+                        new Dato("Código de contribuyente:",
+                                contribuyente.getCodigoContribuyente()),
+                        new Dato("Solicitud N.°:",
+                                String.valueOf(solicitud.getIdSolicitud()))))
+                .seccion("Solicitud")
+                .parrafo("Solicito la emisión de la Constancia de No Adeudo de mis tributos municipales (Impuesto Predial "
+                        + "y Arbitrios Municipales) y declaro que los datos de esta solicitud son verdaderos.")
+                .nota("Huella digital (SHA-256) del documento que se firma: " + sha256(texto))
+                .firma(contribuyente.getNombreRazonSocial(), "Contribuyente solicitante", null)
+                .generar();
+    }
+
     public DocumentoFirmaRespuesta obtenerDocumentoParaFirma(String codigoContribuyente, Long idSolicitud) {
         SolicitudConstancia solicitud = buscarPropia(codigoContribuyente, idSolicitud);
         exigirPendienteDeFirma(solicitud);
@@ -106,7 +135,7 @@ public class SolicitudConstanciaService {
                 TIPO_CONTENIDO_DOCUMENTO,
                 Base64.getEncoder().encodeToString(documento),
                 sha256(documento),
-                firmador.esSimulado(),
+                firmador.firmaLocal(),
                 new DocumentoFirmaRespuesta.DatosContribuyente(contribuyente.getCodigoContribuyente(),
                         contribuyente.getNombreRazonSocial(), contribuyente.getTipoDocumento().name(),
                         contribuyente.getNumeroDocumento()));
@@ -152,9 +181,10 @@ public class SolicitudConstanciaService {
         if (cuenta.isDesdeCopia()) {
             throw new ReglaNegocioException("DEUDA_NO_VERIFICADA", "No se pudo verificar la deuda actual.");
         }
+        /* La deuda que impide la constancia es el total a pagar: insoluto más el interés moratorio de las vencidas. */
         var pendientes = cuenta.getObligaciones().stream().filter(o -> o.saldo().signum() > 0)
                 .map(o -> EstadoCuentaFilaRespuesta.desde(o, cuenta.obtenerFechaCorte(), tim.mensual())).toList();
-        BigDecimal total = pendientes.stream().map(EstadoCuentaFilaRespuesta::deuda)
+        BigDecimal total = pendientes.stream().map(EstadoCuentaFilaRespuesta::totalAPagar)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         return new DeudaConstanciaRespuesta(total, pendientes);
     }
@@ -178,9 +208,6 @@ public class SolicitudConstanciaService {
      */
     byte[] documentoParaFirma(SolicitudConstancia solicitud) {
         StringBuilder texto = new StringBuilder();
-        if (firmador.esSimulado()) {
-            texto.append(MARCA_DOCUMENTO_DE_PRUEBA).append('\n');
-        }
         texto.append("MUNICIPALIDAD DISTRITAL DE SAN MIGUEL - GERENCIA DE RENTAS\n")
                 .append("SOLICITUD DE CONSTANCIA DE NO ADEUDO\n")
                 .append("Solicitud N.°: ").append(solicitud.getIdSolicitud()).append('\n')

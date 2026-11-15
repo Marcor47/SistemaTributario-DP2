@@ -31,20 +31,20 @@ class GeneradorConstanciaPdfTest {
         try (PDDocument documento = Loader.loadPDF(pdf)) {
             String texto = new PDFTextStripper().getText(documento);
             assertThat(texto).contains(
-                    "Municipalidad de San Miguel",
-                    "DOCUMENTO DE PRUEBA",
-                    "Constancia de No Adeudo",
-                    "Referencia: CNA-2026-000123",
+                    "MUNICIPALIDAD DISTRITAL DE SAN MIGUEL",
+                    "CONSTANCIA DE NO ADEUDO",
+                    "CNA-2026-000123",
                     "GARCÍA TORRES, MARÍA ELENA",
-                    "Documento: DNI 41028765",
-                    "Código de contribuyente: 014502",
-                    "Fecha de emisión: 11/11/2026",
-                    "Predios comprendidos: PRD-001, PRD-002",
-                    "Período cubierto: 2024 - 2026",
-                    "Atendido en ventanilla por: Ventanilla de Pruebas",
-                    "a la fecha de emisión",
-                    "Firma municipal simulada",
-                    "1 / 1");
+                    "DNI 41028765",
+                    "014502",
+                    "HACE CONSTAR",
+                    "Sin deuda tributaria pendiente",
+                    "PRD-001, PRD-002",
+                    "2024 - 2026",
+                    "Ventanilla de Pruebas",
+                    "Base legal".toUpperCase(),
+                    "Página 1 de");
+            assertThat(texto).doesNotContain("PRUEBA", "simulada");
         }
     }
 
@@ -55,7 +55,7 @@ class GeneradorConstanciaPdfTest {
 
         try (PDDocument documento = Loader.loadPDF(pdf)) {
             assertThat(new PDFTextStripper().getText(documento))
-                    .contains("a la fecha de presentación de la solicitud (10/11/2026)");
+                    .contains("presentación", "(10/11/2026)");
         }
     }
 
@@ -65,8 +65,8 @@ class GeneradorConstanciaPdfTest {
 
         try (PDDocument documento = Loader.loadPDF(pdf)) {
             String texto = new PDFTextStripper().getText(documento);
-            assertThat(texto).contains("CONSTANCIA DE NO ADEUDO", "No registra deuda tributaria pendiente");
-            assertThat(texto).doesNotContain("Firma municipal simulada");
+            assertThat(texto).contains("CONSTANCIA DE NO ADEUDO", "Sin deuda tributaria pendiente");
+            assertThat(texto).doesNotContain("simulada", "PRUEBA");
         }
     }
 
@@ -78,7 +78,7 @@ class GeneradorConstanciaPdfTest {
         try (PDDocument documento = Loader.loadPDF(pdf)) {
             int paginas = documento.getNumberOfPages();
             assertThat(paginas).isGreaterThanOrEqualTo(2);
-            assertThat(new PDFTextStripper().getText(documento)).contains(paginas + " / " + paginas);
+            assertThat(new PDFTextStripper().getText(documento)).contains("Página " + paginas + " de " + paginas);
         }
     }
 

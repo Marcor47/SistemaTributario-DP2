@@ -60,9 +60,7 @@ class ArbitrioPredioControllerTest {
                 .andExpect(jsonPath("$.cuotas[0].fechaVencimiento").value("2025-02-28"))
                 .andExpect(jsonPath("$.cuotas[0].emitido").value(148.35))
                 .andExpect(jsonPath("$.cuotas[0].estado").value("PAGADA"))
-                .andExpect(jsonPath("$.cuotas[0].servicios", hasSize(4)))
-                .andExpect(jsonPath("$.cuotas[0].servicios[?(@.servicio == 'RECOLECCION_RESIDUOS')].monto")
-                        .value(87.15))
+                .andExpect(jsonPath("$.cuotas[0].servicios").doesNotExist())
                 .andExpect(jsonPath("$.cuotas[7].periodo").value("2025-08"))
                 .andExpect(jsonPath("$.cuotas[7].estado").value("VENCIDA"))
                 .andExpect(jsonPath("$.cuotas[7].diasVencida").value(416))
@@ -72,9 +70,7 @@ class ArbitrioPredioControllerTest {
                 .andExpect(jsonPath("$.resumen.cuotasVencidas").value(14))
                 .andExpect(jsonPath("$.resumen.cuotasPendientes").value(3))
                 .andExpect(jsonPath("$.resumen.totalSaldo").value(2575.59))
-                .andExpect(jsonPath("$.resumen.porServicio", hasSize(4)))
-                .andExpect(jsonPath("$.resumen.porServicio[0].servicio").value("BARRIDO_CALLES"))
-                .andExpect(jsonPath("$.resumen.porServicio[0].emitido").value(394.68));
+                .andExpect(jsonPath("$.resumen.porServicio").doesNotExist());
     }
 
     @Test

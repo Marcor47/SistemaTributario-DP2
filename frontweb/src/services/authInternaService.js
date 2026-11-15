@@ -1,3 +1,4 @@
+import { olvidarTokenCsrf } from './api.js'
 const API = import.meta.env?.VITE_API_URL || 'http://localhost:8080/api'
 let csrfActual = null
 export const EVENTO_SESION_INTERNA_EXPIRADA = 'sesion-interna-expirada'
@@ -10,6 +11,7 @@ function sinConexion() {
 
 export function notificarSesionExpirada() {
   csrfActual = null
+  olvidarTokenCsrf()
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(EVENTO_SESION_INTERNA_EXPIRADA))
 }
 
@@ -48,6 +50,7 @@ async function solicitar(ruta, opciones = {}, protegido = false) {
 }
 
 export function iniciarSesionInterna(nombreUsuario, clave) {
+  olvidarTokenCsrf()
   return solicitar('/auth/interno/login', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nombreUsuario, clave }),
@@ -59,6 +62,7 @@ export const obtenerSesionInterna = () => solicitar('/auth/interno/me')
 export async function cerrarSesionInterna() {
   await solicitar('/auth/interno/logout', { method: 'POST' }, true)
   csrfActual = null
+  olvidarTokenCsrf()
 }
 
 export function cambiarClaveInterna(claveActual, claveNueva) {

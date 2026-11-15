@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import pe.municipalidad.tributario.auth.SesionContribuyente;
+import pe.municipalidad.tributario.common.AccesoDenegadoException;
 import pe.municipalidad.tributario.common.NoAutenticadoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
@@ -53,19 +54,32 @@ public class ReclamoService {
         this.reloj = reloj;
     }
 
+    /*
+     * Solo un contribuyente registra reclamos, desde su sesión de Servicios en Línea (web o app). Los usuarios
+     * internos los ven y gestionan según su rol; si además son contribuyentes, reclaman desde el portal.
+     */
     @Transactional
     public ReclamoRespuesta registrar(RegistrarReclamoSolicitud solicitud, HttpServletRequest request) {
-        IdentidadReclamante identidad = identidad(request);
+        String documento = documentoContribuyente(request);
         LocalDateTime ahora = LocalDateTime.now(reloj);
         String numero = reclamos.siguienteNumero(ahora.toLocalDate());
         String referencia = normalizarOpcional(solicitud.referencia());
         String comentario = solicitud.comentario().trim();
-        Reclamo reclamo = identidad.trabajador() == null
-                ? Reclamo.deContribuyente(numero, identidad.documento(), solicitud.tipoReclamo(), referencia,
-                        solicitud.fechaHoraIncidente(), comentario, ahora)
-                : Reclamo.deTrabajador(numero, identidad.trabajador(), solicitud.tipoReclamo(), referencia,
-                        solicitud.fechaHoraIncidente(), comentario, ahora);
+        Reclamo reclamo = Reclamo.deContribuyente(numero, documento, solicitud.tipoReclamo(), referencia,
+                solicitud.fechaHoraIncidente(), comentario, ahora);
         return ReclamoRespuesta.desdeParaReclamante(reclamos.save(reclamo));
+    }
+
+    private String documentoContribuyente(HttpServletRequest request) {
+        HttpSession sesion = request.getSession(false);
+        boolean esContribuyente = sesion != null
+                && sesion.getAttribute(SesionContribuyente.ATRIBUTO_CODIGO_CONTRIBUYENTE) != null;
+        boolean esInterno = sesion != null && sesion.getAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO) != null;
+        if (!esContribuyente && esInterno) {
+            throw new AccesoDenegadoException("RECLAMO_SOLO_CONTRIBUYENTE",
+                    "Los reclamos se registran desde Servicios en Línea con la cuenta del contribuyente.");
+        }
+        return contribuyentes.obtenerPorCodigo(SesionContribuyente.codigoContribuyente(request)).getNumeroDocumento();
     }
 
     @Transactional(readOnly = true)

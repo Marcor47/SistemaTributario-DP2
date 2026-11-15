@@ -7,7 +7,7 @@ public record DocumentoFirmaRespuesta(
         String tipoContenido,
         String contenidoBase64,
         String hashSha256,
-        boolean documentoDePrueba,
+        boolean firmaLocal,
         DatosContribuyente datosContribuyente) {
 
     public record DatosContribuyente(String codigo, String nombre, String tipoDocumento, String numeroDocumento) {}

@@ -3,9 +3,9 @@ import { listarAlertasDesvio } from '../services/alertaDesvioService.js'
 import { filtrarAlertasPorFiltros, resumirAlertas } from '../utils/alertas.js'
 
 /*
- * HU039: carga las alertas activas y las somete a los filtros del dashboard.
+ * HU039: carga las alertas activas y las somete a los filtros de la plataforma analítica.
  * El filtrado es local para que cambiar año, periodo, zona, tributo o segmento actualice
- * las tarjetas de inmediato; el botón Actualizar del dashboard incrementa `revision` y
+ * las tarjetas de inmediato; el botón Actualizar de la plataforma incrementa `revision` y
  * vuelve a consultar el endpoint.
  */
 export function useAlertasDesvio({

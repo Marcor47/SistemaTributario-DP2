@@ -6,12 +6,16 @@ export default function ResumenPago({ pago }) {
   return (
     <View style={estilos.resumen}>
       <View style={estilos.fila}>
-        <Text style={[texto.secundario, estilos.etiqueta]}>Saldo antes de beneficios</Text>
+        <Text style={[texto.secundario, estilos.etiqueta]}>Deuda tributaria (insoluto)</Text>
         <Text style={estilos.valor}>{moneda(pago.montoBase)}</Text>
       </View>
       <View style={estilos.fila}>
         <Text style={[texto.secundario, estilos.etiqueta]}>Descuento aplicado</Text>
         <Text style={estilos.valor}>{moneda(pago.montoDescuento)}</Text>
+      </View>
+      <View style={estilos.fila}>
+        <Text style={[texto.secundario, estilos.etiqueta]}>Interés moratorio</Text>
+        <Text style={estilos.valor}>{moneda(pago.montoInteres ?? 0)}</Text>
       </View>
       <View style={estilos.total}>
         <Text style={texto.etiqueta}>{pago.estado === 'CONFIRMADA' ? 'Total pagado' : 'Total a pagar'}</Text>

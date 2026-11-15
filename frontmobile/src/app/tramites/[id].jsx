@@ -86,6 +86,7 @@ export default function DetalleTramite() {
               <Dato etiqueta="Tipo de predio" valor={predio?.titulo} />
               <Dato etiqueta="Código del predio" valor={solicitud.codigoPredio} />
               <Dato etiqueta="Fecha de envío" valor={fechaHoraBuzon(solicitud.fechaEnvio)} />
+              {solicitud.fechaRevision ? <Dato etiqueta="Fecha de respuesta" valor={fechaHoraBuzon(solicitud.fechaRevision)} /> : null}
               {solicitud.adjuntos?.length ? (
                 <View style={estilos.dato}>
                   <Text style={estilos.datoEtiqueta}>Documentos enviados</Text>

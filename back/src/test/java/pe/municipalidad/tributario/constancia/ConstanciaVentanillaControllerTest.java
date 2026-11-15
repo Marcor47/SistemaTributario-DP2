@@ -150,7 +150,7 @@ class ConstanciaVentanillaControllerTest {
         mockMvc.perform(get(RUTA_VENTANILLA + "/15/documento-firma"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idSolicitud", is(15)))
-                .andExpect(jsonPath("$.documentoDePrueba", is(true)))
+                .andExpect(jsonPath("$.firmaLocal", is(true)))
                 .andExpect(jsonPath("$.hashSha256", is("hash-sha256")));
 
         verify(constanciaVentanillaService).obtenerDocumentoFirma(15L);

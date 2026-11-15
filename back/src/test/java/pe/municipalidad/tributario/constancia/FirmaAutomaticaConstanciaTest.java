@@ -1,6 +1,7 @@
 package pe.municipalidad.tributario.constancia;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -28,8 +29,8 @@ import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
 /*
  * HU024 (RF-037): al confirmarse el pago del derecho de trámite, la constancia queda firmada por la Municipalidad y en
- * el buzón en la misma operación; sin pago confirmado no se genera ni se firma. Se usan la pasarela y el firmador
- * simulados y el contribuyente de prueba 014502 (DNI 41028765, sin deuda).
+ * el buzón en la misma operación; sin pago confirmado no se genera ni se firma. Se usan la pasarela local y la
+ * firma de Servicios en Línea, y el contribuyente de prueba 014502 (DNI 41028765, sin deuda).
  */
 @PruebaIntegracion
 @Transactional
@@ -59,7 +60,7 @@ class FirmaAutomaticaConstanciaTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("CONFIRMADA"))
                 .andExpect(jsonPath("$.estadoSolicitud").value("EMITIDA"))
-                .andExpect(jsonPath("$.numeroConstancia").value(startsWith("CNA-")))
+                .andExpect(jsonPath("$.numeroConstancia").value(matchesPattern("CND-[0-9]{4}-[2-9A-HJKMNP-Z]{6}")))
                 .andExpect(jsonPath("$.urlDescarga").value(startsWith("/buzon/")))
                 .andReturn().getResponse().getContentAsString();
         String numero = JsonPath.read(confirmada, "$.numeroConstancia");
@@ -132,7 +133,7 @@ class FirmaAutomaticaConstanciaTest {
         mockMvc.perform(post(RUTA_OPERADOR + "/" + id + "/emision").with(operador()).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("EMITIDA"))
-                .andExpect(jsonPath("$.numeroConstancia").value(startsWith("CNA-")));
+                .andExpect(jsonPath("$.numeroConstancia").value(matchesPattern("CND-[0-9]{4}-[2-9A-HJKMNP-Z]{6}")));
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM operativo.documento_buzon b
                 JOIN operativo.constancia c ON c.numero_constancia = b.numero_constancia

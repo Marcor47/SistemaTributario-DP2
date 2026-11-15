@@ -7,6 +7,8 @@ services:
     restart: always
     environment:
       POSTGRES_DB: ${DB_NAME:-municipalidad}
+      TZ: America/Lima
+      PGTZ: America/Lima
       POSTGRES_USER: ${DB_USER:-municipalidad}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Se requiere definir DB_PASSWORD en deploy/ec2/.env}
     volumes:
@@ -30,6 +32,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-local}
+      TZ: America/Lima
       DB_URL: jdbc:postgresql://db:5432/${DB_NAME:-municipalidad}
       DB_USER: ${DB_USER:-municipalidad}
       DB_PASSWORD: ${DB_PASSWORD}

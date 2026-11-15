@@ -26,7 +26,7 @@ public class ModeloLenguajeCliente {
 
     private static final Logger LOG = LoggerFactory.getLogger(ModeloLenguajeCliente.class);
     private static final String SIN_CONEXION =
-            "El servicio de IA no responde: puede estar apagado o sin conexión.";
+            "El análisis inteligente no está disponible en este momento. Intenta nuevamente más tarde.";
 
     public record Mensaje(String role, String content) {
     }
@@ -51,7 +51,7 @@ public class ModeloLenguajeCliente {
 
     public Salud salud() {
         if (url.isEmpty()) {
-            return new Salud(false, null, "El servicio de IA no está configurado en este servidor.");
+            return new Salud(false, null, "El análisis inteligente no está disponible en este momento.");
         }
         try {
             HttpResponse<String> respuesta = http.send(HttpRequest.newBuilder(URI.create(url + "/salud"))
@@ -62,8 +62,8 @@ public class ModeloLenguajeCliente {
             if (respuesta.statusCode() == 200 && "listo".equals(estado)) {
                 return new Salud(true, modelo, null);
             }
-            return new Salud(false, null, "cargando".equals(estado) ? "El modelo de IA se está cargando."
-                    : "El servicio de IA no está listo.");
+            return new Salud(false, null, "cargando".equals(estado) ? "El análisis inteligente se está iniciando. Intenta nuevamente en unos segundos."
+                    : "El análisis inteligente no está disponible en este momento.");
         } catch (IOException | IllegalArgumentException | JacksonException ex) {
             return new Salud(false, null, SIN_CONEXION);
         } catch (InterruptedException ex) {
@@ -74,7 +74,7 @@ public class ModeloLenguajeCliente {
 
     public Completado completar(List<Mensaje> mensajes, int maximoTokens) {
         if (url.isEmpty()) {
-            throw new ModeloLenguajeNoDisponibleException("El servicio de IA no está configurado en este servidor.");
+            throw new ModeloLenguajeNoDisponibleException("El análisis inteligente no está disponible en este momento.");
         }
         Map<String, Object> cuerpo = new LinkedHashMap<>();
         cuerpo.put("messages", mensajes);
@@ -89,7 +89,7 @@ public class ModeloLenguajeCliente {
                     HttpResponse.BodyHandlers.ofString());
             if (respuesta.statusCode() != 200) {
                 LOG.warn("El servicio de lenguaje respondió HTTP {}", respuesta.statusCode());
-                throw new ModeloLenguajeNoDisponibleException("El servicio de IA rechazó la consulta.");
+                throw new ModeloLenguajeNoDisponibleException("El análisis inteligente no está disponible en este momento. Intenta nuevamente más tarde.");
             }
             JsonNode datos = json.readTree(respuesta.body());
             return new Completado(datos.path("choices").path(0).path("message").path("content").asString(""),

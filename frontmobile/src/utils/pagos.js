@@ -1,5 +1,5 @@
 const ESTADOS = new Set(['INICIADA', 'CONFIRMADA', 'RECHAZADA', 'EXPIRADA'])
-const RUTA_SIMULADA = /^\/pasarela-simulada\/SIM-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const RUTA_PASARELA_LOCAL = /^\/pasarela\/OPL-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function idPagoValido(id) {
   return typeof id === 'number' ? Number.isSafeInteger(id) && id > 0 : /^[1-9]\d{0,18}$/.test(String(id ?? ''))
@@ -8,15 +8,18 @@ export function idPagoValido(id) {
 export function normalizarPago(datos) {
   const campos = ['montoBase', 'montoDescuento', 'montoTotal']
   if (!datos || !idPagoValido(datos.idTransaccion) || !ESTADOS.has(datos.estado)
-    || typeof datos.dePrueba !== 'boolean' || !Array.isArray(datos.obligaciones)
+    || typeof datos.pasarelaLocal !== 'boolean' || !Array.isArray(datos.obligaciones)
     || datos.obligaciones.length === 0
     || campos.some((campo) => datos[campo] == null || datos[campo] === '' || !Number.isFinite(Number(datos[campo])))) {
     throw respuestaInvalida()
   }
-  const pago = { ...datos, ...Object.fromEntries(campos.map((campo) => [campo, Number(datos[campo])])) }
+  const interes = datos.montoInteres == null ? 0 : Number(datos.montoInteres)
+  if (!Number.isFinite(interes) || interes < 0) throw respuestaInvalida()
+  const pago = { ...datos, ...Object.fromEntries(campos.map((campo) => [campo, Number(datos[campo])])), montoInteres: interes }
+  // El total incluye el interés moratorio de las cuotas vencidas: base - descuento + interés.
   if (pago.montoBase <= 0 || pago.montoDescuento < 0 || pago.montoTotal <= 0
     || pago.montoDescuento > pago.montoBase
-    || Math.abs(pago.montoBase - pago.montoDescuento - pago.montoTotal) > 0.005
+    || Math.abs(pago.montoBase - pago.montoDescuento + pago.montoInteres - pago.montoTotal) > 0.005
     || (pago.estado === 'CONFIRMADA' && !pago.comprobante)) throw respuestaInvalida()
   return pago
 }
@@ -28,8 +31,8 @@ function respuestaInvalida() {
 }
 
 export function validarPasarela(pago) {
-  if (pago.dePrueba !== true || pago.estado !== 'INICIADA'
-    || (!checkoutValido(pago.checkout) && !RUTA_SIMULADA.test(pago.urlPasarela || ''))) {
+  if (pago.pasarelaLocal !== true || pago.estado !== 'INICIADA'
+    || (!checkoutValido(pago.checkout) && !RUTA_PASARELA_LOCAL.test(pago.urlPasarela || ''))) {
     throw Object.assign(new Error('La pasarela de esta orden no está disponible en la app. Consulta tu estado de cuenta.'), {
       codigo: 'PASARELA_NO_DISPONIBLE',
     })
@@ -50,7 +53,7 @@ export function checkoutValido(checkout) {
 export function mensajeErrorPago(error) {
   const mensajes = {
     NIUBIZ_NO_CONFIGURADO: ['Pago en línea no disponible', 'La Municipalidad todavía no ha habilitado el servicio de pagos. Puedes seguir consultando tu cuenta.', 'cuenta'],
-    TOKEN_NIUBIZ_REQUERIDO: ['Completa el formulario de Niubiz', 'Abre la pasarela para ingresar los datos de prueba y autorizar esta operación.', 'consultar'],
+    TOKEN_NIUBIZ_REQUERIDO: ['Completa el formulario de Niubiz', 'Abre la pasarela para ingresar los datos de tu tarjeta y autorizar esta operación.', 'consultar'],
     NIUBIZ_NO_DISPONIBLE: ['No se pudo determinar el resultado', 'Consulta esta operación. Si continúa pendiente, contacta a la Municipalidad antes de iniciar otro pago.', 'consultar'],
     CORREO_REQUERIDO_NIUBIZ: ['Necesitas un correo registrado', 'Actualiza tu correo con la Municipalidad para pagar en línea.', 'ventanilla'],
     BENEFICIO_INDETERMINADO: ['Acude a ventanilla', 'La Municipalidad debe verificar el beneficio aplicable antes de habilitar el pago virtual.', 'ventanilla'],

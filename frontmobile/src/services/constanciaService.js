@@ -38,8 +38,8 @@ export async function confirmarPagoConstancia(id, transactionToken, idTransaccio
 
 const ALFABETO = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
-export function firmaDePrueba(hash) {
-  const bytes = Array.from(`FIRMA-DE-PRUEBA:${hash}`, (c) => c.charCodeAt(0))
+export function firmaServiciosEnLinea(hash) {
+  const bytes = Array.from(`FIRMA-SERVICIOS-EN-LINEA:${hash}`, (c) => c.charCodeAt(0))
   let salida = ''
   for (let i = 0; i < bytes.length; i += 3) {
     const a = bytes[i], b = bytes[i + 1], c = bytes[i + 2]

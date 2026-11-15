@@ -7,7 +7,7 @@ import {
   consultarContribuyente,
   crearSolicitudVentanilla,
   emitirSolicitud,
-  firmaDePrueba,
+  firmaEnVentanilla,
   listarConstancias,
   listarSolicitudesContribuyente,
   normalizarDocumento,
@@ -47,7 +47,7 @@ test('HU042: el documento se limpia y la consulta usa el endpoint de ventanilla'
 })
 
 test('HU042: la consulta exige un documento válido antes de llamar al servidor', async (t) => {
-  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => json({}))
+  const fetchFalso = t.mock.method(globalThis, 'fetch', async () => json({}))
   await assert.rejects(
     () => consultarContribuyente('   '),
     (err) => err.codigo === 'DOCUMENTO_REQUERIDO',
@@ -56,7 +56,7 @@ test('HU042: la consulta exige un documento válido antes de llamar al servidor'
     () => consultarContribuyente('1234567890123'),
     (err) => err.codigo === 'DOCUMENTO_INVALIDO',
   )
-  assert.equal(fetchSimulado.mock.callCount(), 0)
+  assert.equal(fetchFalso.mock.callCount(), 0)
 })
 
 test('HU042: las sugerencias buscan por documento o código y descartan nombres', async (t) => {
@@ -79,10 +79,10 @@ test('HU042: las sugerencias buscan por documento o código y descartan nombres'
 })
 
 test('HU042: no busca sugerencias con menos de dos caracteres', async (t) => {
-  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => json([]))
+  const fetchFalso = t.mock.method(globalThis, 'fetch', async () => json([]))
   assert.deepEqual(await buscarCoincidenciasVentanilla('4'), [])
   assert.deepEqual(await buscarCoincidenciasVentanilla(''), [])
-  assert.equal(fetchSimulado.mock.callCount(), 0)
+  assert.equal(fetchFalso.mock.callCount(), 0)
 })
 
 test('HU042: crear la solicitud envía el documento con CSRF al paso 1', async (t) => {
@@ -103,8 +103,8 @@ test('HU042: crear la solicitud envía el documento con CSRF al paso 1', async (
   assert.deepEqual(JSON.parse(envios[0].opciones.body), { documentoContribuyente: '41028765' })
 })
 
-test('HU042: la firma simulada sigue el patrón del firmador de prueba y viaja al servidor', async (t) => {
-  assert.equal(firmaDePrueba('hash-sha256'), btoa('FIRMA-DE-PRUEBA:hash-sha256'))
+test('HU042: la firma en ventanilla viaja al servidor con su certificado', async (t) => {
+  assert.equal(firmaEnVentanilla('hash-sha256'), btoa('FIRMA-VENTANILLA:hash-sha256'))
 
   const envios = []
   t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
@@ -115,12 +115,12 @@ test('HU042: la firma simulada sigue el patrón del firmador de prueba y viaja a
     return json({ idSolicitud: 15, estado: 'FIRMADA' })
   })
 
-  const firmada = await registrarFirmaSolicitud(15, firmaDePrueba('hash-sha256'), 'CERTIFICADO DE PRUEBA')
+  const firmada = await registrarFirmaSolicitud(15, firmaEnVentanilla('hash-sha256'), 'Firma del contribuyente en ventanilla')
   assert.equal(firmada.estado, 'FIRMADA')
   assert.ok(envios[0].url.endsWith('/ventanilla/constancias/15/firma'))
   assert.deepEqual(JSON.parse(envios[0].opciones.body), {
-    firmaBase64: btoa('FIRMA-DE-PRUEBA:hash-sha256'),
-    certificado: 'CERTIFICADO DE PRUEBA',
+    firmaBase64: btoa('FIRMA-VENTANILLA:hash-sha256'),
+    certificado: 'Firma del contribuyente en ventanilla',
   })
 })
 
@@ -158,7 +158,7 @@ test('HU042: verificación, pago y emisión van por pasos con CSRF y sin documen
 })
 
 test('HU042: sin predios seleccionados se envía el texto libre y los máximos se validan antes de enviar', async (t) => {
-  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => json({}))
+  const fetchFalso = t.mock.method(globalThis, 'fetch', async () => json({}))
 
   assert.deepEqual(construirParametrosEmision({
     predios: [], prediosTexto: '  Predio rural sin código  ', rangoFechas: '',
@@ -176,7 +176,7 @@ test('HU042: sin predios seleccionados se envía el texto libre y los máximos s
     () => emitirSolicitud(15, { rangoFechas: 'x'.repeat(61) }),
     /60 caracteres/,
   )
-  assert.equal(fetchSimulado.mock.callCount(), 0)
+  assert.equal(fetchFalso.mock.callCount(), 0)
 })
 
 test('HU042: el historial filtra por documento solo cuando se indica', async (t) => {
@@ -205,13 +205,13 @@ test('HU042: las solicitudes del contribuyente se piden por documento', async (t
 })
 
 test('HU042: el listado de solicitudes exige un documento válido antes de llamar al servidor', async (t) => {
-  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => json([]))
+  const fetchFalso = t.mock.method(globalThis, 'fetch', async () => json([]))
 
   await assert.rejects(
     () => listarSolicitudesContribuyente('   '),
     (err) => err.codigo === 'DOCUMENTO_REQUERIDO',
   )
-  assert.equal(fetchSimulado.mock.callCount(), 0)
+  assert.equal(fetchFalso.mock.callCount(), 0)
 })
 
 test('HU042: la descarga apunta al PDF binario de la constancia', () => {

@@ -11,10 +11,7 @@ import {
   claseEstadoSegmento,
   etiquetaEstadoSegmento,
   formatearVariablesCaracteristicas,
-  nivelMorosidad,
   participacionSegmento,
-  prepararBarrasSegmentos,
-  resumirSegmentacionPublicada,
 } from '../src/utils/segmentos.js'
 
 const SEGMENTOS = [
@@ -133,62 +130,10 @@ test('HU031: presenta los estados y el JSON de variables sin reinterpretarlo', (
   assert.equal(formatearVariablesCaracteristicas(''), 'Sin variables registradas.')
 })
 
-test('HU031: prepara las barras del dashboard por deuda o contribuyentes', () => {
-  const segmentos = [
-    { idSegmento: 1, nombre: 'Alto riesgo', contribuyentes: 5, montoVencidoNoPagado: '124842.26', indiceMorosidad: '72.27' },
-    { idSegmento: 2, nombre: 'Puntual', contribuyentes: 9, montoVencidoNoPagado: '0', indiceMorosidad: null },
-    { idSegmento: 3, nombre: 'Medio', contribuyentes: 3, montoVencidoNoPagado: '70522.17', indiceMorosidad: '15.23' },
-  ]
-
-  const porDeuda = prepararBarrasSegmentos(segmentos, 'deuda')
-  assert.equal(porDeuda.metrica, 'deuda')
-  assert.deepEqual(porDeuda.filas.map((fila) => fila.nombre), ['Alto riesgo', 'Medio', 'Puntual'])
-  assert.equal(porDeuda.filas[0].deuda, 124842.26)
-  assert.equal(porDeuda.maximo, 124842.26)
-
-  const porContribuyentes = prepararBarrasSegmentos(segmentos, 'contribuyentes')
-  assert.deepEqual(porContribuyentes.filas.map((fila) => fila.nombre), ['Puntual', 'Alto riesgo', 'Medio'])
-  assert.equal(porContribuyentes.filas[0].valor, 9)
-  assert.equal(prepararBarrasSegmentos(null).filas.length, 0)
-})
-
-test('HU031: clasifica la morosidad para el color de las barras', () => {
-  assert.equal(nivelMorosidad(0), 'baja')
-  assert.equal(nivelMorosidad(4.99), 'baja')
-  assert.equal(nivelMorosidad(5), 'media')
-  assert.equal(nivelMorosidad(20), 'media')
-  assert.equal(nivelMorosidad(20.01), 'alta')
-  assert.equal(nivelMorosidad(null), 'sin-dato')
-  assert.equal(nivelMorosidad('texto'), 'sin-dato')
-})
-
-test('HU031: resume la segmentación publicada para el dashboard', () => {
-  const resumen = resumirSegmentacionPublicada([
-    { idSegmento: 1, modelo: 'kmeans', versionModelo: 'L290', tamano: 5, aprobador: null, fechaAprobacion: null },
-    { idSegmento: 2, modelo: 'kmeans', versionModelo: 'L290', tamano: 9, aprobador: 'gerencia', fechaAprobacion: '2026-11-12T16:38:12' },
-  ])
-  assert.equal(resumen.modelo, 'kmeans')
-  assert.equal(resumen.segmentos, 2)
-  assert.equal(resumen.contribuyentes, 14)
-  assert.equal(resumen.aprobador, 'gerencia')
-  assert.equal(resumen.fechaAprobacion, '2026-11-12T16:38:12')
-  assert.equal(resumirSegmentacionPublicada([]), null)
-})
-
-test('HU031: el dashboard alterna la métrica del gráfico de segmentos sin tabla', () => {
-  const dashboard = readFileSync(new URL('../src/pages/Dashboard.jsx', import.meta.url), 'utf8')
-
-  assert.match(dashboard, /Deuda vencida/)
-  assert.match(dashboard, /Contribuyentes/)
-  assert.match(dashboard, /aria-pressed/)
-  assert.match(dashboard, /prepararBarrasSegmentos/)
-  assert.doesNotMatch(dashboard, /Distribución por segmento/)
-})
-
-test('HU031: la aprobación tiene una pantalla propia y el dashboard solo muestra la publicación', () => {
+test('HU031: la aprobación tiene una pantalla propia y la plataforma filtra por la segmentación publicada', () => {
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
   const modulos = readFileSync(new URL('../src/utils/modulos.jsx', import.meta.url), 'utf8')
-  const dashboard = readFileSync(new URL('../src/pages/Dashboard.jsx', import.meta.url), 'utf8')
+  const plataforma = readFileSync(new URL('../src/pages/Reporteria.jsx', import.meta.url), 'utf8')
   const pagina = readFileSync(new URL('../src/pages/Segmentos.jsx', import.meta.url), 'utf8')
 
   assert.match(app, /path="\/segmentos"/)
@@ -197,7 +142,6 @@ test('HU031: la aprobación tiene una pantalla propia y el dashboard solo muestr
   assert.match(modulos, /permiso: 'SEGMENTOS:CONSULTAR'/)
   assert.match(pagina, /SEGMENTOS:APROBAR/)
   assert.match(pagina, /aprobarSegmentacion/)
-  assert.match(dashboard, /Gestionar segmentaciones/)
-  assert.match(dashboard, /segmentacionPublicada/)
-  assert.doesNotMatch(dashboard, /PanelSegmentos/)
+  assert.match(plataforma, /id="rep-segmento"/)
+  assert.match(plataforma, /Mapa de segmentos/)
 })

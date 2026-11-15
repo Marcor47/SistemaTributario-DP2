@@ -9,6 +9,7 @@ import {
   marcarMensajeNoLeido,
 } from '../services/buzonService.js'
 import './Buzon.css'
+import { fechaHoraLima } from '../utils/formato.js'
 
 const VISTAS = [
   { valor: 'RECIBIDOS', etiqueta: 'Recibidos' },
@@ -24,7 +25,7 @@ const TIPOS = {
   RESPUESTA_RECLAMO: 'Respuestas a reclamos',
 }
 
-const formatoFecha = (fecha) => new Date(fecha).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' })
+const formatoFecha = (fecha) => fechaHoraLima(fecha, { dateStyle: 'medium', timeStyle: 'short' })
 
 export default function Buzon() {
   const [vista, setVista] = useState('RECIBIDOS')

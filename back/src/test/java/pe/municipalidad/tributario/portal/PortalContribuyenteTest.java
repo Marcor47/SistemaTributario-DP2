@@ -67,12 +67,12 @@ class PortalContribuyenteTest {
     }
 
     @Test
-    void pagoDePruebaSeRegistraUnaVezYActualizaLaCuenta() throws Exception {
+    void pagoEnPasarelaLocalSeRegistraUnaVezYActualizaLaCuenta() throws Exception {
         var creado = mvc.perform(post("/api/portal/pagos").session(sesion("021390"))
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.estado").value("INICIADA"))
-                .andExpect(jsonPath("$.dePrueba").value(true)).andReturn();
+                .andExpect(jsonPath("$.pasarelaLocal").value(true)).andReturn();
         int transaccion = JsonPath.read(creado.getResponse().getContentAsString(), "$.idTransaccion");
         String ruta = "/api/portal/pagos/" + transaccion + "/confirmacion";
         mvc.perform(post(ruta).session(sesion("014502"))).andExpect(status().isNotFound());
@@ -163,18 +163,23 @@ class PortalContribuyenteTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.montoDescuento").isNumber()).andReturn();
         int transaccion = JsonPath.read(creado.getResponse().getContentAsString(), "$.idTransaccion");
-        var montos = jdbc.queryForMap("SELECT monto_base, monto_descuento, monto_total FROM operativo.transaccion_pago "
-                + "WHERE id_transaccion=?", transaccion);
+        var montos = jdbc.queryForMap("SELECT monto_base, monto_descuento, monto_interes, monto_total "
+                + "FROM operativo.transaccion_pago WHERE id_transaccion=?", transaccion);
         assertThat((BigDecimal) montos.get("monto_descuento")).isPositive();
-        assertThat((BigDecimal) montos.get("monto_base")).isEqualByComparingTo(
-                ((BigDecimal) montos.get("monto_total")).add((BigDecimal) montos.get("monto_descuento")));
+        /* El total incluye el interés moratorio de las cuotas vencidas (3.2): base - descuento + interés. */
+        assertThat((BigDecimal) montos.get("monto_interes")).isPositive();
+        assertThat(((BigDecimal) montos.get("monto_base")).subtract((BigDecimal) montos.get("monto_descuento"))
+                .add((BigDecimal) montos.get("monto_interes")))
+                .isEqualByComparingTo((BigDecimal) montos.get("monto_total"));
         mvc.perform(post("/api/portal/pagos/" + transaccion + "/confirmacion").session(sesion("021390")))
                 .andExpect(status().isOk());
         var pago = jdbc.queryForMap("SELECT monto_pagado, monto_correspondiente FROM samnet.pago "
                 + "WHERE id_pago=?", "WEB-" + transaccion);
         assertThat((BigDecimal) pago.get("monto_pagado")).isEqualByComparingTo((BigDecimal) montos.get("monto_total"));
-        assertThat((BigDecimal) pago.get("monto_correspondiente"))
-                .isEqualByComparingTo((BigDecimal) montos.get("monto_base"));
+        assertThat((BigDecimal) pago.get("monto_correspondiente")).isEqualByComparingTo(
+                ((BigDecimal) montos.get("monto_base")).add((BigDecimal) montos.get("monto_interes")));
+        assertThat(jdbc.queryForObject("SELECT sum(monto_interes) FROM samnet.pago_obligacion WHERE id_pago=?",
+                BigDecimal.class, "WEB-" + transaccion)).isEqualByComparingTo((BigDecimal) montos.get("monto_interes"));
         assertThat(jdbc.queryForObject("SELECT sum(monto_descuento) FROM samnet.pago_obligacion WHERE id_pago=?",
                 BigDecimal.class, "WEB-" + transaccion)).isEqualByComparingTo((BigDecimal) montos.get("monto_descuento"));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM samnet.obligacion WHERE contribuyente_codigo='021390' "

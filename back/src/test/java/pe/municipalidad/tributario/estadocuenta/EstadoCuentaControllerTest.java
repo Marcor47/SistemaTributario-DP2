@@ -48,7 +48,7 @@ class EstadoCuentaControllerTest {
                 .andExpect(jsonPath("$.filas[1].tributoCodigo").value("ARBITRIOS"))
                 .andExpect(jsonPath("$.filas[1].periodo").value("2025-01"))
                 .andExpect(jsonPath("$.filas[1].codigoPredio").value("021390-01"))
-                .andExpect(jsonPath("$.filas[1].servicios", hasSize(4)))
+                .andExpect(jsonPath("$.filas[1].servicios").doesNotExist())
                 .andExpect(jsonPath("$.predios", hasSize(11)));
     }
 

@@ -315,11 +315,11 @@ class ConstanciaVentanillaServiceTest {
         when(solicitudConstanciaRepository.findById(1L)).thenReturn(Optional.of(solicitud));
         contribuyenteEnSamnet();
         when(solicitudConstanciaService.documentoParaFirma(solicitud)).thenReturn(documento);
-        when(firmador.esSimulado()).thenReturn(true);
+        when(firmador.firmaLocal()).thenReturn(true);
 
         DocumentoFirmaRespuesta respuesta = servicio.obtenerDocumentoFirma(1L);
 
-        assertThat(respuesta.documentoDePrueba()).isTrue();
+        assertThat(respuesta.firmaLocal()).isTrue();
         assertThat(Base64.getDecoder().decode(respuesta.contenidoBase64())).isEqualTo(documento);
         assertThat(respuesta.hashSha256()).hasSize(64);
         assertThat(respuesta.datosContribuyente().numeroDocumento()).isEqualTo(DNI_SIN_DEUDA);
@@ -448,7 +448,7 @@ class ConstanciaVentanillaServiceTest {
 
         when(constanciaRepository.siguienteNumero(AHORA.toLocalDate())).thenReturn("CNA-2026-000001");
 
-        byte[] pdfBytes = "PDF SIMULADO".getBytes();
+        byte[] pdfBytes = "PDF GENERADO".getBytes();
         when(generadorPdf.generar(eq("CNA-2026-000001"), eq(contribuyenteSinDeuda), any(LocalDateTime.class),
                 eq(AHORA.toLocalDate()), eq("PRD-001, PRD-002"), eq("2024 - 2026"),
                 eq("Ventanilla de Pruebas"), eq(true)))
@@ -458,7 +458,7 @@ class ConstanciaVentanillaServiceTest {
                 true, "ENTIDAD DE PRUEBA", "hash-municipal", null);
         when(firmador.firmarComoMunicipalidad(pdfBytes))
                 .thenReturn(new FirmadorGateway.DocumentoFirmado(pdfBytes, resultadoFirma));
-        when(firmador.esSimulado()).thenReturn(true);
+        when(firmador.firmaLocal()).thenReturn(true);
 
         when(constanciaRepository.save(any(Constancia.class))).thenAnswer(inv -> inv.getArgument(0));
         TransaccionPago orden = ordenDe(solicitud);

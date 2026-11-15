@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { iniciarPagoPortal } from '../services/portalCuentaService.js'
-import { mensajeErrorPago, rutaPasarelaSimulada } from '../utils/pagosPortal.js'
+import { mensajeErrorPago, rutaPasarelaPago } from '../utils/pagosPortal.js'
 import { resumirCuenta } from '../utils/estadoCuentaPortal.js'
 import { moneda } from '../utils/formato.js'
 import '../pages/PagosPortal.css'
@@ -28,7 +28,7 @@ export default function PagoCuentaPortal({ cuenta, onActualizar }) {
     setError(null)
     try {
       const orden = await iniciarPagoPortal()
-      if (activo.current) navegar(rutaPasarelaSimulada(orden))
+      if (activo.current) navegar(rutaPasarelaPago(orden))
     } catch (fallo) {
       if (activo.current) setError(fallo)
     } finally {

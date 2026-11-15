@@ -94,7 +94,7 @@ test('HU014: una fila por cuota de predial y una por mes de arbitrios con sus pr
   assert.equal(enero.interes, 1.5)
   assert.equal(enero.estado, 'Vencida')
   assert.deepEqual(enero.idsPendientes, ['3'])
-  assert.deepEqual(enero.porServicio.map((s) => [s.codigo, s.monto]), [['BARRIDO_CALLES', 20], ['SERENAZGO', 30]])
+  assert.equal(enero.porServicio, undefined)
   for (const campo of ['emitido', 'pagado', 'deuda']) {
     assert.equal(resumirCuenta(grupos)[campo], resumirCuenta(filas)[campo])
   }

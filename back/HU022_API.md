@@ -37,9 +37,9 @@ Respuesta ilustrativa de creación (los IDs y montos reales dependen de la cuent
   "montoDescuento": 25.00,
   "montoTotal": 275.00,
   "obligaciones": ["101", "102"],
-  "urlPasarela": "/pasarela-simulada/SIM-00000000-0000-0000-0000-000000000000",
+  "urlPasarela": "/pasarela/OPL-00000000-0000-0000-0000-000000000000",
   "comprobante": null,
-  "dePrueba": true,
+  "pasarelaLocal": true,
   "checkout": null
 }
 ```
@@ -48,8 +48,8 @@ Al consultar, `urlPasarela` es `null`. Tras confirmar, `estado` es `CONFIRMADA` 
 es `WEB-{idTransaccion}`; la confirmación repetida devuelve la misma transacción sin otro cargo.
 El `montoBase` es el saldo antes de beneficios, `montoDescuento` no es dinero cobrado y
 `montoTotal` es el importe de la orden de pasarela. La base de datos conserva esos tres importes
-y el desglose por obligación. `dePrueba: true` indica un entorno sin cobro de producción
-(simulador o sandbox).
+y el desglose por obligación. `pasarelaLocal: true` indica un entorno sin cobro de producción
+(pasarela local o sandbox).
 
 Errores de negocio usan `{ "codigo": "...", "mensaje": "...", "detalles": [] }`. Ejemplo:
 
@@ -65,7 +65,7 @@ Errores de negocio usan `{ "codigo": "...", "mensaje": "...", "detalles": [] }`.
 | --- | --- | --- |
 | 401 | `SESION_REQUERIDA` | Falta sesión. |
 | 404 | `PAGO_NO_ENCONTRADO` | Orden inexistente o ajena. |
-| 404 | `ORDEN_NO_ENCONTRADA` | El simulador ya no conoce la orden, por ejemplo tras reiniciar el backend. |
+| 404 | `ORDEN_NO_ENCONTRADA` | La pasarela local ya no conoce la orden, por ejemplo tras reiniciar el backend. |
 | 422 | `PAGO_DEBE_CUBRIR_TODO` | Lista opcional no coincide con toda la deuda pendiente. |
 | 422 | `SIN_DEUDA` | No hay saldo pendiente; no se crea orden. |
 | 422 | `BENEFICIO_INDETERMINADO` | La fuente no asignó un beneficio verificable a cada obligación; acudir a ventanilla. |
@@ -84,8 +84,8 @@ de usar este contrato: enviar `{}`, mostrar el total de la respuesta del servido
 `PAGO_DEBE_CUBRIR_TODO`, `BENEFICIO_INDETERMINADO` y `SIN_COBRO_VIRTUAL`.
 
 1. Iniciar sesión. Consultar `GET /api/portal/estado-cuenta` para mostrar la deuda informativa.
-2. Crear la orden con `{}` y mostrar `montoBase`, `montoDescuento`, `montoTotal` y `dePrueba`.
-3. En modo simulado, abrir `urlPasarela`. En sandbox, presentar el checkout de Niubiz con el objeto `checkout`.
+2. Crear la orden con `{}` y mostrar `montoBase`, `montoDescuento`, `montoTotal` y `pasarelaLocal`.
+3. Con la pasarela local, abrir `urlPasarela`. En sandbox, presentar el checkout de Niubiz con el objeto `checkout`.
 4. En sandbox, enviar el `transactionToken` devuelto por Niubiz a la ruta de confirmación.
    El backend autoriza servidor a servidor; el retorno del navegador por sí solo no confirma el pago.
 5. Si hay `SALDO_CAMBIO`, consultar de nuevo la cuenta y crear una orden nueva. Si hay
@@ -129,16 +129,16 @@ operativos de conciliación y extorno para producción.
 
 Referencia: [Botón de Pago Web de Niubiz](https://desarrolladores.niubiz.com.pe/docs/bot%C3%B3n-de-pago-1).
 
-## Simulador y reglas pendientes
+## Pasarela local y reglas pendientes
 
-`NiubizSimuladoGateway` autoriza órdenes de prueba, conserva su importe en memoria y devuelve
-una URL local. Una orden de prueba pendiente no se puede confirmar tras reiniciar el backend.
-No representa el sandbox real de Niubiz ni mueve dinero. Es el modo por defecto para desarrollo
-y pruebas cuando se configura explícitamente `NIUBIZ_MODE=simulado`. El modo por defecto es
+`NiubizLocalGateway` autoriza órdenes sin cobro, conserva su importe en memoria y devuelve
+una URL local. Una orden pendiente no se puede confirmar tras reiniciar el backend.
+No representa el sandbox real de Niubiz ni mueve dinero. Se usa para desarrollo
+y pruebas cuando se configura explícitamente `NIUBIZ_MODE=local`. El modo por defecto es
 `sandbox`; sin sus credenciales el backend arranca, pero los pagos devuelven `503 NIUBIZ_NO_CONFIGURADO`
 antes de contactar a Niubiz. Los módulos de Gerencia y las consultas siguen disponibles.
 
-Las respuestas de creación y consulta incluyen `proveedor`: `NIUBIZ_SANDBOX` o `SIMULADO`.
+Las respuestas de creación y consulta incluyen `proveedor`: `NIUBIZ_SANDBOX` o `PASARELA_LOCAL`.
 El objeto `checkout` se entrega al crear la orden y se conserva solo en memoria durante la sesión
 móvil. La consulta del estado no repite autorizaciones. Si la app se reinicia o el resultado de la
 autorización queda indeterminado, se consulta el estado y se concilia antes de volver a pagar.

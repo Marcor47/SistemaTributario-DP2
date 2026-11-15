@@ -1,0 +1,10 @@
+.cna-pestanas { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; }
+.cna-pestana {
+  min-height: 44px; padding: 9px 18px; font: inherit; font-size: clamp(14px, 1.4vw, 15px); font-weight: 700;
+  white-space: nowrap; cursor: pointer; color: var(--marino-osc); background: var(--superficie);
+  border: 2px solid var(--borde-fuerte); border-radius: 10px;
+}
+.cna-pestana:hover { background: var(--azul-suave); border-color: var(--marino); }
+.cna-pestana[aria-selected="true"] { color: #fff; background: var(--marino); border-color: var(--marino); }
+.cna-pestana:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+.cna-descripcion { margin: 0 0 16px; }

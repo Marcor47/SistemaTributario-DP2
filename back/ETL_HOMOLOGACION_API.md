@@ -123,11 +123,11 @@ Configuración (`application.yml`, `tributario.etl`):
   predio `914502-01` (mismo código catastral que `014502-01`, N1). El predio `099001-01`, que ya estaba sin titular,
   sale marcado para revisión.
 - `datos-prueba/R__datos_prueba_11_responsable_datos.sql`: usuario `datos` / `datos123` con el rol Responsable de datos.
-- En `local`, `datos-demo/R__zz_demo_04_historia_san_miguel.sql` ya no escribe dimensiones, maestros ni hechos: ejecuta
+- En `local`, `datos-padron/R__zz_padron_10_padron_san_miguel.sql` no escribe dimensiones, maestros ni hechos: ejecuta
   el ETL una vez por cierre de mes desde enero de 2019 y otra el 2026-11-04 (95 lotes, unos 35 s la primera vez). Las cargas que leen las pantallas
   (2026-10-31 y 2026-11-04) son idénticas a las de antes; las mensuales anteriores traen además las cuotas ya pagadas
   de años previos, que la semilla omitía y que ningún indicador usa (filtran por año).
-- Las cuentas de demostración de Niubiz `099023` y `099024` tienen Impuesto Predial sin predio: la carga anterior las
+- Las cuentas de la pasarela `099023` y `099024` (retiradas por el padrón) tienen Impuesto Predial sin predio: la carga anterior las
   omitía en silencio; el ETL las deja en cuarentena (R3), así que aparecen en la cuarentena de cada lote local.
 
 ## Por qué en PostgreSQL y no en un lakehouse

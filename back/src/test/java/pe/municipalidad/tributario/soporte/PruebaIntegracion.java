@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Import;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @SpringBootTest(properties = { "spring.flyway.locations=classpath:db/migration,classpath:db/datos-prueba",
-        "tributario.niubiz.mode=simulado" })
+        "tributario.niubiz.mode=local" })
 @AutoConfigureMockMvc
 @Import(PostgresEmbebidoConfig.class)
 public @interface PruebaIntegracion {

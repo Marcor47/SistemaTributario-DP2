@@ -18,6 +18,11 @@ public class PredioConsultaController {
         this.predioConsultaService = predioConsultaService;
     }
 
+    @GetMapping("/catalogos")
+    public PredioConsultaService.CatalogosPredio catalogos() {
+        return predioConsultaService.catalogos();
+    }
+
     @GetMapping
     public PaginaPrediosRespuesta buscar(
             @RequestParam String consulta,

@@ -124,6 +124,19 @@ class SegmentoControllerTest {
                 .andExpect(status().isOk());
     }
 
+    /* HU030: el Responsable de datos ve los segmentos que generó, pero no el mapa con los contribuyentes. */
+    @Test
+    void elResponsableDeDatosListaLosSegmentosSinVerElMapa() throws Exception {
+        segmento(modelo("1.0"), "Puntual", "BORRADOR");
+
+        mockMvc.perform(get(RUTA).param("estado", "BORRADOR").with(user("datos")
+                        .authorities(new SimpleGrantedAuthority("ETL:GESTIONAR"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get(RUTA + "/mapa").with(user("datos")
+                        .authorities(new SimpleGrantedAuthority("ETL:GESTIONAR"))))
+                .andExpect(status().isForbidden());
+    }
+
     private ResultActions aprobar(String ids) throws Exception {
         return mockMvc.perform(post(RUTA_APROBACIONES).with(csrf())
                 .with(user("gerencia").authorities(new SimpleGrantedAuthority("SEGMENTOS:APROBAR")))

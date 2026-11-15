@@ -13,8 +13,8 @@ import {
 import './Segmentos.css'
 
 /*
- * HU031 (RF-043): revisión, aprobación y publicación de segmentos. La aprobación vive fuera del dashboard;
- * el dashboard solo muestra la segmentación publicada como filtro y en la distribución por segmento.
+ * HU031 (RF-043): revisión, aprobación y publicación de segmentos. La aprobación vive fuera de la plataforma analítica;
+ * la plataforma solo muestra la segmentación publicada como filtro y en el mapa de segmentos.
  */
 export default function Segmentos() {
   const { sesion } = useSesionInterna()
@@ -90,8 +90,8 @@ export default function Segmentos() {
   async function aprobar(grupo) {
     const cantidad = grupo.segmentos.length
     const detalle = cantidad === 1
-      ? 'El segmento de esta segmentación quedará disponible como filtro del dashboard.'
-      : `Los ${cantidad} segmentos de esta segmentación quedarán disponibles como filtro del dashboard.`
+      ? 'El segmento de esta segmentación quedará disponible como filtro de la plataforma analítica.'
+      : `Los ${cantidad} segmentos de esta segmentación quedarán disponibles como filtro de la plataforma analítica.`
     const confirmado = window.confirm(
       `¿Aprobar y publicar la segmentación "${grupo.modelo}" versión ${grupo.versionModelo}? `
       + `Se retirará la segmentación publicada actual. ${detalle}`,
@@ -136,7 +136,7 @@ export default function Segmentos() {
           <h2>Segmentaciones de contribuyentes</h2>
           <p className="hint">
             Revisa las segmentaciones generadas por el modelo. La jefatura de Rentas aprueba una segmentación
-            completa y, al publicarla, queda disponible como filtro en el dashboard. Los segmentos no disparan
+            completa y, al publicarla, queda disponible como filtro en la plataforma analítica. Los segmentos no disparan
             acciones tributarias automáticas y solo muestran conteos de contribuyentes seudonimizados.
           </p>
         </div>
@@ -202,13 +202,13 @@ export default function Segmentos() {
             <div className="segmentos-seccion-cab">
               <div>
                 <h2 id="segmentos-publicados-titulo">Segmentación publicada</h2>
-                <p className="hint">Es la segmentación que el dashboard ofrece como filtro.</p>
+                <p className="hint">Es la segmentación que la plataforma analítica ofrece como filtro.</p>
               </div>
-              <span className="estado ok">Visible en el dashboard</span>
+              <span className="estado ok">Visible en la plataforma analítica</span>
             </div>
             {estado.publicados.length === 0 ? (
               <div className="info" role="status">
-                Aún no hay una segmentación publicada. El filtro de segmento aparecerá en el dashboard cuando
+                Aún no hay una segmentación publicada. El filtro de segmento aparecerá en la plataforma analítica cuando
                 la jefatura apruebe una segmentación.
               </div>
             ) : estado.publicados.map((grupo) => (
@@ -262,7 +262,7 @@ function GrupoPendiente({ grupo, publicadosInfo, puedeAprobar, cargando, aproban
           </p>
         )}
         <p className="hint">
-          Al aprobar, la segmentación publicada actual se retira y esta queda disponible como filtro del dashboard.
+          Al aprobar, la segmentación publicada actual se retira y esta queda disponible como filtro de la plataforma analítica.
         </p>
       </div>
 

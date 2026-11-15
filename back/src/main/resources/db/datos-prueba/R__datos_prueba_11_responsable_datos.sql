@@ -3,7 +3,7 @@
 -- No sobrescribe el usuario si ya existe, ni su clave ni su rol.
 WITH nuevo AS (
     INSERT INTO seguridad.usuario (nombre_usuario, nombre_completo, correo, clave_hash, activo, fecha_creacion)
-    VALUES ('datos', 'Responsable de Datos de Pruebas', 'datos.local@example.org',
+    VALUES ('datos', 'Andrea Sofía Ramírez León', 'aramirez@munisanmiguel.gob.pe',
             public.crypt('datos123', public.gen_salt('bf', 12)), TRUE, now())
     ON CONFLICT DO NOTHING
     RETURNING id_usuario

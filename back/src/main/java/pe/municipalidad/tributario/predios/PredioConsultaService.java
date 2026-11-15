@@ -26,6 +26,14 @@ public class PredioConsultaService {
         this.samnet = samnet;
     }
 
+    /* HU036: opciones del registro de predios, tomadas de los predios ya registrados. */
+    public record CatalogosPredio(List<String> zonas, List<String> usos) {
+    }
+
+    public CatalogosPredio catalogos() {
+        return new CatalogosPredio(samnet.obtenerZonas(), samnet.obtenerUsosPredio());
+    }
+
     public PaginaPrediosRespuesta buscar(String consulta, int pagina, int tamano) {
         String texto = consulta == null ? "" : consulta.strip();
         if (texto.isEmpty() || texto.length() > LONGITUD_MAXIMA_CONSULTA) {

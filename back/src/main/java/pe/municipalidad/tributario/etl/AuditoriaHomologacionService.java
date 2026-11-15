@@ -16,12 +16,15 @@ public class AuditoriaHomologacionService {
 
     private final DecisionHomologacionRepository decisionRepository;
     private final EntidadMaestraRepository entidadMaestraRepository;
+    private final CorrespondenciaOrigenRepository correspondencias;
 
     public AuditoriaHomologacionService(
             DecisionHomologacionRepository decisionRepository,
-            EntidadMaestraRepository entidadMaestraRepository) {
+            EntidadMaestraRepository entidadMaestraRepository,
+            CorrespondenciaOrigenRepository correspondencias) {
         this.decisionRepository = decisionRepository;
         this.entidadMaestraRepository = entidadMaestraRepository;
+        this.correspondencias = correspondencias;
     }
 
     public List<DecisionHomologacionRespuesta> listarPorMaestro(Long idMaestro) {
@@ -39,6 +42,21 @@ public class AuditoriaHomologacionService {
                 .orElseThrow(() -> new RecursoNoEncontradoException("ENTIDAD_MAESTRA_NO_ENCONTRADA",
                         "No existe la entidad maestra con seudónimo " + seudonimo + "."));
         return decisionRepository.findByEntidadMaestraIdMaestroOrderByFechaHoraAsc(maestro.getIdMaestro()).stream()
+                .map(DecisionHomologacionRespuesta::desde)
+                .toList();
+    }
+
+    /* HU040: decisiones del registro maestro al que quedó asociado un código de SAMNET. */
+    public List<DecisionHomologacionRespuesta> listarPorCodigo(TipoEntidad tipoEntidad, String codigo) {
+        List<CorrespondenciaOrigen> vinculos = correspondencias.buscarPorClave(codigo, tipoEntidad, "SAMNET");
+        if (vinculos.isEmpty()) {
+            throw new RecursoNoEncontradoException("CODIGO_SIN_HOMOLOGAR",
+                    "El código " + codigo + " no está vinculado a ningún registro maestro.");
+        }
+        return vinculos.stream()
+                .map(v -> v.getEntidadMaestra().getIdMaestro())
+                .distinct()
+                .flatMap(id -> decisionRepository.findByEntidadMaestraIdMaestroOrderByFechaHoraAsc(id).stream())
                 .map(DecisionHomologacionRespuesta::desde)
                 .toList();
     }

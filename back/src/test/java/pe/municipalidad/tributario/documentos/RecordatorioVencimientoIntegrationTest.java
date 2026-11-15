@@ -30,14 +30,14 @@ class RecordatorioVencimientoIntegrationTest {
                 """, Long.class, vence);
         var primero = servicio.procesar();
         assertThat(primero.enviados()).isZero();
-        assertThat(primero.simulados()).isPositive();
+        assertThat(primero.registrados()).isPositive();
         servicio.procesar();
         assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM operativo.aviso_correo
-                WHERE tipo = 'RECORDATORIO_VENCIMIENTO' AND id_obligacion = ? AND estado = 'SIMULADO'
+                WHERE tipo = 'RECORDATORIO_VENCIMIENTO' AND id_obligacion = ? AND estado = 'REGISTRADO'
                 """, Integer.class, id.toString())).isEqualTo(1);
-        // Emula un proveedor real sin hacer llamadas externas: el aviso simulado no bloquea la entrega.
-        doReturn(false).when(correo).esSimulado();
+        /* Emula un proveedor real sin hacer llamadas externas: el aviso registrado no bloquea la entrega. */
+        doReturn(false).when(correo).registraSinEnviar();
         servicio.procesar();
         servicio.procesar();
         assertThat(jdbc.queryForObject("""

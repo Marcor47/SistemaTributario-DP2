@@ -5,7 +5,6 @@ import { useSesionInterna } from '../context/sesionInterna.js'
 import LoginLayout, { AlertaLogin, BotonEnviar, CampoClave } from '../components/LoginLayout.jsx'
 import { rutaInicialGestion } from '../utils/modulos.jsx'
 
-const ACCESO_INTERNO_PRUEBA = { usuario: 'admin.local', password: 'AdminLocalSM#2026' }
 
 export default function LoginInterno() {
   const navegar = useNavigate()
@@ -42,11 +41,6 @@ export default function LoginInterno() {
     }
   }
 
-  function usarAccesoPrueba() {
-    setUsuario(ACCESO_INTERNO_PRUEBA.usuario)
-    setClave(ACCESO_INTERNO_PRUEBA.password)
-    setError('')
-  }
 
   return (
     <LoginLayout
@@ -77,14 +71,6 @@ export default function LoginInterno() {
         <CampoClave id={idClave} valor={clave} onCambio={setClave} idError={idError} conError={Boolean(error)} />
         <BotonEnviar enviando={enviando} />
       </form>
-
-      {import.meta.env.DEV && (
-        <div className="lg-demo" role="note">
-          <strong>Acceso de prueba</strong>
-          <p className="lg-demo__datos">Usuario: <code>{ACCESO_INTERNO_PRUEBA.usuario}</code><br />Contraseña: <code>{ACCESO_INTERNO_PRUEBA.password}</code></p>
-          <button className="lg-demo__usar" type="button" onClick={usarAccesoPrueba} disabled={enviando}>Usar estos datos</button>
-        </div>
-      )}
 
       <p className="lg-ayuda">
         ¿Eres contribuyente? <Link to="/login">Ingresa a Servicios en Línea</Link>

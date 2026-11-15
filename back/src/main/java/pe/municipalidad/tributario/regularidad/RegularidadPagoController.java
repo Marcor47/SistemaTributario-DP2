@@ -28,7 +28,7 @@ public class RegularidadPagoController {
 
     /**
      * Devuelve el porcentaje de cuotas pagadas a tiempo por el contribuyente en el anio especificado
-     * (o en el anio actual si se omite el parametro).
+     * (o en el año actual si se omite el parámetro).
      *
      * <p>Ejemplos:</p>
      * <ul>

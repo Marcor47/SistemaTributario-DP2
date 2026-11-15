@@ -149,7 +149,7 @@ public class NiubizSandboxGateway implements NiubizGateway {
         return valor == null ? "" : valor.trim();
     }
 
-    /* Se valida antes de cualquier llamada externa, sin bloquear el arranque ni usar el simulador. */
+    /* Se valida antes de cualquier llamada externa, sin bloquear el arranque ni usar la pasarela local. */
     private void validarConfiguracion() {
         if (username.isBlank() || password.isBlank() || !merchantId.matches("\\d{9}")
                 || !esHttps(callbackUrl) || !esHttps(timeoutUrl)) {

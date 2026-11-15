@@ -4,7 +4,7 @@ import { useSesionInterna } from '../context/sesionInterna.js'
 import {
   MAX_DOCUMENTO, MAX_PREDIOS_TEXTO, MAX_RANGO_FECHAS, MINIMO_SUGERENCIAS,
   buscarCoincidenciasVentanilla, confirmarPagoSolicitud, consultarContribuyente,
-  crearSolicitudVentanilla, emitirSolicitud, firmaDePrueba, listarConstancias,
+  crearSolicitudVentanilla, emitirSolicitud, firmaEnVentanilla, listarConstancias,
   listarSolicitudesContribuyente, normalizarDocumento,
   obtenerDocumentoFirmaSolicitud, registrarFirmaSolicitud, textoDocumento, urlConstanciaPdf,
   verificarDeudaSolicitud,
@@ -445,12 +445,12 @@ export default function ConstanciaVentanilla() {
     })
   }
 
-  function firmarSimulado() {
+  function registrarFirmaContribuyente() {
     ejecutar('firma', async () => {
       const firmada = await registrarFirmaSolicitud(
         solicitud.idSolicitud,
-        firmaDePrueba(documentoFirma.hashSha256),
-        'CERTIFICADO DE PRUEBA',
+        firmaEnVentanilla(documentoFirma.hashSha256),
+        'Firma del contribuyente en ventanilla',
       )
       setSolicitud(firmada)
       setDocumentoFirma(null)
@@ -757,15 +757,15 @@ export default function ConstanciaVentanilla() {
                     {textoDocumento(documentoFirma.contenidoBase64)}
                   </pre>
                   <p className="hint">SHA-256: {documentoFirma.hashSha256}</p>
-                  {documentoFirma.documentoDePrueba ? (
+                  {documentoFirma.firmaLocal ? (
                     <>
                       <div className="cv-acciones">
-                        <button className="btn primary" type="button" onClick={firmarSimulado} disabled={ocupado !== null}>
-                          {ocupado === 'firma' ? 'Firmando…' : 'Firmar en dispositivo (simulado)'}
+                        <button className="btn primary" type="button" onClick={registrarFirmaContribuyente} disabled={ocupado !== null}>
+                          {ocupado === 'firma' ? 'Registrando firma…' : 'Registrar firma del contribuyente'}
                         </button>
                       </div>
                       <p className="hint cv-nota" role="note">
-                        Firma simulada sin validez legal. La integración con el dispositivo presencial queda pendiente.
+                        Registra la firma del contribuyente en presencia del trabajador de ventanilla.
                       </p>
                     </>
                   ) : (
@@ -916,11 +916,6 @@ export default function ConstanciaVentanilla() {
           <div className="confirmacion" role="status">
             <strong>{resultado.numeroConstancia}</strong> emitida correctamente para {resultado.nombreContribuyente}.
           </div>
-          {resultado.esDePrueba && (
-            <div className="alert" role="note">
-              Documento generado en ambiente de pruebas; la firma municipal es simulada.
-            </div>
-          )}
           <div className="pfields">
             <Campo etiqueta="Número de constancia" valor={resultado.numeroConstancia} />
             <Campo etiqueta="Solicitud" valor={`N.º ${resultado.idSolicitud}`} />

@@ -171,7 +171,7 @@ Respuesta exitosa (`200 OK`):
   "tipoContenido": "text/plain; charset=UTF-8",
   "contenidoBase64": "...",
   "hashSha256": "…64 hex…",
-  "documentoDePrueba": true,
+  "firmaLocal": true,
   "datosContribuyente": {
     "codigo": "014502",
     "nombre": "GARCÍA TORRES, MARÍA ELENA",
@@ -295,7 +295,7 @@ Respuesta exitosa (`201 Created`):
   "estado": "EMITIDA",
   "comprobantePago": "CONST-VENT-7",
   "montoDerechoTramite": 10.00,
-  "esDePrueba": true
+  "firmaLocal": true
 }
 ```
 
@@ -384,7 +384,7 @@ Respuesta exitosa (`200 OK`): lista de objetos `SolicitudVentanillaRespuesta` (m
 
 | Documento de Prueba | Tipo | Situación en SAMNET | Comportamiento esperado en HU042 |
 | :--- | :--- | :--- | :--- |
-| `41028765` (Código `014502`) | DNI | Deuda S/ 0.00 | **Emisión exitosa**: consulta con `puedeSolicitar: true`, firma simulada y flujo por pasos hasta `EMITIDA`. |
+| `41028765` (Código `014502`) | DNI | Deuda S/ 0.00 | **Emisión exitosa**: consulta con `puedeSolicitar: true`, firma de Servicios en Línea y flujo por pasos hasta `EMITIDA`. |
 | `20456781239` (Código `021390`) | RUC | Deuda pendiente | **Rechazo al presentar**: la solicitud se crea en estado `RECHAZADA` con el detalle de las obligaciones y no avanza a firma. |
 | `00000000` | DNI | No registrado | Retorna `404 CONTRIBUYENTE_NO_ENCONTRADO`. |
 

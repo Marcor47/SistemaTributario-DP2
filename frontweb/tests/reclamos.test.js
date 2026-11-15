@@ -90,12 +90,12 @@ test('HU050: registrar un reclamo lo envía al servidor con CSRF y fecha en segu
 })
 
 test('HU050: un reclamo inválido no llega al servidor y devuelve los errores por campo', async (t) => {
-  const fetchSimulado = t.mock.method(globalThis, 'fetch', async () => new Response('{}'))
+  const fetchFalso = t.mock.method(globalThis, 'fetch', async () => new Response('{}'))
   await assert.rejects(
     () => registrarReclamo({ ...valido, comentario: '' }, 'TRABAJADOR', AHORA),
     (err) => err.codigo === 'RECLAMO_INVALIDO' && Boolean(err.errores.comentario),
   )
-  assert.equal(fetchSimulado.mock.callCount(), 0)
+  assert.equal(fetchFalso.mock.callCount(), 0)
 })
 
 test('HU050: la lista se ordena con el reclamo más reciente primero', () => {

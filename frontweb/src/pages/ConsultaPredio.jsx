@@ -3,6 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import ArbitriosPanel from '../components/ArbitriosPanel.jsx'
 import BarraBusqueda from '../components/BarraBusqueda.jsx'
 import DeclaracionJuradaPanel from '../components/DeclaracionJuradaPanel.jsx'
+import RegistroPredio from '../components/RegistroPredio.jsx'
+import { useSesionInterna } from '../context/sesionInterna.js'
 import { buscarPredios } from '../services/predioService.js'
 import { fecha, moneda } from '../utils/formato.js'
 import './ConsultaPredio.css'
@@ -183,6 +185,10 @@ export default function ConsultaPredio() {
   const [error, setError] = useState('')
   const solicitud = useRef(0)
   const busquedaInicial = useRef(consultaInicial.trim())
+  const { sesion } = useSesionInterna()
+  const puedeRegistrar = Boolean(sesion?.permisos?.includes('PREDIOS:REGISTRAR'))
+  const [registrando, setRegistrando] = useState(false)
+  const [registrado, setRegistrado] = useState('')
 
   async function consultar(texto, pagina, actual) {
     try {
@@ -227,6 +233,18 @@ export default function ConsultaPredio() {
 
   return (
     <>
+      {puedeRegistrar && !registrando && (
+        <div className="filters">
+          <button className="btn primary" type="button" onClick={() => { setRegistrando(true); setRegistrado('') }}>Registrar predio nuevo</button>
+        </div>
+      )}
+      {registrado && <p className="confirmacion" role="status">Se registró el predio {registrado}.</p>}
+      {registrando && (
+        <RegistroPredio
+          onCancelar={() => setRegistrando(false)}
+          onRegistrado={(predio) => { setRegistrando(false); setRegistrado(predio.codigoPredio); buscar(predio.codigoPredio) }}
+        />
+      )}
       <BarraBusqueda
         etiqueta="Buscar predio"
         placeholder="Código predial, catastro o dirección; o código, nombre o documento (DNI / RUC) del titular"
@@ -242,7 +260,7 @@ export default function ConsultaPredio() {
       {!ocupado && !error && resultado === null && (
         <div className="info">
           Busca un predio por su código predial, código catastral o dirección, o por su titular. Si el titular tiene
-          muchos predios, la lista se muestra por páginas. Consulta de solo lectura.
+          muchos predios, la lista se muestra por páginas.
         </div>
       )}
 

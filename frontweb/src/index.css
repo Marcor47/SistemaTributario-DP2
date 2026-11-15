@@ -94,7 +94,6 @@ body {
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
-.menu-demo { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(255, 255, 255, 0.1); font-size: 13px; line-height: 1.4; }
 .menu-salir {
   display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 10px 12px;
   width: 100%; color: #fff; text-decoration: none; font: inherit; font-weight: 700;
@@ -304,7 +303,6 @@ body {
 .estado.ok { color: var(--exito); background: var(--exito-fondo); }
 .estado.critico { color: var(--critico); background: var(--critico-fondo); }
 .estado.aviso { color: var(--advertencia); background: var(--advertencia-fondo); }
-.demo-opcion { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--texto-atenuado); margin-bottom: 16px; }
 
 /* Regularidad de pago y catÃ¡logo de formularios */
 .fld select, .fld textarea {
@@ -577,12 +575,12 @@ input::placeholder {
   .metas-filtros .btn, .formulario-meta .btn, .tabla-metas .btn { min-height: 44px; }
 }
 
-/* MenÃº en pantallas pequeÃ±as */
+/* Menú en pantallas pequeñas */
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; }
   .menu { position: relative; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; }
   .menu-nav { flex-direction: row; flex-wrap: wrap; order: 3; width: 100%; }
-  .menu-etiqueta, .menu-demo { display: none; }
+  .menu-etiqueta { display: none; }
   .menu-perfil { max-width: min(100%, 260px); }
   .menu-pie { margin-top: 0; margin-left: auto; }
   .menu__btn-toggle--expandido { position: static; transform: none; }
@@ -687,4 +685,28 @@ input::placeholder {
 
 @media (max-width: 640px) {
   .filtros-predios .fld { min-width: 0; width: 100%; }
+}
+
+/* Responsive (6.1): ningún texto desborda su tarjeta ni su celda; los títulos y cifras se ajustan al ancho. */
+.pcard, .pf, .resumen > div, .rep-kpis > *, .rep-grafico, .gestion-modulo, .portal-servicio { min-width: 0; }
+.pcard h2, .pcard h3, .pcard p, .pv, .resumen strong, .tabla td, .tabla th { overflow-wrap: anywhere; }
+.tabla .num, .tabla td.num, .tabla th.num { overflow-wrap: normal; white-space: nowrap; }
+.pcard h2 { font-size: clamp(18px, 2.2vw, 22px); }
+.resumen strong { font-size: clamp(18px, 2.4vw, 22px); }
+.pagina-cab__desc { overflow-wrap: anywhere; }
+.barra-superior__nombre { max-width: min(260px, 45vw); }
+
+@media (max-width: 900px) {
+  /* El menú queda en una sola fila desplazable para no ocupar media pantalla. */
+  .menu-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding-bottom: 4px; }
+  .menu-secciones { width: 100%; min-width: 0; }
+  .app--sin-menu { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .pagina-cab { padding: 18px 16px 16px; }
+  .pagina-cab h1 { font-size: clamp(22px, 6vw, 26px); }
+  .pcard { padding: 16px; }
+  .btn { white-space: normal; }
+  .barra-superior__sistema { font-size: 13px; }
 }

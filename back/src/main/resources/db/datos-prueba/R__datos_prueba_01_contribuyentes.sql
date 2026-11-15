@@ -4,7 +4,7 @@
 -- de año, pensionista con un solo predio de vivienda, contribuyente sin predios, una inmobiliaria con 31 predios
 -- y una empresa (021390) con 11 predios de usos y zonas distintos, para probar los filtros de la tabla de predios.
 -- Zonas: sectores del distrito de San Miguel (Lima) que agrupan urbanizaciones con la misma tarifa de arbitrios:
--- Costanera, Maranga y Pando aquí; Las Leyendas y Faucett - Libertad con los contribuyentes de datos-demo. Son
+-- Costanera, Maranga y Pando aquí; Las Leyendas y Faucett - Libertad con los contribuyentes del padrón (datos-padron). Son
 -- ilustrativas: reemplazarlas por la zonificación de la ordenanza de arbitrios vigente cuando se tenga.
 INSERT INTO samnet.contribuyente
     (codigo, nombre, tipo_persona, tipo_documento, numero_documento, domicilio_fiscal, estado, regimen, condicion,

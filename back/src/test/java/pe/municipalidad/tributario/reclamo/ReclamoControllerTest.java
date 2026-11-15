@@ -54,21 +54,14 @@ class ReclamoControllerTest {
                 roles.findByNombre(NombreRol.GERENCIA).orElseThrow(), LocalDateTime.now()));
     }
 
+    /* 3.5: los reclamos solo los registra el contribuyente desde Servicios en Línea. */
     @Test
-    void trabajadorRegistraYConsultaSoloSusReclamos() throws Exception {
+    void usuarioInternoNoPuedeRegistrarReclamos() throws Exception {
         mvc.perform(post("/api/reclamos").session(sesionInterna()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content(solicitud("DOCUMENTO")))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.numeroReclamo").value(org.hamcrest.Matchers.matchesPattern("REC-2026-\\d{6}")))
-                .andExpect(jsonPath("$.tipoReclamante").value("TRABAJADOR"))
-                .andExpect(jsonPath("$.estado").value("ENVIADO"))
-                .andExpect(jsonPath("$.derivaciones").isEmpty());
-
-        mvc.perform(get("/api/reclamos/mios").session(sesionInterna()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].comentario").value("El documento no aparece en el sistema."))
-                .andExpect(jsonPath("$[0].tipoReclamante").value("TRABAJADOR"));
-        assertThat(reclamos.findAll()).hasSize(1);
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.codigo").value("RECLAMO_SOLO_CONTRIBUYENTE"));
+        assertThat(reclamos.findAll()).isEmpty();
     }
 
     @Test
@@ -92,18 +85,18 @@ class ReclamoControllerTest {
 
     @Test
     void rechazaTipoAjenoFechaFuturaYDatosInvalidos() throws Exception {
-        mvc.perform(post("/api/reclamos").session(sesionInterna()).with(csrf())
-                .contentType(MediaType.APPLICATION_JSON).content(solicitud("ATENCION")))
+        mvc.perform(post("/api/reclamos").session(sesionContribuyente()).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(solicitud("DOCUMENTO")))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("TIPO_RECLAMO_NO_PERMITIDO"));
-        mvc.perform(post("/api/reclamos").session(sesionInterna()).with(csrf())
+        mvc.perform(post("/api/reclamos").session(sesionContribuyente()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("""
-                        {"tipoReclamo":"DOCUMENTO","fechaHoraIncidente":"2099-01-01T10:00:00",
+                        {"tipoReclamo":"ATENCION","fechaHoraIncidente":"2099-01-01T10:00:00",
                          "comentario":"Incidente futuro"}
                         """))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.codigo").value("FECHA_INCIDENTE_FUTURA"));
-        mvc.perform(post("/api/reclamos").session(sesionInterna()).with(csrf())
+        mvc.perform(post("/api/reclamos").session(sesionContribuyente()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
     }
@@ -118,9 +111,10 @@ class ReclamoControllerTest {
     }
 
     @Test
-    void gestorDerivaYResponsableRespondeReclamoInterno() throws Exception {
-        mvc.perform(post("/api/reclamos").session(sesionInterna(trabajador)).with(csrf())
-                .contentType(MediaType.APPLICATION_JSON).content(solicitud("DOCUMENTO")))
+    void gestorDerivaYResponsableRespondeReclamoDelContribuyente() throws Exception {
+        MockHttpSession ciudadano = sesionContribuyente();
+        mvc.perform(post("/api/reclamos").session(ciudadano).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(solicitud("ATENCION")))
                 .andExpect(status().isCreated());
         Reclamo reclamo = reclamos.findAll().getFirst();
         AreaMunicipal area = areas.findByActivaTrueOrderByNombreAsc().getFirst();
@@ -149,7 +143,7 @@ class ReclamoControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.reclamo.estado").value("APROBADO_CON_RESPUESTA"));
 
-        mvc.perform(get("/api/reclamos/mios").session(sesionInterna(trabajador)))
+        mvc.perform(get("/api/reclamos/mios").session(ciudadano))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].respuesta").value("Se corrigió el documento y se notificó al área solicitante."));
     }
@@ -191,8 +185,9 @@ class ReclamoControllerTest {
 
     @Test
     void impideGestionSinRolRespuestaAjenaYPermiteCancelarAlPropietario() throws Exception {
-        mvc.perform(post("/api/reclamos").session(sesionInterna(trabajador)).with(csrf())
-                .contentType(MediaType.APPLICATION_JSON).content(solicitud("DOCUMENTO")))
+        MockHttpSession ciudadano = sesionContribuyente();
+        mvc.perform(post("/api/reclamos").session(ciudadano).with(csrf())
+                .contentType(MediaType.APPLICATION_JSON).content(solicitud("ATENCION")))
                 .andExpect(status().isCreated());
         Reclamo reclamo = reclamos.findAll().getFirst();
         mvc.perform(get("/api/reclamos/gestion").session(sesionInterna(trabajador)))
@@ -202,8 +197,14 @@ class ReclamoControllerTest {
                 .content("{\"respuesta\":\"Respuesta no autorizada.\"}"))
                 .andExpect(status().isForbidden());
         mvc.perform(post("/api/reclamos/mios/{id}/cancelar", reclamo.getIdReclamo())
-                .session(sesionInterna(trabajador)).with(csrf()))
+                .session(ciudadano).with(csrf()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("CANCELADO"));
+    }
+
+    private MockHttpSession sesionContribuyente() {
+        MockHttpSession sesion = new MockHttpSession();
+        sesion.setAttribute(SesionContribuyente.ATRIBUTO_CODIGO_CONTRIBUYENTE, "021390");
+        return sesion;
     }
 
     private MockHttpSession sesionInterna() {

@@ -50,6 +50,10 @@ public class TransaccionPago {
     @Column(name = "monto_total", nullable = false, precision = 14, scale = 2)
     private BigDecimal montoTotal;
 
+    /* Interés moratorio incluido en el total: base - descuento + interés. */
+    @Column(name = "monto_interes", nullable = false, precision = 14, scale = 2)
+    private BigDecimal montoInteres = BigDecimal.ZERO;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "estado", nullable = false, length = 10)
     private EstadoTransaccion estado;
@@ -105,8 +109,12 @@ public class TransaccionPago {
         BigDecimal base = detalles.stream().map(DetallePago::getMontoBase).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal descuento = detalles.stream().map(DetallePago::getMontoDescuento)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal interes = detalles.stream().map(DetallePago::getMontoInteres)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         TransaccionPago transaccion = new TransaccionPago(documentoContribuyente, MotivoPago.OBLIGACIONES,
                 base, descuento, fechaHora);
+        transaccion.montoInteres = interes;
+        transaccion.montoTotal = base.subtract(descuento).add(interes);
         transaccion.detalles.addAll(detalles);
         detalles.stream().map(d -> d.getIdObligacion().toString()).forEach(transaccion.obligaciones::add);
         return transaccion;
@@ -165,6 +173,10 @@ public class TransaccionPago {
 
     public BigDecimal getMontoDescuento() {
         return montoDescuento;
+    }
+
+    public BigDecimal getMontoInteres() {
+        return montoInteres == null ? BigDecimal.ZERO : montoInteres;
     }
 
     public BigDecimal getMontoTotal() {

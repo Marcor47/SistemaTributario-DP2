@@ -56,10 +56,20 @@ public class ResumenEjecutivo {
     @Column(name = "fecha_generacion", nullable = false)
     private LocalDateTime fechaGeneracion;
 
+    /* Carga del ETL de la que salen los indicadores: con la misma carga, el resumen se reutiliza. */
+    @Column(name = "id_lote")
+    private Long idLote;
+
     protected ResumenEjecutivo() {
     }
 
     /* generar(periodo): el texto lo produce el servicio de IA; aquí se valida y se registra. */
+    public ResumenEjecutivo(ModeloIA modelo, String periodo, String texto, String indicadoresUsados, Long idLote,
+            LocalDateTime fechaGeneracion) {
+        this(modelo, periodo, texto, indicadoresUsados, fechaGeneracion);
+        this.idLote = idLote;
+    }
+
     public ResumenEjecutivo(ModeloIA modelo, String periodo, String texto, String indicadoresUsados,
             LocalDateTime fechaGeneracion) {
         if (texto.isBlank() || texto.trim().split("\\s+").length > MAXIMO_PALABRAS) {
@@ -117,5 +127,9 @@ public class ResumenEjecutivo {
 
     public LocalDateTime getFechaGeneracion() {
         return fechaGeneracion;
+    }
+
+    public Long getIdLote() {
+        return idLote;
     }
 }
