@@ -51,25 +51,59 @@
 .segmentos-tabla td { vertical-align: top; }
 .segmentos-tabla th[scope="row"] { color: var(--marino-osc); white-space: nowrap; }
 
-.segmento-variables summary {
-  color: var(--marino);
-  cursor: pointer;
-  font-weight: 700;
-}
-.segmento-variables summary:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
-.segmento-variables pre {
-  max-width: 360px;
-  margin: 8px 0 0;
-  padding: 10px 12px;
-  overflow-wrap: anywhere;
-  white-space: pre-wrap;
-  border: 1px solid #E3ECF5;
+.segmentos-tabla th[scope="row"] { vertical-align: top; }
+.segmento-fila.abierta > * { border-bottom-color: transparent; }
+
+.segmento-variables-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--borde);
   border-radius: 8px;
-  background: #F7FAFD;
-  color: var(--texto-secundario);
-  font-size: 12.5px;
-  line-height: 1.45;
+  background: #fff;
+  color: var(--marino);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
 }
+.segmento-variables-boton:hover { background: #F2F7FC; }
+.segmento-variables-boton:focus-visible { outline: 3px solid var(--cian); outline-offset: 2px; }
+
+.segmento-detalle > td { padding-top: 0; background: #F7FAFD; }
+.segmento-variables {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid #E3ECF5;
+  border-radius: 10px;
+  background: #fff;
+}
+.segmento-variables-bloque { min-width: 0; }
+.segmento-variables h4 { margin: 0 0 4px; color: var(--marino-osc); font-size: 14px; }
+.segmento-variables .hint { margin: 0 0 10px; font-size: 12.5px; }
+.segmento-variables-tabla { width: 100%; border-collapse: collapse; font-size: 13px; }
+.segmento-variables-tabla th,
+.segmento-variables-tabla td { padding: 8px 10px; border-bottom: 1px solid #E3ECF5; text-align: left; vertical-align: top; }
+.segmento-variables-tabla thead th { color: var(--texto-atenuado); font-size: 12px; font-weight: 700; }
+.segmento-variables-tabla .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.segmento-variables-tabla tbody th { color: var(--marino-osc); font-weight: 700; white-space: normal; }
+.segmento-variables-ayuda { display: block; margin-top: 2px; color: var(--texto-atenuado); font-size: 12px; font-weight: 400; }
+.segmento-nivel { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.segmento-nivel.muy-alto { background: #DCEBFB; color: #0F3D6E; }
+.segmento-nivel.alto { background: #E8F2FC; color: #17406B; }
+.segmento-nivel.medio { background: #EEF1F4; color: #3D4B5C; }
+.segmento-nivel.bajo { background: #FDF1E3; color: #7A4A0E; }
+.segmento-nivel.muy-bajo { background: #FBE4DF; color: #8A2A17; }
+.segmento-indicadores { display: grid; gap: 10px; margin: 8px 0 0; }
+.segmento-indicadores div { padding: 10px 12px; border: 1px solid #E3ECF5; border-radius: 8px; background: #F7FAFD; }
+.segmento-indicadores dt { color: var(--texto-atenuado); font-size: 12px; }
+.segmento-indicadores dd { margin: 2px 0 0; color: var(--marino-osc); font-size: 15px; font-weight: 700; }
+.segmento-variables-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .segmento-variables { grid-template-columns: 1fr; } }
 
 .segmentos-comparacion {
   margin-top: 14px;

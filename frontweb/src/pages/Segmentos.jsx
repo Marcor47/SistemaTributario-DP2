@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import { aprobarSegmentacion, listarSegmentos, listarSegmentosPublicados } from '../services/segmentosService.js'
 import { formatearPorcentaje } from '../utils/alertas.js'
@@ -7,7 +7,7 @@ import {
   agruparSegmentos,
   claseEstadoSegmento,
   etiquetaEstadoSegmento,
-  formatearVariablesCaracteristicas,
+  interpretarVariablesCaracteristicas,
   participacionSegmento,
 } from '../utils/segmentos.js'
 import './Segmentos.css'
@@ -302,6 +302,17 @@ function GrupoPublicado({ grupo }) {
 }
 
 function TablaSegmentos({ grupo }) {
+  const [abiertos, setAbiertos] = useState(() => new Set())
+
+  function alternar(idSegmento) {
+    setAbiertos((actuales) => {
+      const siguientes = new Set(actuales)
+      if (siguientes.has(idSegmento)) siguientes.delete(idSegmento)
+      else siguientes.add(idSegmento)
+      return siguientes
+    })
+  }
+
   return (
     <div className="tabla-scroll" role="region" aria-label={`Segmentos de ${grupo.modelo}`} tabIndex={0}>
       <table className="tabla segmentos-tabla">
@@ -318,22 +329,97 @@ function TablaSegmentos({ grupo }) {
           </tr>
         </thead>
         <tbody>
-          {grupo.segmentos.map((segmento) => (
-            <tr key={segmento.idSegmento}>
-              <th scope="row">{segmento.nombre}</th>
-              <td>{segmento.descripcion || '—'}</td>
-              <td className="num">{segmento.tamano}</td>
-              <td className="num">{formatearPorcentaje(participacionSegmento(segmento, grupo))}</td>
-              <td>
-                <details className="segmento-variables">
-                  <summary>Ver variables</summary>
-                  <pre>{formatearVariablesCaracteristicas(segmento.variablesCaracteristicas)}</pre>
-                </details>
-              </td>
-            </tr>
-          ))}
+          {grupo.segmentos.map((segmento) => {
+            const abierto = abiertos.has(segmento.idSegmento)
+            const idDetalle = `variables-segmento-${segmento.idSegmento}`
+            return (
+              <Fragment key={segmento.idSegmento}>
+                <tr className={abierto ? 'segmento-fila abierta' : 'segmento-fila'}>
+                  <th scope="row">{segmento.nombre}</th>
+                  <td>{segmento.descripcion || '—'}</td>
+                  <td className="num">{segmento.tamano}</td>
+                  <td className="num">{formatearPorcentaje(participacionSegmento(segmento, grupo))}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="segmento-variables-boton"
+                      aria-expanded={abierto}
+                      aria-controls={idDetalle}
+                      onClick={() => alternar(segmento.idSegmento)}
+                    >
+                      <span aria-hidden="true">{abierto ? '▾' : '▸'}</span>
+                      {abierto ? 'Ocultar variables' : 'Ver variables'}
+                    </button>
+                  </td>
+                </tr>
+                {abierto && (
+                  <tr className="segmento-detalle" id={idDetalle}>
+                    <td colSpan={5}>
+                      <VariablesSegmento segmento={segmento} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function VariablesSegmento({ segmento }) {
+  const { variables, indicadores, textoLibre } = interpretarVariablesCaracteristicas(segmento.variablesCaracteristicas)
+  if (textoLibre) return <p className="segmento-variables-texto">{textoLibre}</p>
+  if (variables.length === 0 && indicadores.length === 0) {
+    return <p className="hint">Este segmento no tiene variables registradas.</p>
+  }
+  return (
+    <div className="segmento-variables">
+      {variables.length > 0 && (
+        <div className="segmento-variables-bloque">
+          <h4>Comportamiento de pago típico del segmento</h4>
+          <p className="hint">Valor mediano de cada variable y cómo se compara con el conjunto de contribuyentes.</p>
+          <table className="segmento-variables-tabla">
+            <thead>
+              <tr>
+                <th scope="col">Variable</th>
+                <th scope="col" className="num">Valor típico</th>
+                <th scope="col">Frente al promedio</th>
+              </tr>
+            </thead>
+            <tbody>
+              {variables.map((variable) => (
+                <tr key={variable.clave}>
+                  <th scope="row">
+                    {variable.etiqueta}
+                    {variable.ayuda && <span className="segmento-variables-ayuda">{variable.ayuda}</span>}
+                  </th>
+                  <td className="num">{variable.valor}</td>
+                  <td>
+                    {variable.nivel
+                      ? <span className={`segmento-nivel ${variable.nivel.clase}`}>{variable.nivel.texto}</span>
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {indicadores.length > 0 && (
+        <div className="segmento-variables-bloque">
+          <h4>Otros indicadores</h4>
+          <dl className="segmento-indicadores">
+            {indicadores.map((indicador) => (
+              <div key={indicador.clave}>
+                <dt>{indicador.etiqueta}</dt>
+                <dd>{indicador.valor}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
     </div>
   )
 }

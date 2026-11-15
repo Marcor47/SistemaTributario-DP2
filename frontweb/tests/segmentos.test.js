@@ -11,6 +11,7 @@ import {
   claseEstadoSegmento,
   etiquetaEstadoSegmento,
   formatearVariablesCaracteristicas,
+  interpretarVariablesCaracteristicas,
   participacionSegmento,
 } from '../src/utils/segmentos.js'
 
@@ -144,4 +145,30 @@ test('HU031: la aprobación tiene una pantalla propia y la plataforma filtra por
   assert.match(pagina, /aprobarSegmentacion/)
   assert.match(plataforma, /id="rep-segmento"/)
   assert.match(plataforma, /Mapa de segmentos/)
+})
+
+test('HU031: las variables del segmento se muestran legibles, no como JSON', () => {
+  const json = JSON.stringify({
+    variables: {
+      pctATiempo: { centroEstandarizado: 1.021, mediana: 100, unidad: '%' },
+      diasAtraso: { centroEstandarizado: -1.753, mediana: -150.51, unidad: 'días' },
+      deudaVencidaPct: { centroEstandarizado: -0.1, mediana: 0, unidad: '%' },
+    },
+    descriptivas: { prediosMediana: 1, pctPagosEnLineaMediana: 42.5 },
+    siluetaMedia: 0.412,
+  })
+  const { variables, indicadores, textoLibre } = interpretarVariablesCaracteristicas(json)
+  assert.equal(textoLibre, '')
+  assert.deepEqual(variables.map((v) => v.etiqueta), ['Cuotas pagadas a tiempo', 'Atraso en el pago', 'Deuda vencida'])
+  assert.equal(variables[0].valor, '100 %')
+  assert.equal(variables[0].nivel.texto, 'Muy por encima del promedio')
+  assert.equal(variables[1].valor, '-150.51 días')
+  assert.equal(variables[1].nivel.clase, 'muy-bajo')
+  assert.equal(variables[2].nivel.texto, 'Similar al promedio')
+  assert.deepEqual(indicadores.map((i) => i.etiqueta), ['Predios por contribuyente', 'Pagos realizados en línea', 'Cohesión del segmento'])
+  assert.equal(indicadores[1].valor, '42.5 %')
+  assert.equal(indicadores[2].valor, 'moderada (0.41)')
+  assert.equal(interpretarVariablesCaracteristicas('texto libre').textoLibre, 'texto libre')
+  assert.deepEqual(interpretarVariablesCaracteristicas(''), { variables: [], indicadores: [], textoLibre: '' })
+  for (const v of variables) assert.ok(!/[{}"]/.test(v.valor))
 })

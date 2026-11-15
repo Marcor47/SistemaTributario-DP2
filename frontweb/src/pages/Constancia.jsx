@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  codificarArchivo, decodificarBase64, firmarSolicitud, iniciarSolicitud,
+  codificarArchivo, firmarSolicitud, iniciarSolicitud,
   obtenerDocumento, obtenerSesion, obtenerSolicitud,
 } from '../services/constanciaService.js'
 import { guardarArchivo, pedirArchivo } from '../services/api.js'
@@ -68,6 +68,7 @@ function ConstanciasEmitidas() {
 }
 
 const claveSolicitud = (codigo) => `constancia-pendiente-${codigo}`
+const nombrePdf = (idSolicitud) => `solicitud-constancia-${idSolicitud}.pdf`
 
 export default function Constancia() {
   const [sesion, setSesion] = useState(null)
@@ -80,6 +81,34 @@ export default function Constancia() {
   const [ocupado, setOcupado] = useState(false)
   const [error, setError] = useState('')
   const [sinSesion, setSinSesion] = useState(false)
+  // PDF institucional generado por el servidor para la solicitud: se previsualiza y se descarga tal cual.
+  const [pdfCargado, setPdfCargado] = useState({ id: null, archivo: null, url: '', error: '' })
+
+  const idSolicitudDocumento = documento ? solicitud?.idSolicitud : null
+  // Solo vale el PDF de la solicitud que se está mostrando; mientras llega el nuevo, se considera en carga.
+  const pdf = idSolicitudDocumento && pdfCargado.id === idSolicitudDocumento
+    ? { ...pdfCargado, cargando: false }
+    : { archivo: null, url: '', error: '', cargando: Boolean(idSolicitudDocumento) }
+  useEffect(() => {
+    if (!idSolicitudDocumento) return undefined
+    let activo = true
+    let url = ''
+    pedirArchivo(`/constancias/${idSolicitudDocumento}/documento-firma/pdf`, nombrePdf(idSolicitudDocumento))
+      .then((archivo) => {
+        if (!activo) return
+        const blob = new Blob([archivo.blob], { type: 'application/pdf' })
+        url = URL.createObjectURL(blob)
+        setPdfCargado({ id: idSolicitudDocumento, archivo: { blob, nombre: archivo.nombre }, url, error: '' })
+      })
+      .catch((err) => {
+        if (activo) setPdfCargado({ id: idSolicitudDocumento, archivo: null, url: '', error: err.message || 'No se pudo cargar la vista previa del documento.' })
+      })
+    return () => {
+      activo = false
+      if (url) URL.revokeObjectURL(url)
+      setPdfCargado({ id: null, archivo: null, url: '', error: '' })
+    }
+  }, [idSolicitudDocumento])
 
   useEffect(() => {
     let activo = true
@@ -165,7 +194,7 @@ export default function Constancia() {
   async function descargarDocumento() {
     setError('')
     try {
-      guardarArchivo(await pedirArchivo(`/constancias/${solicitud.idSolicitud}/documento-firma/pdf`, `solicitud-constancia-${solicitud.idSolicitud}.pdf`))
+      guardarArchivo(pdf.archivo ?? await pedirArchivo(`/constancias/${solicitud.idSolicitud}/documento-firma/pdf`, nombrePdf(solicitud.idSolicitud)))
     } catch (err) {
       setError(err.message || 'No se pudo descargar el documento de la solicitud.')
     }
@@ -208,8 +237,6 @@ export default function Constancia() {
 
   const pendienteFirma = solicitud?.estado === 'INICIADA'
   const solicitudCerrada = solicitud && ['EMITIDA', 'RECHAZADA'].includes(solicitud.estado)
-  const vistaPrevia = documento?.tipoContenido?.startsWith('text/')
-    ? new TextDecoder().decode(decodificarBase64(documento.contenidoBase64)) : null
 
   return (
     <div className="constancia" aria-busy={cargando || ocupado}>
@@ -259,10 +286,20 @@ export default function Constancia() {
               {documento && (
                 <>
                   <div className="constancia-archivo">
-                    <div><strong>{documento.nombreArchivo}</strong><span>SHA-256: {documento.hashSha256}</span></div>
+                    <div className="constancia-archivo-info">
+                      <span className="constancia-archivo-icono" aria-hidden="true">PDF</span>
+                      <div>
+                        <strong>{pdf.archivo?.nombre || nombrePdf(solicitud.idSolicitud)}</strong>
+                        <span>Documento PDF · Código de verificación (SHA-256): {documento.hashSha256}</span>
+                      </div>
+                    </div>
                     <button className="btn" type="button" onClick={descargarDocumento}>Descargar PDF</button>
                   </div>
-                  {vistaPrevia && <pre className="constancia-vista">{vistaPrevia}</pre>}
+                  {pdf.cargando && <p className="hint" role="status">Cargando vista previa del documento…</p>}
+                  {pdf.error && <div className="alert" role="alert">{pdf.error}</div>}
+                  {pdf.url && (
+                    <iframe className="constancia-vista" src={`${pdf.url}#toolbar=0&navpanes=0&view=FitH`} title={`Vista previa de ${pdf.archivo?.nombre || nombrePdf(solicitud.idSolicitud)}`} />
+                  )}
                   {documento.firmaLocal && <button className="btn primary" type="button" onClick={firmarConServiciosEnLinea} disabled={ocupado}>Firmar con mi cuenta de Servicios en Línea</button>}
                   <form className="constancia-firma" onSubmit={firmarConArchivo}>
                     <h3>Enviar una firma y certificado</h3>
