@@ -35,7 +35,7 @@ public class PostgresEmbebidoConfig {
 
     /*
      * Por defecto todos los contextos usan la base "postgres". Un test que aplica semillas extra (p. ej. las de
-     * datos-demo) declara tributario.test.base con otro nombre y recibe una base vacía propia; si compartiera la
+     * datos-padron) declara tributario.test.base con otro nombre y recibe una base vacía propia; si compartiera la
      * común, los contextos creados después fallarían al validar Flyway y verían datos que no esperan.
      */
     @Bean

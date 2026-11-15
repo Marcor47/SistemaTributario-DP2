@@ -10,14 +10,10 @@ necesario para los gráficos: métricas por k, estabilidad, perfiles de cada seg
 HDBSCAN y la historia de pago por año de cada segmento.
 
     uv run back/scripts/segmentacion_explorar.py --dsn postgresql://municipalidad:municipalidad@localhost:5432/tributario \
-        --salida segmentacion.json [--validar-perfiles-demo]
+        --salida segmentacion.json
 
---validar-perfiles-demo compara los segmentos con los perfiles de pago que la semilla local asignó a cada
-contribuyente ficticio (R__zz_demo_04_historia_san_miguel.sql). Es solo una prueba: el modelo nunca los usa.
 """
 import argparse
-import hashlib
-import hmac
 import json
 from datetime import date
 
@@ -54,17 +50,6 @@ FROM analitica.hecho_cobranza h WHERE h.id_lote = %s
 SQL_PAGOS = """
 SELECT seudonimo_contribuyente AS c, fecha_pago, canal FROM analitica.hecho_pago WHERE id_lote = %s
 """
-
-# Perfiles que la semilla local asignó (solo para validar; ver --validar-perfiles-demo).
-PERFILES_DEMO = {
-    **{c: "PUNTUAL" for c in "110101 110104 110201 110202 110301 110401 110402 110501 058934 061177 080245".split()},
-    **{c: "ANUAL" for c in "110102 110204 110506 014502 033218".split()},
-    **{c: "ATRASADO" for c in "110103 110203 110205 110302 110303 110403 110502".split()},
-    **{c: "RECUPERA" for c in "110105 110206 110304 110305 110404 110505".split()},
-    **{c: "MOROSO" for c in "110106 110207 110306 110405 110503".split()},
-    **{c: "PARCIAL" for c in "110307 110406 110504".split()},
-    **{c: "ATRASADO_LEVE" for c in "045067 021390".split()},
-}
 
 
 def variables(cuotas: pd.DataFrame, pagos: pd.DataFrame, corte: date) -> pd.DataFrame:
@@ -116,7 +101,7 @@ def transformar(df: pd.DataFrame) -> pd.DataFrame:
     return t
 
 
-def variantes(df: pd.DataFrame, perfiles) -> list:
+def variantes(df: pd.DataFrame) -> list:
     """Compara escalados y conjuntos de variables: el k de mejor silueta de cada uno."""
     escalados = {
         "Mediana e IQR": (lambda t: t, RobustScaler),
@@ -135,8 +120,6 @@ def variantes(df: pd.DataFrame, perfiles) -> list:
                 s = silhouette_score(X, l)
                 if mejor is None or s > mejor["silueta"]:
                     mejor = {"variables": nombre_c, "escalado": nombre_e, "k": k, "silueta": s}
-                    if perfiles is not None:
-                        mejor["ari_perfiles"] = adjusted_rand_score(perfiles, l)
             filas.append(mejor)
     return filas
 
@@ -158,8 +141,6 @@ def main():
     ap.add_argument("--dsn", required=True)
     ap.add_argument("--salida", required=True)
     ap.add_argument("--k", type=int, help="k a describir; por defecto el de mejor silueta")
-    ap.add_argument("--validar-perfiles-demo", action="store_true")
-    ap.add_argument("--clave-demo", default="samnet-demo-contribuyente")
     a = ap.parse_args()
 
     with psycopg.connect(a.dsn) as cn:
@@ -176,13 +157,7 @@ def main():
     cols = list(VARIABLES)
     X = StandardScaler().fit_transform(transformar(df[cols]))
 
-    perfiles = None
-    if a.validar_perfiles_demo:
-        seud = {hmac.new(a.clave_demo.encode(), c.encode(), hashlib.sha256).hexdigest(): p
-                for c, p in PERFILES_DEMO.items()}
-        perfiles = df.index.map(lambda s: seud.get(s, "SIN_PERFIL"))
-
-    comparacion = variantes(df, perfiles)
+    comparacion = variantes(df)
     barrido = []
     for k in range(2, 9):
         km = KMeans(k, n_init=20, random_state=SEMILLA).fit(X)
@@ -190,8 +165,6 @@ def main():
         fila = {"k": k, "inercia": km.inertia_, "silueta": silhouette_score(X, km.labels_),
                 "davies_bouldin": davies_bouldin_score(X, km.labels_), "estabilidad": est,
                 "estabilidad_p10": est_p10, "tamano_min": int(np.bincount(km.labels_).min())}
-        if perfiles is not None:
-            fila["ari_perfiles"] = adjusted_rand_score(perfiles, km.labels_)
         barrido.append(fila)
     k = a.k or max(barrido, key=lambda r: r["silueta"])["k"]
 
@@ -213,8 +186,6 @@ def main():
         p = {"seg": int(df.segmento.iloc[i]), "x": float(xy[i, 0]), "y": float(xy[i, 1]),
              "silueta": float(sil[i]), "hdbscan": int(hdb.labels_[i]), "dist": float(dist[i]),
              "tipo": tipo.get(s, "?"), **{c: float(df[c].iloc[i]) for c in cols + list(DESCRIPTIVAS)}}
-        if perfiles is not None:
-            p["perfil"] = perfiles[i]
         puntos.append(p)
 
     hist = historia_anual(cuotas, corte).merge(df.segmento, left_on="c", right_index=True)
@@ -238,9 +209,6 @@ def main():
         "hdbscan": {"grupos": int(hdb.labels_.max() + 1), "ruido": int((hdb.labels_ < 0).sum()),
                     "ari_kmeans": adjusted_rand_score(hdb.labels_, df.segmento)},
     }
-    if perfiles is not None:
-        salida["cruce"] = pd.crosstab(perfiles, df.segmento.to_numpy()).to_dict("index")
-        salida["ari_perfiles"] = adjusted_rand_score(perfiles, df.segmento)
     with open(a.salida, "w", encoding="utf-8") as f:
         json.dump(salida, f, ensure_ascii=False, indent=1, default=float)
 
@@ -248,9 +216,6 @@ def main():
     print(pd.DataFrame(comparacion).round(3).to_string(index=False))
     print(pd.DataFrame(barrido).round(3).to_string(index=False))
     print(df.groupby("segmento")[cols + list(DESCRIPTIVAS)].median().round(1).to_string())
-    if perfiles is not None:
-        print(pd.crosstab(perfiles, df.segmento.to_numpy()).to_string())
-        print("ARI con los perfiles de la semilla:", round(salida["ari_perfiles"], 3))
     print("HDBSCAN:", salida["hdbscan"])
 
 

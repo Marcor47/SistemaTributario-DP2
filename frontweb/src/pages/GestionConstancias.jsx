@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import PaginacionTabla from '../components/PaginacionTabla.jsx'
+import { fechaHora, moneda } from '../utils/formato.js'
 import {
   emitirSolicitudConstancia,
   listarSolicitudesConstancia,
@@ -16,8 +18,8 @@ const ESTADOS = {
   EMITIDA: 'Emitida',
   RECHAZADA: 'Rechazada',
 }
+const CANALES = { APP: 'Servicios en Línea', VENTANILLA: 'Ventanilla' }
 const estado = (valor) => ESTADOS[valor] || valor
-const soles = (monto) => Number(monto).toLocaleString('es-PE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 export default function GestionConstancias() {
   const [solicitudes, setSolicitudes] = useState([])
@@ -29,9 +31,12 @@ export default function GestionConstancias() {
   const [motivo, setMotivo] = useState('')
   const [pagoRevisado, setPagoRevisado] = useState(false)
   const [errorActualizacion, setErrorActualizacion] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
   const idDetalle = detalle?.idSolicitud
   const estadoDetalle = detalle?.estado
   const sesionPagoDetalle = detalle?.ordenPago?.sesionIniciada
+  const paginaVisible = Math.min(pagina, Math.max(1, Math.ceil(solicitudes.length / tamanio)))
 
   useEffect(() => {
     let activo = true
@@ -97,29 +102,56 @@ export default function GestionConstancias() {
       {errorActualizacion && <p className="gc-aviso gc-aviso--error" role="alert">{errorActualizacion}</p>}
       {aviso && <p className="gc-aviso" role="status">{aviso}</p>}
       <section className="gc-panel" aria-label="Solicitudes recibidas">
-        <h2>Solicitudes recibidas</h2>
-        {cargando ? <p>Cargando solicitudes…</p> : solicitudes.length === 0
-          ? <p>No hay solicitudes pendientes de atención.</p>
-          : <div className="gc-lista">
-            {solicitudes.map((item) => <button key={item.idSolicitud} className="gc-solicitud" type="button"
-              onClick={() => seleccionar(item.idSolicitud)} disabled={ocupado}>
-              <strong>Solicitud N.° {item.idSolicitud}</strong>
-              <span>{item.documentoContribuyente}</span>
-              <span>{estado(item.estado)}</span>
-            </button>)}
-          </div>}
+        <h2>Solicitudes por atender</h2>
+        {cargando ? <p role="status">Cargando solicitudes…</p> : solicitudes.length === 0
+          ? <p className="hint">No hay solicitudes pendientes de atención.</p>
+          : <>
+            <div className="tabla-scroll" tabIndex={0} role="region" aria-label="Solicitudes por atender">
+              <table className="tabla">
+                <caption className="sr-only">Solicitudes de Constancia de No Adeudo pendientes de atención</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">N.° de solicitud</th>
+                    <th scope="col">Fecha</th>
+                    <th scope="col">Documento</th>
+                    <th scope="col">Canal</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col"><span className="sr-only">Acción</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {solicitudes.slice((paginaVisible - 1) * tamanio, paginaVisible * tamanio).map((item) => (
+                    <tr key={item.idSolicitud} aria-current={item.idSolicitud === idDetalle ? 'true' : undefined}>
+                      <th scope="row">{item.idSolicitud}</th>
+                      <td>{fechaHora(item.fechaSolicitud)}</td>
+                      <td>{item.documentoContribuyente}</td>
+                      <td>{CANALES[item.canal] || item.canal}</td>
+                      <td>{estado(item.estado)}</td>
+                      <td>
+                        <button className="btn" type="button" onClick={() => seleccionar(item.idSolicitud)} disabled={ocupado}>
+                          Ver detalle
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <PaginacionTabla id="solicitudes-constancia" totalRegistros={solicitudes.length} pagina={paginaVisible} tamanio={tamanio}
+              onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} />
+          </>}
       </section>
       {detalle && <section className="gc-panel" aria-label="Detalle de la solicitud">
         <h2>Solicitud N.° {detalle.idSolicitud}</h2>
         <p><strong>Documento del contribuyente:</strong> {detalle.documentoContribuyente}</p>
         <p><strong>Estado:</strong> {estado(detalle.estado)}</p>
         {detalle.deuda && <>
-          <p><strong>Deuda pendiente:</strong> S/ {soles(detalle.deuda.total)}</p>
+          <p><strong>Deuda pendiente (incluye interés moratorio):</strong> {moneda(detalle.deuda.total)}</p>
           {detalle.deuda.obligaciones?.length > 0 && <ul>
-            {detalle.deuda.obligaciones.map((item) => <li key={item.id}>{item.tributo} · {item.periodo}: S/ {soles(item.deuda)}</li>)}
+            {detalle.deuda.obligaciones.map((item) => <li key={item.id}>{item.tributo} · {item.periodo}: {moneda(item.totalAPagar ?? item.deuda)}</li>)}
           </ul>}
         </>}
-        {detalle.ordenPago && <p><strong>Derecho del trámite:</strong> S/ {soles(detalle.ordenPago.monto)} · {detalle.ordenPago.estado}</p>}
+        {detalle.ordenPago && <p><strong>Derecho del trámite:</strong> {moneda(detalle.ordenPago.monto)} · {detalle.ordenPago.estado}</p>}
         {detalle.numeroConstancia && <p><strong>Constancia:</strong> {detalle.numeroConstancia}</p>}
         {detalle.motivoRechazo && <p><strong>Motivo:</strong> {detalle.motivoRechazo}</p>}
         {detalle.estado === 'FIRMADA' && <>

@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useSesionInterna } from '../context/sesionInterna.js'
 import {
-  RECORDATORIOS_SIMULADOS,
   guardarConfiguracionRecordatorio,
   obtenerConfiguracionRecordatorio,
-  reiniciarDatosSimulados,
+  procesarRecordatorios,
 } from '../services/recordatorioService.js'
 import {
   DIAS_RECORDATORIO_POR_DEFECTO,
@@ -15,8 +13,7 @@ import {
 import { fecha, fechaHora } from '../utils/formato.js'
 import './ConfiguracionRecordatorios.css'
 
-// HU016 (RF-022): configuración de los días de anticipación del recordatorio de vencimiento.
-// La pantalla usa el mock de recordatorioService mientras el backend no publique la historia.
+// HU016 (RF-022): configuración de los días de anticipación del recordatorio de vencimiento y envío del día.
 
 function fechaEnDias(dias) {
   const hoy = new Date()
@@ -43,7 +40,6 @@ function NotificacionTemporal({ notificacion }) {
 }
 
 export default function ConfiguracionRecordatorios() {
-  const { sesion } = useSesionInterna()
   const [configuracion, setConfiguracion] = useState(null)
   const [valor, setValor] = useState(String(DIAS_RECORDATORIO_POR_DEFECTO))
   const [errorCampo, setErrorCampo] = useState('')
@@ -51,6 +47,8 @@ export default function ConfiguracionRecordatorios() {
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [notificacion, setNotificacion] = useState(null)
+  const [procesando, setProcesando] = useState(false)
+  const [resultadoEnvio, setResultadoEnvio] = useState(null)
   const contadorNotificacion = useRef(0)
 
   function nuevaNotificacion(datos) {
@@ -126,9 +124,7 @@ export default function ConfiguracionRecordatorios() {
     setErrorCampo('')
     setNotificacion(null)
     try {
-      const resultado = await guardarConfiguracionRecordatorio(validacion.valor, {
-        usuario: sesion?.nombreCompleto,
-      })
+      const resultado = await guardarConfiguracionRecordatorio(validacion.valor)
       setConfiguracion(resultado)
       setValor(String(resultado.diasAnticipacion))
       setNotificacion(nuevaNotificacion({
@@ -146,19 +142,16 @@ export default function ConfiguracionRecordatorios() {
     }
   }
 
-  async function restablecerDatos() {
-    const confirmado = window.confirm(
-      '¿Restablecer la configuración y los recordatorios simulados de este navegador? '
-      + 'La pantalla volverá a los datos de demostración iniciales.',
-    )
-    if (!confirmado) return
-
-    reiniciarDatosSimulados()
-    await reintentarCarga()
-    setNotificacion(nuevaNotificacion({
-      tipo: 'exito',
-      mensaje: 'Los datos simulados se restablecieron. El valor volvió a 5 días.',
-    }))
+  async function procesarHoy() {
+    setProcesando(true)
+    setResultadoEnvio(null)
+    try {
+      setResultadoEnvio(await procesarRecordatorios())
+    } catch (error) {
+      setNotificacion(nuevaNotificacion({ tipo: 'error', mensaje: error.message || 'No se pudo procesar el envío de recordatorios.' }))
+    } finally {
+      setProcesando(false)
+    }
   }
 
   return (
@@ -171,13 +164,6 @@ export default function ConfiguracionRecordatorios() {
           </p>
         </div>
       </section>
-
-      {RECORDATORIOS_SIMULADOS && (
-        <div className="info recordatorios-demo" role="note">
-          <strong>Datos simulados.</strong> El backend de HU016 todavía no está implementado. La configuración
-          y los avisos que se muestran en la pestaña Cobranza se guardan en este navegador para la demostración.
-        </div>
-      )}
 
       {cargando && <p className="hint mensaje-carga" role="status">Consultando la configuración de recordatorios…</p>}
 
@@ -284,18 +270,33 @@ export default function ConfiguracionRecordatorios() {
             </div>
           </section>
 
-          {RECORDATORIOS_SIMULADOS && (
-            <section className="pcard recordatorios-demo-datos" aria-labelledby="recordatorios-demo-titulo">
-              <h2 id="recordatorios-demo-titulo">Datos de demostración</h2>
-              <p className="hint">
-                Los estados e indicadores de la pestaña Cobranza son simulados y se conservan en este navegador.
-                Restablecerlos devuelve la configuración a 5 días y borra los avisos de prueba.
-              </p>
-              <button className="btn peligro" type="button" onClick={restablecerDatos} disabled={guardando}>
-                Restablecer datos simulados
-              </button>
-            </section>
-          )}
+          <section className="pcard" aria-labelledby="recordatorios-envio-titulo">
+            <h2 id="recordatorios-envio-titulo">Envío del día</h2>
+            <p className="hint">
+              El envío se ejecuta automáticamente cada día. Puedes procesarlo ahora para las cuotas que vencen dentro
+              de la anticipación configurada; las que ya recibieron su recordatorio no se repiten.
+            </p>
+            <button className="btn primary" type="button" onClick={procesarHoy} disabled={procesando}>
+              {procesando ? 'Procesando…' : 'Procesar recordatorios de hoy'}
+            </button>
+            {resultadoEnvio && (
+              <div className="tabla-scroll" role="region" aria-label="Resultado del envío" tabIndex={0}>
+                <table className="tabla">
+                  <caption className="sr-only">Resultado del envío de recordatorios</caption>
+                  <thead><tr><th scope="col">Cuotas por vencer</th><th scope="col" className="num">Registrados</th><th scope="col" className="num">Sin correo</th><th scope="col" className="num">Ya notificados</th><th scope="col" className="num">Fallidos</th></tr></thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">{resultadoEnvio.detectados}</th>
+                      <td className="num">{resultadoEnvio.enviados + resultadoEnvio.registrados}</td>
+                      <td className="num">{resultadoEnvio.sinCorreo}</td>
+                      <td className="num">{resultadoEnvio.duplicados}</td>
+                      <td className="num">{resultadoEnvio.fallidos}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </>
       )}
     </div>

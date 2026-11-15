@@ -58,10 +58,9 @@ test('HU044: consulta la API con credenciales y parámetros de servidor', async 
   assert.equal(llamada.opciones.credentials, 'include')
 })
 
-test('HU044: el menú exige el permiso específico y usa la ruta oficial', () => {
-  const modulos = readFileSync(new URL('../src/utils/modulos.jsx', import.meta.url), 'utf8')
+test('HU044: el uso de reportes es una subpestaña de la plataforma con su permiso específico', () => {
+  const plataforma = readFileSync(new URL('../src/pages/Reporteria.jsx', import.meta.url), 'utf8')
   const app = readFileSync(new URL('../src/App.jsx', import.meta.url), 'utf8')
-  assert.match(modulos, /ruta: '\/reportes\/solicitudes'[\s\S]*texto: 'Uso de reportes'/)
-  assert.match(modulos, /permiso: 'REPORTES:SOLICITUDES'/)
-  assert.match(app, /path="\/reportes\/solicitudes"[\s\S]*permiso="REPORTES:SOLICITUDES"/)
+  assert.match(plataforma, /id: 'uso',[\s\S]*titulo: 'Uso de reportes'[\s\S]*permiso: 'REPORTES:SOLICITUDES'/)
+  assert.match(app, /path="\/reportes\/solicitudes" element=\{<Navigate to="\/reporteria\?pestana=uso"/)
 })

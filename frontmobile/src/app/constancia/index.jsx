@@ -8,7 +8,7 @@ import Boton from '../../components/ui/Boton'
 import Cabecera from '../../components/ui/Cabecera'
 import { useSesion } from '../../context/SesionContext'
 import { usePagos } from '../../context/PagosContext'
-import { confirmarPagoConstancia, consultarDeudaConstancia, enviarFirmaConstancia, firmaDePrueba, iniciarConstancia, iniciarPagoConstancia, listarConstancias, obtenerConstancia, obtenerDocumentoFirma, obtenerOrdenConstancia, textoDocumento } from '../../services/constanciaService'
+import { confirmarPagoConstancia, consultarDeudaConstancia, enviarFirmaConstancia, firmaServiciosEnLinea, iniciarConstancia, iniciarPagoConstancia, listarConstancias, obtenerConstancia, obtenerDocumentoFirma, obtenerOrdenConstancia, textoDocumento } from '../../services/constanciaService'
 import { checkoutValido } from '../../utils/pagos'
 import { seleccionarPagoConstancia } from '../../utils/constancia'
 import { colores, radios, texto } from '../../theme/tokens'
@@ -143,9 +143,9 @@ export default function Constancia() {
   }
 
   function enviarSolicitud() {
-    if (!solicitud || !documento?.documentoDePrueba || !firmaPreparada) return
+    if (!solicitud || !documento?.firmaLocal || !firmaPreparada) return
     ejecutar(async () => actualizarSolicitud(await enviarFirmaConstancia(
-      solicitud.idSolicitud, firmaDePrueba(documento.hashSha256), 'CERTIFICADO DE PRUEBA',
+      solicitud.idSolicitud, firmaServiciosEnLinea(documento.hashSha256), 'Servicios en Línea - Municipalidad Distrital de San Miguel',
     ), true))
   }
 
@@ -201,7 +201,7 @@ export default function Constancia() {
   const lineasDocumento = documento?.tipoContenido?.startsWith('text/')
     ? textoDocumento(documento.contenidoBase64).trim().split('\n')
     : []
-  const finEncabezado = lineasDocumento[0] === 'DOCUMENTO DE PRUEBA' ? 3 : 2
+  const finEncabezado = 2
 
   return (
     <View style={estilos.raiz}>
@@ -240,25 +240,25 @@ export default function Constancia() {
               </View> : null}
               {lineasDocumento.slice(finEncabezado).map((linea, indice) => <Text key={indice} style={estilos.textoDocumento}>{linea}</Text>)}
               <View style={estilos.zonaFirma}>
-                {firmaPreparada ? <Svg width={170} height={55} viewBox="0 0 170 55" accessibilityLabel="Firma visual de demostración">
+                {firmaPreparada ? <Svg width={170} height={55} viewBox="0 0 170 55" accessibilityLabel="Firma del contribuyente">
                   <Path d="M8 39 C22 28 32 7 29 8 C24 13 17 38 26 40 C36 42 46 21 48 22 C50 24 38 40 44 41 C51 43 60 30 64 31 C68 32 61 40 67 40 C74 40 79 29 82 31 C85 32 77 42 85 41 C94 40 96 29 100 30 C104 31 98 40 104 41 C113 41 120 34 126 28 M18 48 C48 43 105 44 153 37" fill="none" stroke="#173d78" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg> : <View style={estilos.espacioFirma} />}
                 <View style={estilos.lineaFirma} />
                 <Text style={estilos.etiquetaFirma}>Firma del contribuyente</Text>
               </View>
             </View>
-            {pendiente && deuda?.puedeSolicitar && documento.documentoDePrueba ? <>
-              <Text style={texto.secundario}>La firma mostrada es de demostración y no tiene validez legal.</Text>
+            {pendiente && deuda?.puedeSolicitar && documento.firmaLocal ? <>
+              <Text style={texto.secundario}>Tu firma queda registrada con tu cuenta de Servicios en Línea y se verifica contra este documento.</Text>
               <Boton titulo={firmaPreparada ? 'Documento firmado' : 'Firmar documento'} variante="secundario" onPress={() => setFirmaPreparada(true)} deshabilitado={firmaPreparada || ocupado} />
               <Boton titulo="Enviar solicitud" onPress={enviarSolicitud} deshabilitado={!firmaPreparada || ocupado} cargando={ocupado} />
-            </> : pendiente && deuda?.puedeSolicitar ? <Aviso tipo="alerta" titulo="Firma no disponible">La firma real aún no está integrada en este portal.</Aviso> : null}
+            </> : pendiente && deuda?.puedeSolicitar ? <Aviso tipo="alerta" titulo="Firma no disponible">La firma de la solicitud no está disponible en este momento. Intenta nuevamente más tarde.</Aviso> : null}
           </> : null}
           {solicitud.estado === 'ORDEN_PAGO_EMITIDA' && orden?.idSolicitud === solicitud.idSolicitud ? <View style={estilos.tarjeta}>
             <Text style={texto.etiqueta}>Derecho del trámite: S/ {Number(orden.monto).toFixed(2)}</Text>
             {orden.sesionIniciada && !pagoActual
               ? <Aviso tipo="alerta" titulo="Pago iniciado">Consulta con la municipalidad el resultado de esta orden antes de intentar pagar nuevamente.</Aviso>
               : pagoActual && !checkoutValido(pagoActual.checkout)
-                ? <Boton titulo="Confirmar pago de prueba" onPress={() => confirmarPago(solicitud.idSolicitud, null, pagoActual.idTransaccion)} deshabilitado={!deuda?.puedeSolicitar} cargando={ocupado} />
+                ? <Boton titulo="Confirmar pago" onPress={() => confirmarPago(solicitud.idSolicitud, null, pagoActual.idTransaccion)} deshabilitado={!deuda?.puedeSolicitar} cargando={ocupado} />
                 : <Boton titulo={pagoActual ? 'Abrir nuevamente la pasarela' : 'Pagar derecho de trámite'} onPress={abrirPago} deshabilitado={!deuda?.puedeSolicitar} cargando={ocupado} />}
           </View> : null}
           {deuda?.puedeSolicitar && !haySinFirma ? <Boton titulo="Crear otra solicitud" onPress={crear} cargando={ocupado} /> : null}

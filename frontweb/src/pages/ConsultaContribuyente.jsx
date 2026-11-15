@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import CobranzaPanel from '../components/CobranzaPanel.jsx'
 import FichaDatos from '../components/FichaDatos.jsx'
 import PagosBeneficiosPanel from '../components/PagosBeneficiosPanel.jsx'
+import RiesgoMoraPanel from '../components/RiesgoMoraPanel.jsx'
 import { obtenerContribuyentePorDocumento } from '../services/contribuyenteService.js'
 import EstadoCuenta from './EstadoCuenta.jsx'
 import RegularidadPago from './RegularidadPago.jsx'
@@ -13,6 +14,7 @@ const PESTANAS = [
   { id: 'pagos', nombre: 'Pagos y beneficios' },
   { id: 'cobranza', nombre: 'Cobranza' },
   { id: 'regularidad', nombre: 'Regularidad de pago' },
+  { id: 'riesgo', nombre: 'Riesgo de mora' },
 ]
 
 const VISTAS = new Set(PESTANAS.map((pestana) => pestana.id))
@@ -148,6 +150,10 @@ export default function ConsultaContribuyente() {
 
             <div id="panel-cobranza" role="tabpanel" aria-labelledby="pestana-cobranza" hidden={vista !== 'cobranza'} tabIndex={0}>
               {vista === 'cobranza' && contribuyente && <CobranzaPanel key={contribuyente.codigo} contribuyente={contribuyente} />}
+            </div>
+
+            <div id="panel-riesgo" role="tabpanel" aria-labelledby="pestana-riesgo" hidden={vista !== 'riesgo'} tabIndex={0}>
+              {vista === 'riesgo' && contribuyente && <RiesgoMoraPanel key={contribuyente.codigo} contribuyente={contribuyente} />}
             </div>
 
             <div id="panel-regularidad" role="tabpanel" aria-labelledby="pestana-regularidad" hidden={vista !== 'regularidad'} tabIndex={0}>

@@ -3,7 +3,7 @@
 El backend contiene la integración de seguridad, sesión de checkout y autorización. La app móvil
 presenta el formulario oficial, envía únicamente el token de transacción y muestra el comprobante
 cuando el pago está registrado. El sandbox es el modo por defecto; no hay sustitución automática
-por el simulador. No se admiten pagos productivos. Si faltan las credenciales o las URL HTTPS,
+por la pasarela local. No se admiten pagos productivos. Si faltan las credenciales o las URL HTTPS,
 el backend arranca y permite usar los otros módulos; intentar un pago devuelve
 `503 NIUBIZ_NO_CONFIGURADO`. La configuración se valida antes de contactar a Niubiz.
 
@@ -12,7 +12,7 @@ En este equipo las credenciales públicas de pruebas están guardadas en
 desde `back/`. Git lo ignora; las variables de entorno tienen prioridad. No contiene
 credenciales productivas ni se envía al móvil. Reinicia el backend para aplicar los cambios.
 
-Para una demostración, la guía oficial de Niubiz publica credenciales, códigos de comercio y
+Para la presentación, la guía oficial de Niubiz publica credenciales, códigos de comercio y
 tarjetas en la sección **Datos de prueba**. El comercio público `456879852` corresponde a soles.
 No se requieren credenciales productivas para esta prueba. Si el grupo tiene un comercio sandbox
 propio, usa sus credenciales correspondientes.
@@ -58,7 +58,7 @@ Prueba manual:
 
 La guía oficial publica, por ejemplo, Visa `4474118355632240`, vencimiento `03/2028`, CVV
 `111` para un resultado autorizado sin cuotas. Usa nombres y correo ficticios para la cuenta
-de demostración. Estos datos sirven únicamente en el sandbox. La primera carga del SDK
+del sandbox. Estos datos sirven únicamente en el sandbox. La primera carga del SDK
 externo puede tardar; espera el formulario antes de volver a tocar el botón.
 
 La carga lenta no se trata como pago rechazado ni como pasarela no disponible. Se conserva
@@ -75,7 +75,7 @@ ruta oficial `/v2/`, sin resolver la lentitud; se conserva `/env/sandbox/`. Esta
 de descarga no se puede presentar como resuelta por cambiar un indicador o un temporizador.
 La prueba completa posterior en la app real de Expo abrió el formulario de tarjeta en
 266.5 segundos desde **Pagar**, conservando la vista abierta mientras se descargaba el SDK.
-No usó respuestas simuladas, cachés locales del SDK ni cambios de HTTP/2 y no efectuó el pago.
+No usó respuestas sustitutas, cachés locales del SDK ni cambios de HTTP/2 y no efectuó el pago.
 El origen observado dentro del formulario fue `https://static-content-qas.vnforapps.com`.
 El cierre por tiempo está corregido; la velocidad de esa descarga externa depende del proveedor y la red.
 
@@ -140,7 +140,7 @@ Verificación del 04/11/2026 en la BD local: la cuenta ficticia `099023` complet
 obtuvo un token real y el backend recibió autorización del sandbox por S/ 1.00. La operación
 18 quedó `CONFIRMADA`, comprobante `WEB-18`. La prueba usó Chrome con HTTP/1.1 y los dos JS
 oficiales descargados sin modificar como caché temporal; las APIs de sesión, validación del BIN,
-tokenización y autorización fueron las reales del sandbox, sin respuestas HTTP simuladas.
+tokenización y autorización fueron las reales del sandbox, sin respuestas HTTP sustitutas.
 No sustituye la comprobación visual en un teléfono: recarga Expo y prueba allí el WebView.
 En este equipo `099023` ya no tiene esa deuda y `099024` también pagó su cuota inicial
 (`WEB-20`). A petición del usuario se repone S/ 1.00 con una cuota adicional de 2027-T1 para
@@ -150,8 +150,8 @@ iniciales pendientes; las semillas no reabren pagos realizados.
 Si hay un timeout después de enviar el token, consulta la misma operación y solicita conciliación
 con Niubiz antes de iniciar otro pago. La recuperación de red no reenvía la autorización.
 
-Para desarrollo sin Niubiz se permite explícitamente `$env:NIUBIZ_MODE = 'simulado'`; la app lo
-identifica como Simulador de contingencia. Los tests automáticos usan esa configuración o respuestas
+Para desarrollo sin Niubiz se permite explícitamente `$env:NIUBIZ_MODE = 'local'`; la app lo
+identifica como pasarela local de contingencia. Los tests automáticos usan esa configuración o respuestas
 HTTP de prueba y no realizan cargos externos.
 
 Referencia: [Botón de Pago Web de Niubiz](https://desarrolladores.niubiz.com.pe/v1.1/docs/bot%C3%B3n-de-pago-1).

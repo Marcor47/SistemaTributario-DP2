@@ -18,7 +18,7 @@ public class SeguridadEventoService {
     public void accesoDenegado(HttpServletRequest request, String usuario) {
         String detalle = request.getMethod() + " " + request.getRequestURI();
         eventos.save(new EventoSeguridad(TipoEventoSeguridad.ACCESO_DENEGADO,
-                usuario == null || usuario.isBlank() ? "anonimo" : usuario,
+                usuario == null || usuario.isBlank() ? "anónimo" : usuario,
                 request.getRemoteAddr(), detalle, LocalDateTime.now(reloj)));
     }
 }

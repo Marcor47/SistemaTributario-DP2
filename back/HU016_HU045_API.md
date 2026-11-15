@@ -13,11 +13,10 @@ La tarea corre diariamente a las 08:00, hora de Lima. La propiedad
 Un usuario interno con `ALERTAS:EVALUAR` o `ETL:GESTIONAR` también puede ejecutar
 `POST /api/recordatorios-vencimiento/procesar` con CSRF y consultar el resumen.
 
-**El proveedor actual de correo es simulado**: conserva los mensajes en memoria y no los
+**Mientras no se configure un servidor de correo**, `CorreoRegistroLocalGateway` registra los mensajes y no los
 entrega por Internet. Es necesario integrar un proveedor real antes de prometer envíos reales.
-La respuesta distingue `enviados` de `simulados` y expone `envioSimulado`. El historial registra
-las pruebas como `SIMULADO`; no bloquean el envío posterior con un proveedor real. La migración
-V47 reclasifica los recordatorios de HU016 anteriores, que solo usaban el proveedor simulado.
+La respuesta distingue `enviados` de `registrados` y expone `sinServidorCorreo`. El historial guarda esos avisos
+como `REGISTRADO`; no bloquean el envío posterior con un proveedor real (migraciones V47 y V54).
 La función SAMNET de esta versión usa la base sintética; el contrato debe adaptarse cuando se
 integre la fuente municipal. La deduplicación de envío externo ante una caída entre el envío y
 la confirmación requerirá soporte de idempotencia o conciliación del proveedor real.

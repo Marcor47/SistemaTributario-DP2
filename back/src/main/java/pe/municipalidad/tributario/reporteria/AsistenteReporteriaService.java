@@ -3,11 +3,17 @@ package pe.municipalidad.tributario.reporteria;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.text.Normalizer;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -16,7 +22,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import pe.municipalidad.tributario.reporteria.ConsultaAsistente.Agrupacion;
 import pe.municipalidad.tributario.reporteria.ConsultaAsistente.Indicador;
@@ -39,12 +48,19 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 public class AsistenteReporteriaService {
 
+    private static final Logger LOG = LoggerFactory.getLogger(AsistenteReporteriaService.class);
+
     private static final Pattern BLOQUE_JSON = Pattern.compile("```(?:json)?\\s*(.*?)```", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
     private static final Pattern BLOQUE_GRAFICO = Pattern.compile("```(?:grafico|json)\\s*(.*?)```", Pattern.DOTALL);
     private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final String[] MESES = {"ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"};
-    private static final int TOKENS_CONSULTA = 400;
-    private static final int TOKENS_RESPUESTA = 700;
+    /*
+     * El modelo corre en un equipo con cupo de consultas: cada pregunta usa a lo más dos (consulta y redacción), sin
+     * reintentos automáticos, con respuestas cortas, y lo ya respondido para la misma carga sale de la caché.
+     */
+    private static final int TOKENS_CONSULTA = 220;
+    private static final int TOKENS_RESPUESTA = 420;
+    private static final int INTENTOS = 1;
     private static final int LIMITE_CONTRIBUYENTES = 10;
     private static final String SISTEMA_RESPUESTA = """
             Eres el asistente de datos de la Gerencia de Rentas de la Municipalidad de San Miguel.
@@ -64,14 +80,18 @@ public class AsistenteReporteriaService {
     private final CuboReporteria cubo;
     private final ReporteriaService reporteria;
     private final JsonMapper json;
+    private final JdbcTemplate jdbc;
+    private final Clock reloj;
     private final String guia;
 
     public AsistenteReporteriaService(ModeloLenguajeCliente modelo, CuboReporteria cubo, ReporteriaService reporteria,
-            JsonMapper json) {
+            JsonMapper json, JdbcTemplate jdbc, Clock reloj) {
         this.modelo = modelo;
         this.cubo = cubo;
         this.reporteria = reporteria;
         this.json = json;
+        this.jdbc = jdbc;
+        this.reloj = reloj;
         this.guia = leerGuia();
     }
 
@@ -90,9 +110,65 @@ public class AsistenteReporteriaService {
     public RespuestaAsistente preguntar(PreguntaAsistentePeticion peticion) {
         ReporteriaService.validarPeriodo(peticion.desde(), peticion.hasta());
         long inicio = System.nanoTime();
-        CatalogoReporteriaRespuesta catalogo = reporteria.catalogo();
         Carga carga = cubo.carga();
         String contexto = contexto(peticion);
+        String clave = claveCache(peticion.pregunta(), contexto, carga.version());
+        RespuestaAsistente guardada = deCache(clave);
+        if (guardada != null) {
+            return new RespuestaAsistente(guardada.respuesta(), guardada.consulta(), guardada.consultaCorregida(),
+                    guardada.columnas(), guardada.filas(), guardada.graficos(), guardada.fechaCorte(),
+                    guardada.modelo(), segundos(inicio), guardada.respuestaReemplazada());
+        }
+        RespuestaAsistente respuesta = consultarModelo(peticion, carga, contexto, inicio);
+        if (!respuesta.filas().isEmpty()) {
+            guardarEnCache(clave, carga.idLote(), peticion.pregunta(), respuesta);
+        }
+        return respuesta;
+    }
+
+    /* La misma pregunta (sin distinguir mayúsculas, tildes ni espacios) con los mismos filtros y la misma carga. */
+    private static String claveCache(String pregunta, String contexto, String version) {
+        String normalizada = Normalizer.normalize(pregunta.strip().toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replaceAll("\\s+", " ")
+                .replaceAll("[¿?¡!.]+$", "").replaceAll("^[¿¡]+", "");
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest((normalizada + "|" + contexto + "|" + version).getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    private RespuestaAsistente deCache(String clave) {
+        List<String> filas = jdbc.queryForList(
+                "SELECT respuesta FROM analitica.respuesta_asistente WHERE clave = ?", String.class, clave);
+        if (filas.isEmpty()) {
+            return null;
+        }
+        try {
+            RespuestaAsistente respuesta = json.readValue(filas.get(0), RespuestaAsistente.class);
+            jdbc.update("UPDATE analitica.respuesta_asistente SET veces_usada = veces_usada + 1 WHERE clave = ?", clave);
+            return respuesta;
+        } catch (JacksonException ex) {
+            jdbc.update("DELETE FROM analitica.respuesta_asistente WHERE clave = ?", clave);
+            return null;
+        }
+    }
+
+    private void guardarEnCache(String clave, long idLote, String pregunta, RespuestaAsistente respuesta) {
+        try {
+            jdbc.update("""
+                    INSERT INTO analitica.respuesta_asistente (clave, id_lote, pregunta, respuesta, fecha_registro)
+                    VALUES (?, ?, ?, ?, ?) ON CONFLICT (clave) DO NOTHING
+                    """, clave, idLote, pregunta, json.writeValueAsString(respuesta), LocalDateTime.now(reloj));
+        } catch (JacksonException ex) {
+            LOG.warn("No se pudo guardar en caché la respuesta del asistente: {}", ex.getMessage());
+        }
+    }
+
+    private RespuestaAsistente consultarModelo(PreguntaAsistentePeticion peticion, Carga carga, String contexto,
+            long inicio) {
+        CatalogoReporteriaRespuesta catalogo = reporteria.catalogo();
 
         List<Mensaje> conversacion = new ArrayList<>(List.of(
                 new Mensaje("system", guia + "\n" + catalogoComoTexto(catalogo, carga)),
@@ -101,7 +177,7 @@ public class AsistenteReporteriaService {
         ConsultaAsistente consulta = null;
         String nombreModelo = "";
         boolean corregida = false;
-        for (int intento = 0; intento < 2 && consulta == null; intento++) {
+        for (int intento = 0; intento < INTENTOS && consulta == null; intento++) {
             Completado completado = modelo.completar(conversacion, TOKENS_CONSULTA);
             nombreModelo = completado.modelo();
             try {
@@ -132,7 +208,7 @@ public class AsistenteReporteriaService {
         List<String> textos = new ArrayList<>(List.of(peticion.pregunta(), contexto, fechaCorte, descripcion));
         textos.addAll(resultado.columnas());
         String respuesta = null;
-        for (int intento = 0; intento < 2 && respuesta == null; intento++) {
+        for (int intento = 0; intento < INTENTOS && respuesta == null; intento++) {
             String texto = modelo.completar(redaccion, TOKENS_RESPUESTA).texto();
             List<Double> inventadas = VerificadorCifras.inventadas(texto, resultado.filas(), textos);
             if (inventadas.isEmpty()) {

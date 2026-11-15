@@ -1,0 +1,267 @@
+/* HU039: tarjetas de las alertas de desvío de metas (plataforma analítica). */
+.desvio-alertas-panel {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+}
+
+.desvio-alertas-panel[open] { flex: 1; }
+
+.desvio-alertas-panel__contenido { padding: 16px; }
+
+.desvio-alertas-panel__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 18px;
+  color: var(--marino-osc);
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.desvio-alertas-panel__summary::-webkit-details-marker { display: none; }
+
+.desvio-alertas-panel__summary:focus-visible { outline: 3px solid var(--cian); outline-offset: -3px; }
+
+.desvio-alertas-panel[open] .desvio-alertas-panel__summary { border-bottom: 1px solid var(--borde); }
+
+.desvio-alertas-panel__toggle { flex: none; color: var(--marino); font-size: 14px; }
+
+.desvio-columna-alertas--plegada .desvio-alertas-panel__summary {
+  display: grid;
+  place-items: center;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  gap: 0;
+  min-height: 180px;
+  padding: 14px 10px;
+  text-align: center;
+  border-bottom: 0;
+}
+
+.desvio-columna-alertas--plegada .desvio-alertas-panel__toggle { display: none; }
+
+.desvio-barra { height: 10px; background: var(--azul-suave); border-radius: 10px; overflow: hidden; }
+
+.desvio-barra span { display: block; height: 100%; background: var(--marino-osc); border-radius: inherit; }
+
+.desvio-seccion-cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.desvio-seccion-cab h2 { margin: 0; font-size: 20px; color: var(--marino-osc); }
+
+.desvio-seccion-cab > div { min-width: 0; }
+
+.desvio-seccion-cab .hint { margin-top: 4px; }
+
+.desvio-seccion-cab__resumen {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.desvio-columna-alertas .desvio-alertas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.desvio-columna-alertas .desvio-alerta { padding: 18px 16px; }
+
+.desvio-columna-alertas .desvio-seccion-cab h2 { font-size: 18px; }
+
+.desvio-alertas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  align-items: start;
+  gap: 18px;
+}
+
+.desvio-alertas .pcard { margin-bottom: 0; }
+
+.desvio-alerta {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px;
+}
+
+.desvio-alerta__cab {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.desvio-alerta__cab h3 {
+  margin: 0 0 4px;
+  font-size: 19px;
+  line-height: 1.25;
+  color: var(--marino-osc);
+  overflow-wrap: anywhere;
+}
+
+.desvio-alerta__cab .hint { overflow-wrap: anywhere; }
+
+.desvio-alerta__cab code {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--texto-atenuado);
+}
+
+.desvio-alerta__valores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.desvio-alerta__valores .pf { padding: 10px 12px; }
+
+.desvio-alerta__valores .pv { font-size: 18px; }
+
+.desvio-comparacion { display: flex; flex-direction: column; gap: 6px; }
+
+.desvio-comparacion__fila {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  color: var(--texto-atenuado);
+}
+
+.desvio-barra {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--fondo);
+  overflow: hidden;
+}
+
+.desvio-barra span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+}
+
+.desvio-barra__observado { background: var(--critico); }
+
+.desvio-barra__meta { background: var(--marino); }
+
+.desvio-desvio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid #F0C8C4;
+  border-radius: 10px;
+  background: var(--critico-fondo);
+}
+
+.desvio-desvio .pl { color: var(--critico); }
+
+.desvio-desvio__valor {
+  display: block;
+  margin-top: 2px;
+  font-size: 24px;
+  line-height: 1.1;
+  color: var(--critico);
+  font-variant-numeric: tabular-nums;
+}
+
+.desvio-alerta__explicacion {
+  margin: 0;
+  color: var(--texto-secundario);
+  font-size: 14.5px;
+}
+
+.desvio-alerta__datos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 14px;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px solid #E3ECF5;
+}
+
+.desvio-alerta__datos div { min-width: 0; }
+
+.desvio-alerta__datos dt {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--texto-atenuado);
+}
+
+.desvio-alerta__datos dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--marino-osc);
+  overflow-wrap: anywhere;
+}
+
+.desvio-alerta__acciones {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+.desvio-skeleton {
+  display: block;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #E3ECF5 25%, #F1F5FA 50%, #E3ECF5 75%);
+  background-size: 400% 100%;
+  animation: desvio-shimmer 1.4s ease-in-out infinite;
+}
+
+.desvio-skeleton--titulo { width: 65%; height: 22px; }
+
+.desvio-skeleton--valor { width: 45%; height: 38px; }
+
+.desvio-skeleton--linea { width: 100%; height: 14px; }
+
+.desvio-skeleton--bloque { width: 100%; height: 64px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .desvio-skeleton { animation: none; background: #E3ECF5; }
+}
+
+@media (max-width: 900px) {
+  .desvio-columna-alertas--plegada .desvio-alertas-panel__summary {
+    display: flex;
+    writing-mode: horizontal-tb;
+    transform: none;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 0;
+    padding: 16px 18px;
+    text-align: left;
+    border-bottom: 1px solid var(--borde);
+  }
+  .desvio-columna-alertas--plegada .desvio-alertas-panel__toggle { display: inline; }
+}
+
+@media (max-width: 700px) {
+  .desvio-columna-alertas .desvio-alertas { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 600px) {
+  .desvio-alertas { grid-template-columns: 1fr; }
+  .desvio-alerta { padding: 20px 16px; }
+  .desvio-alerta__cab { align-items: flex-start; }
+  .desvio-alerta__valores,
+  .desvio-alerta__datos { grid-template-columns: 1fr; }
+}
+@keyframes desvio-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}

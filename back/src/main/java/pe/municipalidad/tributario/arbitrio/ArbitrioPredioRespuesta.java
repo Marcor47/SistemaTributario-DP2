@@ -3,12 +3,11 @@ package pe.municipalidad.tributario.arbitrio;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import pe.municipalidad.tributario.estadocuenta.EstadoCuentaFilaRespuesta;
 import pe.municipalidad.tributario.obligacion.EstadoObligacion;
 
 /*
- * HU005: detalle de los arbitrios de un predio a la fecha de corte, mes a mes y con lo que corresponde a cada
- * servicio (barrido, recolección, parques y jardines, serenazgo), como los emite la ordenanza de San Miguel (V31).
+ * HU005: detalle de los arbitrios de un predio a la fecha de corte, mes a mes. El arbitrio se maneja como un solo
+ * concepto con su monto total por cuota.
  */
 public record ArbitrioPredioRespuesta(
         PredioResumen predio,
@@ -39,11 +38,7 @@ public record ArbitrioPredioRespuesta(
             int cuotasPagadas,
             int cuotasPendientes,
             int cuotasVencidas,
-            BigDecimal totalInteresMoratorio,
-            List<TotalServicio> porServicio) {
-    }
-
-    public record TotalServicio(String servicio, String descripcion, BigDecimal emitido) {
+            BigDecimal totalInteresMoratorio) {
     }
 
     /* Una cuota por periodo y titular: con copropiedad cada titular tiene sus propias cuotas. */
@@ -60,7 +55,6 @@ public record ArbitrioPredioRespuesta(
             BigDecimal saldo,
             EstadoObligacion estado,
             long diasVencida,
-            BigDecimal interesMoratorio,
-            List<EstadoCuentaFilaRespuesta.ServicioRespuesta> servicios) {
+            BigDecimal interesMoratorio) {
     }
 }

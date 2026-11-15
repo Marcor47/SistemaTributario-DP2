@@ -20,8 +20,8 @@ import { colores, fuentes, radios, sombra, texto } from '../theme/tokens'
 // resumen ejecutivo de importes y tabla detallada de obligaciones por periodo.
 function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas }) {
   const ahora = new Date()
-  const emitidoFecha = ahora.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric' })
-  const emitidoHora  = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })
+  const emitidoFecha = ahora.toLocaleDateString('es-PE', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'America/Lima' })
+  const emitidoHora  = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Lima' })
   const periodoMin   = filas.length ? filas.reduce((min, f) => f.periodo < min ? f.periodo : min, filas[0].periodo) : '—'
   const periodoMax   = filas.length ? filas.reduce((max, f) => f.periodo > max ? f.periodo : max, filas[0].periodo) : '—'
   const colorDeuda   = resumen.deuda > 0 ? '#B42318' : '#067647'
@@ -144,8 +144,8 @@ function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas })
 </div>
 <div class="kpis">
   <div class="kpi kpi-principal">
-    <div class="lbl">Saldo pendiente total</div>
-    <div class="val">${moneda(resumen.deuda)}</div>
+    <div class="lbl">Total a pagar (incluye interés moratorio)</div>
+    <div class="val">${moneda(resumen.totalAPagar)}</div>
     <div class="badge-estado">${resumen.deuda > 0 ? 'CON DEUDA PENDIENTE' : 'AL DÍA'}</div>
     <div class="sub">Al ${fecha(fechaCorte)}</div>
   </div>
@@ -156,6 +156,10 @@ function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas })
   <div class="kpi kpi-secundario">
     <div class="lbl">Pagos aplicados</div>
     <div class="val" style="color:#067647">${moneda(resumen.pagado)}</div>
+  </div>
+  <div class="kpi kpi-secundario">
+    <div class="lbl">Interés moratorio</div>
+    <div class="val" style="color:${resumen.interes > 0 ? '#B42318' : '#1E2B3C'}">${moneda(resumen.interes)}</div>
   </div>
   ${kpiVencido}
   ${kpiDescuento}
@@ -186,9 +190,9 @@ function generarHtmlPDF({ contribuyente, fechaCorte, resumen, periodos, filas })
 </table>
 <div class="pie">
   <div class="aviso">
-    ⚠ Este documento es referencial. Los importes definitivos y los descuentos por beneficios aplicables
-    se calculan al momento del pago. Para obtener la deuda exacta, acércate a la Municipalidad de San Miguel
-    o inicia el proceso de pago en Servicios en Línea.
+    Documento informativo. El interés moratorio se calcula a la fecha de corte con la Tasa de Interés Moratorio
+    vigente y se actualiza diariamente hasta la fecha de pago. Los beneficios aplicables se verifican al pagar en
+    Servicios en Línea o en ventanilla.
   </div>
   <div class="firma">
     Emitido por <strong>Servicios en Línea</strong><br/>
@@ -270,7 +274,7 @@ export default function EstadoCuenta() {
     } else {
       Alert.alert(
         'Estado de Cuenta oficial',
-        `Contribuyente: ${cuenta?.contribuyente?.nombre}\nFecha de corte: ${fecha(cuenta?.fechaCorte)}\nSaldo pendiente: ${moneda(resumen.deuda)}\n\nEl documento oficial en PDF se ha preparado para descarga.`,
+        `Contribuyente: ${cuenta?.contribuyente?.nombre}\nFecha de corte: ${fecha(cuenta?.fechaCorte)}\nTotal a pagar: ${moneda(resumen.totalAPagar)}\n\nEl documento oficial en PDF se ha preparado para descarga.`,
         [{ text: 'Aceptar' }]
       )
     }
@@ -349,11 +353,12 @@ export default function EstadoCuenta() {
                   <View style={[estilos.bloqueDeuda, resumen.deuda > 0 && estilos.bloqueDeudaActiva]}>
                     <View style={estilos.bloqueDeudaTextos}>
                       <Text style={[estilos.etiquetaSaldo, resumen.deuda > 0 && estilos.etiquetaSaldoRojo]}>
-                        Saldo pendiente total
+                        Total a pagar
                       </Text>
                       <Text style={[estilos.total, resumen.deuda > 0 && estilos.totalRojo]}>
-                        {moneda(resumen.deuda)}
+                        {moneda(resumen.totalAPagar)}
                       </Text>
+                      {resumen.interes > 0 && <Text style={texto.pequeno}>{'Incluye ' + moneda(resumen.interes) + ' de interés moratorio'}</Text>}
                       <Text style={texto.pequeno}>{'Fecha de corte: ' + fecha(cuenta.fechaCorte)}</Text>
                     </View>
                     {resumen.deuda > 0 && (
@@ -373,6 +378,7 @@ export default function EstadoCuenta() {
                     <Indicador etiqueta="Emitido total" valor={resumen.emitido} />
                     <Indicador etiqueta="Pagos aplicados" valor={resumen.pagado} positivo />
                     <Indicador etiqueta="Deuda vencida" valor={resumen.vencido} alerta={resumen.vencido > 0} />
+                    <Indicador etiqueta="Interés moratorio" valor={resumen.interes} alerta={resumen.interes > 0} />
                     {resumen.descuento > 0 ? (
                       <Indicador etiqueta="Beneficios/Desc." valor={resumen.descuento} descuento />
                     ) : null}

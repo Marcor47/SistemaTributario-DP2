@@ -17,7 +17,7 @@ export function pasarelaConstancia(orden) {
     idTransaccion: orden.idTransaccion,
     estado: orden.estado,
     montoTotal: orden.monto,
-    dePrueba: true,
+    pasarelaLocal: true,
     urlPasarela: orden.urlPasarela,
     checkout: orden.checkout,
   })

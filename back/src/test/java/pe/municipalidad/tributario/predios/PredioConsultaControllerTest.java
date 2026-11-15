@@ -1,6 +1,8 @@
 package pe.municipalidad.tributario.predios;
 
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -65,6 +67,15 @@ class PredioConsultaControllerTest {
                 .andExpect(jsonPath("$.codigo").value("CONSULTA_INVALIDA"));
         mockMvc.perform(get(RUTA).param("consulta", "080245").param("tamano", "500").with(analista()))
                 .andExpect(status().isBadRequest());
+    }
+
+    /* HU036: el registro ofrece las zonas y usos de los predios ya registrados. */
+    @Test
+    void ofreceLasZonasYUsosRegistradosParaElRegistro() throws Exception {
+        mockMvc.perform(get(RUTA + "/catalogos").with(analista()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.zonas", not(empty())))
+                .andExpect(jsonPath("$.usos", not(empty())));
     }
 
     private static RequestPostProcessor analista() {

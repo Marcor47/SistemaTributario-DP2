@@ -108,6 +108,8 @@ class AsistenteReporteriaTest {
         RESPUESTAS.clear();
         SOLICITUDES.clear();
         CREDENCIALES.clear();
+        /* Cada prueba consulta al modelo: sin respuestas guardadas de pruebas anteriores. */
+        jdbc.update("DELETE FROM analitica.respuesta_asistente");
         Usuario usuario = usuarios.save(new Usuario("gerencia_asistente", "Gerencia", "gerencia_asistente@example.org",
                 claves.hashear("clave-segura"), roles.findByNombre(NombreRol.GERENCIA).orElseThrow(), LocalDateTime.now()));
         sesion = new MockHttpSession();
@@ -173,42 +175,39 @@ class AsistenteReporteriaTest {
     }
 
     @Test
-    void unaConsultaFueraDelCatalogoNoSeEjecutaYSeCorrigeUnaVez() throws Exception {
+    /* El modelo tiene un cupo de consultas: una consulta inválida no se reintenta, se informa al usuario. */
+    void unaConsultaFueraDelCatalogoNoSeEjecutaNiSeReintenta() throws Exception {
         RESPUESTAS.add("```json\n{\"indicadores\": [\"contrasena\"], \"agrupar_por\": \"zona\"}\n```");
-        RESPUESTAS.add(consulta("deuda_vencida", "ninguno", ""));
-        RESPUESTAS.add("La deuda vencida es S/ 450.00.");
 
         preguntar("¿Cuánto se debe?")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.consultaCorregida").value(true))
-                .andExpect(jsonPath("$.filas[0][0]").value(450.0));
+                .andExpect(jsonPath("$.respuesta", containsString("No pude armar una consulta")))
+                .andExpect(jsonPath("$.filas", hasSize(0)));
 
-        assertThat(SOLICITUDES.get(1)).contains("no existe");
+        assertThat(SOLICITUDES).hasSize(1);
     }
 
     @Test
     void siNoLograUnaConsultaValidaNoInventaUnaRespuesta() throws Exception {
         RESPUESTAS.add("DROP TABLE analitica.hecho_cobranza");
-        RESPUESTAS.add("SELECT clave_hash FROM seguridad.usuario");
 
         preguntar("Dame las claves")
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.respuesta", containsString("No pude armar una consulta")))
                 .andExpect(jsonPath("$.filas", hasSize(0)));
 
-        assertThat(SOLICITUDES).hasSize(2);
+        assertThat(SOLICITUDES).hasSize(1);
     }
 
     @Test
     void rechazaUnaZonaQueNoEstaEnElCatalogo() throws Exception {
         RESPUESTAS.add(consulta("deuda_vencida", "ninguno", ", \"zona\": \"Z01' OR 1=1 --\""));
-        RESPUESTAS.add(consulta("deuda_vencida", "ninguno", ", \"zona\": \"Z02\""));
-        RESPUESTAS.add("La deuda vencida de Z02 es S/ 50.00.");
 
         preguntar("Deuda de la zona Z02")
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.consultaCorregida").value(true))
-                .andExpect(jsonPath("$.filas[0][0]").value(50.0));
+                .andExpect(jsonPath("$.respuesta", containsString("No pude armar una consulta")))
+                .andExpect(jsonPath("$.filas", hasSize(0)));
+        assertThat(SOLICITUDES).hasSize(1);
     }
 
     @Test

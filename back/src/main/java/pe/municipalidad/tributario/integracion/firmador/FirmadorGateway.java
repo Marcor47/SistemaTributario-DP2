@@ -2,7 +2,7 @@ package pe.municipalidad.tributario.integracion.firmador;
 
 /*
  * Verificación de la firma del contribuyente y firma automática de la Municipalidad con el firmador digital
- * del Estado (RF-021, RF-037, RNF-007). Sin acceso al firmador, se usa FirmadorSimuladoGateway.
+ * del Estado (RF-021, RF-037, RNF-007). Sin acceso al firmador, se usa FirmadorServiciosEnLineaGateway.
  */
 public interface FirmadorGateway {
 
@@ -10,8 +10,8 @@ public interface FirmadorGateway {
 
     DocumentoFirmado firmarComoMunicipalidad(byte[] documento);
 
-    /* Los documentos firmados con un servicio simulado llevan la marca "DOCUMENTO DE PRUEBA" (RNF-015). */
-    boolean esSimulado();
+    /* Indica si la firma es la de Servicios en Línea y no la del firmador digital del Estado (RNF-015). */
+    boolean firmaLocal();
 
     /* motivoRechazo explica al contribuyente por qué la firma no es válida (HU015); es nulo si es válida. */
     record ResultadoFirma(boolean valida, String entidadCertificadora, String hashDocumento, String motivoRechazo) {

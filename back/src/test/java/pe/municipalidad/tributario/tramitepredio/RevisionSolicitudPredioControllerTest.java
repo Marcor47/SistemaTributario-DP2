@@ -205,6 +205,12 @@ class RevisionSolicitudPredioControllerTest {
                         containsString("Deuda existente del predio: S/ ")))));
         mockMvc.perform(get(RUTA_REVISION).param("estado", "RECHAZADA").with(ventanilla()))
                 .andExpect(jsonPath("$[*].idSolicitud", hasItem((int) id)));
+        /* HU047: el contribuyente ve el resultado y la observación registrada al consultar su trámite. */
+        mockMvc.perform(get(RUTA_PORTAL + "/" + id).session(sesion(SOLICITANTE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("RECHAZADA"))
+                .andExpect(jsonPath("$.motivoRechazo").value("La minuta no está firmada por el vendedor"))
+                .andExpect(jsonPath("$.fechaRevision").isNotEmpty());
     }
 
     @Test

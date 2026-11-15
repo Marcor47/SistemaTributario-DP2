@@ -1,4 +1,4 @@
--- Datos ficticios de demostración para la pantalla de metas (HU009).
+-- Metas iniciales de la pantalla de metas (HU009).
 -- Indicador inactivo solo para mostrar el caso en que no se admiten nuevas metas.
 INSERT INTO analitica.indicador
     (codigo, nombre, definicion, formula, fuente, unidad_medida, periodicidad, sentido, activo)

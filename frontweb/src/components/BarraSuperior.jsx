@@ -19,10 +19,11 @@ export default function BarraSuperior({ seccion }) {
   const nombreMostrado = esGestion
     ? (sesionInterna?.nombreCompleto || sesionInterna?.nombreUsuario || '')
     : (sesionAuth?.usuario?.nombre || sesionAuth?.usuario?.codigoContribuyente || sesionAuth?.usuario?.codigo || '')
+  const codigoPortal = sesionAuth?.usuario?.codigoContribuyente || sesionAuth?.usuario?.codigo || ''
 
   const rolMostrado = esGestion
     ? etiquetaRol(sesionInterna?.rol)
-    : 'Contribuyente'
+    : (codigoPortal && codigoPortal !== nombreMostrado ? `Contribuyente · Código ${codigoPortal}` : 'Contribuyente')
 
   const inicialAvatar = nombreMostrado ? nombreMostrado.charAt(0).toUpperCase() : '?'
 
@@ -48,7 +49,7 @@ export default function BarraSuperior({ seccion }) {
             )}
           </div>
           <div className="barra-superior__info">
-            <span className="barra-superior__nombre">{nombreMostrado}</span>
+            <span className="barra-superior__nombre" title={nombreMostrado}>{nombreMostrado}</span>
             <span className="barra-superior__rol">{rolMostrado}</span>
           </div>
         </div>

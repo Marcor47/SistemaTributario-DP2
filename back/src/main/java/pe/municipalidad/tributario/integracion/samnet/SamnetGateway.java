@@ -34,6 +34,9 @@ public interface SamnetGateway {
     /* HU018: zonas registradas en los predios, para el selector de los reportes por zona. */
     List<String> obtenerZonas();
 
+    /* HU036: usos de predio registrados, para el selector del registro. */
+    List<String> obtenerUsosPredio();
+
     /* Tributos con cuotas emitidas, para el selector de los reportes. */
     List<String> obtenerTributos();
 

@@ -9,8 +9,8 @@ import pe.municipalidad.tributario.cobranza.EtapaCobranza;
 
 /*
  * Cuota de un tributo para un periodo (RF-004, RF-007, RF-014). Se obtiene de SAMNET con SamnetGateway.
- * El Impuesto Predial se emite al contribuyente en 4 cuotas trimestrales; los arbitrios por predio y por mes, con el
- * detalle de sus servicios. Por eso codigoPredio y servicios solo vienen en los arbitrios.
+ * El Impuesto Predial se emite al contribuyente en 4 cuotas trimestrales; los arbitrios por predio y por mes, como un
+ * solo concepto con su monto total. Por eso codigoPredio solo viene en los arbitrios.
  * El estado de pago no se guarda: depende de la fecha de corte (estadoAl).
  */
 public class Obligacion {
@@ -28,7 +28,6 @@ public class Obligacion {
     private final BigDecimal porcentajeDescuento;
     private final EtapaCobranza etapaCobranza;
     private final LocalDate fechaEtapa;
-    private final List<MontoServicio> servicios;
     private final LocalDate fechaUltimoPago;
 
     /* La TIM es mensual y el Código Tributario la aplica por día con meses de 30 días. */
@@ -46,13 +45,13 @@ public class Obligacion {
             BigDecimal montoDescontado, BigDecimal porcentajeDescuento, EtapaCobranza etapaCobranza,
             LocalDate fechaEtapa) {
         this(idObligacion, codigoContribuyente, codigoPredio, tributo, anio, cuota, fechaVencimiento, montoEmitido,
-                montoPagado, montoDescontado, porcentajeDescuento, etapaCobranza, fechaEtapa, List.of(), null);
+                montoPagado, montoDescontado, porcentajeDescuento, etapaCobranza, fechaEtapa, null);
     }
 
     public Obligacion(Long idObligacion, String codigoContribuyente, String codigoPredio, Tributo tributo, int anio,
             int cuota, LocalDate fechaVencimiento, BigDecimal montoEmitido, BigDecimal montoPagado,
             BigDecimal montoDescontado, BigDecimal porcentajeDescuento, EtapaCobranza etapaCobranza,
-            LocalDate fechaEtapa, List<MontoServicio> servicios, LocalDate fechaUltimoPago) {
+            LocalDate fechaEtapa, LocalDate fechaUltimoPago) {
         this.idObligacion = idObligacion;
         this.codigoContribuyente = codigoContribuyente;
         this.codigoPredio = codigoPredio;
@@ -66,7 +65,6 @@ public class Obligacion {
         this.porcentajeDescuento = porcentajeDescuento;
         this.etapaCobranza = etapaCobranza;
         this.fechaEtapa = fechaEtapa;
-        this.servicios = List.copyOf(servicios);
         this.fechaUltimoPago = fechaUltimoPago;
     }
 
@@ -93,10 +91,6 @@ public class Obligacion {
         BigDecimal tasaDiaria = timMensual.divide(BigDecimal.valueOf(DIAS_MES_TIM * 100), 10, RoundingMode.HALF_UP);
         return saldo().multiply(tasaDiaria).multiply(BigDecimal.valueOf(diasVencidaAl(fecha)))
                 .setScale(2, RoundingMode.HALF_UP);
-    }
-
-    public List<MontoServicio> getServicios() {
-        return servicios;
     }
 
     /* Insoluto pendiente: monto emitido menos lo pagado. */

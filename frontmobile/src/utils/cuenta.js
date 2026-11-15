@@ -37,7 +37,10 @@ export function resumirCuenta(filas) {
     deuda: total.deuda + Math.round(fila.deuda * 100),
     descuento: total.descuento + Math.round((fila.descuento || 0) * 100),
     vencido: total.vencido + (fila.estado === 'Vencida' ? Math.round(fila.deuda * 100) : 0),
-  }), { emitido: 0, pagado: 0, deuda: 0, descuento: 0, vencido: 0 })
+    interes: total.interes + Math.round((fila.interesMoratorio || 0) * 100),
+  }), { emitido: 0, pagado: 0, deuda: 0, descuento: 0, vencido: 0, interes: 0 })
+  // El total a pagar suma al insoluto el interés moratorio de las cuotas vencidas.
+  centimos.totalAPagar = centimos.deuda + centimos.interes
   return Object.fromEntries(Object.entries(centimos).map(([campo, valor]) => [campo, valor / 100]))
 }
 

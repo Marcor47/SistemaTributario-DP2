@@ -35,7 +35,7 @@ Las dos variables, como variables de entorno o, en el perfil `local`, en `back/.
 `.asistente-local.properties.example`; Git lo ignora):
 
 ```properties
-LLM_URL=http://100.122.1.26:8095
+LLM_URL=http://<IP de Tailscale del equipo con el modelo>:<puerto>
 LLM_TOKEN=<token de 64 caracteres>
 ```
 
@@ -45,7 +45,7 @@ LLM_TOKEN=<token de 64 caracteres>
 ### 3. Comprobar
 
 ```bash
-curl http://100.122.1.26:8095/salud
+curl "$LLM_URL/salud"
 ```
 
 | Respuesta | Qué significa |
@@ -59,4 +59,4 @@ punto sobre comentarios y espacios).
 
 ## Qué puede y qué no puede hacer tu dispositivo en esa red
 
-Puede llamar a `100.122.1.26:8095` y nada más: la política de la red bloquea los demás puertos, el servicio corta preguntas de más de 6000 tokens o 256 KB.
+Puede llamar a la dirección de `LLM_URL` y nada más: la política de la red bloquea los demás puertos, el servicio corta preguntas de más de 6000 tokens o 256 KB.

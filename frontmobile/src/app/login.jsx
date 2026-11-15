@@ -8,7 +8,6 @@ import Boton from '../components/ui/Boton'
 import CampoTexto from '../components/ui/CampoTexto'
 import Icono from '../components/ui/Icono'
 import { useSesion } from '../context/SesionContext'
-import { ACCESO_PRUEBA } from '../services/authService'
 import { colores, fuentes, radios, texto } from '../theme/tokens'
 
 export default function Login() {
@@ -20,13 +19,6 @@ export default function Login() {
   const [errores, setErrores] = useState({})
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
-
-  function usarAccesoPrueba() {
-    setCodigo(ACCESO_PRUEBA.codigo)
-    setClave(ACCESO_PRUEBA.password)
-    setErrores({})
-    setError('')
-  }
 
   async function enviar() {
     if (enviando) return
@@ -127,23 +119,6 @@ export default function Login() {
             <Boton titulo="Ingresar" tituloCargando="Verificando…" cargando={enviando} onPress={enviar} grande />
           </View>
 
-          {__DEV__ && (
-            <View style={estilos.demo} accessibilityRole="summary">
-              <Text style={estilos.demoTitulo}>Acceso de prueba</Text>
-              <Text style={estilos.demoDatos}>
-                Código: <Text style={estilos.demoCodigo}>{ACCESO_PRUEBA.codigo}</Text>{'\n'}
-                Contraseña: <Text style={estilos.demoCodigo}>{ACCESO_PRUEBA.password}</Text>
-              </Text>
-              <Boton
-                titulo="Usar estos datos"
-                variante="secundario"
-                onPress={usarAccesoPrueba}
-                deshabilitado={enviando}
-                style={estilos.demoBoton}
-              />
-            </View>
-          )}
-
           <View style={estilos.ayuda}>
             <Icono nombre="info" color={colores.textoSecundario} tamano={18} />
             <Text style={[texto.secundario, estilos.ayudaTexto]}>
@@ -174,14 +149,6 @@ const estilos = StyleSheet.create({
   sub: { marginTop: 8, marginBottom: 20 },
   aviso: { marginBottom: 16 },
   formulario: { gap: 20 },
-  demo: {
-    marginTop: 24, padding: 14, gap: 8, borderRadius: radios.md, borderWidth: 1,
-    backgroundColor: colores.advertenciaFondo, borderColor: colores.advertenciaBorde,
-  },
-  demoTitulo: { fontFamily: fuentes.negrita, fontSize: 15, color: colores.advertenciaTexto },
-  demoDatos: { fontFamily: fuentes.regular, fontSize: 15, lineHeight: 24, color: colores.advertenciaTexto },
-  demoCodigo: { fontFamily: fuentes.negrita },
-  demoBoton: { alignSelf: 'flex-start', borderColor: '#A86A13' },
   ayuda: {
     flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 28, paddingTop: 20,
     borderTopWidth: 1, borderTopColor: '#E1E8F0',

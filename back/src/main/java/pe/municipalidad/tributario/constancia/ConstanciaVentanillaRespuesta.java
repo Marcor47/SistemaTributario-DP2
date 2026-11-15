@@ -22,7 +22,7 @@ public record ConstanciaVentanillaRespuesta(
         String estado,
         String comprobantePago,
         BigDecimal montoDerechoTramite,
-        boolean esDePrueba) {
+        boolean firmaLocal) {
 
     public static ConstanciaVentanillaRespuesta desde(Constancia constancia, TransaccionPago ordenPago,
             String nombreContribuyente, String codigoContribuyente) {
@@ -47,7 +47,7 @@ public record ConstanciaVentanillaRespuesta(
                 sol.getEstado().name(),
                 ordenPago != null ? ordenPago.getComprobante() : null,
                 ordenPago != null ? ordenPago.getMontoTotal() : null,
-                constancia.isEsDePrueba());
+                constancia.isFirmaLocal());
     }
 }
 

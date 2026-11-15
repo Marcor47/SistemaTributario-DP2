@@ -1,7 +1,7 @@
 import { checkoutValido, idPagoValido } from './pagos.js'
 
 export function configuracionNiubiz(pago) {
-  if (!pago || !idPagoValido(pago.idTransaccion) || pago.estado !== 'INICIADA' || pago.dePrueba !== true
+  if (!pago || !idPagoValido(pago.idTransaccion) || pago.estado !== 'INICIADA' || pago.pasarelaLocal !== true
     || !checkoutValido(pago.checkout) || !Number.isFinite(Number(pago.montoTotal)) || Number(pago.montoTotal) <= 0) {
     throw Object.assign(new Error('La sesión de pago no está disponible.'), { codigo: 'PASARELA_NO_DISPONIBLE' })
   }

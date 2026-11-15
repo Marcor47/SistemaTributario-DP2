@@ -21,8 +21,9 @@ export default function ModalPagoConfirmado({ pago, abierto, onCerrar }) {
       <p className="hint">Tu operación quedó confirmada.</p>
       <dl className="pago-modal-resumen">
         <div><dt>Comprobante</dt><dd>{pago.comprobante}</dd></div>
-        <div><dt>Saldo antes de beneficios</dt><dd>{moneda(pago.montoBase)}</dd></div>
+        <div><dt>Deuda tributaria (insoluto)</dt><dd>{moneda(pago.montoBase)}</dd></div>
         <div><dt>Descuento aplicado</dt><dd>{moneda(pago.montoDescuento)}</dd></div>
+        <div><dt>Interés moratorio</dt><dd>{moneda(pago.montoInteres ?? 0)}</dd></div>
         <div className="pago-modal-total"><dt>Total pagado</dt><dd>{moneda(pago.montoTotal)}</dd></div>
       </dl>
       <div className="pago-modal-acciones">

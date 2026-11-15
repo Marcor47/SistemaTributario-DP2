@@ -64,7 +64,7 @@ export function periodoCubre(periodoAlerta, anio, mes) {
 }
 
 /*
- * Aplica los filtros del dashboard a las alertas activas. El periodo del dashboard manda
+ * Aplica los filtros de la plataforma a las alertas activas. El periodo elegido manda
  * sobre las alertas; las alertas TOTAL se conservan aunque se filtre por zona, tributo o segmento.
  */
 export function filtrarAlertasPorFiltros(alertas, filtros = {}, { periodo = '', segmentos = [] } = {}) {

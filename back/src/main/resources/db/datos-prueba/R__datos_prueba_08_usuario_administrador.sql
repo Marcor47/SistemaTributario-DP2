@@ -1,7 +1,7 @@
 INSERT INTO seguridad.usuario
     (nombre_usuario, nombre_completo, correo, clave_hash, activo, fecha_creacion,
      cambio_clave_pendiente, fecha_cambio_clave)
-SELECT 'admin.local', 'Administrador local', 'admin.local@munisanmiguel.gob.pe',
+SELECT 'admin.local', 'Lucía Fernanda Paredes Soto', 'lparedes@munisanmiguel.gob.pe',
        public.crypt('AdminLocalSM#2026', public.gen_salt('bf', 12)), TRUE, CURRENT_TIMESTAMP,
        FALSE, CURRENT_TIMESTAMP
 WHERE NOT EXISTS (

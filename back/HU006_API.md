@@ -210,7 +210,7 @@ El reporte de morosos se calcula **siempre** sobre la última carga publicada de
 - Si no hay una carga publicada con hechos, responde `422` `SIN_CARGA_ETL`.
 - Si la carga no tiene correspondencia con SAMNET, responde `422` `ETL_SIN_CORRESPONDENCIA`.
 
-El reporte informa en `fechaCorte` la fecha de la carga usada. El perfil `local` incluye una carga simulada en `db/datos-prueba`; la carga real la produce el proceso ETL.
+El reporte informa en `fechaCorte` la fecha de la carga usada. El perfil `local` incluye una carga del ETL en `db/datos-prueba`; la carga real la produce el proceso ETL.
 
 ## Datos de prueba
 

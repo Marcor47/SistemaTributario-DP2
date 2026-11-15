@@ -24,7 +24,7 @@ import pe.municipalidad.tributario.auth.SesionContribuyente;
 import pe.municipalidad.tributario.soporte.PruebaIntegracion;
 
 /*
- * HU015: firmar digitalmente la solicitud de Constancia de No Adeudo. Se usa el firmador simulado: un
+ * HU015: firmar digitalmente la solicitud de Constancia de No Adeudo. Se usa la firma de Servicios en Línea: un
  * certificado con la marca VENCIDO, REVOCADO o NO_ACREDITADO se rechaza. Los contribuyentes son los de los datos
  * de prueba (014502, DNI 41028765, y 021390). Cada test se revierte al terminar.
  */
@@ -102,7 +102,7 @@ class SolicitudConstanciaControllerTest {
     }
 
     @Test
-    void conFirmadorSimuladoPuedeCrearOtraSolicitudDespuesDeFirmar() throws Exception {
+    void conFirmaServiciosEnLineaPuedeCrearOtraSolicitudDespuesDeFirmar() throws Exception {
         long primera = iniciarSolicitud(CONTRIBUYENTE);
         firmar(CONTRIBUYENTE, primera, cuerpoFirma(FIRMA_BASE64, "CERTIFICADO DE PRUEBA"))
                 .andExpect(status().isOk());
@@ -116,14 +116,14 @@ class SolicitudConstanciaControllerTest {
     }
 
     @Test
-    void elDocumentoAFirmarLoGeneraElServidorConLaMarcaDePrueba() throws Exception {
+    void elDocumentoAFirmarLoGeneraElServidorParaLaFirmaLocal() throws Exception {
         long id = iniciarSolicitud(CONTRIBUYENTE);
 
         String respuesta = mockMvc.perform(get(RUTA + "/" + id + "/documento-firma").session(sesion(CONTRIBUYENTE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.idSolicitud").value(id))
                 .andExpect(jsonPath("$.nombreArchivo").value("solicitud-constancia-" + id + ".txt"))
-                .andExpect(jsonPath("$.documentoDePrueba").value(true))
+                .andExpect(jsonPath("$.firmaLocal").value(true))
                 .andExpect(jsonPath("$.datosContribuyente.codigo").value(CONTRIBUYENTE))
                 .andExpect(jsonPath("$.datosContribuyente.nombre").value("GARCÍA TORRES, MARÍA ELENA"))
                 .andExpect(jsonPath("$.datosContribuyente.tipoDocumento").value("DNI"))
@@ -134,7 +134,7 @@ class SolicitudConstanciaControllerTest {
         String hash = JsonPath.read(respuesta, "$.hashSha256");
         String documento = new String(Base64.getDecoder().decode(contenidoBase64), StandardCharsets.UTF_8);
         assertThat(documento)
-                .startsWith("DOCUMENTO DE PRUEBA")
+                .startsWith("MUNICIPALIDAD DISTRITAL DE SAN MIGUEL")
                 .contains("SOLICITUD DE CONSTANCIA DE NO ADEUDO", "Solicitud N.°: " + id, DOCUMENTO_CONTRIBUYENTE);
         assertThat(hash).hasSize(64);
     }
@@ -149,7 +149,7 @@ class SolicitudConstanciaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("FIRMADA"))
                 .andExpect(jsonPath("$.firmaContribuyente.hashDocumento").value(hashDocumento))
-                .andExpect(jsonPath("$.firmaContribuyente.entidadCertificadora", containsString("DOCUMENTO DE PRUEBA")))
+                .andExpect(jsonPath("$.firmaContribuyente.entidadCertificadora", containsString("Servicios en Línea")))
                 .andExpect(jsonPath("$.firmaContribuyente.fechaFirma").value("2026-10-19T12:00:00"));
 
         mockMvc.perform(get(RUTA + "/" + id).session(sesion(CONTRIBUYENTE)))
