@@ -58,10 +58,15 @@ class ConstanciaOperadorControllerTest {
 
         mockMvc.perform(get(RUTA_OPERADOR).with(operador()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].idSolicitud", hasItem((int) id)));
+                .andExpect(jsonPath("$[*].idSolicitud", hasItem((int) id)))
+                .andExpect(jsonPath("$[?(@.idSolicitud == " + id + ")].codigoContribuyente", hasItem(SIN_DEUDA)))
+                .andExpect(jsonPath("$[?(@.idSolicitud == " + id + ")].nombreContribuyente",
+                        hasItem("GARCÍA TORRES, MARÍA ELENA")));
         mockMvc.perform(get(RUTA_OPERADOR + "/" + id).with(operador()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("FIRMADA"))
+                .andExpect(jsonPath("$.nombreContribuyente").value("GARCÍA TORRES, MARÍA ELENA"))
+                .andExpect(jsonPath("$.tipoDocumentoContribuyente").value("DNI"))
                 .andExpect(jsonPath("$.deuda.puedeSolicitar").value(true))
                 .andExpect(jsonPath("$.firmaContribuyente.hashDocumento").value(notNullValue()));
 

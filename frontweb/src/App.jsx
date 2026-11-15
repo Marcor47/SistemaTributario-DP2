@@ -10,6 +10,8 @@ import { RutaContribuyente } from './components/RutaProtegida.jsx'
 import LoginInterno from './pages/LoginInterno.jsx'
 import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
 import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
+import TransicionLoginProvider from './components/TransicionLogin.jsx'
+import { useTransicionLogin } from './context/transicionLogin.js'
 
 // Cada pantalla se descarga al abrirla: el inicio de sesión no carga el código de todo el sistema.
 const Segmentos = lazy(() => import('./pages/Segmentos.jsx'))
@@ -82,6 +84,7 @@ function LayoutPortal() {
  * Solo muestra los módulos de la sección 'gestion' en el menú lateral.
  */
 function LayoutGestion() {
+  const { activa: entradaLogin } = useTransicionLogin()
   const { pathname } = useLocation()
   const modulo = moduloDeRuta(pathname, 'gestion')
   const esMetas = pathname.startsWith('/metas')
@@ -90,7 +93,7 @@ function LayoutGestion() {
   const toggleMenu = useCallback(() => setMenuVisible((v) => !v), [])
 
   return (
-    <div className={`app${menuVisible ? '' : ' app--sin-menu'}`}>
+    <div className={`app${menuVisible ? '' : ' app--sin-menu'}${entradaLogin ? ' li-entrada' : ''}`}>
       <MenuLateral solo="gestion" visible={menuVisible} onToggle={toggleMenu} />
       <div className="contenido">
         <BarraSuperior
@@ -119,6 +122,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <SesionInternaProvider>
+          <TransicionLoginProvider>
           <Suspense fallback={cargando}>
           <Routes>
             <Route path="/" element={<Inicio />} />
@@ -177,6 +181,7 @@ export default function App() {
         </Route>
           </Routes>
           </Suspense>
+          </TransicionLoginProvider>
         </SesionInternaProvider>
       </AuthProvider>
     </BrowserRouter>

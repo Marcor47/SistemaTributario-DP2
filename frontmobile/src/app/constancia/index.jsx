@@ -6,6 +6,7 @@ import Svg, { Path } from 'react-native-svg'
 import Aviso from '../../components/ui/Aviso'
 import Boton from '../../components/ui/Boton'
 import Cabecera from '../../components/ui/Cabecera'
+import DeudaPendiente from '../../components/constancia/DeudaPendiente'
 import { useSesion } from '../../context/SesionContext'
 import { usePagos } from '../../context/PagosContext'
 import { confirmarPagoConstancia, consultarDeudaConstancia, enviarFirmaConstancia, firmaServiciosEnLinea, iniciarConstancia, iniciarPagoConstancia, listarConstancias, obtenerConstancia, obtenerDocumentoFirma, obtenerOrdenConstancia, textoDocumento } from '../../services/constanciaService'
@@ -42,6 +43,8 @@ export default function Constancia() {
   const [documento, setDocumento] = useState(null)
   const [firmaPreparada, setFirmaPreparada] = useState(false)
   const [orden, setOrden] = useState(null)
+  const [errorOrden, setErrorOrden] = useState(null)
+  const [revisionOrden, setRevisionOrden] = useState(0)
   const [pagoEnPantalla, setPagoEnPantalla] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [cargaFallida, setCargaFallida] = useState(false)
@@ -53,6 +56,7 @@ export default function Constancia() {
 
   useFocusEffect(useCallback(() => {
     let activo = true
+    setError('')
     Promise.all([listarConstancias(), consultarDeudaConstancia()])
       .then(([lista, estadoDeuda]) => {
         if (!activo) return
@@ -74,7 +78,7 @@ export default function Constancia() {
   const estadoSolicitud = solicitud?.estado
 
   useFocusEffect(useCallback(() => {
-    if (!idSolicitud || !['FIRMADA', 'DEUDA_VERIFICADA', 'PAGADA'].includes(estadoSolicitud)) return
+    if (!idSolicitud || !['FIRMADA', 'DEUDA_VERIFICADA', 'ORDEN_PAGO_EMITIDA', 'PAGADA'].includes(estadoSolicitud)) return
     let activo = true
     const intervalo = setInterval(async () => {
       try {
@@ -92,13 +96,13 @@ export default function Constancia() {
 
   useEffect(() => {
     let activo = true
-    if (idSolicitud && ['ORDEN_PAGO_EMITIDA', 'PAGADA', 'EMITIDA'].includes(estadoSolicitud)) {
+    if (idSolicitud && ['ORDEN_PAGO_EMITIDA', 'PAGADA'].includes(estadoSolicitud)) {
       obtenerOrdenConstancia(idSolicitud)
-        .then((resultado) => { if (activo) setOrden({ ...resultado, idSolicitud }) })
-        .catch((err) => { if (activo) setError(err.message) })
+        .then((resultado) => { if (activo) { setOrden({ ...resultado, idSolicitud }); setErrorOrden(null) } })
+        .catch((err) => { if (activo) setErrorOrden({ mensaje: err.message, codigo: err.codigo, idSolicitud, estado: estadoSolicitud }) })
     }
     return () => { activo = false }
-  }, [idSolicitud, estadoSolicitud])
+  }, [idSolicitud, estadoSolicitud, revisionOrden])
 
   async function ejecutar(accion) {
     if (ocupado) return
@@ -110,6 +114,10 @@ export default function Constancia() {
   function seleccionarSolicitud(nueva) {
     liberarPasarela.current?.()
     liberarPasarela.current = null
+    setError('')
+    setErrorOrden(null)
+    setOrden(null)
+    setRevisionOrden((valor) => valor + 1)
     setSolicitud(nueva)
     setDocumento(null)
     setFirmaPreparada(false)
@@ -205,19 +213,16 @@ export default function Constancia() {
 
   return (
     <View style={estilos.raiz}>
-      <Cabecera titulo="Constancia de No Adeudo" subtitulo="Firma tu solicitud" onVolver={() => router.back()} />
+      <Cabecera titulo="Constancia de No Adeudo" subtitulo="Firma tu solicitud"
+        onVolver={() => { if (router.canGoBack()) router.back(); else router.replace('/') }}
+        volverDeshabilitado={ocupado} />
       <ScrollView contentContainerStyle={[estilos.contenido, { paddingBottom: bottom + 24 }]} keyboardShouldPersistTaps="handled">
         <Text style={texto.cuerpo}>Aquí firmas la solicitud, no la constancia final. El trámite se asocia a tu sesión de contribuyente {sesion.usuario?.codigoContribuyente}.</Text>
         {error ? <Aviso tipo="critico" titulo="No se pudo continuar">{error}</Aviso> : null}
         {cargando ? <Text style={texto.cuerpo}>Cargando tus solicitudes...</Text> : null}
         {cargaFallida ? <Boton titulo="Reintentar carga" variante="secundario" onPress={() => ejecutar(recargar)} cargando={ocupado} /> : null}
-        {deuda && !deuda.puedeSolicitar ? <View style={estilos.tarjeta}>
-          <Aviso tipo="alerta" titulo="Tienes deuda pendiente">Debes cancelar tu deuda antes de solicitar la constancia.</Aviso>
-          <Text style={texto.etiqueta}>Total pendiente: S/ {Number(deuda.total).toFixed(2)}</Text>
-          {deuda.obligaciones.map((item) => <Text key={item.id} style={texto.cuerpo}>{item.tributo} · {item.periodo}: S/ {Number(item.deuda).toFixed(2)}</Text>)}
-          <Boton titulo="Ver estado de cuenta y pagos" onPress={() => router.push('/estado-cuenta')} deshabilitado={ocupado} />
-          <Boton titulo="Volver a consultar deuda" variante="secundario" onPress={() => ejecutar(recargar)} cargando={ocupado} />
-        </View> : null}
+        {deuda && !deuda.puedeSolicitar ? <DeudaPendiente deuda={deuda} ocupado={ocupado}
+          onVerCuenta={() => router.push('/estado-cuenta')} onConsultar={() => ejecutar(recargar)} /> : null}
         {!cargando && !cargaFallida && deuda?.puedeSolicitar && !haySinFirma && !solicitud ? <Boton titulo="Iniciar nueva solicitud" onPress={crear} cargando={ocupado} /> : null}
         {solicitud ? <View style={estilos.tarjeta}>
           <Text style={texto.subtitulo}>Solicitud N.° {solicitud.idSolicitud}</Text>
@@ -253,6 +258,11 @@ export default function Constancia() {
               <Boton titulo="Enviar solicitud" onPress={enviarSolicitud} deshabilitado={!firmaPreparada || ocupado} cargando={ocupado} />
             </> : pendiente && deuda?.puedeSolicitar ? <Aviso tipo="alerta" titulo="Firma no disponible">La firma de la solicitud no está disponible en este momento. Intenta nuevamente más tarde.</Aviso> : null}
           </> : null}
+          {['ORDEN_PAGO_EMITIDA', 'PAGADA'].includes(solicitud.estado) && errorOrden?.idSolicitud === solicitud.idSolicitud && errorOrden.estado === solicitud.estado ? <View style={estilos.tarjeta}>
+            <Aviso tipo={errorOrden.codigo === 'ORDEN_NO_ENCONTRADA' ? 'info' : 'alerta'}
+              titulo={errorOrden.codigo === 'ORDEN_NO_ENCONTRADA' ? 'Orden de pago pendiente' : 'No se pudo consultar la orden'}>{errorOrden.mensaje}</Aviso>
+            <Boton titulo="Consultar orden de pago" variante="secundario" onPress={() => { setErrorOrden(null); setRevisionOrden((valor) => valor + 1) }} deshabilitado={ocupado} />
+          </View> : null}
           {solicitud.estado === 'ORDEN_PAGO_EMITIDA' && orden?.idSolicitud === solicitud.idSolicitud ? <View style={estilos.tarjeta}>
             <Text style={texto.etiqueta}>Derecho del trámite: S/ {Number(orden.monto).toFixed(2)}</Text>
             {orden.sesionIniciada && !pagoActual
