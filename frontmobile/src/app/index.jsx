@@ -47,6 +47,12 @@ const SERVICIOS = [
     titulo: 'Constancia de No Adeudo',
     descripcion: 'Solicita una constancia y firma la solicitud desde tu celular.',
   },
+  {
+    ruta: '/notificaciones',
+    icono: 'campana',
+    titulo: 'Mis datos y notificaciones',
+    descripcion: 'Consulta tu correo registrado y elige si deseas recibir recordatorios de vencimiento.',
+  },
 ]
 
 export default function Inicio() {

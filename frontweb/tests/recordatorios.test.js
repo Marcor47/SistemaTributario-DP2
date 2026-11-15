@@ -2,11 +2,13 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
+  AVISO_SIN_SERVIDOR_CORREO,
   DIAS_RECORDATORIO_POR_DEFECTO,
   calcularFechaProgramada,
   descripcionRecordatorio,
   estadoRecordatorio,
   fechaRecordatorio,
+  resumenEnvioRecordatorios,
   textoAnticipacion,
   validarDiasRecordatorio,
 } from '../src/utils/recordatorios.js'
@@ -62,6 +64,35 @@ test('HU016: los estados y textos del recordatorio son legibles', () => {
   )
   assert.match(descripcionRecordatorio({ estado: 'SIN_CORREO' }), /no tiene correo registrado/)
   assert.match(descripcionRecordatorio({ estado: 'NO_ENVIADO' }), /No se registró un envío/)
+})
+
+test('HU016: el resumen separa enviados, registrados y desactivados, y avisa si no hay servidor', () => {
+  const resumen = resumenEnvioRecordatorios({
+    detectados: 10,
+    enviados: 0,
+    registrados: 8,
+    sinCorreo: 1,
+    desactivados: 1,
+    duplicados: 0,
+    fallidos: 0,
+    sinServidorCorreo: true,
+  })
+  assert.equal(resumen.detectados, 10)
+  assert.equal(resumen.enviados, 0)
+  assert.equal(resumen.registrados, 8)
+  assert.equal(resumen.sinCorreo, 1)
+  assert.equal(resumen.desactivados, 1)
+  assert.equal(resumen.sinServidorCorreo, true)
+  assert.match(AVISO_SIN_SERVIDOR_CORREO, /no se enviaron por Internet/)
+  assert.deepEqual(estadoRecordatorio('DESACTIVADO'), {
+    texto: 'Desactivado por el contribuyente',
+    clase: 'neutro',
+  })
+  assert.match(descripcionRecordatorio({ estado: 'DESACTIVADO' }), /desactivó los recordatorios/)
+  const pagina = readFileSync(new URL('../src/pages/ConfiguracionRecordatorios.jsx', import.meta.url), 'utf8')
+  assert.match(pagina, /Desactivados/)
+  assert.match(pagina, /AVISO_SIN_SERVIDOR_CORREO/)
+  assert.doesNotMatch(pagina, /enviados \+ resultadoEnvio\.registrados/)
 })
 
 test('HU016: la configuración se lee y se guarda en el servidor con la anticipación validada', async (t) => {

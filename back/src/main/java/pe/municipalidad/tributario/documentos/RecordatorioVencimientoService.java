@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,11 +16,12 @@ import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.seguridad.ParametroConfiguracion;
 import pe.municipalidad.tributario.seguridad.ParametroConfiguracionRepository;
 
-/** HU016: recordatorios previos al vencimiento, con deduplicación por obligación. */
+/** HU016: recordatorios previos al vencimiento, con deduplicación por obligación y preferencia del contribuyente. */
 @Service
 public class RecordatorioVencimientoService {
     public record Resultado(LocalDate fecha, int diasAnticipacion, int detectados, int enviados,
-                            int sinCorreo, int duplicados, int fallidos, int registrados, boolean sinServidorCorreo) {}
+                            int sinCorreo, int desactivados, int duplicados, int fallidos, int registrados,
+                            boolean sinServidorCorreo) {}
 
     public record Configuracion(int diasAnticipacion, int minimo, int maximo, int valorPorDefecto,
                                 LocalDateTime actualizadoEn, String actualizadoPor) {}
@@ -34,15 +37,18 @@ public class RecordatorioVencimientoService {
 
     private final SamnetGateway samnet;
     private final AvisoCorreoRepository avisos;
+    private final PreferenciaAvisoRepository preferencias;
     private final CorreoGateway correo;
     private final JdbcTemplate jdbc;
     private final Clock reloj;
     private final ParametroConfiguracionRepository parametros;
 
-    public RecordatorioVencimientoService(SamnetGateway samnet, AvisoCorreoRepository avisos, CorreoGateway correo,
-            JdbcTemplate jdbc, Clock reloj, ParametroConfiguracionRepository parametros) {
+    public RecordatorioVencimientoService(SamnetGateway samnet, AvisoCorreoRepository avisos,
+            PreferenciaAvisoRepository preferencias, CorreoGateway correo, JdbcTemplate jdbc, Clock reloj,
+            ParametroConfiguracionRepository parametros) {
         this.samnet = samnet;
         this.avisos = avisos;
+        this.preferencias = preferencias;
         this.correo = correo;
         this.jdbc = jdbc;
         this.reloj = reloj;
@@ -58,34 +64,61 @@ public class RecordatorioVencimientoService {
         LocalDateTime ahora = LocalDateTime.now(reloj);
         int dias = anticipacion();
         var pendientes = samnet.obtenerVencimientos(hoy.plusDays(1), hoy.plusDays(dias));
-        int enviados = 0, sinCorreo = 0, duplicados = 0, fallidos = 0, registrados = 0;
+        Map<String, Boolean> recordatorioActivo = preferencias.findAllById(pendientes.stream()
+                .map(fila -> texto(fila.get("codigo_contribuyente"))).filter(Objects::nonNull)
+                .collect(Collectors.toSet())).stream()
+                .collect(Collectors.toMap(PreferenciaAviso::getCodigoContribuyente,
+                        PreferenciaAviso::isRecordatorioVencimiento));
+        int enviados = 0, sinCorreo = 0, desactivados = 0, duplicados = 0, fallidos = 0, registrados = 0;
         for (Map<String, Object> fila : pendientes) {
             String id = String.valueOf(fila.get("id_obligacion"));
+            String codigo = texto(fila.get("codigo_contribuyente"));
             String destino = texto(fila.get("correo"));
             String documento = texto(fila.get("numero_documento"));
             if (destino == null || documento == null) { sinCorreo++; continue; }
+            if (codigo != null && Boolean.FALSE.equals(recordatorioActivo.get(codigo))) {
+                desactivados++;
+                continue;
+            }
             if (avisos.existsByTipoAndIdObligacionAndEstado(TipoAviso.RECORDATORIO_VENCIMIENTO, id, EstadoAviso.ENVIADO)
                     || (correo.registraSinEnviar() && avisos.existsByTipoAndIdObligacionAndEstado(
                             TipoAviso.RECORDATORIO_VENCIMIENTO, id, EstadoAviso.REGISTRADO))) {
-                duplicados++; continue;
+                duplicados++;
+                continue;
             }
+            String tributo = etiquetaTributo(texto(fila.get("tributo")));
+            String nombre = texto(fila.get("nombre"));
+            String asunto = "Recordatorio de vencimiento" + (tributo == null ? "" : ": " + tributo);
+            String cuerpo = "Estimado(a) " + (nombre == null ? "contribuyente" : nombre) + ":\n\n"
+                    + "Le recordamos que su obligación N.° " + id
+                    + (tributo == null ? "" : " (" + tributo + ")")
+                    + " vence el " + fila.get("fecha_vencimiento") + ".\n"
+                    + "Saldo pendiente: S/ " + fila.get("saldo") + ".\n\n"
+                    + "Puede pagar en Servicios en Línea > Estado de cuenta.\n"
+                    + "Si no desea recibir este recordatorio, desactívelo en Servicios en Línea > "
+                    + "Mis datos y notificaciones.";
             AvisoCorreo aviso = new AvisoCorreo(TipoAviso.RECORDATORIO_VENCIMIENTO, documento, destino,
                     ahora, null, id);
-            aviso.enviar(correo, "Recordatorio de vencimiento de tributos municipales",
-                    "Su obligación N.° " + id + " vence el " + fila.get("fecha_vencimiento")
-                            + ". Saldo pendiente: S/ " + fila.get("saldo") + ".", ahora);
+            aviso.enviar(correo, asunto, cuerpo, ahora);
             avisos.save(aviso);
             if (aviso.getEstado() == EstadoAviso.ENVIADO) enviados++;
             else if (aviso.getEstado() == EstadoAviso.REGISTRADO) registrados++;
             else fallidos++;
         }
-        return new Resultado(hoy, dias, pendientes.size(), enviados, sinCorreo, duplicados, fallidos, registrados,
-                correo.registraSinEnviar());
+        return new Resultado(hoy, dias, pendientes.size(), enviados, sinCorreo, desactivados, duplicados, fallidos,
+                registrados, correo.registraSinEnviar());
     }
 
     private static String texto(Object valor) {
         if (valor == null || valor.toString().isBlank()) return null;
         return valor.toString().trim();
+    }
+
+    /* El SP devuelve el código del tributo; el correo lo presenta como texto legible. */
+    private static String etiquetaTributo(String valor) {
+        if (valor == null) return null;
+        String texto = valor.replace('_', ' ').toLowerCase();
+        return texto.substring(0, 1).toUpperCase() + texto.substring(1);
     }
 
     @Transactional(readOnly = true)
@@ -132,7 +165,11 @@ public class RecordatorioVencimientoService {
         var obligacion = samnet.obtenerObligacion(idObligacion).orElseThrow(() -> new ReglaNegocioException(
                 "OBLIGACION_NO_ENCONTRADA", "No se encontró la obligación indicada."));
         LocalDateTime programada = obligacion.getFechaVencimiento().minusDays(dias).atTime(HORA_ENVIO);
+        boolean desactivado = obligacion.getCodigoContribuyente() != null
+                && preferencias.findById(obligacion.getCodigoContribuyente())
+                        .map(preferencia -> !preferencia.isRecordatorioVencimiento()).orElse(false);
         String estado = obligacion.saldo().signum() <= 0 ? "NO_REQUERIDO"
+                : desactivado ? "DESACTIVADO"
                 : programada.isAfter(LocalDateTime.now(reloj)) ? "PROGRAMADO" : "NO_ENVIADO";
         return new EstadoRecordatorio(null, id, estado, null, programada, null, dias);
     }

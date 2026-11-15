@@ -48,6 +48,19 @@ reenvía en cada petición. Al abrir la app se consulta `GET /api/auth/me` para 
 Si una petición responde 401 (la sesión vence tras 60 minutos de inactividad), la app vuelve al
 login y lo avisa.
 
+## Mis datos y notificaciones (HU016)
+
+Desde el inicio, **Mis datos y notificaciones** abre `/notificaciones` (P12). Consulta
+`GET /api/portal/preferencias-avisos` con la sesión del contribuyente y muestra el nombre, el documento
+enmascarado, el código, el correo registrado y la anticipación vigente. El contribuyente puede activar o
+desactivar el recordatorio con `PUT /api/portal/preferencias-avisos`; la anticipación (1 a 10 días) la
+define la Municipalidad y no se edita desde la app.
+
+Sin correo registrado, el interruptor queda deshabilitado y el backend rechaza la activación con
+`CORREO_NO_REGISTRADO`. El procesamiento diario omite a los contribuyentes que desactivaron el aviso y el
+resumen del administrador los cuenta como **Desactivados**. Los correos se registran sin un servidor real
+mientras no se configure el proveedor municipal.
+
 ## Registro o traspaso de predio (HU046)
 
 Desde el inicio, **Registro o traspaso de predio** abre un asistente de cuatro pasos:

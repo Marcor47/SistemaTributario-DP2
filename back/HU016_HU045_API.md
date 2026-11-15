@@ -13,10 +13,19 @@ La tarea corre diariamente a las 08:00, hora de Lima. La propiedad
 Un usuario interno con `ALERTAS:EVALUAR` o `ETL:GESTIONAR` también puede ejecutar
 `POST /api/recordatorios-vencimiento/procesar` con CSRF y consultar el resumen.
 
+El contribuyente consulta sus datos en la app móvil (P12) con `GET /api/portal/preferencias-avisos`.
+La respuesta incluye nombre, tipo y número de documento enmascarado, correo, `recordatorioVencimiento`
+y `diasAnticipacion`. `PUT /api/portal/preferencias-avisos` con `{ "recordatorioVencimiento": false }`
+guarda la preferencia y devuelve el mismo objeto. Sin correo registrado, la activación se rechaza con
+`CORREO_NO_REGISTRADO`; la ausencia de fila equivale a recordatorio activo (migración V55). El procesamiento
+omite a quienes lo desactivaron y los cuenta en `desactivados`. La consulta de estado de una obligación sin
+aviso devuelve `DESACTIVADO` cuando el contribuyente apagó el recordatorio.
+
 **Mientras no se configure un servidor de correo**, `CorreoRegistroLocalGateway` registra los mensajes y no los
 entrega por Internet. Es necesario integrar un proveedor real antes de prometer envíos reales.
-La respuesta distingue `enviados` de `registrados` y expone `sinServidorCorreo`. El historial guarda esos avisos
-como `REGISTRADO`; no bloquean el envío posterior con un proveedor real (migraciones V47 y V54).
+La respuesta distingue `enviados` de `registrados`, suma `desactivados` y expone `sinServidorCorreo`. El
+historial guarda esos avisos como `REGISTRADO`; no bloquean el envío posterior con un proveedor real
+(migraciones V47 y V54).
 La función SAMNET de esta versión usa la base sintética; el contrato debe adaptarse cuando se
 integre la fuente municipal. La deduplicación de envío externo ante una caída entre el envío y
 la confirmación requerirá soporte de idempotencia o conciliación del proveedor real.

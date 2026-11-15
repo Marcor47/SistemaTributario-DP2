@@ -132,9 +132,14 @@ La configuración vive en `/configuracion/recordatorios` (menú **Recordatorios*
 guarda en el backend (`GET/PUT /api/recordatorios-vencimiento/configuracion`), con registro en la auditoría.
 Permite elegir entre 1 y 10 días de anticipación (5 por defecto) y procesar los recordatorios del día.
 
+El resultado del envío separa **Enviados**, **Registrados**, **Sin correo**, **Desactivados**, **Ya notificados**
+y **Fallidos**. Si el backend responde `sinServidorCorreo`, la pantalla avisa que los mensajes quedaron
+registrados y no se enviaron por Internet. Los contribuyentes que desactivan el recordatorio en la app móvil
+(P12) se contabilizan en **Desactivados** y no reciben el correo.
+
 En `/contribuyentes`, pestaña **Cobranza**, **Ver etapa** muestra el recordatorio de la obligación
 (`GET /api/recordatorios-vencimiento/obligaciones/{id}`): estado, fecha de envío o programación, anticipación
-y correo destino.
+y correo destino. Si el contribuyente desactivó el aviso, el estado es **Desactivado por el contribuyente**.
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
