@@ -32,4 +32,15 @@ public interface CorrespondenciaOrigenRepository extends JpaRepository<Correspon
             """)
     List<CorrespondenciaOrigen> buscarPorClave(@Param("claveOrigen") String claveOrigen,
             @Param("tipoEntidad") TipoEntidad tipoEntidad, @Param("sistemaOrigen") String sistemaOrigen);
+
+    /* HU045: código de origen -> seudónimo, para resolver el segmento publicado de cada contribuyente. */
+    @Query("""
+            select c from CorrespondenciaOrigen c
+              join fetch c.entidadMaestra e
+            where c.sistemaOrigen = :sistemaOrigen
+              and e.tipoEntidad = :tipoEntidad
+              and c.claveOrigen in :claves
+            """)
+    List<CorrespondenciaOrigen> buscarPorClaves(@Param("claves") Collection<String> claves,
+            @Param("tipoEntidad") TipoEntidad tipoEntidad, @Param("sistemaOrigen") String sistemaOrigen);
 }

@@ -64,7 +64,7 @@ public class SeguridadWebConfig {
                         .requestMatchers("/api/reporteria/**").hasAuthority("REPORTES:CONSULTAR")
                         .requestMatchers("/api/resumenes-ejecutivos/**")
                                 .hasAnyAuthority("INDICADORES:CONSULTAR", "REPORTES:CONSULTAR")
-                        .requestMatchers("/api/admin/restricciones-reportes/**").hasAuthority("ROLES:CAMBIAR")
+                        .requestMatchers("/api/admin/restricciones-reportes/**").hasAuthority("REPORTES:CONFIGURAR")
                         .requestMatchers(HttpMethod.POST, "/api/admin/usuarios").hasAuthority("USUARIOS:CREAR")
                         .requestMatchers(HttpMethod.GET, "/api/admin/usuarios").hasAuthority("USUARIOS:LISTAR")
                         .requestMatchers(HttpMethod.GET, "/api/admin/roles").hasAuthority("ROLES:LISTAR")

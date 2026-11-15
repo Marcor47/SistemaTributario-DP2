@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.IntPredicate;
 import java.util.function.IntToLongFunction;
 import java.util.stream.IntStream;
@@ -16,6 +17,8 @@ import pe.municipalidad.tributario.common.DatoInvalidoException;
 import pe.municipalidad.tributario.indicador.AlcanceIndicador;
 import pe.municipalidad.tributario.indicador.MetaIndicador;
 import pe.municipalidad.tributario.indicador.MetaIndicadorRepository;
+import pe.municipalidad.tributario.reporte.DimensionRestringida;
+import pe.municipalidad.tributario.reporte.TipoReporte;
 import pe.municipalidad.tributario.reporteria.CatalogoReporteriaRespuesta.Opcion;
 import pe.municipalidad.tributario.reporteria.CuboReporteria.Agregado;
 import pe.municipalidad.tributario.reporteria.CuboReporteria.Carga;
@@ -36,10 +39,12 @@ public class ReporteriaService {
 
     private final CuboReporteria cubo;
     private final MetaIndicadorRepository metas;
+    private final AccesoReporteria acceso;
 
-    public ReporteriaService(CuboReporteria cubo, MetaIndicadorRepository metas) {
+    public ReporteriaService(CuboReporteria cubo, MetaIndicadorRepository metas, AccesoReporteria acceso) {
         this.cubo = cubo;
         this.metas = metas;
+        this.acceso = acceso;
     }
 
     public CatalogoReporteriaRespuesta catalogo() {
@@ -50,8 +55,25 @@ public class ReporteriaService {
                 .map(tributo -> new Opcion(tributo.name(), tributo.getDescripcion())).toList();
         List<Opcion> canales = CuboReporteria.CANALES.stream()
                 .map(canal -> new Opcion(canal, "EN_LINEA".equals(canal) ? "En línea" : "Ventanilla")).toList();
+        var reglas = acceso.actuales();
+        Set<String> zonasOcultas = reglas.stream()
+                .filter(regla -> regla.dimension() == DimensionRestringida.ZONA)
+                .map(AccesoReporteria.Regla::valor).collect(java.util.stream.Collectors.toSet());
+        Set<String> segmentosOcultos = reglas.stream()
+                .filter(regla -> regla.dimension() == DimensionRestringida.SEGMENTO)
+                .map(AccesoReporteria.Regla::valor).collect(java.util.stream.Collectors.toSet());
+        Set<TipoReporte> reportesOcultos = reglas.stream()
+                .filter(regla -> regla.dimension() == DimensionRestringida.REPORTE)
+                .map(AccesoReporteria.Regla::reporte).collect(java.util.stream.Collectors.toSet());
+        List<String> zonasPermitidas = zonas.stream().map(Opcion::codigo)
+                .filter(zona -> !zonasOcultas.contains(zona)).toList();
+        List<String> segmentosPermitidos = carga.segmentos().stream()
+                .filter(segmento -> !segmentosOcultos.contains(segmento)).toList();
+        List<TipoReporte> reportesPermitidos = java.util.Arrays.stream(TipoReporte.values())
+                .filter(tipo -> !reportesOcultos.contains(tipo)).toList();
         return new CatalogoReporteriaRespuesta(carga.fechaCorte(), carga.primerMes().toString(), carga.umbralPrico(),
-                zonas, tributos, carga.segmentos(), carga.usos(), canales);
+                zonas, tributos, carga.segmentos(), carga.usos(), canales, zonasPermitidas, segmentosPermitidos,
+                reportesPermitidos);
     }
 
     public DatosReporteriaRespuesta datos(Filtro filtro, Integer destacado) {

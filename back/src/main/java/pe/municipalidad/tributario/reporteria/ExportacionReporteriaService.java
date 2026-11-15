@@ -77,6 +77,10 @@ public class ExportacionReporteriaService {
         }
         if (vista.consulta() == null) throw new DatoInvalidoException("CONSULTA_REQUERIDA",
                 "Actualice la pantalla para exportar los datos autorizados.");
+        rechazarRestriccion(reglas, tipo, DimensionRestringida.ZONA, vista.consulta().zona(),
+                "ZONA_RESTRINGIDA");
+        rechazarRestriccion(reglas, tipo, DimensionRestringida.SEGMENTO, vista.consulta().segmento(),
+                "SEGMENTO_RESTRINGIDO");
         var datos = reporteria.datos(vista.consulta().filtro(), null);
         var filas = datos.top().getOrDefault(vista.pestana(), List.of()).stream()
                 .map(f -> List.<Object>of(f.codigo(), f.nombre(), f.emitido(), f.cobrado(), f.deuda())).toList();
@@ -99,6 +103,18 @@ public class ExportacionReporteriaService {
         return new ExportarVistaPeticion(vista.pestana(), "Vista autorizada - " + vista.pestana(),
                 cubo.carga().fechaCorte().toString(), vista.consulta().toString(), null, null, indicadores,
                 List.of(), ranking, vista.consulta());
+    }
+
+    private static void rechazarRestriccion(List<AccesoReporteria.Regla> reglas, TipoReporte tipo,
+            DimensionRestringida dimension, String valor, String codigo) {
+        if (valor == null) return;
+        boolean restringida = reglas.stream()
+                .anyMatch(regla -> (tipo == null || regla.reporte() == tipo)
+                        && regla.dimension() == dimension && regla.valor() != null
+                        && regla.valor().equalsIgnoreCase(valor));
+        if (restringida) {
+            throw new AccesoDenegadoException(codigo, "El valor solicitado está restringido para su rol.");
+        }
     }
 
     private static String monto(double valor) { return String.format(Locale.ROOT, "%.2f", valor); }

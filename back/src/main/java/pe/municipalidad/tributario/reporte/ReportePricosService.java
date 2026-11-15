@@ -15,12 +15,11 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import pe.municipalidad.tributario.analitica.HechoCobranza;
 import pe.municipalidad.tributario.analitica.HechoCobranzaRepository;
+import pe.municipalidad.tributario.common.AccesoDenegadoException;
 import pe.municipalidad.tributario.common.NoAutenticadoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
@@ -145,13 +144,20 @@ public class ReportePricosService {
         return new ReportePricosRespuesta(lote.getIdLote(), fechaCorte, criterio, limite, candidatos.size(), filas);
     }
 
-    /* RF-060: un rol con el reporte completo restringido no puede generarlo. */
+    /*
+     * RF-060: el PRICOS especializado no puede aplicar restricciones de zona o segmento antes de reidentificar
+     * el ranking sin alterar el top; se bloquea en lugar de devolver datos sin filtrar.
+     */
     private void exigirAcceso(Usuario usuario) {
         for (Rol rol : usuario.getRoles()) {
             boolean restringido = restriccionReporteRepository.findByRolAndTipoReporte(rol, TipoReporte.PRICOS)
-                    .stream().anyMatch(restriccion -> !restriccion.isPermitido());
+                    .stream().anyMatch(restriccion -> !restriccion.isPermitido()
+                            && (restriccion.getDimension() == DimensionRestringida.REPORTE
+                                || restriccion.getDimension() == DimensionRestringida.ZONA
+                                || restriccion.getDimension() == DimensionRestringida.SEGMENTO));
             if (restringido) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tiene permiso para este reporte.");
+                throw new AccesoDenegadoException("REPORTE_RESTRINGIDO",
+                        "El reporte PRICOS no está disponible con restricciones de zona o segmento.");
             }
         }
     }

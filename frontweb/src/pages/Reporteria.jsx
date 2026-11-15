@@ -124,14 +124,15 @@ function Plataforma({ modelo }) {
   // HU030: el mapa de segmentos es una pestaña aparte; no usa los filtros ni se guarda en las vistas.
   const [parametros, setParametros] = useSearchParams()
   const modulosVisibles = PESTANAS_MODULO.filter((p) => !p.permiso || sesion?.permisos?.includes(p.permiso))
+  const pestanasBase = PESTANAS.filter((p) => !p.reporte || modelo.reportesPermitidos.includes(p.reporte))
   const [vistaModulo, setVistaModulo] = useState(() => modulosVisibles.find((p) => p.id === parametros.get('pestana'))?.id ?? null)
   const moduloActivo = modulosVisibles.find((p) => p.id === vistaModulo) ?? null
   const vistaMapa = Boolean(moduloActivo)
-  const pestanasVisibles = [...PESTANAS, ...modulosVisibles]
+  const pestanasVisibles = [...pestanasBase, ...modulosVisibles]
   const [estado, setEstado] = useState(() => {
     const inicial = estadoInicial(modelo)
     const solicitada = parametros.get('pestana')
-    return PESTANAS.some((p) => p.id === solicitada) ? { ...inicial, pestana: solicitada } : inicial
+    return pestanasBase.some((p) => p.id === solicitada) ? { ...inicial, pestana: solicitada } : inicial
   })
   const [seleccion, setSeleccion] = useState(null)
   const [respuesta, setRespuesta] = useState({ clave: null, A: null, S: null, R: null, error: null })
@@ -153,6 +154,25 @@ function Plataforma({ modelo }) {
 
   const { pestana, filtros, fijada } = estado
   const periodo = modelo.periodos[filtros.periodo] ?? modelo.periodos[modelo.periodoInicial]
+  const hayRestricciones = modelo.reportesPermitidos.length < 3
+    || modelo.zonasPermitidas.length < modelo.zonas.length
+    || modelo.segmentosPermitidos.length < modelo.segmentos.length
+
+  /* HU045: una pestaña o un filtro restringido no debe quedar seleccionado tras cambiar de rol. */
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const activa = PESTANAS.find((p) => p.id === pestana)
+    if (activa?.reporte && !modelo.reportesPermitidos.includes(activa.reporte)) {
+      setEstado((actual) => ({ ...actual, pestana: 'resumen' }))
+    }
+    if (filtros.zona && !modelo.zonasPermitidas.includes(filtros.zona)) {
+      setEstado((actual) => ({ ...actual, filtros: { ...actual.filtros, zona: '' } }))
+    }
+    if (filtros.segmento && !modelo.segmentosPermitidos.includes(filtros.segmento)) {
+      setEstado((actual) => ({ ...actual, filtros: { ...actual.filtros, segmento: '' } }))
+    }
+  }, [pestana, filtros.zona, filtros.segmento, modelo])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const avisar = useCallback((texto) => {
     const id = siguienteAviso.current++
@@ -400,7 +420,7 @@ function Plataforma({ modelo }) {
 
   return (
     <div className="reporteria" aria-busy={cargando}>
-      <AvisoAccesoReportes />
+      <AvisoAccesoReportes restringido={hayRestricciones} />
       <div className="rep-acciones">
         <button className="btn" type="button" onClick={() => setGuardando(true)}><IconoReporte nombre="guardar" />Guardar vista</button>
         <div className="rep-desplegable" ref={contenedorVistas}>
@@ -465,7 +485,8 @@ function Plataforma({ modelo }) {
         </Filtro>
         <Filtro id="rep-zona" etiqueta="Zona" valor={filtros.zona} cambiado={Boolean(filtros.zona)} onCambiar={(v) => cambiarFiltro('zona', v)}>
           <option value="">Todas las zonas</option>
-          {modelo.zonas.map((z) => <option key={z.codigo} value={z.codigo}>{z.nombre}</option>)}
+          {modelo.zonas.filter((z) => modelo.zonasPermitidas.includes(z.codigo))
+            .map((z) => <option key={z.codigo} value={z.codigo}>{z.nombre}</option>)}
         </Filtro>
         <Filtro id="rep-tributo" etiqueta="Tipo de tributo" valor={filtros.tributo} cambiado={Boolean(filtros.tributo)} onCambiar={(v) => cambiarFiltro('tributo', v)}>
           <option value="">Todos los tributos</option>
@@ -473,7 +494,8 @@ function Plataforma({ modelo }) {
         </Filtro>
         <Filtro id="rep-segmento" etiqueta="Segmento" valor={filtros.segmento} cambiado={Boolean(filtros.segmento)} onCambiar={(v) => cambiarFiltro('segmento', v)}>
           <option value="">Todos los segmentos</option>
-          {modelo.segmentos.map((s) => <option key={s} value={s}>{s}</option>)}
+          {modelo.segmentos.filter((s) => modelo.segmentosPermitidos.includes(s))
+            .map((s) => <option key={s} value={s}>{s}</option>)}
         </Filtro>
         <button className="btn" type="button" onClick={restablecer}>Restablecer filtros</button>
         <button

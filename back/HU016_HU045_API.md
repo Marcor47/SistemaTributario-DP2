@@ -32,29 +32,43 @@ la confirmación requerirá soporte de idempotencia o conciliación del proveedo
 
 ## HU045: restricciones del catálogo de reportes
 
-Los endpoints siguientes requieren sesión de administrador y CSRF para cambios:
+Los endpoints siguientes requieren el permiso `REPORTES:CONFIGURAR` (el rol Administrador lo recibe
+por la migración V56) y CSRF para cambios:
 
 - `GET /api/admin/restricciones-reportes`: lista las reglas.
-- `GET /api/admin/restricciones-reportes/opciones`: zonas, roles, reportes y dimensiones admitidas.
-- `POST /api/admin/restricciones-reportes`: crea una denegación de reporte completo o de zona.
+- `GET /api/admin/restricciones-reportes/opciones`: zonas, segmentos publicados, roles con
+  `REPORTES:CONSULTAR`, reportes y dimensiones admitidas. Los demás roles no pueden consultar
+  reportes y no aparecen en la configuración.
+- `POST /api/admin/restricciones-reportes`: crea una denegación.
+- `PUT /api/admin/restricciones-reportes`: reemplaza de forma transaccional las reglas de los roles
+  incluidas en `{ "roles": { "GERENCIA": [ ... ] } }`; un rol con lista vacía queda sin restricciones.
 - `DELETE /api/admin/restricciones-reportes/{id}`: elimina una regla.
 
-Ejemplo: `{ "rol": "GERENCIA", "tipoReporte": "MOROSOS", "dimension": "ZONA", "valor": "Maranga" }`.
-Para restringir el reporte completo, usa `dimension: "REPORTE"` sin `valor`. La generación y
-exportación del catálogo ya consultan estas reglas. El PRICOS especializado bloquea la consulta
-si hay una restricción de zona que no puede aplicar, en vez de devolver datos sin filtrar.
+La configuración es una **denylist**: `permitido=false` oculta el reporte, la zona o el segmento; la
+ausencia de regla permite el acceso. Las dimensiones son `REPORTE`, `ZONA` y `SEGMENTO`; no hay
+restricciones por columnas. Ejemplo:
 
-Las zonas se validan contra SAMNET y se guardan con su nombre canónico. Una denegación explícita
-prevalece sobre los permisos de los otros roles del mismo usuario. La configuración nueva por
-segmento se rechaza: el catálogo aún no dispone de una asociación fiable por contribuyente.
+```json
+{ "rol": "GERENCIA", "tipoReporte": "MOROSOS", "dimension": "SEGMENTO", "valor": "Riesgo alto" }
+```
 
-La plataforma `/api/reporteria` aplica las restricciones antes de calcular cifras, rankings y
-respuestas del asistente. Excluye el contribuyente completo si alguna de sus cuotas exigibles
-pertenece a una zona restringida de un reporte al que corresponde (morosos, PRICOS o buenos
-pagadores); un filtro de pantalla no puede reclasificarlo para eludir la regla. La carga compartida
-en memoria conserva los datos originales, y las reglas se consultan de nuevo en cada petición.
+Para ocultar el reporte completo se usa `dimension: "REPORTE"` sin `valor`. Las zonas se validan
+contra SAMNET y los segmentos contra la **última segmentación publicada**
+(`analitica.segmento` + `asignacion_segmento`); ambos se guardan con su nombre canónico. Si un
+contribuyente no tiene segmento publicado, se excluye cuando existe una regla de segmento, para no
+revelar datos que no se pueden clasificar. Una denegación prevalece sobre los permisos de los otros
+roles del usuario. El rol Administrador no se puede restringir desde esta configuración.
+
+La generación y exportación del catálogo aplican estas reglas. El PRICOS especializado bloquea la
+consulta si hay una restricción de zona o segmento que no puede aplicar antes de reidentificar el
+ranking, en vez de devolver datos sin filtrar. La plataforma `/api/reporteria` aplica las
+restricciones antes de calcular cifras, rankings y respuestas del asistente; su catálogo expone
+`zonasPermitidas`, `segmentosPermitidos` y `reportesPermitidos` sin alterar las listas completas que
+alinean los arreglos de datos. La caché del asistente incluye una huella de las reglas del usuario
+para no reutilizar una respuesta entre usuarios con distinto acceso.
 
 Para usuarios con restricciones, la exportación exige `consulta: { desde, hasta, zona?, tributo?, segmento? }`
 y reconstruye indicadores y ranking desde los datos autorizados del servidor. Se omiten imágenes,
 comparaciones y cifras aportadas por el navegador en ese caso. Los usuarios sin restricciones
-conservan la exportación visual completa. La pantalla de administración corresponde al frontend del equipo.
+conservan la exportación visual completa. La pantalla de administración es
+`frontweb/src/pages/ConfiguracionAccesoReportes.jsx`.

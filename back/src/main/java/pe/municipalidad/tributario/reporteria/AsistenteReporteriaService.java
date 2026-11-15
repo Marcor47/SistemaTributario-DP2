@@ -13,10 +13,12 @@ import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -79,16 +81,18 @@ public class AsistenteReporteriaService {
     private final ModeloLenguajeCliente modelo;
     private final CuboReporteria cubo;
     private final ReporteriaService reporteria;
+    private final AccesoReporteria acceso;
     private final JsonMapper json;
     private final JdbcTemplate jdbc;
     private final Clock reloj;
     private final String guia;
 
     public AsistenteReporteriaService(ModeloLenguajeCliente modelo, CuboReporteria cubo, ReporteriaService reporteria,
-            JsonMapper json, JdbcTemplate jdbc, Clock reloj) {
+            AccesoReporteria acceso, JsonMapper json, JdbcTemplate jdbc, Clock reloj) {
         this.modelo = modelo;
         this.cubo = cubo;
         this.reporteria = reporteria;
+        this.acceso = acceso;
         this.json = json;
         this.jdbc = jdbc;
         this.reloj = reloj;
@@ -112,7 +116,7 @@ public class AsistenteReporteriaService {
         long inicio = System.nanoTime();
         Carga carga = cubo.carga();
         String contexto = contexto(peticion);
-        String clave = claveCache(peticion.pregunta(), contexto, carga.version());
+        String clave = claveCache(peticion.pregunta(), contexto, carga.version(), huellaRestricciones());
         RespuestaAsistente guardada = deCache(clave);
         if (guardada != null) {
             return new RespuestaAsistente(guardada.respuesta(), guardada.consulta(), guardada.consultaCorregida(),
@@ -126,17 +130,32 @@ public class AsistenteReporteriaService {
         return respuesta;
     }
 
-    /* La misma pregunta (sin distinguir mayúsculas, tildes ni espacios) con los mismos filtros y la misma carga. */
-    private static String claveCache(String pregunta, String contexto, String version) {
+    /*
+     * La misma pregunta (sin distinguir mayúsculas, tildes ni espacios) con los mismos filtros, la misma carga
+     * y las mismas restricciones del usuario. Sin la huella, una respuesta sin restricciones podría reutilizarse
+     * para un usuario restringido.
+     */
+    private static String claveCache(String pregunta, String contexto, String version, String restricciones) {
         String normalizada = Normalizer.normalize(pregunta.strip().toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "").replaceAll("\\s+", " ")
                 .replaceAll("[¿?¡!.]+$", "").replaceAll("^[¿¡]+", "");
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
-                    .digest((normalizada + "|" + contexto + "|" + version).getBytes(StandardCharsets.UTF_8)));
+                    .digest((normalizada + "|" + contexto + "|" + version + "|" + restricciones)
+                            .getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException ex) {
             throw new IllegalStateException(ex);
         }
+    }
+
+    private String huellaRestricciones() {
+        return acceso.actuales().stream()
+                .sorted(Comparator.comparing((AccesoReporteria.Regla regla) -> regla.reporte().name())
+                        .thenComparing(regla -> regla.dimension().name())
+                        .thenComparing(regla -> regla.valor() == null ? "" : regla.valor()))
+                .map(regla -> regla.reporte() + ":" + regla.dimension() + ":"
+                        + (regla.valor() == null ? "" : regla.valor()))
+                .collect(Collectors.joining("|"));
     }
 
     private RespuestaAsistente deCache(String clave) {
@@ -168,7 +187,7 @@ public class AsistenteReporteriaService {
 
     private RespuestaAsistente consultarModelo(PreguntaAsistentePeticion peticion, Carga carga, String contexto,
             long inicio) {
-        CatalogoReporteriaRespuesta catalogo = reporteria.catalogo();
+        CatalogoReporteriaRespuesta catalogo = permitido(reporteria.catalogo());
 
         List<Mensaje> conversacion = new ArrayList<>(List.of(
                 new Mensaje("system", guia + "\n" + catalogoComoTexto(catalogo, carga)),
@@ -257,6 +276,16 @@ public class AsistenteReporteriaService {
             }
         }
         return graficos;
+    }
+
+    /* El modelo solo debe proponer valores permitidos; el catálogo completo se conserva para alinear los datos. */
+    private static CatalogoReporteriaRespuesta permitido(CatalogoReporteriaRespuesta c) {
+        Set<String> zonas = new HashSet<>(c.zonasPermitidas());
+        Set<String> segmentos = new HashSet<>(c.segmentosPermitidos());
+        return new CatalogoReporteriaRespuesta(c.fechaCorte(), c.primerMes(), c.umbralPrico(),
+                c.zonas().stream().filter(opcion -> zonas.contains(opcion.codigo())).toList(),
+                c.tributos(), c.segmentos().stream().filter(segmentos::contains).toList(), c.usos(), c.canales(),
+                c.zonasPermitidas(), c.segmentosPermitidos(), c.reportesPermitidos());
     }
 
     private static String catalogoComoTexto(CatalogoReporteriaRespuesta c, Carga carga) {

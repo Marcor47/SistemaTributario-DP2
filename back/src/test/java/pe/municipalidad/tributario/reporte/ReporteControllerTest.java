@@ -5,8 +5,11 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -51,6 +55,8 @@ class ReporteControllerTest {
 
     @MockitoSpyBean
     private SamnetGateway samnet;
+    @MockitoSpyBean
+    private SegmentoAccesoService segmentos;
 
     @Test
     void elCatalogoTraeLosTresReportesConSusFiltros() throws Exception {
@@ -338,11 +344,15 @@ class ReporteControllerTest {
     }
 
     @Test
-    void conUnRolSinPermisoDevuelve403() throws Exception {
-        mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.VENTANILLA)))
-                .andExpect(status().isForbidden());
-        mvc.perform(get("/api/reportes").session(sesion(NombreRol.ADMINISTRADOR)))
-                .andExpect(status().isForbidden());
+    void losRolesSinAccesoAReportesNoPuedenConsultarlos() throws Exception {
+        for (NombreRol rol : List.of(NombreRol.RESPONSABLE_DATOS, NombreRol.VENTANILLA,
+                NombreRol.TERMINALISTA, NombreRol.GESTOR_RECLAMOS, NombreRol.ADMINISTRADOR)) {
+            MockHttpSession sesion = sesionPrueba(rol);
+            mvc.perform(get("/api/reportes/MOROSOS").session(sesion))
+                    .andExpect(status().isForbidden());
+            mvc.perform(get("/api/reportes").session(sesion))
+                    .andExpect(status().isForbidden());
+        }
     }
 
     @Test
@@ -353,6 +363,19 @@ class ReporteControllerTest {
         mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.GERENCIA)))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.codigo").value("SAMNET_NO_DISPONIBLE"));
+    }
+
+    @Test
+    void laRestriccionPorSegmentoDelRolQuitaEsasFilas() throws Exception {
+        doReturn(Map.of(
+                "021390", "Visible", "080245", "Oculto", "058934", "Visible", "061177", "Visible",
+                "045067", "Visible")).when(segmentos).porCodigo(any(), any());
+        restringir(NombreRol.GERENCIA, TipoReporte.MOROSOS, DimensionRestringida.SEGMENTO, "Oculto");
+
+        mvc.perform(get("/api/reportes/MOROSOS").session(sesion(NombreRol.GERENCIA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.filas[*].codigo", hasItem("021390")))
+                .andExpect(jsonPath("$.filas[*].codigo", not(hasItem("080245"))));
     }
 
     private void restringir(NombreRol rol, TipoReporte tipo, DimensionRestringida dimension, String valor) {
@@ -376,6 +399,15 @@ class ReporteControllerTest {
     private MockHttpSession sesion(NombreRol rol) {
         String nombre = "usuario_" + rol.name().toLowerCase();
         Usuario usuario = usuarios.save(new Usuario(nombre, "Usuario " + rol, nombre + "@example.org",
+                claves.hashear("clave-segura"), roles.findByNombre(rol).orElseThrow(), LocalDateTime.now()));
+        MockHttpSession sesion = new MockHttpSession();
+        sesion.setAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO, usuario.getIdUsuario());
+        return sesion;
+    }
+
+    private MockHttpSession sesionPrueba(NombreRol rol) {
+        String nombre = "usuario_prueba_" + rol.name().toLowerCase();
+        Usuario usuario = usuarios.save(new Usuario(nombre, "Usuario de prueba " + rol, nombre + "@example.org",
                 claves.hashear("clave-segura"), roles.findByNombre(rol).orElseThrow(), LocalDateTime.now()));
         MockHttpSession sesion = new MockHttpSession();
         sesion.setAttribute(SesionInterna.ATRIBUTO_USUARIO_INTERNO, usuario.getIdUsuario());

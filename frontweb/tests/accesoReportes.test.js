@@ -5,6 +5,7 @@ import { obtenerTokenCsrf } from '../src/services/api.js'
 import {
   crearRestriccionReporte,
   eliminarRestriccionReporte,
+  guardarRestriccionesReportes,
   listarRestriccionesReportes,
   obtenerOpcionesRestricciones,
 } from '../src/services/accesoReportesService.js'
@@ -45,6 +46,26 @@ test('HU045: crear una restricción de reporte completo no envía zona y usa CSR
   assert.deepEqual(JSON.parse(llamadas[0].opciones.body), { rol: 'GERENCIA', tipoReporte: 'MOROSOS', dimension: 'REPORTE', valor: null })
 })
 
+test('HU045: la configuración completa se guarda en una sola operación con CSRF', async (t) => {
+  const llamadas = []
+  t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
+    llamadas.push({ url: String(url), opciones })
+    return json([{ id: 3, rol: 'GERENCIA', tipoReporte: 'MOROSOS', dimension: 'ZONA', valor: 'Pando', permitido: false }])
+  })
+  await guardarRestriccionesReportes({
+    GERENCIA: [{ tipoReporte: 'MOROSOS', dimension: 'ZONA', valor: 'Pando' }],
+    ANALISTA_RENTAS: [],
+  })
+  assert.equal(llamadas[0].opciones.method, 'PUT')
+  assert.equal(llamadas[0].opciones.headers['X-XSRF-TOKEN'], 'token-prueba')
+  assert.deepEqual(JSON.parse(llamadas[0].opciones.body), {
+    roles: {
+      GERENCIA: [{ tipoReporte: 'MOROSOS', dimension: 'ZONA', valor: 'Pando' }],
+      ANALISTA_RENTAS: [],
+    },
+  })
+})
+
 test('HU045: quitar una restricción la elimina por su identificador', async (t) => {
   const llamadas = []
   t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
@@ -60,7 +81,11 @@ test('HU045: la pantalla, el menú y el aviso quedan conectados y sin datos en e
   const modulos = readFileSync(new URL('../src/utils/modulos.jsx', import.meta.url), 'utf8')
   const configuracion = readFileSync(new URL('../src/pages/ConfiguracionAccesoReportes.jsx', import.meta.url), 'utf8')
   assert.match(app, /path="\/configuracion\/reportes"/)
+  assert.match(app, /REPORTES:CONFIGURAR/)
   assert.match(modulos, /ruta: '\/configuracion\/reportes'/)
-  assert.match(configuracion, /crearRestriccionReporte/)
+  assert.match(modulos, /permiso: 'REPORTES:CONFIGURAR'/)
+  assert.match(configuracion, /guardarRestriccionesReportes/)
+  assert.match(configuracion, /Solo se muestran los roles con permiso/)
+  assert.doesNotMatch(configuracion, /AvisoAccesoReportes/)
   assert.doesNotMatch(configuracion, /localStorage|simulad/i)
 })

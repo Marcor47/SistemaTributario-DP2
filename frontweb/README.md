@@ -126,6 +126,19 @@ el pago. El ciudadano recibe el PDF en su buzón.
 El frontend usa `VITE_API_URL` o `http://localhost:8080/api` por defecto. Para entrar con la base
 PostgreSQL se necesita una credencial de contribuyente en `samnet.credencial_web`.
 
+## Acceso y alcance de reportes (HU045)
+
+La pantalla `/configuracion/reportes` (permiso `REPORTES:CONFIGURAR`) permite ocultar, por rol, un
+reporte completo, zonas o segmentos de la última segmentación publicada. Es una denylist: lo no
+marcado queda disponible. Solo se listan los roles con `REPORTES:CONSULTAR`; los demás roles no
+pueden consultar reportes y no necesitan configuración. La configuración se guarda en una sola
+operación `PUT /api/admin/restricciones-reportes` y el backend la aplica al consultar, exportar y
+usar el asistente de la plataforma analítica. Las columnas no forman parte de esta historia.
+
+En `/reporteria` se ocultan las pestañas de reportes restringidos y los filtros solo ofrecen zonas y
+segmentos permitidos. Si una exportación incluye un valor restringido, el backend responde con
+`ZONA_RESTRINGIDA` o `SEGMENTO_RESTRINGIDO`.
+
 ## Recordatorio de vencimiento (HU016)
 
 La configuración vive en `/configuracion/recordatorios` (menú **Recordatorios**, rol Administrador) y se

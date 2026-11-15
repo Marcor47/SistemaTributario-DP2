@@ -3,11 +3,12 @@ import { etiquetaRol } from '../utils/roles.js'
 import './AvisoAccesoReportes.css'
 
 /*
- * HU045 (RF-060): aviso visible en las pantallas de reporte. La aplicación efectiva de las
- * restricciones corresponde al backend; por ahora el aviso comunica el alcance asignado.
+ * HU045 (RF-060): aviso para el usuario que consulta la plataforma analítica. No se usa en la
+ * pantalla de administración, que solo configura reglas para otros roles.
  */
-export default function AvisoAccesoReportes({ rol }) {
+export default function AvisoAccesoReportes({ rol, restringido = true }) {
   const { sesion } = useSesionInterna()
+  if (!restringido) return null
   const rolVisible = rol ?? sesion?.rol
 
   return (
@@ -17,9 +18,10 @@ export default function AvisoAccesoReportes({ rol }) {
         <path d="m9 12 2 2 4-4" />
       </svg>
       <div>
-        <strong>Información restringida por rol.</strong>{' '}
-        Solo se muestra la información asignada {rolVisible ? <>al rol <strong>{etiquetaRol(rolVisible)}</strong></> : 'a tu rol'}.
-        Si consideras que falta información o que hay un error, comunícate con el administrador del sistema.
+        <strong>Información limitada por tu rol.</strong>{' '}
+        Tu rol {rolVisible ? <strong>{etiquetaRol(rolVisible)}</strong> : 'asignado'} tiene restricciones de acceso
+        a la información. Si consideras que falta información o que hay un error, comunícate con el administrador
+        del sistema.
       </div>
     </aside>
   )

@@ -62,4 +62,29 @@ public class ReidentificacionService {
         }
         return claves;
     }
+
+    /*
+     * HU045: devuelve clave de origen -> seudónimo. Solo se usa para resolver metadatos analíticos
+     * (segmento publicado) sin exponer la identidad; cada correspondencia queda auditada.
+     */
+    @Transactional
+    public Map<String, String> seudonimosDe(Collection<String> claves, TipoEntidad tipoEntidad, Usuario usuario) {
+        if (claves == null || claves.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> seudonimos = new LinkedHashMap<>();
+        List<CorrespondenciaOrigen> filas = correspondencias.buscarPorClaves(claves, tipoEntidad, SISTEMA_ORIGEN);
+        for (CorrespondenciaOrigen fila : filas) {
+            String seudonimo = fila.getEntidadMaestra().getSeudonimo();
+            if (seudonimos.putIfAbsent(fila.getClaveOrigen(), seudonimo) == null) {
+                auditorias.save(new RegistroAuditoria(usuario, "REIDENTIFICAR", "EntidadMaestra", null,
+                        tipoEntidad + ":" + seudonimo, LocalDateTime.now(reloj)));
+            }
+        }
+        if (seudonimos.size() < claves.size()) {
+            LOG.warn("No se pudieron reidentificar {} de {} claves de {}", claves.size() - seudonimos.size(),
+                    claves.size(), tipoEntidad);
+        }
+        return seudonimos;
+    }
 }

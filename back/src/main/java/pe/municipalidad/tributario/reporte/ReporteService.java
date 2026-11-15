@@ -84,12 +84,14 @@ public class ReporteService {
     private final LoteETLRepository lotes;
     private final CarteraEtlService carteraEtl;
     private final ReportePricosService reportePricos;
+    private final SegmentoAccesoService segmentos;
 
     public ReporteService(SamnetGateway samnet, RestriccionReporteRepository restricciones,
             SolicitudReporteRepository solicitudes, VistaReporteRepository vistas,
             ReporteExportador exportador, UsuarioRepository usuarios,
             ParametroConfiguracionRepository parametros, JsonMapper json, Clock reloj,
-            LoteETLRepository lotes, CarteraEtlService carteraEtl, ReportePricosService reportePricos) {
+            LoteETLRepository lotes, CarteraEtlService carteraEtl, ReportePricosService reportePricos,
+            SegmentoAccesoService segmentos) {
         this.samnet = samnet;
         this.restricciones = restricciones;
         this.solicitudes = solicitudes;
@@ -102,6 +104,7 @@ public class ReporteService {
         this.lotes = lotes;
         this.carteraEtl = carteraEtl;
         this.reportePricos = reportePricos;
+        this.segmentos = segmentos;
     }
 
     /* Catálogo sin los reportes que el rol tiene restringidos por completo. */
@@ -342,7 +345,7 @@ public class ReporteService {
                         .map(Cartera::codigo)
                         .collect(Collectors.toSet())
                 : null;
-        List<Cartera> carteras = agrupar(datosCartera, aplicados).stream()
+        List<Cartera> carteras = new ArrayList<>(agrupar(datosCartera, aplicados).stream()
                 .filter(cartera -> contribuyentesPuntuales == null
                         || contribuyentesPuntuales.contains(cartera.codigo()))
                 .filter(cartera -> aplicados.zona() == null
@@ -354,7 +357,14 @@ public class ReporteService {
                         || aplicados.tipoDocumento() == cartera.datos().tipoDocumento())
                 .filter(cartera -> tipo != TipoReporte.MOROSOS || aplicados.etapa() == null
                         || aplicados.etapa() == etapaCobranza(cartera))
-                .toList();
+                .toList());
+        if (acceso.tieneRestriccionSegmento()) {
+            Map<String, String> segmentoPorCodigo = segmentos.porCodigo(
+                    carteras.stream().map(Cartera::codigo).collect(Collectors.toSet()), usuario);
+            carteras = carteras.stream()
+                    .filter(cartera -> acceso.puedeVerSegmento(segmentoPorCodigo.get(cartera.codigo())))
+                    .toList();
+        }
 
         ReporteRespuesta<?> reporte = switch (tipo) {
             case MOROSOS -> morosos(carteras, aplicados, fechaCorte);
@@ -1033,6 +1043,18 @@ public class ReporteService {
 
         boolean puedeVerZona(String zona) {
             return permite(DimensionRestringida.ZONA, zona);
+        }
+
+        boolean tieneRestriccionSegmento() {
+            return porRol.stream().flatMap(List::stream)
+                    .anyMatch(regla -> !regla.isPermitido()
+                            && regla.getDimension() == DimensionRestringida.SEGMENTO);
+        }
+
+        /* Sin segmento publicado se excluye cuando existe una regla: no se puede asegurar que no pertenezca al oculto. */
+        boolean puedeVerSegmento(String segmento) {
+            if (segmento == null) return !tieneRestriccionSegmento();
+            return permite(DimensionRestringida.SEGMENTO, segmento);
         }
 
         boolean puedeVerCartera(List<String> zonas) {
