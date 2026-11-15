@@ -36,6 +36,8 @@ import SinAcceso from './pages/SinAcceso.jsx'
 import Buzon from './pages/Buzon.jsx'
 import RutaInternaProtegida from './components/RutaInternaProtegida.jsx'
 import { SesionInternaProvider } from './context/SesionInternaContext.jsx'
+import TransicionLoginProvider from './components/TransicionLogin.jsx'
+import { useTransicionLogin } from './context/transicionLogin.js'
 
 const Reporteria = lazy(() => import('./pages/Reporteria.jsx'))
 
@@ -84,6 +86,7 @@ function LayoutPortal() {
  * Solo muestra los módulos de la sección 'gestion' en el menú lateral.
  */
 function LayoutGestion() {
+  const { activa: entradaLogin } = useTransicionLogin()
   const { pathname } = useLocation()
   const modulo = moduloDeRuta(pathname, 'gestion')
   const esDashboard = pathname.startsWith('/dashboard')
@@ -93,7 +96,7 @@ function LayoutGestion() {
   const toggleMenu = useCallback(() => setMenuVisible((v) => !v), [])
 
   return (
-    <div className={`app${menuVisible ? '' : ' app--sin-menu'}`}>
+    <div className={`app${menuVisible ? '' : ' app--sin-menu'}${entradaLogin ? ' li-entrada' : ''}`}>
       <MenuLateral solo="gestion" visible={menuVisible} onToggle={toggleMenu} />
       <div className="contenido">
         <BarraSuperior
@@ -123,6 +126,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <SesionInternaProvider>
+          <TransicionLoginProvider>
           <Routes>
             <Route path="/" element={<Inicio />} />
             <Route path="/login" element={<Login />} />
@@ -174,6 +178,7 @@ export default function App() {
           <Route path="/gestion/sin-acceso" element={<SinAcceso />} />
         </Route>
           </Routes>
+          </TransicionLoginProvider>
         </SesionInternaProvider>
       </AuthProvider>
     </BrowserRouter>

@@ -4,7 +4,10 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,7 +75,10 @@ public class ConstanciaOperadorService {
         List<SolicitudConstancia> solicitudes = estado == null
                 ? solicitudConstanciaRepository.buscarRecibidasAbiertas(ESTADOS_CERRADOS)
                 : solicitudConstanciaRepository.findByEstadoOrderByFechaSolicitudAsc(estado);
-        return solicitudes.stream().map(solicitud -> respuesta(solicitud, null)).toList();
+        Map<String, Optional<Contribuyente>> titulares = new HashMap<>();
+        return solicitudes.stream().map(solicitud -> respuesta(solicitud, null,
+                titulares.computeIfAbsent(solicitud.getDocumentoContribuyente(), this::buscarTitular)
+                        .orElse(null))).toList();
     }
 
     /* El detalle consulta la deuda actual en SAMNET para que el operador decida con el dato vigente. */
@@ -148,11 +154,22 @@ public class ConstanciaOperadorService {
     }
 
     private SolicitudGestionRespuesta respuesta(SolicitudConstancia solicitud, DeudaConstanciaRespuesta deuda) {
+        return respuesta(solicitud, deuda, buscarTitular(solicitud.getDocumentoContribuyente()).orElse(null));
+    }
+
+    private Optional<Contribuyente> buscarTitular(String documento) {
+        return samnet.buscarContribuyente(documento).stream()
+                .filter(contribuyente -> documento.equals(contribuyente.getNumeroDocumento()))
+                .findFirst();
+    }
+
+    private SolicitudGestionRespuesta respuesta(SolicitudConstancia solicitud, DeudaConstanciaRespuesta deuda,
+            Contribuyente contribuyente) {
         TransaccionPago ordenPago = transaccionPagoRepository
                 .findBySolicitudConstancia_IdSolicitud(solicitud.getIdSolicitud()).orElse(null);
         String numeroConstancia = constanciaRepository.findBySolicitud_IdSolicitud(solicitud.getIdSolicitud())
                 .map(Constancia::getNumeroConstancia).orElse(null);
-        return SolicitudGestionRespuesta.desde(solicitud, ordenPago, numeroConstancia, deuda);
+        return SolicitudGestionRespuesta.desde(solicitud, ordenPago, numeroConstancia, deuda, contribuyente);
     }
 
     private SolicitudConstancia buscar(Long idSolicitud) {

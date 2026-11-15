@@ -4,6 +4,7 @@ import { iniciarSesionInterna } from '../services/authInternaService.js'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import LoginLayout, { AlertaLogin, BotonEnviar, CampoClave } from '../components/LoginLayout.jsx'
 import { rutaInicialGestion } from '../utils/modulos.jsx'
+import { useTransicionLogin } from '../context/transicionLogin.js'
 
 const ACCESO_INTERNO_PRUEBA = { usuario: 'admin.local', password: 'AdminLocalSM#2026' }
 
@@ -11,6 +12,7 @@ export default function LoginInterno() {
   const navegar = useNavigate()
   const ubicacion = useLocation()
   const { sesion, setSesion, cargando } = useSesionInterna()
+  const { iniciar: iniciarTransicion } = useTransicionLogin()
   const idUsuario = useId()
   const idClave = useId()
   const idError = useId()
@@ -32,6 +34,7 @@ export default function LoginInterno() {
     setEnviando(true)
     try {
       const nuevaSesion = await iniciarSesionInterna(usuario.trim(), clave)
+      iniciarTransicion()
       setSesion(nuevaSesion)
       navegar(nuevaSesion.cambioClavePendiente ? '/gestion/cambiar-clave' : ubicacion.state?.from || rutaInicialGestion(nuevaSesion), { replace: true })
     } catch (err) {
@@ -50,6 +53,7 @@ export default function LoginInterno() {
 
   return (
     <LoginLayout
+      institucional
       titulo="Acceso institucional"
       lateralTitulo="Gestión tributaria para el personal municipal."
       lateralTexto="Accede a las funciones autorizadas según el rol asignado a tu cuenta institucional."

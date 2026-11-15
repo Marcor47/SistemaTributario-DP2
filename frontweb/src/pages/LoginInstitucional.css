@@ -1,0 +1,99 @@
+/* Acceso del personal: mantiene los recursos y la estructura compartida del login. */
+.lg--institucional {
+  background: #f7f9fc;
+  min-height: 100svh;
+  --li-ease: cubic-bezier(.22, 1, .36, 1);
+}
+.lg--institucional .lg-lado { animation: li-aparecer 550ms ease-out both; }
+.lg--institucional .lg-lado__foto { object-position: center; }
+.lg--institucional .lg-lado__velo {
+  background: linear-gradient(155deg, rgba(18, 42, 78, .65), rgba(23, 64, 107, .54) 52%, rgba(27, 103, 143, .47));
+}
+.lg--institucional .lg-lado__velo::after {
+  content: ''; position: absolute; inset: -15%;
+  background: radial-gradient(ellipse at 75% 20%, rgba(25, 195, 243, .22), transparent 58%),
+    linear-gradient(175deg, transparent 38%, rgba(15, 38, 70, .62));
+  animation: li-ambiente 22s ease-in-out infinite alternate;
+}
+.lg--institucional .lg-lado__contenido { padding: clamp(30px, 4.5vw, 72px); gap: 64px; min-height: 100svh; box-sizing: border-box; }
+.lg--institucional .lg-lado__logo { gap: 16px; animation: li-revelar 500ms 70ms both; }
+.lg--institucional .lg-lado__logo img {
+  width: 68px; height: 68px; padding: 4px; box-shadow: 0 6px 24px rgba(7, 27, 50, .2);
+  outline: 1px solid rgba(255, 255, 255, .4); outline-offset: 5px;
+}
+.lg--institucional .lg-lado__logo span { font-size: 15px; letter-spacing: .015em; }
+.lg--institucional .lg-lado__logo strong { display: inline-block; margin-top: 4px; font-size: 24px; letter-spacing: -.025em; }
+.lg--institucional .lg-lado h2 {
+  font-size: clamp(32px, 3.6vw, 54px); line-height: 1.13; letter-spacing: -.035em;
+  text-shadow: 0 2px 18px rgba(9, 32, 60, .25); animation: li-revelar 550ms 130ms both;
+}
+.lg--institucional .lg-lado p { line-height: 1.65; font-size: 17px; max-width: 35ch; color: #f0f6ff; animation: li-revelar 550ms 190ms both; }
+.lg--institucional .lg-panel { background: linear-gradient(145deg, #fff, #f5f8fc); padding-block: 40px; }
+.lg--institucional .lg-caja { max-width: 432px; }
+.lg--institucional .lg-volver {
+  margin: 0 0 28px -8px; padding: 0 8px; border-radius: 8px; font-size: 14px;
+  transition: color 180ms, background 180ms; animation: li-revelar 450ms 50ms both;
+}
+.lg--institucional .lg-volver:hover { background: #eaf0f7; text-decoration: none; }
+.lg--institucional .lg-volver svg { transition: transform 180ms; }
+.lg--institucional .lg-volver:hover svg { transform: translateX(-3px); }
+.lg--institucional .lg-caja h1 { font-size: clamp(28px, 3vw, 38px); line-height: 1.17; letter-spacing: -.035em; animation: li-revelar 500ms 100ms both; }
+.lg--institucional .lg-caja__sub { font-size: 16px; line-height: 1.65; margin: 14px 0 30px; animation: li-revelar 500ms 150ms both; }
+.lg--institucional .lg-campo { margin-bottom: 22px; animation: li-revelar 500ms 200ms both; }
+.lg--institucional .lg-campo + .lg-campo { animation-delay: 260ms; }
+.lg--institucional .lg-campo label { font-size: 14px; margin-bottom: 9px; }
+.lg--institucional input[type='text'], .lg--institucional input[type='password'] {
+  min-height: 54px; border-width: 1px; border-color: #b5c3d5; border-radius: 12px;
+  padding-block: 14px; font-size: 16px; box-shadow: 0 1px 2px rgba(23, 64, 107, .03);
+  transition: border-color 200ms, box-shadow 200ms, background-color 200ms;
+}
+.lg--institucional input:hover { border-color: #7b91af; }
+.lg--institucional input:focus { border-color: #35497d; box-shadow: 0 0 0 4px rgba(53, 73, 125, .1); }
+.lg--institucional input[aria-invalid='true'] { border-color: #b42318; background: #fffafa; }
+.lg--institucional .lg-clave__ojo { transition: background 180ms, color 180ms; }
+.lg--institucional .lg-clave__ojo svg { transition: transform 180ms; }
+.lg--institucional .lg-clave__ojo:active svg { transform: scale(.9); }
+.lg--institucional .lg-clave__ojo[aria-pressed='true'] { background: #edf2f8; color: #17406b; }
+.lg--institucional .lg-enviar {
+  min-height: 54px; border-radius: 12px; margin-top: 6px; font-size: 16px;
+  background: linear-gradient(115deg, #35497d, #234875); box-shadow: 0 5px 14px rgba(33, 62, 110, .15);
+  transition: transform 180ms, box-shadow 180ms, background 180ms; animation: li-revelar 500ms 320ms both;
+  animation-fill-mode: backwards;
+}
+.lg--institucional .lg-enviar:hover:not(:disabled) { background: #17406b; box-shadow: 0 7px 20px rgba(33, 62, 110, .23); transform: translateY(-2px); }
+.lg--institucional .lg-enviar:active:not(:disabled) { transform: translateY(0) scale(.99); box-shadow: 0 2px 6px rgba(33, 62, 110, .16); }
+.lg--institucional .lg-alerta { border-color: #efc6c1; border-left: 3px solid #b42318; font-size: 15px; animation: li-revelar 200ms both; }
+.lg--institucional .lg-demo { padding: 14px 16px; background: #faf6ed; border-color: #e8dcc1; font-size: 13px; border-radius: 12px; animation: li-revelar 500ms 360ms both; }
+.lg--institucional .lg-demo__usar { font-size: 13px; border-color: #d0b176; border-radius: 8px; min-height: 40px; transition: background 180ms; }
+.lg--institucional .lg-ayuda { margin-top: 24px; font-size: 14px; line-height: 1.6; animation: li-revelar 500ms 390ms both; }
+.lg--institucional .lg-ayuda a { color: #17406b; font-weight: 700; text-underline-offset: 3px; }
+.lg--institucional .lg-ayuda a:focus-visible { outline: 3px solid #19c3f3; outline-offset: 3px; border-radius: 2px; }
+
+/* La ruta cambia inmediatamente; esta capa visual cruza el cambio sin bloquear eventos. */
+.li-transicion { position: fixed; inset: 0; z-index: 10000; pointer-events: none; background: linear-gradient(115deg, #35497d, #17406b); transform-origin: left center; animation: li-expansion 620ms cubic-bezier(.4, 0, .2, 1) both; }
+.li-entrada .barra-superior { animation: li-revelar 400ms 90ms both; }
+.li-entrada .pagina-cab { animation: li-revelar 400ms 130ms both; }
+.li-entrada .pmain { animation: li-revelar 400ms 170ms both; }
+.li-entrada .gestion-inicio > :nth-child(2) { animation: li-revelar 400ms 190ms both; }
+.li-entrada .gestion-inicio > :nth-child(3) { animation: li-revelar 400ms 210ms both; }
+@keyframes li-revelar { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes li-aparecer { from { opacity: 0; } to { opacity: 1; } }
+@keyframes li-ambiente { from { transform: translate3d(-2%, 0, 0) scale(1); opacity: .8; } to { transform: translate3d(2%, -2%, 0) scale(1.04); opacity: 1; } }
+@keyframes li-expansion { 0% { transform: scaleX(.525); opacity: 1; } 45% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+@media (max-width: 900px) {
+  .lg--institucional .lg-lado { min-height: 0; }
+  .lg--institucional .lg-lado__contenido { min-height: 0; padding: 24px 28px; gap: 24px; }
+  .lg--institucional .lg-lado__logo img { width: 48px; height: 48px; }
+  .lg--institucional .lg-lado__logo strong { font-size: 21px; }
+  .lg--institucional .lg-lado h2 { font-size: 27px; max-width: 28ch; }
+  .lg--institucional .lg-panel { padding: 28px 24px 36px; }
+  .lg--institucional .lg-volver { margin-bottom: 20px; }
+  .li-transicion { transform-origin: center top; animation-name: li-expansion-movil; }
+}
+@keyframes li-expansion-movil { 0% { transform: scaleY(.25); opacity: 1; } 45% { transform: scaleY(1); opacity: 1; } 100% { transform: scaleY(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .lg--institucional *, .lg--institucional *::after, .li-entrada * { animation: none !important; transition: none !important; }
+  .lg--institucional .lg-enviar:hover:not(:disabled), .lg--institucional .lg-volver:hover svg { transform: none; }
+  .li-transicion { animation: li-desvanecer 100ms linear both; }
+}
+@keyframes li-desvanecer { from { opacity: .12; } to { opacity: 0; } }
