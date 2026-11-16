@@ -4,13 +4,16 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 /*
- * Registra el envío sin enviarlo (RNF-015). La implementación SMTP se agrega cuando se defina el servidor
- * de correo gratuito del despliegue.
+ * Registra el envío sin enviarlo: modo fallback cuando CORREO_MODO != smtp.
+ * Se activa automáticamente si no hay ningún otro CorreoGateway en el contexto (p. ej. CorreoSmtpGateway).
+ * Útil para desarrollo local y tests sin servidor de correo real.
  */
 @Component
+@ConditionalOnExpression("'${CORREO_MODO:local}' != 'smtp'")
 public class CorreoRegistroLocalGateway implements CorreoGateway {
 
     @Override

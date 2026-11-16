@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
@@ -36,23 +37,28 @@ public class AlertaMoraService {
     private final SamnetGateway samnetGateway;
     private final CorreoGateway correoGateway;
     private final Clock reloj;
+    private final JdbcTemplate jdbc;
 
     public AlertaMoraService(
             LoteETLRepository loteETLRepository,
             AvisoCorreoRepository avisoCorreoRepository,
             SamnetGateway samnetGateway,
             CorreoGateway correoGateway,
-            Clock reloj) {
+            Clock reloj,
+            JdbcTemplate jdbc) {
         this.loteETLRepository = loteETLRepository;
         this.avisoCorreoRepository = avisoCorreoRepository;
         this.samnetGateway = samnetGateway;
         this.correoGateway = correoGateway;
         this.reloj = reloj;
+        this.jdbc = jdbc;
     }
 
     @Transactional
     public RespuestaProcesamientoAlertasMora procesarAlertasLote(ProcesarAlertasMoraSolicitud solicitud) {
         Long idLote = solicitud.idLote();
+        // El envío manual y el automático de un mismo lote no deben competir ni duplicar avisos.
+        jdbc.queryForList("SELECT pg_advisory_xact_lock(?)", idLote);
         LoteETL lote = loteETLRepository.findById(idLote)
                 .orElseThrow(() -> new RecursoNoEncontradoException("LOTE_NO_ENCONTRADO",
                         "No existe el lote del ETL con id " + idLote + "."));
@@ -93,7 +99,10 @@ public class AlertaMoraService {
                 cuotasVencidasDetectadas++;
 
                 /* Evitar envíos duplicados si ya se generó aviso para esta cuota en este lote */
-                if (avisoCorreoRepository.existsByLoteIdLoteAndIdObligacion(lote.getIdLote(), idObligacion)) {
+                AvisoCorreo anterior = avisoCorreoRepository
+                        .findFirstByLoteIdLoteAndIdObligacionOrderByIdAvisoDesc(lote.getIdLote(), idObligacion)
+                        .orElse(null);
+                if (anterior != null && anterior.getEstado() != EstadoAviso.FALLIDO) {
                     continue;
                 }
 
@@ -122,13 +131,8 @@ public class AlertaMoraService {
 
                 /* Plazo máximo de 24 horas: se programa el despacho dentro de las 24 h */
                 LocalDateTime fechaProgramada = ahora;
-                AvisoCorreo aviso = new AvisoCorreo(
-                        TipoAviso.MORA_TEMPRANA,
-                        documento,
-                        correo.trim(),
-                        fechaProgramada,
-                        lote,
-                        idObligacion);
+                AvisoCorreo aviso = anterior != null ? anterior : new AvisoCorreo(
+                        TipoAviso.MORA_TEMPRANA, documento, correo.trim(), fechaProgramada, lote, idObligacion);
 
                 String asunto = "Aviso de mora temprana: Cuota vencida de tributos municipales - Obligación #" + idObligacion;
                 String cuerpo = armarCuerpoAviso(nombre != null ? nombre : documento, idObligacion, fechaCorte, insoluto);
@@ -180,6 +184,16 @@ public class AlertaMoraService {
         return avisoCorreoRepository.findByLoteIdLoteOrderByFechaProgramadaDesc(idLote).stream()
                 .map(AvisoCorreoRespuesta::desde)
                 .toList();
+    }
+
+    public record ResumenLote(Long idLote, String estado, int registrosLeidos, long avisosExistentes) {}
+
+    public ResumenLote resumenLote(Long idLote) {
+        LoteETL lote = loteETLRepository.findById(idLote)
+                .orElseThrow(() -> new RecursoNoEncontradoException("LOTE_NO_ENCONTRADO",
+                        "No existe el lote del ETL con id " + idLote + "."));
+        return new ResumenLote(idLote, lote.getEstado().name(), lote.getRegistrosLeidos(),
+                avisoCorreoRepository.countByLoteIdLote(idLote));
     }
 
     public AvisoCorreoRespuesta obtenerPorId(Long idAviso) {

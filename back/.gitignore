@@ -3,6 +3,7 @@ target/
 .niubiz-sandbox-local.properties
 .asistente-local.properties
 asistente-local.properties
+.correo-local.properties
 tributario-demo*
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/

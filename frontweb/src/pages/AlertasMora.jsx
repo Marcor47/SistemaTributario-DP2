@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import ModalConfirmacion from '../components/ModalConfirmacion.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import {
-  listarAvisosContribuyente, listarAvisosPorLote, procesarAlertasMora,
+  configurarAutomatizacionAlertasMora, listarAvisosContribuyente, listarAvisosPorLote,
+  listarProcesosAutomaticos, obtenerAutomatizacionAlertasMora, obtenerResumenLoteAlertas,
+  procesarAlertasMora,
 } from '../services/alertaMoraService.js'
 import {
   cifrasProcesamiento, estadoAviso, ordenarAvisos, puedeProcesarAlertas, tipoAviso,
@@ -13,6 +15,91 @@ import './ConsultasTributarias.css'
 
 // HU012 (RF-013): alertas de mora temprana por correo. Procesar un lote publicado envía los avisos;
 // el historial se consulta por lote o por contribuyente.
+
+function Automatizacion() {
+  const [configuracion, setConfiguracion] = useState(null)
+  const [procesos, setProcesos] = useState([])
+  const [error, setError] = useState(null)
+  const [guardando, setGuardando] = useState(false)
+  const [confirmando, setConfirmando] = useState(false)
+  const [horaConsulta, setHoraConsulta] = useState(null)
+
+  async function actualizar() {
+    try {
+      const [config, trabajos] = await Promise.all([
+        obtenerAutomatizacionAlertasMora(), listarProcesosAutomaticos(),
+      ])
+      setConfiguracion(config)
+      setProcesos(trabajos)
+      setHoraConsulta(new Date())
+      setError(null)
+    } catch (fallo) { setError(fallo.message) }
+  }
+
+  useEffect(() => {
+    Promise.all([obtenerAutomatizacionAlertasMora(), listarProcesosAutomaticos()])
+      .then(([config, trabajos]) => {
+        setConfiguracion(config)
+        setProcesos(trabajos)
+        setHoraConsulta(new Date())
+      })
+      .catch((fallo) => setError(fallo.message))
+  }, [])
+
+  async function cambiar() {
+    setGuardando(true)
+    try {
+      const nueva = await configurarAutomatizacionAlertasMora(!configuracion.habilitado)
+      setConfiguracion(nueva)
+      setError(null)
+      await actualizar()
+    } catch (fallo) { setError(fallo.message) }
+    setGuardando(false)
+    setConfirmando(false)
+  }
+
+  return (
+    <section className="pcard" aria-labelledby="alertas-automaticas-titulo">
+      <h2 id="alertas-automaticas-titulo">Envíos automáticos</h2>
+      <p className="hint">
+        {configuracion?.habilitado
+          ? 'Activados: los nuevos lotes publicados se procesan por bloques sin pulsar el botón manual.'
+          : 'Desactivados: las nuevas cargas no enviarán correos automáticamente. El envío manual sigue disponible.'}
+      </p>
+      <p role="status">Estado: <strong>{configuracion ? (configuracion.habilitado ? 'Activado' : 'Desactivado') : 'Cargando…'}</strong></p>
+      {configuracion && <p className="hint">Modo de correo: <strong>{configuracion.correoReal ? 'SMTP real' : 'Registro local (no envía correos)'}</strong>.</p>}
+      <div className="filters">
+        <button className="btn primary" type="button" disabled={!configuracion || guardando}
+          onClick={() => setConfirmando(true)}>
+          {configuracion?.habilitado ? 'Desactivar envíos automáticos' : 'Activar envíos automáticos'}
+        </button>
+        <button className="btn" type="button" onClick={actualizar}>Actualizar progreso</button>
+      </div>
+      {error && <p className="campo-error" role="alert">{error}</p>}
+      {procesos.length > 0 && (
+        <div className="tabla-scroll" role="region" aria-label="Progreso de envíos automáticos" tabIndex={0}>
+          <table className="tabla">
+            <thead><tr><th scope="col">Lote</th><th scope="col">Estado</th><th scope="col">Última fila procesada</th><th scope="col">Límite de 24 h</th></tr></thead>
+            <tbody>{procesos.map((proceso) => (
+              <tr key={proceso.idLote}><th scope="row">{proceso.idLote}</th>
+                <td>{proceso.estado.replaceAll('_', ' ')}</td><td>{proceso.ultimaFila}</td>
+                <td>{proceso.fechaLimite ? fechaHora(proceso.fechaLimite) : '—'}
+                  {proceso.estado !== 'COMPLETADO' && proceso.fechaLimite && horaConsulta
+                    && new Date(proceso.fechaLimite).getTime() < horaConsulta.getTime() ? ' · Plazo vencido' : ''}</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      )}
+      <ModalConfirmacion abierto={confirmando}
+        titulo={configuracion?.habilitado ? '¿Desactivar los envíos automáticos?' : '¿Activar los envíos automáticos?'}
+        mensaje={<p>{configuracion?.habilitado
+          ? 'El procesamiento automático se detendrá después del bloque actual. Podrás reanudarlo después.'
+          : `Las cargas creadas y publicadas después de activar se procesarán sin una confirmación por lote. ${configuracion?.correoReal ? 'Se enviarán correos reales.' : 'El modo actual solo registrará avisos: no enviará correos reales.'} Los lotes que ya existen no se enviarán automáticamente.`}</p>}
+        textoConfirmar={configuracion?.habilitado ? 'Desactivar' : 'Activar'}
+        procesando={guardando} onConfirmar={cambiar} onCerrar={() => setConfirmando(false)} />
+    </section>
+  )
+}
 
 function TablaAvisos({ avisos, titulo }) {
   return (
@@ -55,9 +142,11 @@ function ProcesarLote() {
   const [texto, setTexto] = useState('')
   const [errorCampo, setErrorCampo] = useState('')
   const [confirmando, setConfirmando] = useState(null)
+  const [resumen, setResumen] = useState(null)
+  const [consultando, setConsultando] = useState(false)
   const [estado, setEstado] = useState({ procesando: false, resultado: null, error: null })
 
-  function pedirConfirmacion(evento) {
+  async function pedirConfirmacion(evento) {
     evento.preventDefault()
     const idLote = validarIdLote(texto)
     if (!idLote.valido) {
@@ -65,7 +154,17 @@ function ProcesarLote() {
       return
     }
     setErrorCampo('')
-    setConfirmando(idLote.valor)
+    setConsultando(true)
+    try {
+      const datos = await obtenerResumenLoteAlertas(idLote.valor)
+      if (datos.estado !== 'PUBLICADO') {
+        setErrorCampo('Solo se pueden procesar lotes publicados.')
+      } else {
+        setResumen(datos)
+        setConfirmando(idLote.valor)
+      }
+    } catch (error) { setErrorCampo(error.message) }
+    setConsultando(false)
   }
 
   async function procesar() {
@@ -98,8 +197,8 @@ function ProcesarLote() {
           />
           {errorCampo && <span id="alertas-lote-error" className="campo-error" role="alert">{errorCampo}</span>}
         </div>
-        <button className="btn primary" type="submit" disabled={procesando}>
-          {procesando ? 'Procesando…' : 'Procesar alertas'}
+        <button className="btn primary" type="submit" disabled={procesando || consultando}>
+          {procesando ? 'Procesando…' : consultando ? 'Revisando lote…' : 'Procesar alertas'}
         </button>
       </form>
 
@@ -132,7 +231,7 @@ function ProcesarLote() {
       <ModalConfirmacion
         abierto={confirmando !== null}
         titulo="¿Enviar las alertas de mora?"
-        mensaje={<p>Se enviarán avisos por correo a los contribuyentes con cuotas vencidas sin pago del lote #{confirmando}. Los avisos ya enviados para ese lote no se repiten.</p>}
+        mensaje={<p>El lote #{confirmando} leyó originalmente {resumen?.registrosLeidos?.toLocaleString('es-PE') ?? '—'} registros y tiene {resumen?.avisosExistentes?.toLocaleString('es-PE') ?? '—'} avisos registrados. El envío manual vuelve a consultar SAMNET, por lo que la cantidad actual puede ser diferente y puede ser grande. Se enviarán correos reales a las cuotas vencidas con saldo y correo; los avisos ya enviados no se repiten.</p>}
         textoConfirmar="Enviar alertas"
         procesando={procesando}
         onConfirmar={procesar}
@@ -232,6 +331,7 @@ export default function AlertasMora() {
   const { sesion } = useSesionInterna()
   return (
     <div className="consulta-tributaria">
+      {sesion?.permisos?.includes('ALERTAS:EVALUAR') && <Automatizacion />}
       {puedeProcesarAlertas(sesion) && <ProcesarLote />}
       <Historial />
     </div>

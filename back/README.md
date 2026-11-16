@@ -1,5 +1,22 @@
 # Backend tributario
 
+## Alertas de mora temprana (HU012 / RF-013)
+
+La automatización empieza **desactivada** tras instalar la migración V57. Gerencia de Rentas puede activarla o
+desactivarla desde `/alertas-mora` del front. Al activar, se toma como frontera el último lote ya existente:
+**no se envían automáticamente los lotes que ya existían**. Los lotes creados y publicados después de la activación se leen desde
+`bronce.cobranza` en bloques de 50, con progreso persistido en `operativo.proceso_alertas_mora`. El proceso continúa
+después de reiniciar el backend y se pausa tras el bloque actual al desactivar. Los fallos SMTP quedan como `FALLIDO`
+en el historial y se reintentan cada cinco minutos. El procesamiento manual por lote y la consulta del historial
+siguen disponibles. Antes de confirmar un envío manual, el front muestra el volumen original del lote; la cantidad
+actual puede diferir porque esa ruta vuelve a consultar SAMNET.
+
+Para enviar correo real se necesita `CORREO_MODO=smtp` y la configuración `MAIL_*`/`CORREO_REMITENTE` cargada al
+arrancar el backend. El panel indica si está activo SMTP o el registro local sin envío. El plazo de 24 horas se
+cuenta desde `fecha_fin` del lote publicado; el panel muestra su límite y si un proceso sigue pendiente al vencer.
+La capacidad del servidor SMTP debe ser suficiente para el volumen de cada carga: la aplicación no puede garantizar
+la entrega en 24 horas cuando el proveedor limita el número o la velocidad de mensajes.
+
 Qué datos carga el perfil `local` y cómo regenerarlos: [PERFIL_LOCAL.md](PERFIL_LOCAL.md).
 
 La plataforma analítica de Rentas y la configuración de su asistente de IA están en [REPORTERIA_API.md](REPORTERIA_API.md).
