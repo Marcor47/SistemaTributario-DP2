@@ -7,10 +7,10 @@ Como trabajador de **Ventanilla**, emitir la Constancia de No Adeudo con el DNI 
 ## 1. Alcance y Requisitos del Negocio
 
 ### Criterios de Aceptación (HU042)
-1. **Flujo integrado del portal (RF-055, RF-034):** Dado el DNI de un contribuyente, cuando se genera la constancia desde ventanilla, se sigue el mismo flujo del portal: **evaluación de deuda al presentar la solicitud**, firma de la solicitud, generación de la orden de pago, cobro del derecho de trámite (S/ 10.00) y emisión. La condición es que el contribuyente **no registre deuda a la fecha de presentación**; si la tiene, la solicitud queda `RECHAZADA` con el detalle y no se emite la constancia. La emisión no vuelve a evaluar la deuda.
+1. **Flujo integrado del portal (RF-055, RF-034):** Dado el DNI de un contribuyente, cuando se genera la constancia desde ventanilla, se sigue el mismo flujo del portal: **evaluación de deuda al presentar la solicitud**, firma de la solicitud, generación de la orden de pago, cobro del derecho de trámite (S/ 10.00) y emisión automática al confirmar el pago. La condición es que el contribuyente **no registre deuda a la fecha de presentación**; si la tiene, la solicitud queda `RECHAZADA` con el detalle y no se emite la constancia. La emisión no vuelve a evaluar la deuda.
 2. **Registro del trabajador (RF-055, HU042):** Dado que se emite la constancia, cuando se registra, queda registrado qué trabajador de ventanilla la emitió (en la solicitud, en la constancia emitida y en el texto del documento).
-3. **Asignación correlativa automática (RF-055):** El sistema asigna automáticamente el número o ID oficial de la constancia (`CNA-AAAA-NNNNNN`), sin digitación ni copiado a mano.
-4. **Elección de predios y fechas (RF-055):** Para contribuyentes con muchos predios o trámites específicos, el trabajador puede indicar los predios comprendidos y el rango de fechas que cubre la constancia.
+3. **Asignación automática (RF-055):** El sistema asigna automáticamente el ID oficial único y no predecible de la constancia (`CND-AAAA-XXXXXX`), sin digitación ni copiado a mano.
+4. **Elección validada de predios y fechas (RF-055):** Antes de confirmar el pago, el trabajador puede elegir predios registrados del contribuyente y un rango con fecha inicial/final. El servidor rechaza predios ajenos, rangos incompletos o una fecha final anterior a la inicial.
 5. **Firma presencial del contribuyente (RF-021):** La firma del contribuyente se captura con el dispositivo presencial de ventanilla y llega al sistema; el servidor la verifica contra el documento que él mismo generó antes de avanzar.
 6. **Firma digital municipal automática (RF-037):** Tras la confirmación del pago del derecho de trámite, el sistema incorpora de forma automática la firma digital oficial de la Municipalidad y su hash criptográfico en la plantilla oficial.
 7. **Envío al buzón del contribuyente (RF-030):** La constancia emitida se deposita automáticamente en el buzón de documentos en línea del contribuyente (`operativo.documento_buzon`).
@@ -254,19 +254,27 @@ Respuesta exitosa (`200 OK`): el objeto `ordenPago` del endpoint 5. `404 ORDEN_N
 
 ### Endpoint 7: Confirmar Pago Presencial
 
-El trabajador confirma que recibió el pago del derecho de trámite en ventanilla; la orden queda `CONFIRMADA` con comprobante `CONST-VENT-{id}` y la solicitud pasa a `PAGADA`.
+El trabajador selecciona los predios y el rango de fechas y confirma que recibió el pago del derecho de trámite en ventanilla. En la misma operación la orden queda `CONFIRMADA`, se genera el comprobante `CONST-VENT-{id}`, se emite y firma la constancia y la solicitud pasa a `EMITIDA` (RF-037). Si la generación o la firma falla, la transacción se revierte y no queda un pago confirmado sin documento.
 
 ```http
 POST /api/ventanilla/constancias/{idSolicitud}/pago
 ```
 
-Respuesta exitosa (`200 OK`): la solicitud con `estado = "PAGADA"` y `ordenPago.estado = "CONFIRMADA"`.
+```json
+{
+  "predios": ["014502-01"],
+  "fechaDesde": "2024-01-01",
+  "fechaHasta": "2026-12-31"
+}
+```
+
+Los tres campos son opcionales; sin predios se incluyen todos y sin ambas fechas se usa `"Hasta la fecha de emisión"`. Respuesta exitosa (`200 OK`): `ConstanciaVentanillaRespuesta` con `estado = "EMITIDA"`, código automático, comprobante, trabajador y datos del PDF.
 
 ---
 
-### Endpoint 8: Emitir la Constancia
+### Endpoint 8: Recuperar una Emisión Pendiente
 
-Con la solicitud `PAGADA`, usa la evaluación de deuda congelada al presentar (no vuelve a consultar SAMNET), genera el PDF con la plantilla vigente, lo firma como Municipalidad, asigna el correlativo, registra la constancia con el trabajador emisor y la deposita en el buzón. Si la solicitud no tiene evaluación congelada, responde `DEUDA_NO_VERIFICADA`.
+Este endpoint se conserva para solicitudes históricas o de contingencia que ya estén `PAGADA` pero no tengan constancia. Usa el mismo `EmisorConstancia` de HU020/HU024, genera el PDF, lo firma como Municipalidad, asigna el ID, registra al trabajador y deposita el documento en el buzón. El flujo normal nuevo termina automáticamente en el endpoint de pago.
 
 ```http
 POST /api/ventanilla/constancias/{idSolicitud}/emitir
@@ -274,14 +282,14 @@ POST /api/ventanilla/constancias/{idSolicitud}/emitir
 
 | Campo | Tipo | Requerido | Descripción / Validación |
 | :--- | :--- | :--- | :--- |
-| `predios` | `List<String>` | Opcional | Lista de códigos de predios seleccionados por el trabajador. |
-| `prediosTexto` | `String` | Opcional | Texto libre opcional descriptivo de predios (máx. 400 caracteres). Si se omiten ambos, aplica `"Todos los predios del contribuyente"`. |
-| `rangoFechas` | `String` | Opcional | Rango de fechas cubierto (máx. 60 caracteres). Si se omite, aplica `"Hasta la fecha de emisión"`. |
+| `predios` | `List<String>` | Opcional | Códigos seleccionados (máx. 100); todos deben pertenecer al contribuyente. Si se omite, aplica `"Todos los predios del contribuyente"`. |
+| `fechaDesde` | `LocalDate` | Opcional | Inicio del período en formato `AAAA-MM-DD`; debe enviarse junto con `fechaHasta`. |
+| `fechaHasta` | `LocalDate` | Opcional | Fin del período; no puede ser anterior a `fechaDesde`. |
 
 Respuesta exitosa (`201 Created`):
 ```json
 {
-  "numeroConstancia": "CNA-2026-000001",
+  "numeroConstancia": "CND-2026-7F3K9Q",
   "idSolicitud": 15,
   "documentoContribuyente": "41028765",
   "nombreContribuyente": "GARCÍA TORRES, MARÍA ELENA",
@@ -367,7 +375,7 @@ Respuesta exitosa (`200 OK`): lista de objetos `SolicitudVentanillaRespuesta` (m
     "firmaContribuyente": null,
     "ordenPago": null,
     "deuda": null,
-    "numeroConstancia": "CNA-2026-000123"
+    "numeroConstancia": "CND-2026-7F3K9Q"
   }
 ]
 ```
@@ -400,6 +408,6 @@ Respuesta exitosa (`200 OK`): lista de objetos `SolicitudVentanillaRespuesta` (m
 3. **`operativo.transaccion_pago`:**
    - Registra el cobro de S/ 10.00 por concepto de derecho de trámite (`motivo = 'DERECHO_TRAMITE'`), confirmado en ventanilla con comprobante `CONST-VENT-{id}`.
 4. **`operativo.constancia`:**
-   - Almacena el número correlativo generado, la versión de plantilla, los predios y fechas parametrizados, el archivo PDF firmado en `contenido_pdf` y la clave foránea `id_trabajador_emisor`.
+   - Almacena el ID único generado, la versión de plantilla, los predios y fechas validados, el archivo PDF firmado en `contenido_pdf` y la clave foránea `id_trabajador_emisor`.
 5. **`operativo.documento_buzon`:**
    - Deposita una copia del documento vinculado al DNI del contribuyente con fecha y hora de emisión para su posterior consulta y descarga en el portal o app móvil (**RF-030**).

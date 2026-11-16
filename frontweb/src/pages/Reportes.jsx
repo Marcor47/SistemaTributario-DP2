@@ -6,7 +6,7 @@ import {
   opcionesZona, ordenarGrupos, paginarFilas, parametrosReporte, porcentaje, reordenarColumnasDeGrupo, reordenarGruposColumnas,
   TIPOS_DOCUMENTO, validarFiltros,
 } from '../utils/reportes.js'
-import { descargarReporte, generarReporte, listarZonas, obtenerCatalogoReportes, obtenerOpcionesReporte } from '../services/reporteService.js'
+import { abrirVista, descargarReporte, generarReporte, listarZonas, obtenerCatalogoReportes, obtenerOpcionesReporte } from '../services/reporteService.js'
 import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import SelectorColumnasAgrupadas from '../components/SelectorColumnasAgrupadas.jsx'
@@ -178,6 +178,12 @@ function claseCabecera(columna) {
   if (COLUMNAS_MONTO_MOROSOS.has(columna)) return 'num'
   if (columna === 'codigo') return 'reporte-col-codigo'
   if (columna === 'razonSocial') return 'reporte-col-nombre'
+  if (columna === 'tipoDocumento' || columna === 'numeroDocumento') return 'reporte-col-doc'
+  if (columna === 'via') return 'reporte-col-via'
+  if (['numero', 'departamento', 'interior', 'manzana', 'lote'].includes(columna)) return 'reporte-col-corta'
+  if (['distrito', 'zonas', 'regimen'].includes(columna)) return 'reporte-col-media'
+  if (['condicion', 'tipoPersona'].includes(columna)) return 'reporte-col-estado'
+  if (columna === 'correo' || columna === 'telefonos') return 'reporte-col-contacto'
   return undefined
 }
 
@@ -318,7 +324,8 @@ function Resumen({ datos, paginacion }) {
     ? `Beneficio: ${etiquetaBeneficio(filtros.beneficio)}`
     : null
   const aplicados = [rango, filtros.zona && `Zona: ${filtros.zona}`, filtros.tributo && `Tributo: ${etiquetaTributo(filtros.tributo)}`, filtros.regimen && `Régimen: ${filtros.regimen}`, filtros.tipoDocumento && `Tipo doc.: ${etiquetaTipoDocumento(filtros.tipoDocumento)}`, filtros.etapa && `Etapa: ${etiquetaEtapa(filtros.etapa)}`, beneficio, filtros.montoMinimo != null && `Monto mínimo: ${moneda(filtros.montoMinimo)}`].filter(Boolean)
-  return <><section className="reporte-resumen" aria-label="Resumen del reporte"><article className="pcard"><span className="pl">Fecha de corte</span><strong>{fecha(datos.fechaCorte)}</strong></article><article className="pcard"><span className="pl">Contribuyentes</span><strong>{datos.resumen.cantidad}</strong></article><article className="pcard"><span className="pl">{datos.resumen.conceptoMonto}</span><strong>{moneda(datos.resumen.montoTotal)}</strong></article>{datos.resumen.umbralPrico != null && <article className="pcard"><span className="pl">Umbral PRICO</span><strong>{moneda(datos.resumen.umbralPrico)}</strong></article>}</section><div className="reporte-tabla-barra"><div className="reporte-aplicados"><strong>Filtros aplicados:</strong>{aplicados.length ? aplicados.map((filtro) => <span key={filtro}>{filtro}</span>) : <span>Sin filtros adicionales</span>}</div>{paginacion}</div></>
+  const esConceptoDeuda = Boolean(datos.resumen?.conceptoMonto && /deuda/i.test(datos.resumen.conceptoMonto))
+  return <><section className="reporte-resumen" aria-label="Resumen del reporte"><article className="pcard"><span className="pl">Fecha de corte</span><strong>{fecha(datos.fechaCorte)}</strong></article><article className="pcard"><span className="pl">Contribuyentes</span><strong>{datos.resumen.cantidad}</strong></article><article className={`pcard${esConceptoDeuda ? ' reporte-resumen-deuda' : ''}`}><span className="pl">{datos.resumen.conceptoMonto}</span><strong className={esConceptoDeuda ? 'reporte-cifra-deuda' : ''}>{moneda(datos.resumen.montoTotal)}</strong></article>{datos.resumen.umbralPrico != null && <article className="pcard"><span className="pl">Umbral PRICO</span><strong>{moneda(datos.resumen.umbralPrico)}</strong></article>}</section><div className="reporte-tabla-barra"><div className="reporte-aplicados"><strong>Filtros aplicados:</strong>{aplicados.length ? aplicados.map((filtro) => <span key={filtro}>{filtro}</span>) : <span>Sin filtros adicionales</span>}</div>{paginacion}</div></>
 }
 
 function FiltroZona({ valor, zonas, cargando, error, errorCampo, onCambio }) {
@@ -326,7 +333,7 @@ function FiltroZona({ valor, zonas, cargando, error, errorCampo, onCambio }) {
   return <div className={`fld${errorCampo ? ' fld-error' : ''}`}>
     <label htmlFor="reporte-zona">Zona</label>
     {error
-      ? <input id="reporte-zona" maxLength="20" placeholder="Ej. Z2" value={valor} onChange={(e) => onCambio(e.target.value)} />
+      ? <input id="reporte-zona" maxLength="20" placeholder="Ej. Z2" value={valor ?? ''} onChange={(e) => onCambio(e.target.value)} />
       : <select id="reporte-zona" value={seleccionada} onChange={(e) => onCambio(e.target.value)} disabled={cargando}>
           <option value="">Todas</option>
           {opcionesZona(zonas, seleccionada).map((zona) => <option key={zona} value={zona}>{zona}</option>)}
@@ -492,6 +499,35 @@ export default function Reportes() {
 
   useEffect(() => () => consultaActiva.current?.abort(), [])
 
+  useEffect(() => {
+    function cargarVista(idVista) {
+      if (!idVista) return
+      abrirVista(idVista)
+        .then((datos) => {
+          if (datos?.vista?.tipoReporte === 'MOROSOS') {
+            abrirConfiguracion(datos)
+          } else if (datos?.vista?.tipoReporte) {
+            setSeleccion(datos.vista.tipoReporte)
+          }
+        })
+        .catch((err) => setAccionError(err))
+    }
+
+    const pendiente = sessionStorage.getItem('vista_reporte_pendiente')
+    if (pendiente) {
+      sessionStorage.removeItem('vista_reporte_pendiente')
+      cargarVista(pendiente)
+    }
+
+    function alAbrirVistaExterna(evento) {
+      const idVista = evento.detail?.idVista
+      if (idVista) cargarVista(idVista)
+    }
+
+    window.addEventListener('abrir-vista-reporte', alAbrirVistaExterna)
+    return () => window.removeEventListener('abrir-vista-reporte', alAbrirVistaExterna)
+  }, [])
+
   function elegir(nuevo) {
     consultaActiva.current?.abort()
     const siguiente = catalogo.datos.find(({ tipo }) => tipo === nuevo)
@@ -569,7 +605,14 @@ export default function Reportes() {
 
       datos.reporte.__columnas = columnasVistaOrdenadas; datos.reporte.__orden = datos.vista.orden || ''
       datos.reporte.__mostrarDetalle = tieneDetalle
-      const filtrosVista = { ...FILTROS_INICIALES, ...datos.vista.filtros }
+      const filtrosCrudos = datos.vista.filtros || {}
+      const filtrosSanitizados = Object.fromEntries(
+        Object.entries(filtrosCrudos).map(([clave, valor]) => [clave, valor ?? ''])
+      )
+      const filtrosVista = { ...FILTROS_INICIALES, ...filtrosSanitizados }
+      Object.keys(FILTROS_INICIALES).forEach((clave) => {
+        if (filtrosVista[clave] == null) filtrosVista[clave] = FILTROS_INICIALES[clave]
+      })
       if (datos.vista.tipoReporte === 'MOROSOS') {
         if ((!filtrosVista.anioDesde || !filtrosVista.anioHasta) && filtrosVista.periodo) {
           filtrosVista.anioDesde = filtrosVista.periodo
@@ -784,7 +827,7 @@ export default function Reportes() {
                 <div className="reporte-config-campos">
                 {disponibles.has('anio') && <div className={`fld${errores.anio ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-anio">Año</label>
-                  <select id="reporte-anio" value={filtros.anio} onChange={(e) => setFiltros({ ...filtros, anio: e.target.value })} aria-describedby={errores.anio ? 'error-anio' : undefined}>
+                  <select id="reporte-anio" value={filtros.anio ?? ''} onChange={(e) => setFiltros({ ...filtros, anio: e.target.value })} aria-describedby={errores.anio ? 'error-anio' : undefined}>
                     <option value="">Todos</option>
                     {opcionesDatos.anios.map((anio) => <option key={anio} value={anio}>{anio}</option>)}
                   </select>
@@ -792,7 +835,7 @@ export default function Reportes() {
                 </div>}
                 {disponibles.has('anioDesde') && <div className={`fld${errores.anioDesde ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-anio-desde">Año desde</label>
-                  <select id="reporte-anio-desde" value={filtros.anioDesde} onChange={(e) => setFiltros({ ...filtros, anioDesde: e.target.value })} aria-describedby={errores.anioDesde ? 'error-anio-desde' : undefined}>
+                  <select id="reporte-anio-desde" value={filtros.anioDesde ?? ''} onChange={(e) => setFiltros({ ...filtros, anioDesde: e.target.value })} aria-describedby={errores.anioDesde ? 'error-anio-desde' : undefined}>
                     <option value="">Todos</option>
                     {opcionesDatos.anios.map((anio) => <option key={anio} value={anio}>{anio}</option>)}
                   </select>
@@ -800,16 +843,16 @@ export default function Reportes() {
                 </div>}
                 {disponibles.has('anioHasta') && <div className={`fld${errores.anioHasta ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-anio-hasta">Año hasta</label>
-                  <select id="reporte-anio-hasta" value={filtros.anioHasta} onChange={(e) => setFiltros({ ...filtros, anioHasta: e.target.value })} aria-describedby={errores.anioHasta ? 'error-anio-hasta' : undefined}>
+                  <select id="reporte-anio-hasta" value={filtros.anioHasta ?? ''} onChange={(e) => setFiltros({ ...filtros, anioHasta: e.target.value })} aria-describedby={errores.anioHasta ? 'error-anio-hasta' : undefined}>
                     <option value="">Todos</option>
                     {opcionesDatos.anios.map((anio) => <option key={anio} value={anio}>{anio}</option>)}
                   </select>
                   {errores.anioHasta && <span id="error-anio-hasta" className="error-campo">{errores.anioHasta}</span>}
                 </div>}
-                {disponibles.has('zona') && <FiltroZona valor={filtros.zona} zonas={zonasDisponibles} cargando={cargandoZonas} error={errorZonas} errorCampo={errores.zona} onCambio={(zona) => setFiltros({ ...filtros, zona })} />}
+                {disponibles.has('zona') && <FiltroZona valor={filtros.zona ?? ''} zonas={zonasDisponibles} cargando={cargandoZonas} error={errorZonas} errorCampo={errores.zona} onCambio={(zona) => setFiltros({ ...filtros, zona })} />}
                 {disponibles.has('tributo') && <div className={`fld${errores.tributo ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-tributo">Tributo</label>
-                  <select id="reporte-tributo" value={filtros.tributo} onChange={(e) => setFiltros({ ...filtros, tributo: e.target.value })}>
+                  <select id="reporte-tributo" value={filtros.tributo ?? ''} onChange={(e) => setFiltros({ ...filtros, tributo: e.target.value })}>
                     <option value="">Todos</option>
                     {opcionesDatos.tributos.map((tributo) => <option key={tributo} value={tributo}>{etiquetaTributo(tributo)}</option>)}
                   </select>
@@ -817,7 +860,7 @@ export default function Reportes() {
                 </div>}
                 {disponibles.has('regimen') && <div className={`fld${errores.regimen ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-regimen">Régimen</label>
-                  <select id="reporte-regimen" value={filtros.regimen} onChange={(e) => setFiltros({ ...filtros, regimen: e.target.value })}>
+                  <select id="reporte-regimen" value={filtros.regimen ?? ''} onChange={(e) => setFiltros({ ...filtros, regimen: e.target.value })}>
                     <option value="">Todos</option>
                     {opcionesMorosos.regimenes.map((regimen) => <option key={regimen} value={regimen}>{regimen}</option>)}
                   </select>
@@ -825,7 +868,7 @@ export default function Reportes() {
                 </div>}
                 {disponibles.has('tipoDocumento') && <div className={`fld${errores.tipoDocumento ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-tipo-documento">Tipo de documento</label>
-                  <select id="reporte-tipo-documento" value={filtros.tipoDocumento} onChange={(e) => setFiltros({ ...filtros, tipoDocumento: e.target.value })}>
+                  <select id="reporte-tipo-documento" value={filtros.tipoDocumento ?? ''} onChange={(e) => setFiltros({ ...filtros, tipoDocumento: e.target.value })}>
                     <option value="">Todos</option>
                     {tiposDocumentoVisibles.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}
                   </select>
@@ -833,7 +876,7 @@ export default function Reportes() {
                 </div>}
                 {disponibles.has('etapa') && <div className={`fld${errores.etapa ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-etapa">Etapa de cobranza</label>
-                  <select id="reporte-etapa" value={filtros.etapa} onChange={(e) => setFiltros({ ...filtros, etapa: e.target.value })}>
+                  <select id="reporte-etapa" value={filtros.etapa ?? ''} onChange={(e) => setFiltros({ ...filtros, etapa: e.target.value })}>
                     <option value="">Todas</option>
                     {etapasVisibles.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}
                   </select>
@@ -841,14 +884,14 @@ export default function Reportes() {
                 </div>}
                 {disponibles.has('beneficio') && <div className={`fld${errores.beneficio ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-beneficio">Beneficio</label>
-                  <select id="reporte-beneficio" value={filtros.beneficio} onChange={(e) => setFiltros({ ...filtros, beneficio: e.target.value })}>
+                  <select id="reporte-beneficio" value={filtros.beneficio ?? 'AMBOS'} onChange={(e) => setFiltros({ ...filtros, beneficio: e.target.value })}>
                     {FILTROS_BENEFICIO.map((item) => <option key={item.valor} value={item.valor}>{item.etiqueta}</option>)}
                   </select>
                   {errores.beneficio && <span className="error-campo">{errores.beneficio}</span>}
                 </div>}
                 {disponibles.has('montoMinimo') && <div className={`fld${errores.montoMinimo ? ' fld-error' : ''}`}>
                   <label htmlFor="reporte-monto">Monto mínimo (S/)</label>
-                  <input id="reporte-monto" type="number" min="0" step="0.01" placeholder="0.00" value={filtros.montoMinimo} onChange={(e) => setFiltros({ ...filtros, montoMinimo: e.target.value })} />
+                  <input id="reporte-monto" type="number" min="0" step="0.01" placeholder="0.00" value={filtros.montoMinimo ?? ''} onChange={(e) => setFiltros({ ...filtros, montoMinimo: e.target.value })} />
                   {errores.montoMinimo && <span className="error-campo">{errores.montoMinimo}</span>}
                 </div>}
                 </div>

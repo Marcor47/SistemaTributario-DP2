@@ -44,6 +44,12 @@ public class EmisorConstancia {
     /* Con operador nulo la emisión es automática y la constancia no lleva trabajador emisor. */
     public ConstanciaEmitida emitir(SolicitudConstancia solicitud, Contribuyente contribuyente, Usuario operador,
             LocalDateTime ahora) {
+        return emitir(solicitud, contribuyente, operador, ahora, PREDIOS_INCLUIDOS, RANGO_FECHAS);
+    }
+
+    /* HU042: la ventanilla puede delimitar predios y fechas, manteniendo el mismo emisor de HU020/HU024. */
+    public ConstanciaEmitida emitir(SolicitudConstancia solicitud, Contribuyente contribuyente, Usuario operador,
+            LocalDateTime ahora, String prediosIncluidos, String rangoFechas) {
         if (solicitud.getEstado() != EstadoConstancia.PAGADA) {
             throw new ReglaNegocioException("PAGO_REQUERIDO",
                     "La solicitud está " + solicitud.getEstado() + ": la constancia se emite tras el pago del trámite.");
@@ -53,7 +59,9 @@ public class EmisorConstancia {
                         "No hay una versión vigente de la plantilla " + CODIGO_PLANTILLA + "."));
 
         String numero = constanciaRepository.siguienteNumero(ahora.toLocalDate());
-        byte[] pdf = generadorPdf.generar(numero, contribuyente, ahora, firmador.firmaLocal());
+        byte[] pdf = generadorPdf.generar(numero, contribuyente, ahora, solicitud.getFechaSolicitud().toLocalDate(),
+                prediosIncluidos, rangoFechas, operador == null ? null : operador.getNombreCompleto(),
+                firmador.firmaLocal());
         FirmadorGateway.DocumentoFirmado firmado = firmador.firmarComoMunicipalidad(pdf);
         if (!firmado.firma().valida()) {
             throw new ReglaNegocioException("FIRMA_MUNICIPAL_INVALIDA",
@@ -68,7 +76,7 @@ public class EmisorConstancia {
             solicitud.emitir(operador, firmaMunicipal, ahora);
         }
         Constancia constancia = constanciaRepository.save(new Constancia(numero, solicitud, plantilla, ahora,
-                PREDIOS_INCLUIDOS, RANGO_FECHAS, numero + ".pdf", firmador.firmaLocal(), operador,
+                prediosIncluidos, rangoFechas, numero + ".pdf", firmador.firmaLocal(), operador,
                 firmado.contenido()));
         DocumentoBuzon enBuzon = documentoBuzonRepository.save(
                 DocumentoBuzon.deConstancia(constancia, solicitud.getDocumentoContribuyente(), ahora));

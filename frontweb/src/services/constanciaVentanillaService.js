@@ -2,10 +2,8 @@ import { API, pedir } from './api.js'
 
 // HU042 por pasos: emisión presencial de la Constancia de No Adeudo. El trabajador de ventanilla se toma del
 // Principal de la sesión en el backend; el frontend crea la solicitud, recibe la firma del dispositivo,
-// verifica la deuda, genera la orden, confirma el cobro presencial y emite la constancia.
+// verifica la deuda y genera la orden; al confirmar el cobro presencial, el backend emite la constancia.
 export const MAX_DOCUMENTO = 12
-export const MAX_PREDIOS_TEXTO = 400
-export const MAX_RANGO_FECHAS = 60
 export const MINIMO_SUGERENCIAS = 2
 
 function errorValidacion(codigo, mensaje) {
@@ -95,32 +93,45 @@ export const obtenerOrdenPagoSolicitud = (idSolicitud) => (
   pedir(`/ventanilla/constancias/${encodeURIComponent(idSolicitud)}/orden-pago`)
 )
 
-export async function confirmarPagoSolicitud(idSolicitud) {
+export async function confirmarPagoSolicitud(idSolicitud, datos = {}) {
+  const cuerpo = construirParametrosEmision(datos)
   return pedir(`/ventanilla/constancias/${encodeURIComponent(idSolicitud)}/pago`, {
     method: 'POST',
     headers: await cabecerasProtegidas(),
+    body: JSON.stringify(cuerpo),
   })
 }
 
-export function construirParametrosEmision({ predios = [], prediosTexto = '', rangoFechas = '' } = {}) {
+function fechaIsoValida(valor) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false
+  const fecha = new Date(`${valor}T00:00:00Z`)
+  return !Number.isNaN(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor
+}
+
+export function construirParametrosEmision({ predios = [], fechaDesde = '', fechaHasta = '' } = {}) {
   const seleccionados = [...new Set(
     (predios ?? []).map((predio) => String(predio ?? '').trim()).filter(Boolean),
   )]
-  const texto = String(prediosTexto ?? '').trim()
-  const rango = String(rangoFechas ?? '').trim()
+  const desde = String(fechaDesde ?? '').trim()
+  const hasta = String(fechaHasta ?? '').trim()
 
-  if (texto.length > MAX_PREDIOS_TEXTO) {
-    throw errorValidacion('SOLICITUD_INVALIDA', `La descripción de predios no puede superar ${MAX_PREDIOS_TEXTO} caracteres.`)
+  if (seleccionados.length > 100) {
+    throw errorValidacion('SOLICITUD_INVALIDA', 'No se pueden seleccionar más de 100 predios.')
   }
-  if (rango.length > MAX_RANGO_FECHAS) {
-    throw errorValidacion('SOLICITUD_INVALIDA', `El rango de fechas no puede superar ${MAX_RANGO_FECHAS} caracteres.`)
+  if (seleccionados.some((codigo) => codigo.length > 50) || seleccionados.join(', ').length > 400) {
+    throw errorValidacion('PREDIOS_EXCEDEN_DOCUMENTO', 'La selección de predios excede el espacio permitido en la constancia.')
+  }
+  if ((desde && !hasta) || (!desde && hasta)) {
+    throw errorValidacion('RANGO_FECHAS_INVALIDO', 'Indica la fecha inicial y la fecha final.')
+  }
+  if (desde && (!fechaIsoValida(desde) || !fechaIsoValida(hasta) || hasta < desde)) {
+    throw errorValidacion('RANGO_FECHAS_INVALIDO', 'El rango de fechas no es válido.')
   }
 
   return {
     predios: seleccionados,
-    // El backend prioriza los predios seleccionados; el texto libre solo aplica si no hay ninguno.
-    prediosTexto: seleccionados.length === 0 && texto ? texto : null,
-    rangoFechas: rango || null,
+    fechaDesde: desde || null,
+    fechaHasta: hasta || null,
   }
 }
 

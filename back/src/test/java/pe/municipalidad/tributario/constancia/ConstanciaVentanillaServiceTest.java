@@ -27,10 +27,7 @@ import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 import pe.municipalidad.tributario.contribuyente.TipoDocumento;
-import pe.municipalidad.tributario.documentos.DocumentoBuzon;
-import pe.municipalidad.tributario.documentos.DocumentoBuzonRepository;
 import pe.municipalidad.tributario.documentos.VersionPlantilla;
-import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 import pe.municipalidad.tributario.gestiontributaria.Predio;
 import pe.municipalidad.tributario.gestiontributaria.TipoPredio;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway;
@@ -59,12 +56,6 @@ class ConstanciaVentanillaServiceTest {
     private ConstanciaRepository constanciaRepository;
 
     @Mock
-    private DocumentoBuzonRepository documentoBuzonRepository;
-
-    @Mock
-    private VersionPlantillaRepository versionPlantillaRepository;
-
-    @Mock
     private UsuarioRepository usuarioRepository;
 
     @Mock
@@ -75,6 +66,9 @@ class ConstanciaVentanillaServiceTest {
 
     @Mock
     private GeneradorConstanciaPdf generadorPdf;
+
+    @Mock
+    private EmisorConstancia emisorConstancia;
 
     private Clock reloj;
     private ConstanciaVentanillaService servicio;
@@ -89,12 +83,11 @@ class ConstanciaVentanillaServiceTest {
                 solicitudConstanciaService,
                 transaccionPagoRepository,
                 constanciaRepository,
-                documentoBuzonRepository,
-                versionPlantillaRepository,
                 usuarioRepository,
                 samnet,
                 firmador,
                 generadorPdf,
+                emisorConstancia,
                 reloj,
                 BigDecimal.valueOf(10.00));
 
@@ -156,6 +149,26 @@ class ConstanciaVentanillaServiceTest {
     private void deudaCero() {
         when(solicitudConstanciaService.consultarDeuda(CODIGO_SIN_DEUDA))
                 .thenReturn(new DeudaConstanciaRespuesta(BigDecimal.ZERO, List.of()));
+    }
+
+    private Predio predio(String codigo) {
+        return new Predio(codigo, "CATASTRO-100", "Av. La Marina 1500", "VIVIENDA",
+                TipoPredio.URBANO, BigDecimal.valueOf(150), BigDecimal.valueOf(80000),
+                LocalDate.of(2015, 5, 10), null, "ZONA 1", List.of());
+    }
+
+    private void prepararEmision(SolicitudConstancia solicitud, TransaccionPago orden,
+            String predios, String rango) {
+        VersionPlantilla plantilla = org.mockito.Mockito.mock(VersionPlantilla.class);
+        Constancia constancia = new Constancia("CND-2026-ABC234", solicitud, plantilla, AHORA,
+                predios, rango, "CND-2026-ABC234.pdf", true, trabajador, "PDF FIRMADO".getBytes());
+        when(emisorConstancia.emitir(eq(solicitud), eq(contribuyenteSinDeuda), eq(trabajador),
+                any(LocalDateTime.class), eq(predios), eq(rango))).thenAnswer(inv -> {
+                    solicitud.emitir(trabajador, new FirmaDigital(TipoFirmante.MUNICIPALIDAD,
+                            "ENTIDAD MUNICIPAL", AHORA, true, "b".repeat(64)), AHORA);
+                    return new EmisorConstancia.ConstanciaEmitida(constancia, null);
+                });
+        when(transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(1L)).thenReturn(Optional.of(orden));
     }
 
     @Test
@@ -415,74 +428,124 @@ class ConstanciaVentanillaServiceTest {
     }
 
     @Test
-    void confirmarPagoPresencialDejaLaSolicitudPagadaConComprobante() {
+    void confirmarPagoPresencialEmiteFirmaYRegistraLaConstanciaAutomaticamente() {
         trabajadorActivo();
         contribuyenteEnSamnet();
         SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.ORDEN_PAGO_EMITIDA);
         when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
         TransaccionPago orden = ordenDe(solicitud);
-        when(transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(1L)).thenReturn(Optional.of(orden));
         when(transaccionPagoRepository.saveAndFlush(any(TransaccionPago.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
         when(solicitudConstanciaRepository.saveAndFlush(any(SolicitudConstancia.class)))
                 .thenAnswer(inv -> inv.getArgument(0));
+        when(samnet.buscarPredio(null, CODIGO_SIN_DEUDA)).thenReturn(List.of(predio("PRD-001")));
+        prepararEmision(solicitud, orden, "PRD-001", "Del 01/01/2024 al 31/12/2026");
 
-        SolicitudVentanillaRespuesta respuesta = servicio.confirmarPago(1L, USUARIO_VENTANILLA);
+        ConstanciaVentanillaRespuesta respuesta = servicio.confirmarPago(1L,
+                new EmitirConstanciaVentanillaSolicitud(List.of("PRD-001"),
+                        LocalDate.of(2024, 1, 1), LocalDate.of(2026, 12, 31)),
+                USUARIO_VENTANILLA);
 
-        assertThat(respuesta.estado()).isEqualTo(EstadoConstancia.PAGADA);
-        assertThat(respuesta.ordenPago().estado()).isEqualTo(EstadoTransaccion.CONFIRMADA);
-        assertThat(respuesta.ordenPago().comprobante()).startsWith("CONST-VENT-");
-        assertThat(respuesta.ordenPago().monto()).isEqualByComparingTo(BigDecimal.valueOf(10.00));
+        assertThat(respuesta.estado()).isEqualTo("EMITIDA");
+        assertThat(respuesta.numeroConstancia()).isEqualTo("CND-2026-ABC234");
+        assertThat(respuesta.prediosIncluidos()).isEqualTo("PRD-001");
+        assertThat(respuesta.rangoFechas()).isEqualTo("Del 01/01/2024 al 31/12/2026");
+        assertThat(respuesta.comprobantePago()).startsWith("CONST-VENT-");
+        assertThat(respuesta.montoDerechoTramite()).isEqualByComparingTo(BigDecimal.valueOf(10.00));
+        verify(emisorConstancia).emitir(eq(solicitud), eq(contribuyenteSinDeuda), eq(trabajador),
+                any(LocalDateTime.class), eq("PRD-001"), eq("Del 01/01/2024 al 31/12/2026"));
     }
 
     @Test
-    void emitirConstanciaGeneraElPdfFirmadoYLoEnviaAlBuzon() {
+    void emitirPendienteReutilizaElEmisorComun() {
         trabajadorActivo();
         SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.PAGADA);
         when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
         contribuyenteEnSamnet();
 
-        VersionPlantilla plantilla = org.mockito.Mockito.mock(VersionPlantilla.class);
-        when(versionPlantillaRepository.findByPlantillaCodigoAndVigenteTrue("CONSTANCIA_NO_ADEUDO"))
-                .thenReturn(Optional.of(plantilla));
-
-        when(constanciaRepository.siguienteNumero(AHORA.toLocalDate())).thenReturn("CNA-2026-000001");
-
-        byte[] pdfBytes = "PDF GENERADO".getBytes();
-        when(generadorPdf.generar(eq("CNA-2026-000001"), eq(contribuyenteSinDeuda), any(LocalDateTime.class),
-                eq(AHORA.toLocalDate()), eq("PRD-001, PRD-002"), eq("2024 - 2026"),
-                eq("Ventanilla de Pruebas"), eq(true)))
-                .thenReturn(pdfBytes);
-
-        FirmadorGateway.ResultadoFirma resultadoFirma = new FirmadorGateway.ResultadoFirma(
-                true, "ENTIDAD DE PRUEBA", "hash-municipal", null);
-        when(firmador.firmarComoMunicipalidad(pdfBytes))
-                .thenReturn(new FirmadorGateway.DocumentoFirmado(pdfBytes, resultadoFirma));
-        when(firmador.firmaLocal()).thenReturn(true);
-
-        when(constanciaRepository.save(any(Constancia.class))).thenAnswer(inv -> inv.getArgument(0));
         TransaccionPago orden = ordenDe(solicitud);
         orden.confirmar("CONST-VENT-1");
-        when(transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(1L)).thenReturn(Optional.of(orden));
+        when(samnet.buscarPredio(null, CODIGO_SIN_DEUDA))
+                .thenReturn(List.of(predio("PRD-001"), predio("PRD-002")));
+        prepararEmision(solicitud, orden, "PRD-001, PRD-002", "Del 01/01/2024 al 31/12/2026");
 
         EmitirConstanciaVentanillaSolicitud peticion = new EmitirConstanciaVentanillaSolicitud(
-                List.of("PRD-001", "PRD-002"), null, "2024 - 2026");
+                List.of("PRD-001", "PRD-002"), LocalDate.of(2024, 1, 1), LocalDate.of(2026, 12, 31));
 
         ConstanciaVentanillaRespuesta respuesta = servicio.emitir(1L, peticion, USUARIO_VENTANILLA);
 
-        assertThat(respuesta.numeroConstancia()).isEqualTo("CNA-2026-000001");
+        assertThat(respuesta.numeroConstancia()).isEqualTo("CND-2026-ABC234");
         assertThat(respuesta.documentoContribuyente()).isEqualTo(DNI_SIN_DEUDA);
         assertThat(respuesta.canal()).isEqualTo("VENTANILLA");
         assertThat(respuesta.estado()).isEqualTo("EMITIDA");
         assertThat(respuesta.trabajadorEmisor()).isEqualTo(USUARIO_VENTANILLA);
         assertThat(respuesta.nombreTrabajadorEmisor()).isEqualTo("Ventanilla de Pruebas");
         assertThat(respuesta.prediosIncluidos()).isEqualTo("PRD-001, PRD-002");
-        assertThat(respuesta.rangoFechas()).isEqualTo("2024 - 2026");
+        assertThat(respuesta.rangoFechas()).isEqualTo("Del 01/01/2024 al 31/12/2026");
         assertThat(respuesta.comprobantePago()).startsWith("CONST-VENT-");
         assertThat(respuesta.montoDerechoTramite()).isEqualByComparingTo(BigDecimal.valueOf(10.00));
 
-        verify(documentoBuzonRepository).save(any(DocumentoBuzon.class));
+        verify(emisorConstancia).emitir(eq(solicitud), eq(contribuyenteSinDeuda), eq(trabajador),
+                any(LocalDateTime.class), eq("PRD-001, PRD-002"), eq("Del 01/01/2024 al 31/12/2026"));
         verify(solicitudConstanciaService, never()).consultarDeuda(any());
+    }
+
+    @Test
+    void confirmarPagoRechazaPredioQueNoPerteneceAlContribuyenteAntesDeCobrar() {
+        trabajadorActivo();
+        contribuyenteEnSamnet();
+        SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.ORDEN_PAGO_EMITIDA);
+        when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
+        when(samnet.buscarPredio(null, CODIGO_SIN_DEUDA)).thenReturn(List.of(predio("PRD-001")));
+
+        assertThatThrownBy(() -> servicio.confirmarPago(1L,
+                new EmitirConstanciaVentanillaSolicitud(List.of("PRD-AJENO"), null, null),
+                USUARIO_VENTANILLA))
+                .isInstanceOf(ReglaNegocioException.class)
+                .hasMessageContaining("no pertenecen");
+
+        verify(transaccionPagoRepository, never()).saveAndFlush(any());
+        verify(emisorConstancia, never()).emitir(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void repetirConfirmacionDevuelveLaMismaConstanciaSinDuplicarla() {
+        trabajadorActivo();
+        contribuyenteEnSamnet();
+        SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.PAGADA);
+        solicitud.emitir(trabajador, new FirmaDigital(TipoFirmante.MUNICIPALIDAD,
+                "ENTIDAD MUNICIPAL", AHORA, true, "b".repeat(64)), AHORA);
+        TransaccionPago orden = ordenDe(solicitud);
+        orden.confirmar("CONST-VENT-1");
+        Constancia existente = new Constancia("CND-2026-ABC234", solicitud,
+                org.mockito.Mockito.mock(VersionPlantilla.class), AHORA, "Todos los predios del contribuyente",
+                "Hasta la fecha de emisión", "CND-2026-ABC234.pdf", true, trabajador, "PDF".getBytes());
+        when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
+        when(constanciaRepository.findBySolicitud_IdSolicitud(solicitud.getIdSolicitud()))
+                .thenReturn(Optional.of(existente));
+        when(transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(solicitud.getIdSolicitud()))
+                .thenReturn(Optional.of(orden));
+
+        ConstanciaVentanillaRespuesta respuesta = servicio.confirmarPago(1L,
+                EmitirConstanciaVentanillaSolicitud.valoresPorDefecto(), USUARIO_VENTANILLA);
+
+        assertThat(respuesta.numeroConstancia()).isEqualTo("CND-2026-ABC234");
+        verify(emisorConstancia, never()).emitir(any(), any(), any(), any(), any(), any());
+        verify(transaccionPagoRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void emitirRechazaRangoIncompleto() {
+        trabajadorActivo();
+        SolicitudConstancia solicitud = solicitudEn(EstadoConstancia.PAGADA);
+        when(solicitudConstanciaRepository.bloquearPorId(1L)).thenReturn(Optional.of(solicitud));
+        contribuyenteEnSamnet();
+
+        assertThatThrownBy(() -> servicio.emitir(1L,
+                new EmitirConstanciaVentanillaSolicitud(List.of(), LocalDate.of(2024, 1, 1), null),
+                USUARIO_VENTANILLA))
+                .isInstanceOf(DatoInvalidoException.class)
+                .hasMessageContaining("ambas fechas");
     }
 
     @Test

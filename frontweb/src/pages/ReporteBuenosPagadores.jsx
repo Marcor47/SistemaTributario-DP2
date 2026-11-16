@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GestionVistasReporte from '../components/GestionVistasReporte.jsx'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import VisualizacionReporte from '../components/VisualizacionReporte.jsx'
-import { exportarBuenosPagadoresPorZona, generarBuenosPagadoresPorZona } from '../services/reporteService.js'
+import { abrirVista, exportarBuenosPagadoresPorZona, generarBuenosPagadoresPorZona } from '../services/reporteService.js'
 import { fecha, moneda } from '../utils/formato.js'
 import { etiquetaTributo, etiquetaTipoDocumento, opcionesZona, paginarFilas, TRIBUTOS, validarFiltros } from '../utils/reportes.js'
 import './Reportes.css'
@@ -170,7 +170,16 @@ export default function ReporteBuenosPagadores({ titulo, zonas, cargandoZonas, e
   }
 
   function abrirConfiguracion({ vista, reporte }) {
-    const siguientes = { ...FILTROS_INICIALES, ...vista.filtros, periodo: String(vista.filtros?.periodo || vista.filtros?.anio || ANIO_ACTUAL), montoMinimo: vista.filtros?.montoMinimo ?? '' }
+    const filtrosCrudos = vista.filtros || {}
+    const filtrosSanitizados = Object.fromEntries(
+      Object.entries(filtrosCrudos).map(([clave, valor]) => [clave, valor ?? ''])
+    )
+    const siguientes = {
+      ...FILTROS_INICIALES,
+      ...filtrosSanitizados,
+      periodo: String(vista.filtros?.periodo || vista.filtros?.anio || ANIO_ACTUAL),
+      montoMinimo: vista.filtros?.montoMinimo ?? '',
+    }
     setFiltros(siguientes)
     setFiltrosAplicados(siguientes)
     const columnasVista = (vista.columnasVisibles || []).filter((columna) => COLUMNAS_BUENOS_PAGADORES.includes(columna))
@@ -180,6 +189,20 @@ export default function ReporteBuenosPagadores({ titulo, zonas, cargandoZonas, e
     setResultado({ cargando: false, datos: reporte, error: null })
     setPagina(1)
   }
+
+  useEffect(() => {
+    function alAbrirVistaExterna(evento) {
+      const idVista = evento.detail?.idVista
+      if (!idVista) return
+      abrirVista(idVista)
+        .then((datos) => {
+          if (datos?.vista?.tipoReporte === 'BUENOS_PAGADORES') abrirConfiguracion(datos)
+        })
+        .catch((err) => console.error(err))
+    }
+    window.addEventListener('abrir-vista-reporte', alAbrirVistaExterna)
+    return () => window.removeEventListener('abrir-vista-reporte', alAbrirVistaExterna)
+  }, [])
 
   const datos = resultado.datos
   const paginacion = paginarFilas(datos?.filas, pagina, tamanio)
@@ -204,10 +227,10 @@ export default function ReporteBuenosPagadores({ titulo, zonas, cargandoZonas, e
           <div className="reporte-cambios-pendientes-interior"><p className="reporte-cambios-pendientes" role="status">Actualizando el reporte con los nuevos filtros…</p></div>
         </div>
         <fieldset className="reporte-config-grupo"><legend>Datos de consulta</legend><div className="reporte-config-campos">
-          <div className={`fld${errores.periodo ? ' fld-error' : ''}`}><label htmlFor="buenos-periodo">Periodo</label><input id="buenos-periodo" type="number" min="2000" max="2100" value={filtros.periodo} onChange={(event) => setFiltros({ ...filtros, periodo: event.target.value })} aria-describedby={errores.periodo ? 'error-buenos-periodo' : 'ayuda-buenos-periodo'} /><span id="ayuda-buenos-periodo" className="hint">Año tributario evaluado.</span>{errores.periodo && <span id="error-buenos-periodo" className="error-campo">{errores.periodo}</span>}</div>
-          <div className={`fld${errores.zona ? ' fld-error' : ''}`}><label htmlFor="buenos-zona">Zona tributaria</label><select id="buenos-zona" value={filtros.zona} onChange={(event) => setFiltros({ ...filtros, zona: event.target.value })} disabled={cargandoZonas}><option value="">Todas las zonas</option>{opcionesZonas.map((zona) => <option key={zona} value={zona}>{zona}</option>)}</select>{cargandoZonas && <span className="hint">Cargando zonas…</span>}{errorZonas && <span className="error-campo">No se pudieron cargar las zonas.</span>}{errores.zona && <span className="error-campo">{errores.zona}</span>}</div>
-          <div className={`fld${errores.tributo ? ' fld-error' : ''}`}><label htmlFor="buenos-tributo">Tributo</label><select id="buenos-tributo" value={filtros.tributo} onChange={(event) => setFiltros({ ...filtros, tributo: event.target.value })}><option value="">Todos</option>{TRIBUTOS.map((tributo) => <option key={tributo.valor} value={tributo.valor}>{tributo.etiqueta}</option>)}</select>{errores.tributo && <span className="error-campo">{errores.tributo}</span>}</div>
-          <div className={`fld${errores.montoMinimo ? ' fld-error' : ''}`}><label htmlFor="buenos-monto">Monto mínimo pagado (S/)</label><input id="buenos-monto" type="number" min="0" step="0.01" placeholder="0.00" value={filtros.montoMinimo} onChange={(event) => setFiltros({ ...filtros, montoMinimo: event.target.value })} />{errores.montoMinimo && <span className="error-campo">{errores.montoMinimo}</span>}</div>
+          <div className={`fld${errores.periodo ? ' fld-error' : ''}`}><label htmlFor="buenos-periodo">Periodo</label><input id="buenos-periodo" type="number" min="2000" max="2100" value={filtros.periodo ?? ''} onChange={(event) => setFiltros({ ...filtros, periodo: event.target.value })} aria-describedby={errores.periodo ? 'error-buenos-periodo' : 'ayuda-buenos-periodo'} /><span id="ayuda-buenos-periodo" className="hint">Año tributario evaluado.</span>{errores.periodo && <span id="error-buenos-periodo" className="error-campo">{errores.periodo}</span>}</div>
+          <div className={`fld${errores.zona ? ' fld-error' : ''}`}><label htmlFor="buenos-zona">Zona tributaria</label><select id="buenos-zona" value={filtros.zona ?? ''} onChange={(event) => setFiltros({ ...filtros, zona: event.target.value })} disabled={cargandoZonas}><option value="">Todas las zonas</option>{opcionesZonas.map((zona) => <option key={zona} value={zona}>{zona}</option>)}</select>{cargandoZonas && <span className="hint">Cargando zonas…</span>}{errorZonas && <span className="error-campo">No se pudieron cargar las zonas.</span>}{errores.zona && <span className="error-campo">{errores.zona}</span>}</div>
+          <div className={`fld${errores.tributo ? ' fld-error' : ''}`}><label htmlFor="buenos-tributo">Tributo</label><select id="buenos-tributo" value={filtros.tributo ?? ''} onChange={(event) => setFiltros({ ...filtros, tributo: event.target.value })}><option value="">Todos</option>{TRIBUTOS.map((tributo) => <option key={tributo.valor} value={tributo.valor}>{tributo.etiqueta}</option>)}</select>{errores.tributo && <span className="error-campo">{errores.tributo}</span>}</div>
+          <div className={`fld${errores.montoMinimo ? ' fld-error' : ''}`}><label htmlFor="buenos-monto">Monto mínimo pagado (S/)</label><input id="buenos-monto" type="number" min="0" step="0.01" placeholder="0.00" value={filtros.montoMinimo ?? ''} onChange={(event) => setFiltros({ ...filtros, montoMinimo: event.target.value })} />{errores.montoMinimo && <span className="error-campo">{errores.montoMinimo}</span>}</div>
         </div></fieldset>
         <fieldset className="reporte-config-grupo reporte-config-grupo--personalizacion">
           <legend>Personalización</legend>

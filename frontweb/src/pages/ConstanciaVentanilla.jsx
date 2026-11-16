@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import { useSesionInterna } from '../context/sesionInterna.js'
 import {
-  MAX_DOCUMENTO, MAX_PREDIOS_TEXTO, MAX_RANGO_FECHAS, MINIMO_SUGERENCIAS,
+  MAX_DOCUMENTO, MINIMO_SUGERENCIAS,
   buscarCoincidenciasVentanilla, confirmarPagoSolicitud, consultarContribuyente,
   crearSolicitudVentanilla, emitirSolicitud, firmaEnVentanilla, listarConstancias,
   listarSolicitudesContribuyente, normalizarDocumento,
@@ -193,8 +193,8 @@ export default function ConstanciaVentanilla() {
   const [solicitud, setSolicitud] = useState(null)
   const [documentoFirma, setDocumentoFirma] = useState(null)
   const [prediosSeleccionados, setPrediosSeleccionados] = useState([])
-  const [prediosTexto, setPrediosTexto] = useState('')
-  const [rangoFechas, setRangoFechas] = useState('')
+  const [fechaDesde, setFechaDesde] = useState('')
+  const [fechaHasta, setFechaHasta] = useState('')
   const [resultado, setResultado] = useState(null)
   const [historial, setHistorial] = useState([])
   const [filtroHistorial, setFiltroHistorial] = useState('')
@@ -401,8 +401,8 @@ export default function ConstanciaVentanilla() {
     setDocumentoFirma(null)
     setResultado(null)
     setPrediosSeleccionados([])
-    setPrediosTexto('')
-    setRangoFechas('')
+    setFechaDesde('')
+    setFechaHasta('')
     setOcupado('consulta')
     try {
       const datos = await consultarContribuyente(valor)
@@ -433,8 +433,8 @@ export default function ConstanciaVentanilla() {
       setSolicitud(creada)
       setDocumentoFirma(null)
       setPrediosSeleccionados([])
-      setPrediosTexto('')
-      setRangoFechas('')
+      setFechaDesde('')
+      setFechaHasta('')
       await refrescarSolicitudes(contribuyente.numeroDocumento)
     })
   }
@@ -463,9 +463,19 @@ export default function ConstanciaVentanilla() {
     })
   }
 
-  function confirmarPago() {
+  function confirmarPago(evento) {
+    evento.preventDefault()
     ejecutar('pago', async () => {
-      setSolicitud(await confirmarPagoSolicitud(solicitud.idSolicitud))
+      const emitida = await confirmarPagoSolicitud(solicitud.idSolicitud, {
+        predios: prediosSeleccionados,
+        fechaDesde,
+        fechaHasta,
+      })
+      setResultado(emitida)
+      await Promise.all([
+        refrescarHistorial(emitida.documentoContribuyente),
+        refrescarSolicitudes(emitida.documentoContribuyente),
+      ])
     })
   }
 
@@ -480,8 +490,8 @@ export default function ConstanciaVentanilla() {
     ejecutar('emision', async () => {
       const emitida = await emitirSolicitud(solicitud.idSolicitud, {
         predios: prediosSeleccionados,
-        prediosTexto,
-        rangoFechas,
+        fechaDesde,
+        fechaHasta,
       })
       setResultado(emitida)
       await Promise.all([
@@ -497,8 +507,8 @@ export default function ConstanciaVentanilla() {
     setSolicitud(null)
     setDocumentoFirma(null)
     setPrediosSeleccionados([])
-    setPrediosTexto('')
-    setRangoFechas('')
+    setFechaDesde('')
+    setFechaHasta('')
     setError('')
     if (documentoActual) refrescarSolicitudes(documentoActual)
   }
@@ -508,8 +518,8 @@ export default function ConstanciaVentanilla() {
     setSolicitud(item)
     setDocumentoFirma(null)
     setPrediosSeleccionados([])
-    setPrediosTexto('')
-    setRangoFechas('')
+    setFechaDesde('')
+    setFechaHasta('')
     setResultado(null)
     setError('')
   }
@@ -520,8 +530,8 @@ export default function ConstanciaVentanilla() {
     setSolicitud(null)
     setDocumentoFirma(null)
     setPrediosSeleccionados([])
-    setPrediosTexto('')
-    setRangoFechas('')
+    setFechaDesde('')
+    setFechaHasta('')
     setResultado(null)
     setSolicitudes([])
     setCargandoSolicitudes(false)
@@ -531,7 +541,7 @@ export default function ConstanciaVentanilla() {
   }
 
   /* La condición de no adeudo se congeló al presentar la solicitud; solo falta el pago del trámite. */
-  const puedeEmitir = estadoSolicitud === 'PAGADA'
+  const rangoCompleto = (!fechaDesde && !fechaHasta) || (fechaDesde && fechaHasta && fechaHasta >= fechaDesde)
 
   return (
     <div className="constancia-ventanilla" aria-busy={ocupado !== null}>
@@ -793,33 +803,15 @@ export default function ConstanciaVentanilla() {
             </>
           )}
 
-          {(estadoSolicitud === 'ORDEN_PAGO_EMITIDA' || estadoSolicitud === 'DEUDA_VERIFICADA') && (
-            <>
-              <h3>Orden de pago</h3>
+          {(estadoSolicitud === 'ORDEN_PAGO_EMITIDA' || estadoSolicitud === 'PAGADA') && (
+            <form onSubmit={estadoSolicitud === 'ORDEN_PAGO_EMITIDA' ? confirmarPago : emitir}>
+              <h3>{estadoSolicitud === 'PAGADA' ? 'Completar emisión pendiente' : 'Confirmar pago y emitir constancia'}</h3>
               <div className="pfields">
                 <Campo etiqueta="Deuda al presentar" valor={solicitud.deuda ? moneda(solicitud.deuda.total) : '—'} />
                 <Campo etiqueta="Derecho de trámite" valor={moneda(solicitud.ordenPago?.monto)} />
                 <Campo etiqueta="Estado de la orden" valor={solicitud.ordenPago?.estado ?? 'Pendiente de pago'} />
                 <Campo etiqueta="Comprobante" valor={solicitud.ordenPago?.comprobante} />
               </div>
-              {estadoSolicitud === 'ORDEN_PAGO_EMITIDA' && (
-                <>
-                  <div className="cv-acciones">
-                    <button className="btn primary" type="button" onClick={confirmarPago} disabled={ocupado !== null}>
-                      {ocupado === 'pago' ? 'Confirmando…' : 'Confirmar pago recibido'}
-                    </button>
-                  </div>
-                  <p className="hint cv-nota">
-                    Confirma el cobro presencial del derecho de trámite. El comprobante se genera automáticamente.
-                  </p>
-                </>
-              )}
-            </>
-          )}
-
-          {estadoSolicitud === 'PAGADA' && (
-            <form onSubmit={emitir}>
-              <h3>Emitir constancia</h3>
               <p className="hint">
                 Selecciona los predios que comprende la constancia. Si no seleccionas ninguno, se consideran todos los
                 predios del contribuyente.
@@ -851,45 +843,45 @@ export default function ConstanciaVentanilla() {
 
               <div className="filters-fields">
                 <div className="fld">
-                  <label htmlFor="cv-predios-texto">Descripción libre de predios (opcional)</label>
+                  <label htmlFor="cv-fecha-desde">Fecha inicial (opcional)</label>
                   <input
-                    id="cv-predios-texto"
-                    type="text"
-                    maxLength={MAX_PREDIOS_TEXTO}
-                    value={prediosTexto}
-                    onChange={(evento) => setPrediosTexto(evento.target.value)}
-                    placeholder="Solo si los predios no figuran en la lista"
-                    disabled={ocupado !== null || prediosSeleccionados.length > 0}
-                  />
-                  <span className="hint">Se usa solo si no seleccionas predios de la lista.</span>
-                </div>
-                <div className="fld">
-                  <label htmlFor="cv-rango-fechas">Rango de fechas o vigencia (opcional)</label>
-                  <input
-                    id="cv-rango-fechas"
-                    type="text"
-                    maxLength={MAX_RANGO_FECHAS}
-                    value={rangoFechas}
-                    onChange={(evento) => setRangoFechas(evento.target.value)}
-                    placeholder="Periodo 2024 - 2026"
+                    id="cv-fecha-desde"
+                    type="date"
+                    value={fechaDesde}
+                    max={fechaHasta || undefined}
+                    onChange={(evento) => setFechaDesde(evento.target.value)}
                     disabled={ocupado !== null}
                   />
-                  <span className="hint">Si se omite, la constancia indica «Hasta la fecha de emisión».</span>
+                </div>
+                <div className="fld">
+                  <label htmlFor="cv-fecha-hasta">Fecha final (opcional)</label>
+                  <input
+                    id="cv-fecha-hasta"
+                    type="date"
+                    value={fechaHasta}
+                    min={fechaDesde || undefined}
+                    onChange={(evento) => setFechaHasta(evento.target.value)}
+                    disabled={ocupado !== null}
+                  />
                 </div>
               </div>
+              {!rangoCompleto && <p className="campo-error" role="alert">Indica ambas fechas y un rango válido.</p>}
+              <p className="hint">Si se omiten ambas fechas, la constancia indica «Hasta la fecha de emisión».</p>
 
               <div className="cv-acciones">
                 <button
                   className="btn primary"
                   type="submit"
-                  disabled={ocupado !== null || !puedeEmitir}
-                  title={puedeEmitir ? undefined : 'Confirma el pago del derecho de trámite antes de emitir.'}
+                  disabled={ocupado !== null || !rangoCompleto}
                 >
-                  {ocupado === 'emision' ? 'Emitiendo…' : 'Emitir constancia'}
+                  {ocupado === 'pago' ? 'Confirmando y emitiendo…'
+                    : ocupado === 'emision' ? 'Emitiendo…'
+                      : estadoSolicitud === 'PAGADA' ? 'Emitir constancia pendiente' : 'Confirmar pago y emitir'}
                 </button>
               </div>
               <p className="hint cv-nota">
-                La firma municipal se incorpora automáticamente y la constancia se deposita en el buzón del contribuyente.
+                Al confirmar el pago, el sistema genera el comprobante, firma la constancia automáticamente y la deposita
+                en el buzón del contribuyente.
               </p>
             </form>
           )}

@@ -26,6 +26,16 @@ test('HU006: morosos limpia y envía rango de años y beneficio', () => {
     'anioDesde=2025&anioHasta=2026&zona=Z2&tributo=ARBITRIOS&regimen=GENERAL&tipoDocumento=RUC&etapa=COACTIVA&beneficio=CON_BENEFICIO&montoMinimo=1000')
 })
 
+test('HU007: limpiarFiltros convierte valores nulos o indefinidos en cadenas vacías', () => {
+  const filtrosConNulos = { regimen: null, tipoDocumento: null, montoMinimo: null, zona: 'MARANGA', tributo: 'ARBITRIOS' }
+  const limpios = limpiarFiltros(morosos, filtrosConNulos)
+  assert.equal(limpios.regimen, '')
+  assert.equal(limpios.tipoDocumento, '')
+  assert.equal(limpios.montoMinimo, '')
+  assert.equal(limpios.zona, 'MARANGA')
+  assert.equal(limpios.tributo, 'ARBITRIOS')
+})
+
 test('HU006: construye los parámetros aceptados para PRICOS', () => {
   const consulta = parametrosReporte(pricos, { anio: '2026', zona: '', tributo: 'IMPUESTO_PREDIAL', montoMinimo: '0' })
   assert.equal(consulta.get('anio'), '2026')

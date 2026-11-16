@@ -8,7 +8,7 @@ import {
   CRITERIOS_PRICOS, GRUPOS_PRICOS, alternarGrupoColumnas, etiquetaCriterioPricos, etiquetaTipoDocumento, normalizarOrdenColumnas,
   ordenarGrupos, paginarFilas, porcentaje, reordenarColumnasDeGrupo, reordenarGruposColumnas, validarPricos,
 } from '../utils/reportes.js'
-import { exportarReportePricos, generarReportePricos } from '../services/reporteService.js'
+import { abrirVista, exportarReportePricos, generarReportePricos } from '../services/reporteService.js'
 import './Reportes.css'
 
 const GRUPOS = GRUPOS_PRICOS
@@ -355,6 +355,20 @@ export default function ReportePricos({ titulo, onCambiarReporte, puedePersonali
     setResultado({ cargando: false, datos: reporte, error: null })
     setPagina(1)
   }
+
+  useEffect(() => {
+    function alAbrirVistaExterna(evento) {
+      const idVista = evento.detail?.idVista
+      if (!idVista) return
+      abrirVista(idVista)
+        .then((datos) => {
+          if (datos?.vista?.tipoReporte === 'PRICOS') abrirConfiguracion(datos)
+        })
+        .catch((err) => setErrorAccion(err))
+    }
+    window.addEventListener('abrir-vista-reporte', alAbrirVistaExterna)
+    return () => window.removeEventListener('abrir-vista-reporte', alAbrirVistaExterna)
+  }, [])
 
   const errorGeneral = resultado.error
   const paginacion = paginarFilas(resultado.datos?.filas, pagina, tamanio)

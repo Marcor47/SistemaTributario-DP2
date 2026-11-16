@@ -124,7 +124,7 @@ test('HU042: la firma en ventanilla viaja al servidor con su certificado', async
   })
 })
 
-test('HU042: verificación, pago y emisión van por pasos con CSRF y sin documento en la emisión', async (t) => {
+test('HU042: la confirmación del pago envía predios y fechas y devuelve la constancia emitida', async (t) => {
   const envios = []
   t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
     if (String(url).endsWith('/auth/interno/csrf')) {
@@ -135,48 +135,57 @@ test('HU042: verificación, pago y emisión van por pasos con CSRF y sin documen
   })
 
   await verificarDeudaSolicitud(15)
-  await confirmarPagoSolicitud(15)
-  const emitida = await emitirSolicitud(15, {
+  const emitida = await confirmarPagoSolicitud(15, {
     predios: ['014502-01', '014502-01', ' '],
-    prediosTexto: 'Texto que el backend ignora',
-    rangoFechas: '  Periodo 2024 - 2026  ',
+    fechaDesde: '2024-01-01',
+    fechaHasta: '2026-12-31',
   })
 
   assert.equal(emitida.estado, 'EMITIDA')
   assert.ok(envios[0].url.endsWith('/ventanilla/constancias/15/verificacion'))
   assert.ok(envios[1].url.endsWith('/ventanilla/constancias/15/pago'))
-  assert.ok(envios[2].url.endsWith('/ventanilla/constancias/15/emitir'))
   for (const envio of envios) {
     assert.equal(envio.opciones.method, 'POST')
     assert.equal(envio.opciones.headers['X-XSRF-TOKEN'], 't')
   }
-  assert.deepEqual(JSON.parse(envios[2].opciones.body), {
+  assert.deepEqual(JSON.parse(envios[1].opciones.body), {
     predios: ['014502-01'],
-    prediosTexto: null,
-    rangoFechas: 'Periodo 2024 - 2026',
+    fechaDesde: '2024-01-01',
+    fechaHasta: '2026-12-31',
   })
 })
 
-test('HU042: sin predios seleccionados se envía el texto libre y los máximos se validan antes de enviar', async (t) => {
+test('HU042: los parámetros usan fechas reales y rechazan rangos incompletos o invertidos', async (t) => {
   const fetchFalso = t.mock.method(globalThis, 'fetch', async () => json({}))
 
-  assert.deepEqual(construirParametrosEmision({
-    predios: [], prediosTexto: '  Predio rural sin código  ', rangoFechas: '',
-  }), {
+  assert.deepEqual(construirParametrosEmision(), {
     predios: [],
-    prediosTexto: 'Predio rural sin código',
-    rangoFechas: null,
+    fechaDesde: null,
+    fechaHasta: null,
   })
 
   await assert.rejects(
-    () => emitirSolicitud(15, { prediosTexto: 'x'.repeat(401) }),
-    /400 caracteres/,
+    () => emitirSolicitud(15, { fechaDesde: '2024-01-01' }),
+    /fecha inicial y la fecha final/,
   )
   await assert.rejects(
-    () => emitirSolicitud(15, { rangoFechas: 'x'.repeat(61) }),
-    /60 caracteres/,
+    () => emitirSolicitud(15, { fechaDesde: '2026-01-01', fechaHasta: '2024-01-01' }),
+    /rango de fechas no es válido/,
   )
   assert.equal(fetchFalso.mock.callCount(), 0)
+})
+
+test('HU042: la emisión manual queda disponible como recuperación de una solicitud pagada', async (t) => {
+  const envios = []
+  t.mock.method(globalThis, 'fetch', async (url, opciones = {}) => {
+    if (String(url).endsWith('/auth/interno/csrf')) return json({ headerName: 'X-XSRF-TOKEN', token: 't' })
+    envios.push({ url: String(url), opciones })
+    return json({ numeroConstancia: 'CND-2026-ABC234', estado: 'EMITIDA' }, 201)
+  })
+
+  const emitida = await emitirSolicitud(15, { predios: [], fechaDesde: '', fechaHasta: '' })
+  assert.equal(emitida.numeroConstancia, 'CND-2026-ABC234')
+  assert.ok(envios[0].url.endsWith('/ventanilla/constancias/15/emitir'))
 })
 
 test('HU042: el historial filtra por documento solo cuando se indica', async (t) => {
