@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import SegmentacionIA from '../components/SegmentacionIA.jsx'
 import {
-  aprobarCaso, decisionesPorCodigo, ejecutarCarga, listarCargas, listarCasos, obtenerCarga, obtenerCaso, rechazarCaso,
-  reasignarCaso,
+  aprobarCaso, decisionesPorCodigo, ejecutarCarga, listarAccesos, listarCargas, listarCasos, obtenerCarga, obtenerCaso,
+  obtenerCuarentena, rechazarCaso, reasignarCaso,
 } from '../services/calidadDatosService.js'
 import { fecha, fechaHora, hoyLima } from '../utils/formato.js'
 import './ConstanciasNoAdeudo.css'
@@ -19,11 +19,80 @@ const NIVEL = {
   N0_CORRESPONDENCIA_PREVIA: 'N0 · vínculo previo', N1_EXACTA_NORMALIZADA: 'N1 · coincidencia exacta',
   N2_SIMILITUD: 'N2 · similitud', N3_ALTA_NUEVA: 'N3 · registro nuevo',
 }
+const ENTIDAD_CUARENTENA = {
+  CONTRIBUYENTE: 'Contribuyente', PREDIO: 'Predio', TITULAR: 'Titularidad', CUOTA: 'Cuota', PAGO: 'Pago',
+}
+const ENTIDAD_ACCESO = {
+  CasoHomologacion: 'Caso de homologación', EntidadMaestra: 'Reidentificación de seudónimo',
+  AsignacionSegmento: 'Búsqueda en el mapa de segmentos',
+}
 const entero = (n) => Number(n ?? 0).toLocaleString('es-PE')
 
 function Estado({ mapa, valor }) {
   const [texto, clase] = mapa[valor] ?? [valor, 'neutro']
   return <span className={`estado ${clase}`}>{texto}</span>
+}
+
+// Registros que la carga dejó fuera (plata.cuarentena): qué registro de SAMNET, qué regla y por qué. Se monta con
+// key={idLote}, así cada carga empieza con su estado limpio.
+function CuarentenaLote({ idLote }) {
+  const [filas, setFilas] = useState(null)
+  const [error, setError] = useState('')
+  const [regla, setRegla] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
+
+  useEffect(() => {
+    let vigente = true
+    obtenerCuarentena(idLote)
+      .then((lista) => { if (vigente) setFilas(lista) })
+      .catch((err) => { if (vigente) setError(err.message || 'No se pudo consultar la cuarentena.') })
+    return () => { vigente = false }
+  }, [idLote])
+
+  const reglas = [...new Set((filas ?? []).map((f) => f.regla))].sort()
+  const filtradas = (filas ?? []).filter((f) => !regla || f.regla === regla)
+  const visibles = filtradas.slice((pagina - 1) * tamanio, pagina * tamanio)
+  return (
+    <>
+      <h3 id="cuarentena-titulo">Registros en cuarentena</h3>
+      <p className="hint">Registros de SAMNET que no pasaron una regla de calidad y no llegaron a la plataforma analítica. Se corrigen en el origen y entran en la siguiente carga.</p>
+      {error && <div className="alert" role="alert">{error}</div>}
+      {!filas && !error && <p className="hint" role="status">Consultando la cuarentena…</p>}
+      {filas?.length === 0 && <p className="hint">Ningún registro quedó en cuarentena en esta carga.</p>}
+      {filas?.length > 0 && (
+        <>
+          <div className="filters">
+            <div className="fld">
+              <label htmlFor="cuarentena-regla">Regla</label>
+              <select id="cuarentena-regla" value={regla} onChange={(e) => { setRegla(e.target.value); setPagina(1) }}>
+                <option value="">Todas ({entero(filas.length)})</option>
+                {reglas.map((r) => <option key={r} value={r}>{r} ({entero(filas.filter((f) => f.regla === r).length)})</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="tabla-scroll" tabIndex={0} role="region" aria-labelledby="cuarentena-titulo">
+            <table className="tabla">
+              <caption className="sr-only">Registros en cuarentena con su regla y motivo</caption>
+              <thead><tr><th scope="col">Regla</th><th scope="col">Tipo de registro</th><th scope="col">Código SAMNET</th><th scope="col">Motivo</th></tr></thead>
+              <tbody>
+                {visibles.map((f, i) => (
+                  <tr key={`${f.regla}-${f.entidad}-${f.claveOrigen}-${i}`}>
+                    <th scope="row">{f.regla}</th>
+                    <td>{ENTIDAD_CUARENTENA[f.entidad] ?? f.entidad}</td>
+                    <td>{f.claveOrigen || '—'}</td>
+                    <td>{f.motivo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginacionTabla id="cuarentena-etl" totalRegistros={filtradas.length} pagina={pagina} tamanio={tamanio}
+            onCambiarPagina={setPagina} onCambiarTamanio={(v) => { setTamanio(v); setPagina(1) }} />
+        </>
+      )}
+    </>
+  )
 }
 
 function Cargas() {
@@ -139,9 +208,74 @@ function Cargas() {
               </table>
             </div>
           )}
+          <CuarentenaLote key={detalle.idLote} idLote={detalle.idLote} />
         </section>
       )}
     </>
+  )
+}
+
+function AuditoriaAccesos() {
+  const [accesos, setAccesos] = useState(null)
+  const [error, setError] = useState('')
+  const [usuario, setUsuario] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
+  const [revision, setRevision] = useState(0)
+
+  useEffect(() => {
+    const controlador = new AbortController()
+    listarAccesos(500, { signal: controlador.signal })
+      .then((lista) => { if (!controlador.signal.aborted) { setAccesos(lista); setError('') } })
+      .catch((err) => { if (!controlador.signal.aborted) setError(err.message || 'No se pudo consultar la auditoría de accesos.') })
+    return () => controlador.abort()
+  }, [revision])
+
+  const usuarios = [...new Set((accesos ?? []).map((a) => a.nombreUsuario ?? ''))].sort()
+  const filtrados = (accesos ?? []).filter((a) => !usuario || (a.nombreUsuario ?? '') === usuario)
+  const visibles = filtrados.slice((pagina - 1) * tamanio, pagina * tamanio)
+  return (
+    <section className="pcard" aria-labelledby="accesos-titulo">
+      <h2 id="accesos-titulo">Auditoría de accesos a datos personales</h2>
+      <p className="hint">Cada vez que alguien ve datos en claro (el detalle de un caso de homologación, la reidentificación de un seudónimo o una búsqueda en el mapa de segmentos) queda registrado aquí. Se muestran los 500 accesos más recientes; el registro no se puede modificar.</p>
+      <div className="filters">
+        {accesos?.length > 0 && (
+          <div className="fld">
+            <label htmlFor="accesos-usuario">Usuario</label>
+            <select id="accesos-usuario" value={usuario} onChange={(e) => { setUsuario(e.target.value); setPagina(1) }}>
+              <option value="">Todos</option>
+              {usuarios.map((u) => <option key={u || 'sistema'} value={u}>{u || 'Sistema'}</option>)}
+            </select>
+          </div>
+        )}
+        <button className="btn" type="button" onClick={() => setRevision((v) => v + 1)}>Actualizar</button>
+      </div>
+      {error && <div className="alert" role="alert">{error}</div>}
+      {!accesos && !error && <p className="hint" role="status">Consultando los accesos…</p>}
+      {accesos?.length === 0 && <p className="hint">No hay accesos registrados.</p>}
+      {visibles.length > 0 && (
+        <>
+          <div className="tabla-scroll" tabIndex={0} role="region" aria-label="Accesos a datos personales">
+            <table className="tabla">
+              <caption className="sr-only">Accesos a datos personales en claro</caption>
+              <thead><tr><th scope="col">Fecha</th><th scope="col">Usuario</th><th scope="col">Qué consultó</th><th scope="col">Detalle</th></tr></thead>
+              <tbody>
+                {visibles.map((a) => (
+                  <tr key={a.idRegistro}>
+                    <th scope="row">{fechaHora(a.fechaHora)}</th>
+                    <td>{a.nombreCompletoUsuario ? `${a.nombreCompletoUsuario} (${a.nombreUsuario})` : (a.nombreUsuario || 'Sistema')}</td>
+                    <td>{ENTIDAD_ACCESO[a.entidad] ?? a.entidad}</td>
+                    <td>{a.detalle || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <PaginacionTabla id="accesos-datos" totalRegistros={filtrados.length} pagina={pagina} tamanio={tamanio}
+            onCambiarPagina={setPagina} onCambiarTamanio={(v) => { setTamanio(v); setPagina(1) }} />
+        </>
+      )}
+    </section>
   )
 }
 
@@ -355,6 +489,7 @@ const SUBPESTANAS = [
   { id: 'cargas', titulo: 'Cargas del ETL', Componente: Cargas },
   { id: 'homologacion', titulo: 'Homologación', Componente: Homologacion },
   { id: 'auditoria', titulo: 'Auditoría de decisiones', Componente: AuditoriaDecisiones },
+  { id: 'accesos', titulo: 'Auditoría de accesos', Componente: AuditoriaAccesos },
   { id: 'segmentacion', titulo: 'Segmentación con IA', Componente: SegmentacionIA },
 ]
 

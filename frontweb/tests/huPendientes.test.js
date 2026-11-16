@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
-  calcularSegmentacion, decisionesPorCodigo, listarSegmentosBorrador, reasignarCaso,
+  calcularSegmentacion, decisionesPorCodigo, listarAccesos, listarSegmentosBorrador, obtenerCuarentena, reasignarCaso,
 } from '../src/services/calidadDatosService.js'
 import { obtenerCatalogosPredio, registrarPredio } from '../src/services/predioService.js'
 
@@ -64,6 +64,26 @@ test('HU028: reasigna el caso a otro registro maestro con su motivo', async (t) 
   assert.equal(url.pathname, '/api/homologacion/casos/7/reasignacion')
   assert.equal(opciones.method, 'POST')
   assert.deepEqual(JSON.parse(opciones.body), { idMaestro: 41, motivo: 'Mismo DNI con distinta grafía' })
+})
+
+test('HU025: consulta la cuarentena de una carga', async (t) => {
+  const llamadas = simularFetch(t, [{ entidad: 'CONTRIBUYENTE', claveOrigen: '990001', regla: 'R2', motivo: 'DNI mal formado' }])
+  const filas = await obtenerCuarentena(12)
+  assert.equal(filas[0].regla, 'R2')
+  assert.equal(llamadas[0].url.pathname, '/api/etl/lotes/12/cuarentena')
+})
+
+test('Auditoría de accesos: lista las reidentificaciones con límite', async (t) => {
+  const llamadas = simularFetch(t, [])
+  await listarAccesos(500)
+  assert.equal(llamadas[0].url.pathname, '/api/homologacion/accesos')
+  assert.equal(llamadas[0].url.searchParams.get('limite'), '500')
+})
+
+test('Calidad de datos muestra la cuarentena y la auditoría de accesos', () => {
+  const calidad = readFileSync(new URL('../src/pages/CalidadDatos.jsx', import.meta.url), 'utf8')
+  assert.match(calidad, /<CuarentenaLote key=\{detalle.idLote\} idLote=\{detalle.idLote\} \/>/)
+  assert.match(calidad, /id: 'accesos'/)
 })
 
 test('HU030: ejecuta el modelo y lista los segmentos en borrador', async (t) => {
