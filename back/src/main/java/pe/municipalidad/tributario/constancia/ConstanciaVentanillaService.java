@@ -3,9 +3,11 @@ package pe.municipalidad.tributario.constancia;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.slf4j.Logger;
@@ -18,10 +20,6 @@ import pe.municipalidad.tributario.common.NoAutenticadoException;
 import pe.municipalidad.tributario.common.RecursoNoEncontradoException;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
-import pe.municipalidad.tributario.documentos.DocumentoBuzon;
-import pe.municipalidad.tributario.documentos.DocumentoBuzonRepository;
-import pe.municipalidad.tributario.documentos.VersionPlantilla;
-import pe.municipalidad.tributario.documentos.VersionPlantillaRepository;
 import pe.municipalidad.tributario.gestiontributaria.Predio;
 import pe.municipalidad.tributario.integracion.firmador.FirmadorGateway;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
@@ -31,8 +29,8 @@ import pe.municipalidad.tributario.seguridad.UsuarioRepository;
 /*
  * HU042 por pasos (RF-055, RF-034, RF-021, RF-037, RF-030): emisión presencial de la Constancia de No Adeudo.
  * El trabajador crea la solicitud, el contribuyente firma en el dispositivo presencial y la firma llega al
- * sistema; luego se verifica la deuda, se genera la orden de pago, se confirma el cobro presencial y se emite
- * la constancia, que la firma la Municipalidad y va al buzón. Cada paso exige el anterior (RNF-029).
+ * sistema; luego se verifica la deuda y se genera la orden de pago. Al confirmar el cobro presencial se emite
+ * automáticamente la constancia, la firma la Municipalidad y va al buzón. Cada paso exige el anterior (RNF-029).
  */
 @Service
 @Transactional(readOnly = true)
@@ -41,6 +39,7 @@ public class ConstanciaVentanillaService {
     private static final Logger LOG = LoggerFactory.getLogger(ConstanciaVentanillaService.class);
     private static final String PREDIOS_DEFAULT = "Todos los predios del contribuyente";
     private static final String RANGO_DEFAULT = "Hasta la fecha de emisión";
+    private static final DateTimeFormatter FORMATO_FECHA = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final Set<EstadoConstancia> ESTADOS_CERRADOS =
             EnumSet.of(EstadoConstancia.EMITIDA, EstadoConstancia.RECHAZADA);
 
@@ -48,12 +47,11 @@ public class ConstanciaVentanillaService {
     private final SolicitudConstanciaService solicitudConstanciaService;
     private final TransaccionPagoRepository transaccionPagoRepository;
     private final ConstanciaRepository constanciaRepository;
-    private final DocumentoBuzonRepository documentoBuzonRepository;
-    private final VersionPlantillaRepository versionPlantillaRepository;
     private final UsuarioRepository usuarioRepository;
     private final SamnetGateway samnet;
     private final FirmadorGateway firmador;
     private final GeneradorConstanciaPdf generadorPdf;
+    private final EmisorConstancia emisorConstancia;
     private final Clock reloj;
     private final BigDecimal derechoTramite;
 
@@ -62,12 +60,11 @@ public class ConstanciaVentanillaService {
             SolicitudConstanciaService solicitudConstanciaService,
             TransaccionPagoRepository transaccionPagoRepository,
             ConstanciaRepository constanciaRepository,
-            DocumentoBuzonRepository documentoBuzonRepository,
-            VersionPlantillaRepository versionPlantillaRepository,
             UsuarioRepository usuarioRepository,
             SamnetGateway samnet,
             FirmadorGateway firmador,
             GeneradorConstanciaPdf generadorPdf,
+            EmisorConstancia emisorConstancia,
             Clock reloj,
             @Value("${tributario.constancia.derecho-tramite}") BigDecimal derechoTramite) {
         if (derechoTramite == null || derechoTramite.signum() <= 0) {
@@ -77,12 +74,11 @@ public class ConstanciaVentanillaService {
         this.solicitudConstanciaService = solicitudConstanciaService;
         this.transaccionPagoRepository = transaccionPagoRepository;
         this.constanciaRepository = constanciaRepository;
-        this.documentoBuzonRepository = documentoBuzonRepository;
-        this.versionPlantillaRepository = versionPlantillaRepository;
         this.usuarioRepository = usuarioRepository;
         this.samnet = samnet;
         this.firmador = firmador;
         this.generadorPdf = generadorPdf;
+        this.emisorConstancia = emisorConstancia;
         this.reloj = reloj;
         this.derechoTramite = derechoTramite;
     }
@@ -224,23 +220,33 @@ public class ConstanciaVentanillaService {
         return OrdenPagoConstanciaRespuesta.desde(ordenPago, null, null);
     }
 
-    /* El trabajador confirma el cobro presencial del derecho de trámite (RF-055). */
+    /* El trabajador confirma el cobro y el sistema emite/firma en la misma operación (RF-055, RF-037). */
     @Transactional
-    public SolicitudVentanillaRespuesta confirmarPago(Long idSolicitud, String nombreTrabajador) {
+    public ConstanciaVentanillaRespuesta confirmarPago(Long idSolicitud,
+            EmitirConstanciaVentanillaSolicitud peticion, String nombreTrabajador) {
         Usuario trabajador = obtenerTrabajador(nombreTrabajador);
         SolicitudConstancia solicitud = bloquearVentanilla(idSolicitud);
-        if (solicitud.getEstado() != EstadoConstancia.ORDEN_PAGO_EMITIDA) {
+
+        if (solicitud.getEstado() == EstadoConstancia.EMITIDA) {
+            return respuestaEmitida(solicitud);
+        }
+        if (solicitud.getEstado() != EstadoConstancia.ORDEN_PAGO_EMITIDA
+                && solicitud.getEstado() != EstadoConstancia.PAGADA) {
             throw new ReglaNegocioException("ORDEN_NO_PENDIENTE",
                     "La orden de pago de la solicitud N.° " + idSolicitud + " no está pendiente.");
         }
+        Contribuyente contribuyente = resolverContribuyente(solicitud.getDocumentoContribuyente());
+        ParametrosEmision parametros = validarParametrosEmision(contribuyente, peticion);
         TransaccionPago ordenPago = transaccionPagoRepository
                 .findBySolicitudConstancia_IdSolicitud(idSolicitud)
                 .orElseThrow(() -> new RecursoNoEncontradoException("ORDEN_NO_ENCONTRADA",
                         "No hay una orden de pago para la solicitud N.° " + idSolicitud + "."));
-        ordenPago.confirmar("CONST-VENT-" + ordenPago.getIdTransaccion());
-        transaccionPagoRepository.saveAndFlush(ordenPago);
-        solicitud.confirmarPago(ordenPago);
-        return respuesta(solicitudConstanciaRepository.saveAndFlush(solicitud), ordenPago, null);
+        if (solicitud.getEstado() == EstadoConstancia.ORDEN_PAGO_EMITIDA) {
+            ordenPago.confirmar("CONST-VENT-" + ordenPago.getIdTransaccion());
+            transaccionPagoRepository.saveAndFlush(ordenPago);
+            solicitud.confirmarPago(ordenPago);
+        }
+        return emitirPagada(solicitud, contribuyente, trabajador, parametros, ordenPago);
     }
 
     /*
@@ -253,6 +259,9 @@ public class ConstanciaVentanillaService {
             String nombreTrabajador) {
         Usuario trabajador = obtenerTrabajador(nombreTrabajador);
         SolicitudConstancia solicitud = bloquearVentanilla(idSolicitud);
+        if (solicitud.getEstado() == EstadoConstancia.EMITIDA) {
+            return respuestaEmitida(solicitud);
+        }
         if (solicitud.getEstado() != EstadoConstancia.PAGADA) {
             throw new ReglaNegocioException("PAGO_REQUERIDO",
                     "La solicitud está " + solicitud.getEstado()
@@ -263,53 +272,10 @@ public class ConstanciaVentanillaService {
                     "No se registró una evaluación sin adeudo al presentar la solicitud N.° " + idSolicitud + ".");
         }
         Contribuyente contribuyente = resolverContribuyente(solicitud.getDocumentoContribuyente());
-
-        VersionPlantilla plantilla = versionPlantillaRepository
-                .findByPlantillaCodigoAndVigenteTrue(ConstanciaOperadorService.CODIGO_PLANTILLA)
-                .orElseThrow(() -> new ReglaNegocioException("PLANTILLA_NO_DISPONIBLE",
-                        "No hay una versión vigente de la plantilla " + ConstanciaOperadorService.CODIGO_PLANTILLA + "."));
-
-        LocalDateTime ahora = LocalDateTime.now(reloj).truncatedTo(ChronoUnit.SECONDS);
-        String prediosTexto = determinarPrediosTexto(peticion);
-        String rangoFechasTexto = determinarRangoFechasTexto(peticion);
-        String numeroConstancia = constanciaRepository.siguienteNumero(ahora.toLocalDate());
-
-        byte[] pdf = generadorPdf.generar(numeroConstancia, contribuyente, ahora,
-                solicitud.getFechaSolicitud().toLocalDate(), prediosTexto, rangoFechasTexto,
-                trabajador.getNombreCompleto(), firmador.firmaLocal());
-        FirmadorGateway.DocumentoFirmado firmado = firmador.firmarComoMunicipalidad(pdf);
-        if (!firmado.firma().valida()) {
-            throw new ReglaNegocioException("FIRMA_MUNICIPAL_INVALIDA",
-                    "No se pudo firmar la constancia: " + firmado.firma().motivoRechazo() + ".");
-        }
-
-        solicitud.emitir(trabajador, new FirmaDigital(TipoFirmante.MUNICIPALIDAD,
-                firmado.firma().entidadCertificadora(), ahora, true, firmado.firma().hashDocumento()), ahora);
-        solicitudConstanciaRepository.saveAndFlush(solicitud);
-
-        Constancia constancia = constanciaRepository.save(new Constancia(
-                numeroConstancia,
-                solicitud,
-                plantilla,
-                ahora,
-                prediosTexto,
-                rangoFechasTexto,
-                numeroConstancia + ".pdf",
-                firmador.firmaLocal(),
-                trabajador,
-                firmado.contenido()));
-
-        documentoBuzonRepository.save(
-                DocumentoBuzon.deConstancia(constancia, solicitud.getDocumentoContribuyente(), ahora));
-
-        LOG.info("Constancia de No Adeudo {} emitida en ventanilla por {} para contribuyente {}",
-                numeroConstancia, trabajador.getNombreUsuario(), contribuyente.getNumeroDocumento());
-
-        return ConstanciaVentanillaRespuesta.desde(
-                constancia,
-                transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(idSolicitud).orElse(null),
-                contribuyente.getNombreRazonSocial(),
-                contribuyente.getCodigoContribuyente());
+        ParametrosEmision parametros = validarParametrosEmision(contribuyente, peticion);
+        TransaccionPago ordenPago = transaccionPagoRepository.findBySolicitudConstancia_IdSolicitud(idSolicitud)
+                .orElse(null);
+        return emitirPagada(solicitud, contribuyente, trabajador, parametros, ordenPago);
     }
 
     /* Obtención del PDF firmado para impresión o entrega física en ventanilla (RF-055). */
@@ -427,20 +393,68 @@ public class ConstanciaVentanillaService {
                         "Inicie sesión con un usuario interno activo."));
     }
 
-    private static String determinarPrediosTexto(EmitirConstanciaVentanillaSolicitud peticion) {
-        String texto = PREDIOS_DEFAULT;
-        if (peticion.predios() != null && !peticion.predios().isEmpty()) {
-            texto = String.join(", ", peticion.predios());
-        } else if (peticion.prediosTexto() != null && !peticion.prediosTexto().isBlank()) {
-            texto = peticion.prediosTexto().strip();
+    private ConstanciaVentanillaRespuesta emitirPagada(SolicitudConstancia solicitud, Contribuyente contribuyente,
+            Usuario trabajador, ParametrosEmision parametros, TransaccionPago ordenPago) {
+        if (solicitud.getDeudaPresentacion() == null || solicitud.getDeudaPresentacion().signum() > 0) {
+            throw new ReglaNegocioException("DEUDA_NO_VERIFICADA",
+                    "No se registró una evaluación sin adeudo al presentar la solicitud N.° "
+                            + solicitud.getIdSolicitud() + ".");
         }
-        return texto.length() > 400 ? texto.substring(0, 400) : texto;
+        LocalDateTime ahora = LocalDateTime.now(reloj).truncatedTo(ChronoUnit.SECONDS);
+        EmisorConstancia.ConstanciaEmitida emitida = emisorConstancia.emitir(solicitud, contribuyente, trabajador,
+                ahora, parametros.prediosTexto(), parametros.rangoFechasTexto());
+        solicitudConstanciaRepository.saveAndFlush(solicitud);
+        LOG.info("Constancia de No Adeudo {} emitida automáticamente en ventanilla por {} para contribuyente {}",
+                emitida.constancia().getNumeroConstancia(), trabajador.getNombreUsuario(),
+                contribuyente.getNumeroDocumento());
+        return ConstanciaVentanillaRespuesta.desde(emitida.constancia(), ordenPago,
+                contribuyente.getNombreRazonSocial(), contribuyente.getCodigoContribuyente());
     }
 
-    private static String determinarRangoFechasTexto(EmitirConstanciaVentanillaSolicitud peticion) {
-        String rango = (peticion.rangoFechas() != null && !peticion.rangoFechas().isBlank())
-                ? peticion.rangoFechas().strip()
-                : RANGO_DEFAULT;
-        return rango.length() > 60 ? rango.substring(0, 60) : rango;
+    private ConstanciaVentanillaRespuesta respuestaEmitida(SolicitudConstancia solicitud) {
+        Constancia constancia = constanciaRepository.findBySolicitud_IdSolicitud(solicitud.getIdSolicitud())
+                .orElseThrow(() -> new RecursoNoEncontradoException("CONSTANCIA_NO_ENCONTRADA",
+                        "La solicitud está emitida pero no se encontró su constancia."));
+        Contribuyente contribuyente = resolverContribuyente(solicitud.getDocumentoContribuyente());
+        return ConstanciaVentanillaRespuesta.desde(constancia, ordenDe(solicitud),
+                contribuyente.getNombreRazonSocial(), contribuyente.getCodigoContribuyente());
     }
+
+    private ParametrosEmision validarParametrosEmision(Contribuyente contribuyente,
+            EmitirConstanciaVentanillaSolicitud peticion) {
+        EmitirConstanciaVentanillaSolicitud parametros = peticion == null
+                ? EmitirConstanciaVentanillaSolicitud.valoresPorDefecto() : peticion;
+        if (!parametros.isRangoFechasValido()) {
+            throw new DatoInvalidoException("RANGO_FECHAS_INVALIDO",
+                    "Indique ambas fechas y asegúrese de que la fecha final no sea anterior a la inicial.");
+        }
+
+        LinkedHashSet<String> seleccionados = new LinkedHashSet<>();
+        if (parametros.predios() != null) {
+            parametros.predios().stream().filter(java.util.Objects::nonNull).map(String::strip)
+                    .filter(codigo -> !codigo.isBlank())
+                    .forEach(seleccionados::add);
+        }
+        if (!seleccionados.isEmpty()) {
+            Set<String> permitidos = samnet.buscarPredio(null, contribuyente.getCodigoContribuyente()).stream()
+                    .map(Predio::getCodigoPredio).collect(java.util.stream.Collectors.toSet());
+            List<String> ajenos = seleccionados.stream().filter(codigo -> !permitidos.contains(codigo)).toList();
+            if (!ajenos.isEmpty()) {
+                throw new ReglaNegocioException("PREDIO_NO_PERTENECE",
+                        "Los predios seleccionados no pertenecen al contribuyente: " + String.join(", ", ajenos) + ".");
+            }
+        }
+
+        String prediosTexto = seleccionados.isEmpty() ? PREDIOS_DEFAULT : String.join(", ", seleccionados);
+        if (prediosTexto.length() > 400) {
+            throw new DatoInvalidoException("PREDIOS_EXCEDEN_DOCUMENTO",
+                    "La selección de predios excede los 400 caracteres permitidos en la constancia.");
+        }
+        String rangoTexto = parametros.fechaDesde() == null ? RANGO_DEFAULT
+                : "Del " + parametros.fechaDesde().format(FORMATO_FECHA) + " al "
+                        + parametros.fechaHasta().format(FORMATO_FECHA);
+        return new ParametrosEmision(prediosTexto, rangoTexto);
+    }
+
+    private record ParametrosEmision(String prediosTexto, String rangoFechasTexto) {}
 }

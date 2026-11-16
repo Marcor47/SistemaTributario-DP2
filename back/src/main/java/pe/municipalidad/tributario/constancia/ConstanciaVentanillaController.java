@@ -24,7 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Permite al personal con permiso CONSTANCIAS:GESTIONAR:
  * - Consultar al contribuyente por DNI/RUC/código y evaluar su estado de deuda y predios.
  * - Crear la solicitud, recibir la firma capturada en el dispositivo presencial (RF-021) y verificar la deuda.
- * - Emitir la orden de pago del derecho de trámite, confirmar el cobro presencial y emitir la constancia.
+ * - Emitir la orden de pago y, al confirmar el cobro presencial, emitir automáticamente la constancia.
  * - Descargar o imprimir el documento PDF firmado con firma digital municipal y listar las emitidas.
  */
 @RestController
@@ -85,10 +85,14 @@ public class ConstanciaVentanillaController {
         return constanciaVentanillaService.obtenerOrdenPago(idSolicitud);
     }
 
-    /* Confirmación del cobro presencial del derecho de trámite (RF-055). */
+    /* Confirmación del cobro y emisión automática con firma municipal (RF-055, RF-037). */
     @PostMapping("/{idSolicitud}/pago")
-    public SolicitudVentanillaRespuesta confirmarPago(@PathVariable Long idSolicitud, Principal trabajador) {
-        return constanciaVentanillaService.confirmarPago(idSolicitud, trabajador.getName());
+    public ConstanciaVentanillaRespuesta confirmarPago(@PathVariable Long idSolicitud,
+            @Valid @RequestBody(required = false) EmitirConstanciaVentanillaSolicitud peticion,
+            Principal trabajador) {
+        return constanciaVentanillaService.confirmarPago(idSolicitud,
+                peticion == null ? EmitirConstanciaVentanillaSolicitud.valoresPorDefecto() : peticion,
+                trabajador.getName());
     }
 
     /* Emisión de la constancia con los parámetros elegidos por el trabajador (RF-055, RF-037, RF-030). */

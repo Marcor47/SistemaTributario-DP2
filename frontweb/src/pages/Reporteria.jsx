@@ -12,6 +12,10 @@ import { useSesionInterna } from '../context/sesionInterna.js'
 import {
   eliminarVista, exportarVista, guardarVista, listarVistas, obtenerCatalogo, obtenerDatos,
 } from '../services/reporteriaService.js'
+import {
+  listarVistas as listarVistasReportes,
+  eliminarVista as eliminarVistaReporte,
+} from '../services/reporteService.js'
 import { fecha, fechaHora } from '../utils/formato.js'
 import {
   FILTROS_INICIALES, PESTANAS, TIPOS_GRAFICO, avanceMeta, columnasRanking, consultaDeFiltros, consultaDeSeleccion, crearModelo,
@@ -81,7 +85,7 @@ function Filtro({ id, etiqueta, valor, cambiado, onCambiar, children }) {
   return (
     <div className="fld">
       <label htmlFor={id}>{etiqueta}</label>
-      <select id={id} value={valor} className={cambiado ? 'rep-filtro-cambiado' : undefined} onChange={(e) => onCambiar(e.target.value)}>{children}</select>
+      <select id={id} value={valor ?? ''} className={cambiado ? 'rep-filtro-cambiado' : undefined} onChange={(e) => onCambiar(e.target.value)}>{children}</select>
     </div>
   )
 }
@@ -333,6 +337,7 @@ function Plataforma({ modelo }) {
     try {
       await guardarVista(nombre, estadoGuardable(estado))
       setGuardando(false)
+      setVistas(null)
       avisar(`Vista "${nombre}" guardada.`)
     } catch (error) {
       avisar(error.message || `No se pudo guardar la vista "${nombre}".`)
@@ -346,7 +351,13 @@ function Plataforma({ modelo }) {
     if (!abrir) return
     setVistas(null)
     try {
-      setVistas(await listarVistas())
+      const [analiticas, reportes] = await Promise.all([
+        listarVistas().catch(() => []),
+        listarVistasReportes().catch(() => []),
+      ])
+      const analiticasMapeadas = (analiticas || []).map((v) => ({ ...v, origen: 'analitica' }))
+      const reportesMapeados = (reportes || []).map((v) => ({ ...v, origen: 'reporte' }))
+      setVistas([...analiticasMapeadas, ...reportesMapeados])
     } catch (error) {
       setVistas([])
       avisar(error.message || 'No se pudieron leer las vistas guardadas.')
@@ -355,6 +366,13 @@ function Plataforma({ modelo }) {
 
   function abrirVista(vista) {
     menuVistas.setAbierto(false)
+    if (vista.origen === 'reporte') {
+      sessionStorage.setItem('vista_reporte_pendiente', String(vista.idVista))
+      cambiarPestana('listados')
+      window.dispatchEvent(new CustomEvent('abrir-vista-reporte', { detail: { idVista: vista.idVista, vista } }))
+      avisar(`Vista de reporte "${vista.nombre}" abierta.`)
+      return
+    }
     setSeleccion(null)
     setEstado(normalizarEstado(modelo, vista.estado, estadoInicial(modelo)))
     avisar(`Vista "${vista.nombre}" abierta.`)
@@ -364,8 +382,12 @@ function Plataforma({ modelo }) {
     const vista = vistaAEliminar
     setVistaAEliminar(null)
     try {
-      await eliminarVista(vista.idVista)
-      setVistas((actual) => actual?.filter((v) => v.idVista !== vista.idVista) ?? null)
+      if (vista.origen === 'reporte') {
+        await eliminarVistaReporte(vista.idVista)
+      } else {
+        await eliminarVista(vista.idVista)
+      }
+      setVistas((actual) => actual?.filter((v) => !(v.idVista === vista.idVista && v.origen === vista.origen)) ?? null)
       avisar('Vista eliminada.')
     } catch (error) {
       avisar(error.message || 'No se pudo eliminar la vista.')
@@ -430,9 +452,15 @@ function Plataforma({ modelo }) {
               {vistas == null && <div className="rep-menu__vacio" role="status">Consultando las vistas…</div>}
               {vistas?.length === 0 && <div className="rep-menu__vacio">Aún no hay vistas guardadas. Usa «Guardar vista».</div>}
               {vistas?.map((vista) => (
-                <div className="rep-menu__fila" key={vista.idVista}>
+                <div className="rep-menu__fila" key={`${vista.origen || 'analitica'}-${vista.idVista}`}>
                   <button className="rep-menu__opcion" type="button" onClick={() => abrirVista(vista)}>
-                    <span>{vista.nombre}<small>Guardada el {fechaHora(vista.fechaActualizacion)}</small></span>
+                    <span>
+                      {vista.nombre}
+                      <small>
+                        {vista.origen === 'reporte' ? `Reporte ${vista.tipoReporte || ''} · ` : 'Plataforma · '}
+                        Guardada el {fechaHora(vista.fechaActualizacion)}
+                      </small>
+                    </span>
                   </button>
                   <button className="rep-menu__eliminar" type="button" aria-label={`Eliminar la vista ${vista.nombre}`} onClick={() => { menuVistas.setAbierto(false); setVistaAEliminar(vista) }}>✕</button>
                 </div>

@@ -97,7 +97,7 @@ export function opcionesZona(zonas, valorActual) {
 
 export function limpiarFiltros(reporte, filtros) {
   const permitidos = new Set(filtrosDisponibles(reporte))
-  return Object.fromEntries(Object.entries(filtros).map(([clave, valor]) => [clave, permitidos.has(clave) ? valor : '']))
+  return Object.fromEntries(Object.entries(filtros || {}).map(([clave, valor]) => [clave, (permitidos.has(clave) && valor != null) ? valor : '']))
 }
 
 export function validarFiltros(reporte, filtros) {

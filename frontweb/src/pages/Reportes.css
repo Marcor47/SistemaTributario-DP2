@@ -116,12 +116,15 @@
 .reporte-resumen { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .reporte-resumen .pcard { display: flex; flex-direction: column; gap: 7px; margin: 0; padding: 18px; }
 .reporte-resumen strong { color: var(--marino-osc); font-size: clamp(20px, 2vw, 28px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.reporte-resumen .pcard.reporte-resumen-deuda { border-left: 4px solid var(--critico); background: linear-gradient(180deg, var(--superficie) 0%, #FFF8F8 100%); }
+.reporte-resumen strong.reporte-cifra-deuda { color: var(--critico); }
 .reporte-aplicados { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .reporte-aplicados span { padding: 5px 10px; border-radius: 999px; background: var(--azul-suave); color: var(--marino-osc); font-size: 14px; }
 .reporte-resultados .tabla-scroll { border: 1px solid var(--borde-fuerte); border-radius: var(--radio); background: var(--superficie); box-shadow: var(--sombra); }
 .reporte-tabla { min-width: 980px; margin-top: 0; background: var(--superficie); }
 .reporte-tabla th[scope="row"] { min-width: 220px; }
 .tabla-scroll .tabla.reporte-tabla-pricos { min-width: 2600px; }
+.tabla-scroll .tabla.reporte-tabla-cabecera { min-width: 2150px; width: max-content; }
 .tabla-scroll .tabla.reporte-tabla-buenos-pagadores { width: max-content; min-width: 100%; }
 .reporte-tabla-buenos-pagadores .reporte-col-codigo { min-width: 90px; font-weight: 700; }
 .reporte-tabla-buenos-pagadores .reporte-col-nombre { min-width: 220px; }
@@ -149,10 +152,17 @@
 .tabla.reporte-tabla tbody th, .tabla.reporte-tabla tbody td { background: var(--superficie); border-bottom: 1px solid var(--borde); }
 .tabla.reporte-tabla tbody tr:hover > th, .tabla.reporte-tabla tbody tr:hover > td { background: #F1F7FD; }
 .reporte-tabla-cabecera th { white-space: nowrap; }
-.reporte-tabla-cabecera td { vertical-align: top; }
-.reporte-tabla-cabecera .reporte-col-codigo { min-width: 90px; font-weight: 700; }
-.reporte-tabla-cabecera .reporte-col-nombre { min-width: 220px; }
-.reporte-tabla-cabecera .num { white-space: nowrap; }
+.reporte-tabla-cabecera td { vertical-align: middle; word-break: normal; hyphens: none; }
+.reporte-tabla-cabecera .reporte-col-codigo { min-width: 100px; font-weight: 700; white-space: nowrap; }
+.reporte-tabla-cabecera .reporte-col-nombre { min-width: 240px; }
+.reporte-tabla-cabecera .reporte-col-doc { min-width: 125px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reporte-tabla-cabecera .reporte-col-via { min-width: 210px; }
+.reporte-tabla-cabecera .reporte-col-corta { min-width: 65px; text-align: center; white-space: nowrap; }
+.reporte-tabla-cabecera .reporte-col-media { min-width: 130px; white-space: nowrap; }
+.reporte-tabla-cabecera .reporte-col-estado { min-width: 110px; white-space: nowrap; }
+.reporte-tabla-cabecera .reporte-col-contacto { min-width: 190px; white-space: nowrap; }
+.reporte-tabla-cabecera .num { min-width: 135px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.reporte-tabla-cabecera td.num strong, .reporte-tabla-detalle td.num strong { color: var(--critico); }
 .reporte-tabla-cabecera .reporte-col-accion { min-width: 124px; white-space: nowrap; }
 .reporte-detalle-btn { min-width: 104px; min-height: 44px; padding: 8px 12px; }
 .tabla.reporte-tabla tbody tr.reporte-fila-detalle > td { padding: 0; background: #F7FAFD; border-bottom: 1px solid var(--borde); }

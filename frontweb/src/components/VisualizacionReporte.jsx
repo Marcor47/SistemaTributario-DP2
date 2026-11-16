@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { moneda } from '../utils/formato.js'
 import PaginacionTabla from './PaginacionTabla.jsx'
 
@@ -12,13 +12,58 @@ function etiquetaValor(valor, formato) {
 }
 
 function Barras({ filas, serie }) {
-  const valores = filas.map((fila) => numero(serie.valor(fila)))
-  const maximo = Math.max(...valores, 1)
-  return <div className="reporte-grafica-barras" role="img" aria-label={`${serie.etiqueta} por contribuyente`}>
-    {filas.map((fila, indice) => <div className="reporte-grafica-fila" key={fila.codigo || indice}>
-      <div className="reporte-grafica-etiqueta"><strong>{fila.razonSocial || fila.nombre || fila.codigo}</strong><span>{etiquetaValor(valores[indice], serie.formato)}</span></div>
-      <div className="reporte-grafica-pista"><span style={{ width: `${(valores[indice] / maximo) * 100}%` }} /></div>
-    </div>)}
+  const [pagina, setPagina] = useState(1)
+  const [tamanio, setTamanio] = useState(10)
+
+  useEffect(() => {
+    setPagina(1)
+  }, [filas, serie?.id])
+
+  const total = filas.length
+  const totalPaginas = Math.max(1, Math.ceil(total / tamanio))
+  const paginaActual = Math.min(Math.max(1, pagina), totalPaginas)
+  const desde = (paginaActual - 1) * tamanio
+  const hasta = Math.min(desde + tamanio, total)
+  const filasVisibles = filas.slice(desde, hasta)
+
+  const valoresGlobales = filas.map((fila) => numero(serie.valor(fila)))
+  const maximo = Math.max(...valoresGlobales, 1)
+
+  return <div className="reporte-barras-wrap">
+    {total > 10 && <div className="reporte-tabla-barra reporte-tabla-barra--solo-paginacion" style={{ marginBottom: '16px' }}>
+      <PaginacionTabla
+        id="grafica-barras"
+        totalRegistros={total}
+        pagina={paginaActual}
+        tamanio={tamanio}
+        onCambiarPagina={setPagina}
+        onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }}
+      />
+    </div>}
+    <div className="reporte-grafica-barras" role="img" aria-label={`${serie.etiqueta} por contribuyente`}>
+      {filasVisibles.map((fila, indice) => {
+        const valor = numero(serie.valor(fila))
+        return <div className="reporte-grafica-fila" key={fila.codigo || `${desde + indice}`}>
+          <div className="reporte-grafica-etiqueta">
+            <strong>{fila.razonSocial || fila.nombre || fila.codigo}</strong>
+            <span>{etiquetaValor(valor, serie.formato)}</span>
+          </div>
+          <div className="reporte-grafica-pista">
+            <span style={{ width: `${(valor / maximo) * 100}%` }} />
+          </div>
+        </div>
+      })}
+    </div>
+    {total > 10 && <div className="reporte-tabla-barra reporte-tabla-barra--solo-paginacion" style={{ marginTop: '16px' }}>
+      <PaginacionTabla
+        id="grafica-barras-pie"
+        totalRegistros={total}
+        pagina={paginaActual}
+        tamanio={tamanio}
+        onCambiarPagina={setPagina}
+        onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }}
+      />
+    </div>}
   </div>
 }
 
@@ -95,7 +140,7 @@ export default function VisualizacionReporte({ tipo, onCambiarTipo, serie, onCam
       </div>
     </section>
     {tipo === 'TABLA' ? tabla : <section className="pcard reporte-grafica" aria-live="polite">
-      <div className="reporte-grafica-cab"><h3>{serieActiva.etiqueta}</h3><p className="hint">{descripcion || `Se representan ${filas.length} registros en el orden actual del reporte.`}</p></div>
+      <div className="reporte-grafica-cab"><h3>{serieActiva.etiqueta}</h3><p className="hint">{descripcion || (tipo === 'BARRAS' && filas.length > 10 ? `Se representan ${filas.length} registros paginados en el orden actual del reporte.` : `Se representan ${filas.length} registros en el orden actual del reporte.`)}</p></div>
       {tipo === 'BARRAS' && <Barras filas={filas} serie={serieActiva} />}
       {tipo === 'LINEAS' && <Lineas key={`${serieActiva.id}-${lineas?.categorias?.join('-')}`} datos={lineas} serie={serieActiva} />}
       {tipo === 'CIRCULAR' && <Circular filas={filas} serie={serieActiva} />}

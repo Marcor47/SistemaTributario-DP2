@@ -197,21 +197,29 @@ class ConstanciaVentanillaControllerTest {
     }
 
     @Test
-    void confirmarPagoRetornaLaSolicitudPagadaConComprobante() throws Exception {
-        SolicitudVentanillaRespuesta pagada = new SolicitudVentanillaRespuesta(
-                15L, CanalSolicitud.VENTANILLA, EstadoConstancia.PAGADA, AHORA, DNI, "DNI", "014502",
-                "GARCÍA TORRES, MARÍA ELENA", null, null,
-                new OrdenPagoConstanciaRespuesta(7L, BigDecimal.valueOf(10.00), EstadoTransaccion.CONFIRMADA, AHORA,
-                        "CONST-VENT-7", null, null, false),
-                null, null);
-        when(constanciaVentanillaService.confirmarPago(15L, TRABAJADOR)).thenReturn(pagada);
+    void confirmarPagoEmiteAutomaticamenteLaConstancia() throws Exception {
+        ConstanciaVentanillaRespuesta emitida = new ConstanciaVentanillaRespuesta(
+                "CND-2026-ABC234", 15L, DNI, "GARCÍA TORRES, MARÍA ELENA", "014502",
+                AHORA, "PRD-001", "Del 01/01/2024 al 31/12/2026", TRABAJADOR,
+                "Ventanilla de Pruebas", "VENTANILLA", "EMITIDA", "CONST-VENT-7",
+                BigDecimal.valueOf(10.00), true);
+        when(constanciaVentanillaService.confirmarPago(eq(15L),
+                any(EmitirConstanciaVentanillaSolicitud.class), eq(TRABAJADOR))).thenReturn(emitida);
 
-        mockMvc.perform(post(RUTA_VENTANILLA + "/15/pago").principal(trabajador))
+        mockMvc.perform(post(RUTA_VENTANILLA + "/15/pago")
+                        .principal(trabajador)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"predios":["PRD-001"],"fechaDesde":"2024-01-01","fechaHasta":"2026-12-31"}
+                                """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.estado", is("PAGADA")))
-                .andExpect(jsonPath("$.ordenPago.comprobante", is("CONST-VENT-7")));
+                .andExpect(jsonPath("$.estado", is("EMITIDA")))
+                .andExpect(jsonPath("$.numeroConstancia", is("CND-2026-ABC234")))
+                .andExpect(jsonPath("$.comprobantePago", is("CONST-VENT-7")))
+                .andExpect(jsonPath("$.prediosIncluidos", is("PRD-001")));
 
-        verify(constanciaVentanillaService).confirmarPago(15L, TRABAJADOR);
+        verify(constanciaVentanillaService).confirmarPago(eq(15L),
+                any(EmitirConstanciaVentanillaSolicitud.class), eq(TRABAJADOR));
     }
 
     @Test
@@ -227,7 +235,7 @@ class ConstanciaVentanillaControllerTest {
         mockMvc.perform(post(RUTA_VENTANILLA + "/15/emitir")
                         .principal(trabajador)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"predios\": null, \"prediosTexto\": null, \"rangoFechas\": null}"))
+                        .content("{\"predios\": null, \"fechaDesde\": null, \"fechaHasta\": null}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.numeroConstancia", is("CNA-2026-000001")))
                 .andExpect(jsonPath("$.canal", is("VENTANILLA")))
