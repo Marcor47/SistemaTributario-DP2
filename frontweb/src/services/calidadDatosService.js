@@ -26,6 +26,10 @@ export const reasignarCaso = (idCaso, idMaestro, motivo) => pedir(`/homologacion
 export const decisionesPorCodigo = (tipoEntidad, codigo) =>
   pedir(`/homologacion/decisiones?${new URLSearchParams({ tipoEntidad, codigo: String(codigo).trim() })}`)
 
+// Accesos a datos personales en claro (REIDENTIFICAR del registro de auditoría), lo más reciente primero.
+export const listarAccesos = (limite = 200, opciones = {}) =>
+  pedir(`/homologacion/accesos?limite=${encodeURIComponent(limite)}`, opciones)
+
 // HU030: ejecuta el K-means sobre la última carga publicada; los segmentos quedan en borrador hasta que la jefatura
 // los apruebe. Repetirlo con la misma carga devuelve el modelo ya calculado.
 export const calcularSegmentacion = () => pedir('/segmentos/calculos', { method: 'POST' })

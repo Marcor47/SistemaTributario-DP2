@@ -22,11 +22,23 @@ import pe.municipalidad.tributario.seguridad.SesionInterna;
 public class AuditoriaHomologacionController {
 
     private final AuditoriaHomologacionService servicio;
+    private final AuditoriaAccesosService accesos;
     private final SesionInterna sesion;
 
-    public AuditoriaHomologacionController(AuditoriaHomologacionService servicio, SesionInterna sesion) {
+    public AuditoriaHomologacionController(AuditoriaHomologacionService servicio, AuditoriaAccesosService accesos,
+            SesionInterna sesion) {
         this.servicio = servicio;
+        this.accesos = accesos;
         this.sesion = sesion;
+    }
+
+    /* Accesos a datos personales en claro (REIDENTIFICAR), lo más reciente primero. Solo lectura. */
+    @GetMapping("/accesos")
+    public List<AccesoDatoRespuesta> listarAccesos(
+            @RequestParam(defaultValue = "200") int limite,
+            HttpServletRequest request) {
+        sesion.conRol(request, NombreRol.RESPONSABLE_DATOS, NombreRol.ADMINISTRADOR);
+        return accesos.recientes(limite);
     }
 
     @GetMapping("/maestros/{idMaestro}/decisiones")
