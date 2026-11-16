@@ -24,6 +24,22 @@ spring:
           time_zone: America/Lima
   jackson:
     time-zone: America/Lima
+  # Correo SMTP (RF-013, RF-022): activo cuando CORREO_MODO=smtp.
+  # Sin esas variables el backend arranca igual usando el gateway de registro local (modo mock).
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_AUTH:true}
+          starttls:
+            enable: ${MAIL_STARTTLS:true}
+            required: ${MAIL_STARTTLS_REQUIRED:true}
+        ssl:
+          enable: ${MAIL_SSL:false}
   flyway:
     locations: classpath:db/migration
     # Las semillas repetibles retiradas (p. ej. las muestras reemplazadas por el padrón) no impiden migrar.

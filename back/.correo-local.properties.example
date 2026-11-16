@@ -1,0 +1,17 @@
+# Copiar como .correo-local.properties dentro de back/ (Git lo ignora vía .gitignore).
+# Con estas variables el backend envía correos reales por SMTP en lugar de solo registrarlos.
+# Si el archivo no existe, el backend arranca igual en modo "registro local" (mock sin envío).
+#
+# Credenciales de la cuenta de prueba del equipo (Gmail con contraseña de aplicación):
+CORREO_MODO=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=dp2.muni.prueba@gmail.com
+MAIL_PASSWORD=hhsdtqzohjtluvzx
+MAIL_AUTH=true
+MAIL_STARTTLS=true
+MAIL_STARTTLS_REQUIRED=true
+MAIL_SSL=false
+CORREO_REMITENTE=dp2.muni.prueba@gmail.com
+CORREO_NOMBRE_REMITENTE=Municipalidad Distrital de San Miguel
+PORTAL_URL=http://localhost:5173

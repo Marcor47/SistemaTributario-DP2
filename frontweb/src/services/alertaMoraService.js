@@ -20,7 +20,27 @@ export function listarAvisosPorLote(idLote, { signal } = {}) {
   return pedir(`/alertas-mora/lotes/${encodeURIComponent(idLote)}`, { signal })
 }
 
+export function obtenerResumenLoteAlertas(idLote) {
+  return pedir(`/alertas-mora/lotes/${encodeURIComponent(idLote)}/resumen`)
+}
+
 /** Historial de avisos de un contribuyente, por su código o su número de documento. */
 export function listarAvisosContribuyente(codigoODocumento, { signal } = {}) {
   return pedir(`/alertas-mora/contribuyentes/${encodeURIComponent(codigoODocumento)}`, { signal })
+}
+
+export function obtenerAutomatizacionAlertasMora() {
+  return pedir('/alertas-mora/automatizacion')
+}
+
+export function listarProcesosAutomaticos() {
+  return pedir('/alertas-mora/automatizacion/procesos')
+}
+
+export async function configurarAutomatizacionAlertasMora(habilitado) {
+  return pedir('/alertas-mora/automatizacion', {
+    method: 'PUT',
+    headers: await cabecerasCsrf(),
+    body: JSON.stringify({ habilitado }),
+  })
 }
