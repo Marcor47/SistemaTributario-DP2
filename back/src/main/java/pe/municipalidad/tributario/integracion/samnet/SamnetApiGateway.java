@@ -8,6 +8,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +22,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ConnectionCallback;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -61,6 +64,33 @@ public class SamnetApiGateway implements SamnetGateway {
     public List<Map<String, Object>> obtenerVencimientos(LocalDate desde, LocalDate hasta) {
         return invocar(() -> jdbc.queryForList("SELECT * FROM samnet.ps_recordatorios_vencimiento(?, ?)",
                 Date.valueOf(desde), Date.valueOf(hasta)));
+    }
+
+    @Override
+    public Map<String, DetalleRecordatorio> obtenerDetallesRecordatorio(Collection<String> idsObligacion) {
+        if (idsObligacion == null || idsObligacion.isEmpty()) {
+            return Map.of();
+        }
+        String marcadores = String.join(",", Collections.nCopies(idsObligacion.size(), "?"));
+        String sql = """
+                SELECT o.id::text AS id_obligacion, c.codigo, c.nombre, o.tributo, o.fecha_vencimiento,
+                       o.monto_emitido - o.monto_pagado - o.monto_descontado AS saldo
+                FROM samnet.obligacion o
+                JOIN samnet.contribuyente c ON c.codigo = o.contribuyente_codigo
+                WHERE o.id::text IN (%s)
+                """.formatted(marcadores);
+        return invocar(() -> {
+            Map<String, DetalleRecordatorio> detalles = new LinkedHashMap<>();
+            jdbc.query(sql, (RowCallbackHandler) rs -> detalles.put(rs.getString("id_obligacion"),
+                    new DetalleRecordatorio(
+                    rs.getString("id_obligacion"),
+                    rs.getString("codigo"),
+                    rs.getString("nombre"),
+                    rs.getString("tributo"),
+                    rs.getDate("fecha_vencimiento") == null ? null : rs.getDate("fecha_vencimiento").toLocalDate(),
+                    rs.getBigDecimal("saldo"))), idsObligacion.toArray());
+            return detalles;
+        });
     }
 
     /* Procedimientos que el ETL puede extraer y si reciben la fecha de corte. */

@@ -87,4 +87,10 @@ public interface SamnetGateway {
     List<Map<String, Object>> extraerParaETL(String procedimiento, LocalDate fechaCorte);
 
     List<Map<String, Object>> obtenerVencimientos(LocalDate desde, LocalDate hasta);
+
+    /*
+     * HU016: detalle de las obligaciones de los recordatorios enviados, indexado por id de obligación.
+     * Los ids que ya no existen en SAMNET simplemente no aparecen en el mapa.
+     */
+    Map<String, DetalleRecordatorio> obtenerDetallesRecordatorio(java.util.Collection<String> idsObligacion);
 }

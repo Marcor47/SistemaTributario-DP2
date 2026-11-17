@@ -23,6 +23,23 @@
 }
 .recordatorios-ayuda { margin: 18px 0 0; }
 .recordatorios-ayuda p { margin: 6px 0 0; }
+.recordatorios-envios {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--borde);
+}
+.recordatorios-envios-cabecera {
+  display: flex; align-items: baseline; justify-content: space-between;
+  flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+}
+.recordatorios-envios-cabecera h3 { margin: 0; }
+.recordatorios-envios .paginacion-tabla { margin-top: 12px; }
+.recordatorios-envios .tabla { min-width: 900px; }
+.recordatorios-documento {
+  display: block;
+  color: var(--texto-secundario);
+  font-size: 12.5px;
+}
 
 @media (max-width: 600px) {
   .recordatorios-acciones .btn { flex: 1 1 100%; }

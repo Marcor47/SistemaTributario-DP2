@@ -1,5 +1,6 @@
 package pe.municipalidad.tributario.constancia;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import pe.municipalidad.tributario.contribuyente.Contribuyente;
 
@@ -22,7 +23,8 @@ public record SolicitudGestionRespuesta(
         SolicitudConstanciaRespuesta.FirmaRespuesta firmaContribuyente,
         OrdenPagoConstanciaRespuesta ordenPago,
         String numeroConstancia,
-        DeudaConstanciaRespuesta deuda) {
+        DeudaConstanciaRespuesta deuda,
+        BigDecimal deudaPresentacion) {
 
     static SolicitudGestionRespuesta desde(SolicitudConstancia solicitud, TransaccionPago ordenPago,
             String numeroConstancia, DeudaConstanciaRespuesta deuda, Contribuyente contribuyente) {
@@ -41,6 +43,7 @@ public record SolicitudGestionRespuesta(
                 SolicitudConstanciaRespuesta.desde(solicitud).firmaContribuyente(),
                 ordenPago == null ? null : OrdenPagoConstanciaRespuesta.desde(ordenPago, null, null),
                 numeroConstancia,
-                deuda);
+                deuda,
+                solicitud.getDeudaPresentacion());
     }
 }

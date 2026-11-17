@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import { fechaHora, moneda } from '../utils/formato.js'
 import {
@@ -8,6 +8,12 @@ import {
   rechazarSolicitudConstancia,
   verificarSolicitudConstancia,
 } from '../services/constanciaGestionService.js'
+import {
+  confirmarPagoSolicitud,
+  consultarContribuyente,
+  emitirSolicitud,
+  verificarDeudaSolicitud,
+} from '../services/constanciaVentanillaService.js'
 import './GestionConstancias.css'
 
 const ESTADOS = {
@@ -20,6 +26,7 @@ const ESTADOS = {
 }
 const CANALES = { APP: 'Servicios en Línea', VENTANILLA: 'Ventanilla' }
 const estado = (valor) => ESTADOS[valor] || valor
+const CON_PARAMETROS = ['ORDEN_PAGO_EMITIDA', 'PAGADA']
 
 function DetalleDeuda({ deuda }) {
   const grupos = new Map()
@@ -56,6 +63,59 @@ function DetalleDeuda({ deuda }) {
   </section>
 }
 
+function ParametrosEmision({
+  titulo, textoBoton, predios, seleccionados, onAlternar, fechaDesde, fechaHasta,
+  onFechaDesde, onFechaHasta, rangoCompleto, cargando, ocupado, onSubmit,
+}) {
+  return <form className="gc-emision" onSubmit={onSubmit}>
+    <h3>{titulo}</h3>
+    <p className="hint">
+      Selecciona los predios que comprende la constancia. Si no seleccionas ninguno, se consideran todos los
+      predios del contribuyente.
+    </p>
+    {cargando ? (
+      <p className="hint" role="status">Cargando predios del contribuyente…</p>
+    ) : predios.length > 0 ? (
+      <div className="gc-predios" role="group" aria-label="Predios del contribuyente">
+        {predios.map((predio) => (
+          <label className="gc-predio" key={predio.codigoPredio}>
+            <input
+              type="checkbox"
+              checked={seleccionados.includes(predio.codigoPredio)}
+              onChange={() => onAlternar(predio.codigoPredio)}
+              disabled={ocupado}
+            />
+            <span>
+              <strong>{predio.codigoPredio}</strong>
+              <small>{predio.ubicacion || 'Ubicación no disponible'}</small>
+              <small>{[predio.tipoPredio, predio.zona].filter(Boolean).join(' · ') || '—'}</small>
+            </span>
+          </label>
+        ))}
+      </div>
+    ) : (
+      <p className="hint">El contribuyente no tiene predios registrados; la constancia comprende todos sus predios.</p>
+    )}
+    <div className="filters-fields">
+      <div className="fld">
+        <label htmlFor="gc-fecha-desde">Fecha inicial (opcional)</label>
+        <input id="gc-fecha-desde" type="date" value={fechaDesde} max={fechaHasta || undefined}
+          onChange={(evento) => onFechaDesde(evento.target.value)} disabled={ocupado} />
+      </div>
+      <div className="fld">
+        <label htmlFor="gc-fecha-hasta">Fecha final (opcional)</label>
+        <input id="gc-fecha-hasta" type="date" value={fechaHasta} min={fechaDesde || undefined}
+          onChange={(evento) => onFechaHasta(evento.target.value)} disabled={ocupado} />
+      </div>
+    </div>
+    {!rangoCompleto && <p className="campo-error" role="alert">Indica ambas fechas y un rango válido.</p>}
+    <p className="hint">Si se omiten ambas fechas, la constancia indica «Hasta la fecha de emisión».</p>
+    <button type="submit" className="btn primary" disabled={ocupado || !rangoCompleto}>
+      {ocupado ? 'Procesando…' : textoBoton}
+    </button>
+  </form>
+}
+
 export default function GestionConstancias() {
   const [solicitudes, setSolicitudes] = useState([])
   const [detalle, setDetalle] = useState(null)
@@ -68,10 +128,21 @@ export default function GestionConstancias() {
   const [errorActualizacion, setErrorActualizacion] = useState('')
   const [pagina, setPagina] = useState(1)
   const [tamanio, setTamanio] = useState(10)
+  const [predios, setPredios] = useState([])
+  const [prediosSeleccionados, setPrediosSeleccionados] = useState([])
+  const [fechaDesde, setFechaDesde] = useState('')
+  const [fechaHasta, setFechaHasta] = useState('')
+  const [cargandoPredios, setCargandoPredios] = useState(false)
+  const [scrollTick, setScrollTick] = useState(0)
+  const detalleRef = useRef(null)
   const idDetalle = detalle?.idSolicitud
   const estadoDetalle = detalle?.estado
+  const canalDetalle = detalle?.canal
+  const documentoDetalle = detalle?.documentoContribuyente
   const sesionPagoDetalle = detalle?.ordenPago?.sesionIniciada
+  const esVentanilla = canalDetalle === 'VENTANILLA'
   const paginaVisible = Math.min(pagina, Math.max(1, Math.ceil(solicitudes.length / tamanio)))
+  const rangoCompleto = (!fechaDesde && !fechaHasta) || (fechaDesde && fechaHasta && fechaHasta >= fechaDesde)
 
   useEffect(() => {
     let activo = true
@@ -103,14 +174,48 @@ export default function GestionConstancias() {
     return () => { activo = false; clearInterval(intervalo) }
   }, [idDetalle, estadoDetalle, sesionPagoDetalle, ocupado])
 
+  useEffect(() => {
+    if (!idDetalle || !esVentanilla || !CON_PARAMETROS.includes(estadoDetalle)) return undefined
+    let activo = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCargandoPredios(true)
+    consultarContribuyente(documentoDetalle)
+      .then((datos) => { if (activo) setPredios(datos.predios ?? []) })
+      .catch(() => { if (activo) setPredios([]) })
+      .finally(() => { if (activo) setCargandoPredios(false) })
+    return () => { activo = false }
+  }, [idDetalle, esVentanilla, estadoDetalle, documentoDetalle])
+
+  useEffect(() => {
+    if (!scrollTick || !detalleRef.current) return
+    const nodo = detalleRef.current
+    const reducirMovimiento = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
+    nodo.focus({ preventScroll: true })
+    nodo.scrollIntoView({
+      behavior: reducirMovimiento ? 'auto' : 'smooth',
+      block: 'start',
+    })
+  }, [scrollTick])
+
+  function limpiarEmision() {
+    setPredios([])
+    setPrediosSeleccionados([])
+    setFechaDesde('')
+    setFechaHasta('')
+  }
+
   async function seleccionar(id) {
     setOcupado(true)
     setError('')
     setAviso('')
     setMotivo('')
     setPagoRevisado(false)
-    try { setDetalle(await obtenerSolicitudConstancia(id)) }
-    catch (err) { setError(err.message) }
+    limpiarEmision()
+    try {
+      const actualizado = await obtenerSolicitudConstancia(id)
+      setDetalle(actualizado)
+      setScrollTick((valor) => valor + 1)
+    } catch (err) { setError(err.message) }
     finally { setOcupado(false) }
   }
 
@@ -120,15 +225,43 @@ export default function GestionConstancias() {
     setError('')
     setAviso('')
     try {
-      const resultado = await accion()
-      setDetalle(resultado)
+      await accion()
+      const actualizado = await obtenerSolicitudConstancia(detalle.idSolicitud)
+      setDetalle(actualizado)
       setMotivo('')
       setPagoRevisado(false)
-      setAviso(resultado.estado === 'RECHAZADA' ? 'La solicitud fue rechazada.' : 'La solicitud fue actualizada.')
+      limpiarEmision()
+      setAviso(actualizado.estado === 'RECHAZADA'
+        ? 'La solicitud fue rechazada.'
+        : actualizado.estado === 'EMITIDA'
+          ? 'La constancia fue emitida y depositada en el buzón del contribuyente.'
+          : 'La solicitud fue actualizada.')
       try { setSolicitudes(await listarSolicitudesConstancia()) }
       catch { setError('La operación se completó, pero no se pudo actualizar la lista.') }
     } catch (err) { setError(err.message) }
     finally { setOcupado(false) }
+  }
+
+  function alternarPredio(codigo) {
+    setPrediosSeleccionados((actuales) => (actuales.includes(codigo)
+      ? actuales.filter((valor) => valor !== codigo)
+      : [...actuales, codigo]))
+  }
+
+  function confirmarPagoVentanilla(evento) {
+    evento.preventDefault()
+    if (!rangoCompleto) return
+    operar(() => confirmarPagoSolicitud(detalle.idSolicitud, {
+      predios: prediosSeleccionados, fechaDesde, fechaHasta,
+    }))
+  }
+
+  function emitirVentanilla(evento) {
+    evento.preventDefault()
+    if (!rangoCompleto) return
+    operar(() => emitirSolicitud(detalle.idSolicitud, {
+      predios: prediosSeleccionados, fechaDesde, fechaHasta,
+    }))
   }
 
   return (
@@ -160,7 +293,7 @@ export default function GestionConstancias() {
                   {item.codigoContribuyente && <small className="gc-codigo">Código: {item.codigoContribuyente}</small>}</td>
                 <td>{item.tipoDocumentoContribuyente && <small className="gc-codigo">{item.tipoDocumentoContribuyente}</small>}
                   {item.documentoContribuyente}</td>
-                <td>{CANALES[item.canal] || item.canal}</td>
+                <td><span className={`gc-canal gc-canal--${item.canal?.toLowerCase()}`}>{CANALES[item.canal] || item.canal}</span></td>
                 <td><span className="gc-estado">{estado(item.estado)}</span></td>
               </tr>)}</tbody>
             </table>
@@ -168,10 +301,18 @@ export default function GestionConstancias() {
               onCambiarPagina={setPagina} onCambiarTamanio={(valor) => { setTamanio(valor); setPagina(1) }} />
           </div>}
       </section>
-      {detalle && <section className="gc-panel gc-detalle" aria-label="Detalle de la solicitud">
+      {detalle && <section
+        className="gc-panel gc-detalle"
+        ref={detalleRef}
+        tabIndex={-1}
+        aria-labelledby="gc-detalle-titulo"
+      >
         <div className="gc-detalle-cabecera">
-          <div><span className="gc-etiqueta">Detalle de la solicitud</span><h2>Solicitud N.° {detalle.idSolicitud}</h2></div>
-          <span className="gc-estado">{estado(detalle.estado)}</span>
+          <div><span className="gc-etiqueta">Detalle de la solicitud</span><h2 id="gc-detalle-titulo">Solicitud N.° {detalle.idSolicitud}</h2></div>
+          <div className="gc-detalle-etiquetas">
+            <span className={`gc-canal gc-canal--${detalle.canal?.toLowerCase()}`}>{CANALES[detalle.canal] || detalle.canal}</span>
+            <span className="gc-estado">{estado(detalle.estado)}</span>
+          </div>
         </div>
         <section className="gc-contribuyente" aria-label="Datos del contribuyente">
           <h3>Contribuyente</h3>
@@ -184,21 +325,77 @@ export default function GestionConstancias() {
         {detalle.deuda && <DetalleDeuda key={detalle.idSolicitud} deuda={detalle.deuda} />}
         <section className="gc-acciones" aria-label="Gestión del trámite">
         <h3>Gestión del trámite</h3>
+        {esVentanilla && detalle.deudaPresentacion != null && (
+          <p><strong>Deuda al presentar:</strong> {moneda(detalle.deudaPresentacion)}</p>
+        )}
         {detalle.ordenPago && <p><strong>Derecho del trámite:</strong> {moneda(detalle.ordenPago.monto)} · {detalle.ordenPago.estado}</p>}
+        {detalle.ordenPago?.comprobante && <p><strong>Comprobante:</strong> {detalle.ordenPago.comprobante}</p>}
 
         {detalle.numeroConstancia && <p><strong>Constancia:</strong> {detalle.numeroConstancia}</p>}
         {detalle.motivoRechazo && <p><strong>Motivo:</strong> {detalle.motivoRechazo}</p>}
+
         {detalle.estado === 'FIRMADA' && <>
-          <p>Al verificar, se generará la orden si no hay deuda. Si existe deuda, se rechazará la solicitud.</p>
+          <p>{esVentanilla
+            ? 'La firma presencial ya está registrada. Al generar la orden se usa la deuda evaluada al presentar la solicitud.'
+            : 'Al verificar, se generará la orden si no hay deuda. Si existe deuda, se rechazará la solicitud.'}</p>
           <button type="button" className="btn primary" disabled={ocupado}
-            onClick={() => operar(() => verificarSolicitudConstancia(detalle.idSolicitud))}>Verificar deuda y generar orden</button>
+            onClick={() => operar(() => (esVentanilla
+              ? verificarDeudaSolicitud(detalle.idSolicitud)
+              : verificarSolicitudConstancia(detalle.idSolicitud)))}>
+            {esVentanilla ? 'Generar orden de pago' : 'Verificar deuda y generar orden'}
+          </button>
         </>}
-        {detalle.estado === 'PAGADA' && <>
+
+        {detalle.estado === 'ORDEN_PAGO_EMITIDA' && !esVentanilla && (
+          <p className="gc-espera">
+            El contribuyente paga en Servicios en Línea. La constancia se emitirá automáticamente al confirmarse el pago.
+          </p>
+        )}
+
+        {detalle.estado === 'ORDEN_PAGO_EMITIDA' && esVentanilla && (
+          <ParametrosEmision
+            titulo="Confirmar pago y emitir constancia"
+            textoBoton="Confirmar pago y emitir"
+            predios={predios}
+            seleccionados={prediosSeleccionados}
+            onAlternar={alternarPredio}
+            fechaDesde={fechaDesde}
+            fechaHasta={fechaHasta}
+            onFechaDesde={setFechaDesde}
+            onFechaHasta={setFechaHasta}
+            rangoCompleto={rangoCompleto}
+            cargando={cargandoPredios}
+            ocupado={ocupado}
+            onSubmit={confirmarPagoVentanilla}
+          />
+        )}
+
+        {detalle.estado === 'PAGADA' && !esVentanilla && <>
           <p>El pago está confirmado. La emisión enviará la constancia al buzón del contribuyente.</p>
           <button type="button" className="btn primary" disabled={ocupado}
             onClick={() => operar(() => emitirSolicitudConstancia(detalle.idSolicitud))}>Emitir constancia</button>
         </>}
+
+        {detalle.estado === 'PAGADA' && esVentanilla && (
+          <ParametrosEmision
+            titulo="Completar emisión pendiente"
+            textoBoton="Emitir constancia pendiente"
+            predios={predios}
+            seleccionados={prediosSeleccionados}
+            onAlternar={alternarPredio}
+            fechaDesde={fechaDesde}
+            fechaHasta={fechaHasta}
+            onFechaDesde={setFechaDesde}
+            onFechaHasta={setFechaHasta}
+            rangoCompleto={rangoCompleto}
+            cargando={cargandoPredios}
+            ocupado={ocupado}
+            onSubmit={emitirVentanilla}
+          />
+        )}
+
         {['FIRMADA', 'DEUDA_VERIFICADA', 'ORDEN_PAGO_EMITIDA', 'PAGADA'].includes(detalle.estado) && <form
+          className="gc-rechazo"
           onSubmit={(evento) => {
             evento.preventDefault()
             if (motivo.trim() && (detalle.estado !== 'PAGADA' || pagoRevisado)) operar(() => rechazarSolicitudConstancia(detalle.idSolicitud, motivo.trim()))

@@ -63,7 +63,9 @@ public class RecordatorioCorreoHtml {
         String saldoSeguro = normalizar(saldo, "0.00");
         String detalleTributo = tributoSeguro.isBlank() ? "" : " (" + tributoSeguro + ")";
 
-        String asunto = "Recordatorio de vencimiento" + (tributoSeguro.isBlank() ? "" : ": " + tributoSeguro);
+        String asunto = "Recordatorio de vencimiento"
+                + (tributoSeguro.isBlank() ? "" : ": " + tributoSeguro)
+                + (idSeguro.isBlank() ? "" : " · Obligación N.° " + idSeguro);
         String texto = "Estimado(a) " + nombreSeguro + ":\n\n"
                 + "Le recordamos que su obligación N.° " + idSeguro + detalleTributo
                 + " vence el " + fechaSegura + ".\n"

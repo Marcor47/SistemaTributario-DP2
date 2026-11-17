@@ -1,7 +1,10 @@
 import { pedir } from './api.js'
 
 const ruta = '/gestion/constancias'
-export const listarSolicitudesConstancia = () => pedir(ruta, { cache: 'no-store' })
+export const listarSolicitudesConstancia = (estado) => pedir(
+  `${ruta}${estado ? `?estado=${encodeURIComponent(estado)}` : ''}`,
+  { cache: 'no-store' },
+)
 export const obtenerSolicitudConstancia = (id) => pedir(`${ruta}/${encodeURIComponent(id)}`, { cache: 'no-store' })
 
 async function enviar(id, accion, cuerpo) {

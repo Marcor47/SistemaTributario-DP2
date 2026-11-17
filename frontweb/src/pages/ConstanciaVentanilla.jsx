@@ -4,7 +4,7 @@ import { useSesionInterna } from '../context/sesionInterna.js'
 import {
   MAX_DOCUMENTO, MINIMO_SUGERENCIAS,
   buscarCoincidenciasVentanilla, confirmarPagoSolicitud, consultarContribuyente,
-  crearSolicitudVentanilla, emitirSolicitud, firmaEnVentanilla, listarConstancias,
+  crearSolicitudVentanilla, emitirSolicitud, firmaEnVentanilla,
   listarSolicitudesContribuyente, normalizarDocumento,
   obtenerDocumentoFirmaSolicitud, registrarFirmaSolicitud, textoDocumento, urlConstanciaPdf,
   verificarDeudaSolicitud,
@@ -196,15 +196,13 @@ export default function ConstanciaVentanilla() {
   const [fechaDesde, setFechaDesde] = useState('')
   const [fechaHasta, setFechaHasta] = useState('')
   const [resultado, setResultado] = useState(null)
-  const [historial, setHistorial] = useState([])
-  const [filtroHistorial, setFiltroHistorial] = useState('')
   const [solicitudes, setSolicitudes] = useState([])
   const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false)
   const [errorSolicitudes, setErrorSolicitudes] = useState('')
   const [error, setError] = useState('')
-  const [errorHistorial, setErrorHistorial] = useState('')
   const [ocupado, setOcupado] = useState(null)
-  const [cargandoHistorial, setCargandoHistorial] = useState(true)
+  const [paginaSolicitudes, setPaginaSolicitudes] = useState(1)
+  const [tamanioSolicitudes, setTamanioSolicitudes] = useState(TAMANIOS_PAGINA[0])
   const [sugerencias, setSugerencias] = useState([])
   const [sugerenciasAbiertas, setSugerenciasAbiertas] = useState(false)
   const [sugerenciaActiva, setSugerenciaActiva] = useState(-1)
@@ -215,19 +213,19 @@ export default function ConstanciaVentanilla() {
   const temporizadorSugerencias = useRef(null)
   const buscarSugerenciasRef = useRef(null)
   const omitirSugerencias = useRef(false)
-
-  useEffect(() => {
-    let activo = true
-    listarConstancias()
-      .then((datos) => { if (activo) setHistorial(datos) })
-      .catch((err) => { if (activo) setErrorHistorial(err.message || 'No se pudo cargar el historial de constancias.') })
-      .finally(() => { if (activo) setCargandoHistorial(false) })
-    return () => { activo = false }
-  }, [])
+  const comprobanteRef = useRef(null)
+  const firmaRegistradaReciente = useRef(false)
 
   useEffect(() => {
     buscarSugerenciasRef.current = buscarSugerencias
   })
+
+  useEffect(() => {
+    if (firmaRegistradaReciente.current && solicitud?.firmaContribuyente) {
+      comprobanteRef.current?.focus()
+      firmaRegistradaReciente.current = false
+    }
+  }, [solicitud?.firmaContribuyente])
 
   useEffect(() => {
     if (omitirSugerencias.current) {
@@ -252,6 +250,12 @@ export default function ConstanciaVentanilla() {
   const contribuyente = consulta?.contribuyente
   const predios = consulta?.predios ?? []
   const estadoSolicitud = solicitud?.estado
+  const datosFirma = documentoFirma?.datosContribuyente
+  const nombreFirma = datosFirma?.nombre || contribuyente?.nombreRazonSocial || '—'
+  const documentoFirmaTexto = datosFirma
+    ? `${datosFirma.tipoDocumento ?? ''} ${datosFirma.numeroDocumento ?? ''}`.trim()
+    : [contribuyente?.tipoDocumento, contribuyente?.numeroDocumento].filter(Boolean).join(' ')
+  const codigoFirma = datosFirma?.codigo || contribuyente?.codigoContribuyente || '—'
   const haySolicitudAbiertaVentanilla = solicitudes.some((item) => (
     item.canal === 'VENTANILLA' && !ESTADOS_CERRADOS.has(item.estado)
   ))
@@ -262,6 +266,9 @@ export default function ConstanciaVentanilla() {
       item.idSolicitud === solicitud.idSolicitud ? { ...item, ...solicitud } : item
     ))
   }, [solicitudes, solicitud, resultado])
+  const { visibles: solicitudesPagina, paginaActual: paginaSolicitudesActual } = paginar(
+    solicitudesVisibles, paginaSolicitudes, tamanioSolicitudes,
+  )
 
   async function refrescarSolicitudes(valor) {
     setCargandoSolicitudes(true)
@@ -273,19 +280,6 @@ export default function ConstanciaVentanilla() {
       setErrorSolicitudes(err.message || 'No se pudieron cargar las solicitudes del contribuyente.')
     } finally {
       setCargandoSolicitudes(false)
-    }
-  }
-
-  async function refrescarHistorial(filtro = '') {
-    setCargandoHistorial(true)
-    setErrorHistorial('')
-    setFiltroHistorial(filtro)
-    try {
-      setHistorial(await listarConstancias(filtro))
-    } catch (err) {
-      setErrorHistorial(err.message || 'No se pudo cargar el historial de constancias.')
-    } finally {
-      setCargandoHistorial(false)
     }
   }
 
@@ -409,10 +403,8 @@ export default function ConstanciaVentanilla() {
       setConsulta(datos)
       omitirSugerencias.current = true
       setDocumento(datos.contribuyente.numeroDocumento)
-      await Promise.all([
-        refrescarHistorial(datos.contribuyente.numeroDocumento),
-        refrescarSolicitudes(datos.contribuyente.numeroDocumento),
-      ])
+      setPaginaSolicitudes(1)
+      await refrescarSolicitudes(datos.contribuyente.numeroDocumento)
     } catch (err) {
       setConsulta(null)
       setError(err.message || 'No se pudo consultar al contribuyente.')
@@ -454,6 +446,7 @@ export default function ConstanciaVentanilla() {
       )
       setSolicitud(firmada)
       setDocumentoFirma(null)
+      firmaRegistradaReciente.current = true
     })
   }
 
@@ -472,10 +465,7 @@ export default function ConstanciaVentanilla() {
         fechaHasta,
       })
       setResultado(emitida)
-      await Promise.all([
-        refrescarHistorial(emitida.documentoContribuyente),
-        refrescarSolicitudes(emitida.documentoContribuyente),
-      ])
+      await refrescarSolicitudes(emitida.documentoContribuyente)
     })
   }
 
@@ -494,10 +484,7 @@ export default function ConstanciaVentanilla() {
         fechaHasta,
       })
       setResultado(emitida)
-      await Promise.all([
-        refrescarHistorial(emitida.documentoContribuyente),
-        refrescarSolicitudes(emitida.documentoContribuyente),
-      ])
+      await refrescarSolicitudes(emitida.documentoContribuyente)
     })
   }
 
@@ -537,7 +524,7 @@ export default function ConstanciaVentanilla() {
     setCargandoSolicitudes(false)
     setErrorSolicitudes('')
     setError('')
-    refrescarHistorial()
+    setPaginaSolicitudes(1)
   }
 
   /* La condición de no adeudo se congeló al presentar la solicitud; solo falta el pago del trámite. */
@@ -662,7 +649,7 @@ export default function ConstanciaVentanilla() {
                   </tr>
                 </thead>
                 <tbody>
-                  {solicitudesVisibles.map((item) => {
+                  {solicitudesPagina.map((item) => {
                     const abierta = !ESTADOS_CERRADOS.has(item.estado)
                     const enCurso = solicitud?.idSolicitud === item.idSolicitud
                     return (
@@ -719,6 +706,19 @@ export default function ConstanciaVentanilla() {
               </table>
             </div>
           )}
+          {solicitudesVisibles.length > 0 && (
+            <div className="cv-paginacion">
+              <PaginacionTabla
+                id="cv-solicitudes"
+                totalRegistros={solicitudesVisibles.length}
+                pagina={paginaSolicitudesActual}
+                tamanio={tamanioSolicitudes}
+                opciones={TAMANIOS_PAGINA}
+                onCambiarPagina={setPaginaSolicitudes}
+                onCambiarTamanio={(valor) => { setTamanioSolicitudes(valor); setPaginaSolicitudes(1) }}
+              />
+            </div>
+          )}
           <p className="hint cv-nota">
             Se muestran las últimas solicitudes del contribuyente en ambos canales; una solicitud emitida incluye su
             constancia.
@@ -748,44 +748,105 @@ export default function ConstanciaVentanilla() {
           </div>
 
           {estadoSolicitud === 'INICIADA' && (
-            <>
-              <h3>Firma del contribuyente</h3>
-              <p className="hint">
-                La solicitud se muestra en el dispositivo de firma presencial. El servidor verifica la firma contra
-                esta versión.
-              </p>
-              {!documentoFirma && (
-                <div className="cv-acciones">
-                  <button className="btn primary" type="button" onClick={prepararDocumento} disabled={ocupado !== null}>
-                    {ocupado === 'firma' ? 'Preparando documento…' : 'Preparar documento'}
-                  </button>
+            <section className="cv-firma" aria-labelledby="cv-firma-titulo">
+              <div className="cv-firma-cabecera">
+                <div>
+                  <h3 id="cv-firma-titulo">Firma del contribuyente</h3>
+                  <p className="hint">
+                    Revisa el documento con el contribuyente antes de registrar su firma. El servidor verifica la
+                    firma contra esta versión.
+                  </p>
                 </div>
-              )}
-              {documentoFirma && (
-                <>
-                  <pre className="cv-documento" aria-label="Documento de la solicitud">
-                    {textoDocumento(documentoFirma.contenidoBase64)}
-                  </pre>
-                  <p className="hint">SHA-256: {documentoFirma.hashSha256}</p>
-                  {documentoFirma.firmaLocal ? (
-                    <>
-                      <div className="cv-acciones">
+                <span className="cv-firma-paso" aria-label="Paso 2 de 5">Paso 2 de 5</span>
+              </div>
+
+              <div className="cv-firma-cuerpo">
+                <section className="cv-firma-documento" aria-label="Documento de la solicitud">
+                  <div className="cv-firma-documento-cabecera">
+                    <div>
+                      <strong>{documentoFirma?.nombreArchivo || 'Documento de la solicitud'}</strong>
+                      <span className="hint">
+                        {documentoFirma?.tipoContenido || 'Documento generado por el servidor'}
+                      </span>
+                    </div>
+                    {documentoFirma && <span className="cv-firma-sello">Versión a firmar</span>}
+                  </div>
+                  {!documentoFirma ? (
+                    <div className="cv-firma-vacio">
+                      <p className="hint">
+                        Prepara el documento para mostrarlo al contribuyente y capturar su firma.
+                      </p>
+                      <button className="btn primary" type="button" onClick={prepararDocumento} disabled={ocupado !== null}>
+                        {ocupado === 'firma' ? 'Preparando documento…' : 'Preparar documento para firma'}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="cv-hoja" role="document" tabIndex={0} aria-label="Texto del documento a firmar">
+                      <div className="cv-hoja-texto">{textoDocumento(documentoFirma.contenidoBase64)}</div>
+                    </div>
+                  )}
+                </section>
+
+                <aside className="cv-firma-resumen" aria-labelledby="cv-firma-resumen-titulo">
+                  <h4 id="cv-firma-resumen-titulo">Resumen de la firma</h4>
+                  <div className="pfields">
+                    <Campo etiqueta="Contribuyente" valor={nombreFirma} />
+                    <Campo etiqueta="Documento" valor={documentoFirmaTexto} />
+                    <Campo etiqueta="Código" valor={codigoFirma} />
+                    <Campo etiqueta="Solicitud" valor={`N.º ${solicitud.idSolicitud}`} />
+                    <Campo etiqueta="Fecha" valor={fechaHora(solicitud.fechaSolicitud)} />
+                    <Campo etiqueta="Canal" valor="Ventanilla" />
+                  </div>
+                  <p className="cv-firma-metodo">
+                    <strong>Método:</strong>{' '}
+                    {documentoFirma
+                      ? (documentoFirma.firmaLocal
+                        ? 'Firma electrónica de Servicios en Línea'
+                        : 'Dispositivo de firma presencial')
+                      : 'Se confirma al preparar el documento'}
+                  </p>
+                  <p className="hint cv-nota" role="note">
+                    El contribuyente revisa el documento y firma en presencia del trabajador.
+                  </p>
+                  {documentoFirma && (
+                    documentoFirma.firmaLocal ? (
+                      <div className="cv-firma-acciones">
                         <button className="btn primary" type="button" onClick={registrarFirmaContribuyente} disabled={ocupado !== null}>
                           {ocupado === 'firma' ? 'Registrando firma…' : 'Registrar firma del contribuyente'}
                         </button>
                       </div>
+                    ) : (
                       <p className="hint cv-nota" role="note">
-                        Registra la firma del contribuyente en presencia del trabajador de ventanilla.
+                        Conecta el dispositivo de firma presencial para capturar la firma del contribuyente.
                       </p>
-                    </>
-                  ) : (
-                    <p className="hint cv-nota" role="note">
-                      Conecta el dispositivo de firma presencial para capturar la firma del contribuyente.
-                    </p>
+                    )
                   )}
-                </>
+                </aside>
+              </div>
+            </section>
+          )}
+
+          {solicitud.firmaContribuyente && ['FIRMADA', 'DEUDA_VERIFICADA', 'ORDEN_PAGO_EMITIDA', 'PAGADA'].includes(estadoSolicitud) && (
+            <section
+              className="cv-firma-comprobante"
+              ref={comprobanteRef}
+              tabIndex={-1}
+              aria-live="polite"
+              aria-labelledby="cv-firma-comprobante-titulo"
+            >
+              <div className="cv-firma-comprobante-cabecera">
+                <h3 id="cv-firma-comprobante-titulo">Firma registrada</h3>
+                <span className="estado ok">Firmada</span>
+              </div>
+              <p className="hint">La firma del contribuyente quedó registrada para esta solicitud.</p>
+              <div className="pfields">
+                <Campo etiqueta="Fecha de la firma" valor={fechaHora(solicitud.firmaContribuyente.fechaFirma)} />
+                <Campo etiqueta="Método" valor={solicitud.firmaContribuyente.entidadCertificadora || 'Firma en ventanilla'} />
+              </div>
+              {estadoSolicitud === 'FIRMADA' && (
+                <p className="hint">Siguiente paso: generar la orden de pago del derecho de trámite.</p>
               )}
-            </>
+            </section>
           )}
 
           {(estadoSolicitud === 'FIRMADA' || estadoSolicitud === 'DEUDA_VERIFICADA') && (
@@ -937,61 +998,6 @@ export default function ConstanciaVentanilla() {
           <p className="hint cv-nota">La constancia ya fue depositada en el buzón de documentos del contribuyente.</p>
         </section>
       )}
-
-      <section className="pcard" aria-label="Constancias emitidas">
-        <h2>Constancias emitidas</h2>
-        {cargandoHistorial ? (
-          <p className="hint" role="status">Cargando constancias…</p>
-        ) : errorHistorial ? (
-          <div className="alert" role="alert">{errorHistorial}</div>
-        ) : historial.length === 0 ? (
-          <p className="hint">No hay constancias emitidas para mostrar.</p>
-        ) : (
-          <div className="tabla-scroll" role="region" aria-label="Historial de constancias emitidas" tabIndex={0}>
-            <table className="tabla">
-              <thead>
-                <tr>
-                  <th scope="col">N.º constancia</th>
-                  <th scope="col">Fecha</th>
-                  <th scope="col">Contribuyente</th>
-                  <th scope="col">Documento</th>
-                  <th scope="col">Canal</th>
-                  <th scope="col">Emitida por</th>
-                  <th scope="col">PDF</th>
-                </tr>
-              </thead>
-              <tbody>
-                {historial.map((item) => (
-                  <tr key={item.numeroConstancia}>
-                    <th scope="row">{item.numeroConstancia}</th>
-                    <td>{fechaHora(item.fechaEmision)}</td>
-                    <td>{item.nombreContribuyente || '—'}</td>
-                    <td>{item.documentoContribuyente}</td>
-                    <td>{item.canal === 'VENTANILLA' ? 'Ventanilla' : 'App'}</td>
-                    <td>{item.nombreTrabajadorEmisor || item.trabajadorEmisor || '—'}</td>
-                    <td>
-                      <a
-                        className="btn btn-compacto"
-                        href={urlConstanciaPdf(item.numeroConstancia)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={`Abrir PDF de la constancia ${item.numeroConstancia}`}
-                      >
-                        Ver PDF
-                      </a>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <p className="hint cv-nota">
-          {filtroHistorial
-            ? `Constancias emitidas para el documento ${filtroHistorial}.`
-            : 'Se muestran las últimas constancias emitidas en ambos canales.'}
-        </p>
-      </section>
     </div>
   )
 }

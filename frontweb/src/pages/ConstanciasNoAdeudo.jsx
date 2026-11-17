@@ -8,14 +8,20 @@ const SUBPESTANAS = [
   {
     id: 'pendientes',
     titulo: 'Solicitudes por atender',
-    descripcion: 'Revisa las solicitudes firmadas, verifica la deuda, genera la orden de pago y emite las constancias pagadas.',
+    descripcion: 'Revisa y gestiona las solicitudes de ambos canales: verifica la deuda, genera la orden, confirma el cobro presencial y emite la constancia.',
     Componente: lazy(() => import('./GestionConstancias.jsx')),
   },
   {
     id: 'ventanilla',
-    titulo: 'Ventanilla e historial',
-    descripcion: 'Atiende al contribuyente en ventanilla y consulta el historial de constancias emitidas.',
+    titulo: 'Ventanilla',
+    descripcion: 'Atiende al contribuyente en el mostrador: crea la solicitud, captura su firma y completa el trámite.',
     Componente: lazy(() => import('./ConstanciaVentanilla.jsx')),
+  },
+  {
+    id: 'historial',
+    titulo: 'Historial',
+    descripcion: 'Consulta las constancias emitidas y las solicitudes rechazadas de ambos canales.',
+    Componente: lazy(() => import('./HistorialConstancias.jsx')),
   },
 ]
 

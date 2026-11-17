@@ -84,6 +84,15 @@ export function estadoRecordatorio(estado) {
   return ESTADOS_RECORDATORIO[estado] ?? { texto: estado || 'Sin estado', clase: 'neutro' }
 }
 
+/** Tributo legible para la tabla de envíos; un valor desconocido se muestra tal cual. */
+export function etiquetaTributoRecordatorio(tributo) {
+  if (!tributo) return '—'
+  const texto = String(tributo).trim()
+  if (!texto) return '—'
+  const conocidos = { IMPUESTO_PREDIAL: 'Impuesto predial', ARBITRIOS: 'Arbitrios' }
+  return conocidos[texto] ?? texto.replace(/_/g, ' ').toLowerCase()
+}
+
 export function textoAnticipacion(dias) {
   if (dias === null || dias === undefined || String(dias).trim() === '') return '—'
   const numero = Number(dias)

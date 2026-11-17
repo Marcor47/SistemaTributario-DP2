@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import PaginacionTabla from '../components/PaginacionTabla.jsx'
 import {
   guardarConfiguracionRecordatorio,
+  listarEnviosRecordatorios,
   obtenerConfiguracionRecordatorio,
   procesarRecordatorios,
 } from '../services/recordatorioService.js'
@@ -8,11 +10,13 @@ import {
   AVISO_SIN_SERVIDOR_CORREO,
   DIAS_RECORDATORIO_POR_DEFECTO,
   calcularFechaProgramada,
+  estadoRecordatorio,
+  etiquetaTributoRecordatorio,
   resumenEnvioRecordatorios,
   textoAnticipacion,
   validarDiasRecordatorio,
 } from '../utils/recordatorios.js'
-import { fecha, fechaHora } from '../utils/formato.js'
+import { fecha, fechaHora, moneda } from '../utils/formato.js'
 import './ConfiguracionRecordatorios.css'
 
 // HU016 (RF-022): configuración de los días de anticipación del recordatorio de vencimiento y envío del día.
@@ -51,6 +55,12 @@ export default function ConfiguracionRecordatorios() {
   const [notificacion, setNotificacion] = useState(null)
   const [procesando, setProcesando] = useState(false)
   const [resultadoEnvio, setResultadoEnvio] = useState(null)
+  const [envios, setEnvios] = useState({ total: 0, totalPaginas: 0, envios: [] })
+  const [paginaEnvios, setPaginaEnvios] = useState(1)
+  const [tamanioEnvios, setTamanioEnvios] = useState(10)
+  const [cargandoEnvios, setCargandoEnvios] = useState(true)
+  const [errorEnvios, setErrorEnvios] = useState('')
+  const [recargaEnvios, setRecargaEnvios] = useState(0)
   const contadorNotificacion = useRef(0)
 
   function nuevaNotificacion(datos) {
@@ -65,6 +75,7 @@ export default function ConfiguracionRecordatorios() {
   const fechaVistaPrevia = calcularFechaProgramada(EJEMPLO_VENCIMIENTO, diasVistaPrevia)
   const sinCambios = Boolean(configuracion) && validacion.valido && validacion.valor === configuracion.diasAnticipacion
   const resumenEnvio = resultadoEnvio ? resumenEnvioRecordatorios(resultadoEnvio) : null
+  const listaEnvios = Array.isArray(envios.envios) ? envios.envios : []
 
   useEffect(() => {
     let activo = true
@@ -89,6 +100,35 @@ export default function ConfiguracionRecordatorios() {
     const temporizador = window.setTimeout(() => setNotificacion(null), 5000)
     return () => window.clearTimeout(temporizador)
   }, [notificacion])
+
+  const cargarEnvios = useCallback(async (signal) => {
+    setCargandoEnvios(true)
+    setErrorEnvios('')
+    try {
+      const resultado = await listarEnviosRecordatorios({
+        pagina: paginaEnvios - 1,
+        tamanio: tamanioEnvios,
+        signal,
+      })
+      setEnvios(resultado)
+      const totalPaginas = Math.max(1, Number(resultado?.totalPaginas) || 0)
+      if (paginaEnvios > totalPaginas) setPaginaEnvios(totalPaginas)
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        setErrorEnvios(error.message || 'No se pudo cargar el detalle de los envíos del día.')
+      }
+    } finally {
+      if (!signal?.aborted) setCargandoEnvios(false)
+    }
+  }, [paginaEnvios, tamanioEnvios])
+
+  useEffect(() => {
+    const controlador = new AbortController()
+    // La consulta se sincroniza con la página y el tamaño elegidos.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    cargarEnvios(controlador.signal)
+    return () => controlador.abort()
+  }, [cargarEnvios, recargaEnvios])
 
   async function reintentarCarga() {
     setCargando(true)
@@ -150,6 +190,8 @@ export default function ConfiguracionRecordatorios() {
     setResultadoEnvio(null)
     try {
       setResultadoEnvio(await procesarRecordatorios())
+      setPaginaEnvios(1)
+      setRecargaEnvios((valor) => valor + 1)
     } catch (error) {
       setNotificacion(nuevaNotificacion({ tipo: 'error', mensaje: error.message || 'No se pudo procesar el envío de recordatorios.' }))
     } finally {
@@ -318,6 +360,81 @@ export default function ConfiguracionRecordatorios() {
                 </div>
               </>
             )}
+
+            <div className="recordatorios-envios" aria-busy={cargandoEnvios}>
+              <div className="recordatorios-envios-cabecera">
+                <h3>Recordatorios del día</h3>
+                <span className="hint">Incluye enviados, registrados y fallidos.</span>
+              </div>
+
+              {errorEnvios && (
+                <div className="alert" role="alert">
+                  <p>{errorEnvios}</p>
+                  <button className="btn" type="button" onClick={() => setRecargaEnvios((valor) => valor + 1)}>
+                    Reintentar detalle
+                  </button>
+                </div>
+              )}
+
+              {!errorEnvios && cargandoEnvios && (
+                <p className="hint" role="status">Consultando los envíos del día…</p>
+              )}
+
+              {!errorEnvios && !cargandoEnvios && listaEnvios.length === 0 && (
+                <p className="hint">No hay recordatorios procesados hoy.</p>
+              )}
+
+              {!errorEnvios && !cargandoEnvios && listaEnvios.length > 0 && (
+                <>
+                  <div className="tabla-scroll" role="region" aria-label="Detalle de los envíos del día" tabIndex={0}>
+                    <table className="tabla">
+                      <caption className="sr-only">Recordatorios procesados hoy</caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Fecha y hora</th>
+                          <th scope="col">Contribuyente</th>
+                          <th scope="col">Correo destino</th>
+                          <th scope="col">Obligación</th>
+                          <th scope="col">Tributo</th>
+                          <th scope="col">Vence</th>
+                          <th scope="col" className="num">Saldo</th>
+                          <th scope="col">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {listaEnvios.map((envio) => {
+                          const estado = estadoRecordatorio(envio.estado)
+                          const saldo = envio.saldo === null || envio.saldo === undefined ? '—' : moneda(envio.saldo)
+                          return (
+                            <tr key={envio.idAviso}>
+                              <td>{fechaHora(envio.fechaEnvio || envio.fechaProgramada)}</td>
+                              <td>
+                                <strong>{envio.nombre || '—'}</strong>
+                                <span className="recordatorios-documento">{envio.documentoContribuyente || '—'}</span>
+                              </td>
+                              <td>{envio.correoDestino || '—'}</td>
+                              <td>{envio.idObligacion ? `#${envio.idObligacion}` : '—'}</td>
+                              <td>{etiquetaTributoRecordatorio(envio.tributo)}</td>
+                              <td>{fecha(envio.fechaVencimiento)}</td>
+                              <td className="num">{saldo}</td>
+                              <td><span className={`estado ${estado.clase}`}>{estado.texto}</span></td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <PaginacionTabla
+                    id="recordatorios-envios"
+                    totalRegistros={envios.total}
+                    pagina={paginaEnvios}
+                    tamanio={tamanioEnvios}
+                    onCambiarPagina={setPaginaEnvios}
+                    onCambiarTamanio={(valor) => { setTamanioEnvios(valor); setPaginaEnvios(1) }}
+                  />
+                </>
+              )}
+            </div>
           </section>
         </>
       )}

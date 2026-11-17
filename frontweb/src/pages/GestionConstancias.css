@@ -20,11 +20,40 @@
 .gc-panel form button { justify-self: start; }
 .gc-aviso { padding: 12px 16px; border-radius: 8px; background: #ecfdf3; color: #067647; }
 .gc-aviso--error { background: #fdf1f0; color: #8a1c12; }
-.gc-detalle { display: grid; gap: 24px; }
+.gc-detalle { display: grid; gap: 24px; scroll-margin-top: 70px; }
+.gc-detalle:focus { outline: none; }
+.gc-detalle:focus-visible { outline: 3px solid var(--cian); outline-offset: 4px; }
 .gc-detalle-cabecera { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; padding-bottom: 20px; border-bottom: 1px solid #e3ebf4; }
 .gc-detalle-cabecera h2 { margin: 6px 0 0; font-size: 1.5rem; }
 .gc-etiqueta { display: block; font-size: .8rem; font-weight: 600; letter-spacing: .03em; }
 .gc-detalle-cabecera .gc-etiqueta { color: #526780; }
+.gc-detalle-etiquetas { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gc-canal {
+  display: inline-block; padding: 5px 10px; border-radius: 20px;
+  font-size: .8rem; font-weight: 600; white-space: nowrap;
+  background: #eef2f7; color: #17406b;
+}
+.gc-canal--ventanilla { background: #e6f4fb; color: #0b5f86; }
+.gc-canal--app { background: #ecfdf3; color: #067647; }
+.gc-espera {
+  padding: 12px 14px; border-radius: 10px;
+  background: #f7fafd; border: 1px dashed #b9c8da; color: #17406b;
+}
+.gc-panel form.gc-emision { max-width: 760px; gap: 14px; }
+.gc-predios {
+  display: grid; gap: 6px; max-height: 240px; overflow: auto;
+  padding: 6px; border: 1px solid #e3ebf4; border-radius: 10px;
+}
+.gc-predio {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+}
+.gc-predio:hover { background: #f7fafd; }
+.gc-predio input { margin-top: 3px; }
+.gc-predio span { display: grid; gap: 2px; min-width: 0; }
+.gc-predio strong { color: #17406b; }
+.gc-predio small { color: #526780; }
+.gc-predio:focus-within { outline: 3px solid #19c3f3; outline-offset: -3px; }
 .gc-detalle h3 { margin: 0; color: #17406b; font-size: 1rem; }
 .gc-contribuyente { background: #f7fafd; border: 1px solid #e3ebf4; border-radius: 12px; padding: 20px; }
 .gc-contribuyente-nombre { display: block; margin-top: 10px; color: #17406b; font-size: 1.15rem; overflow-wrap: anywhere; }
