@@ -211,6 +211,37 @@ class ConstanciaOperadorControllerTest {
         return user("analista").authorities(new SimpleGrantedAuthority("CONSTANCIAS:GESTIONAR"));
     }
 
+    @Test
+    void laBandejaOmiteLasSolicitudesSinFirmaYExponeLaDeudaCongeladaDeVentanilla() throws Exception {
+        long iniciada = jdbc.queryForObject("""
+                INSERT INTO operativo.solicitud_constancia
+                    (canal, estado, fecha_solicitud, documento_contribuyente, id_trabajador)
+                VALUES ('VENTANILLA', 'INICIADA', TIMESTAMP '2026-10-19 10:00:00', '41028765',
+                        (SELECT id_usuario FROM seguridad.usuario WHERE activo ORDER BY id_usuario LIMIT 1))
+                RETURNING id_solicitud
+                """, Long.class);
+        long conOrden = jdbc.queryForObject("""
+                INSERT INTO operativo.solicitud_constancia
+                    (canal, estado, fecha_solicitud, documento_contribuyente, id_trabajador,
+                     id_operador, fecha_revision, deuda_presentacion, fecha_deuda_presentacion)
+                VALUES ('VENTANILLA', 'ORDEN_PAGO_EMITIDA', TIMESTAMP '2026-10-19 10:00:00', '41028765',
+                        (SELECT id_usuario FROM seguridad.usuario WHERE activo ORDER BY id_usuario LIMIT 1),
+                        (SELECT id_usuario FROM seguridad.usuario WHERE activo ORDER BY id_usuario LIMIT 1),
+                        TIMESTAMP '2026-10-19 10:00:00', 0, TIMESTAMP '2026-10-19 10:00:00')
+                RETURNING id_solicitud
+                """, Long.class);
+
+        mockMvc.perform(get(RUTA_OPERADOR).with(operador()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].idSolicitud", not(hasItem((int) iniciada))))
+                .andExpect(jsonPath("$[*].idSolicitud", hasItem((int) conOrden)));
+
+        mockMvc.perform(get(RUTA_OPERADOR + "/" + conOrden).with(operador()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.canal").value("VENTANILLA"))
+                .andExpect(jsonPath("$.deudaPresentacion").value(0));
+    }
+
     private long solicitudFirmada(String codigoContribuyente) throws Exception {
         long id = iniciar(codigoContribuyente);
         mockMvc.perform(post(RUTA_CONTRIBUYENTE + "/" + id + "/firma").session(sesion(codigoContribuyente))

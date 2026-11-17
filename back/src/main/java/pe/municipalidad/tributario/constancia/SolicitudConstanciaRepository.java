@@ -28,12 +28,14 @@ public interface SolicitudConstanciaRepository extends JpaRepository<SolicitudCo
 
     List<SolicitudConstancia> findByEstadoOrderByFechaSolicitudAsc(EstadoConstancia estado);
 
-    /* HU020: abiertas que ya llegaron al operador; en la app, solo las que el contribuyente firmó y envió. */
+    /*
+     * HU020: abiertas que ya llegaron al operador. Se excluyen las INICIADA (aún sin firma) y, en la app,
+     * solo aparecen las que el contribuyente firmó y envió.
+     */
     @Query("""
             select s from SolicitudConstancia s
             where s.estado not in :cerrados
-              and not (s.canal = pe.municipalidad.tributario.constancia.CanalSolicitud.APP
-                       and s.estado = pe.municipalidad.tributario.constancia.EstadoConstancia.INICIADA)
+              and s.estado <> pe.municipalidad.tributario.constancia.EstadoConstancia.INICIADA
             order by s.fechaSolicitud asc, s.idSolicitud asc
             """)
     List<SolicitudConstancia> buscarRecibidasAbiertas(@Param("cerrados") Collection<EstadoConstancia> cerrados);

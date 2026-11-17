@@ -3,6 +3,8 @@ package pe.municipalidad.tributario.documentos;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,6 +12,10 @@ import org.springframework.data.repository.query.Param;
 public interface AvisoCorreoRepository extends JpaRepository<AvisoCorreo, Long> {
 
     List<AvisoCorreo> findByEstadoAndFechaProgramadaLessThanEqual(EstadoAviso estado, LocalDateTime hasta);
+
+    /* HU016: intentos de recordatorio programados en un rango de fechas, del más reciente al más antiguo. */
+    Page<AvisoCorreo> findByTipoAndFechaProgramadaBetween(TipoAviso tipo, LocalDateTime desde, LocalDateTime hasta,
+            Pageable pageable);
 
     List<AvisoCorreo> findByDocumentoContribuyenteOrderByFechaProgramadaDesc(String documentoContribuyente);
 

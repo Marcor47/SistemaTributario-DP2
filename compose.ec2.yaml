@@ -45,6 +45,19 @@ services:
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:-}
       PREDIO_FILES_DIR: /app/storage/predios
       PREDIO_FILES_KEY: ${PREDIO_FILES_KEY:-}
+      # HU016: registro (sin envío) o smtp (Gmail con contraseña de aplicación).
+      CORREO_MODO: ${CORREO_MODO:-registro}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_AUTH: ${MAIL_AUTH:-true}
+      MAIL_STARTTLS: ${MAIL_STARTTLS:-true}
+      MAIL_STARTTLS_REQUIRED: ${MAIL_STARTTLS_REQUIRED:-true}
+      MAIL_SSL: ${MAIL_SSL:-false}
+      CORREO_REMITENTE: ${CORREO_REMITENTE:-}
+      CORREO_NOMBRE_REMITENTE: ${CORREO_NOMBRE_REMITENTE:-Municipalidad Distrital de San Miguel}
+      PORTAL_URL: ${PORTAL_URL:-http://localhost:5173}
       LLM_URL: ${LLM_URL:-}
       LLM_TOKEN: ${LLM_TOKEN:-}
       NIUBIZ_MODE: ${NIUBIZ_MODE:-sandbox}

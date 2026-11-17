@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pe.municipalidad.tributario.common.ReglaNegocioException;
 import pe.municipalidad.tributario.integracion.correo.CorreoGateway;
+import pe.municipalidad.tributario.integracion.correo.RecordatorioCorreoHtml;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.seguridad.ParametroConfiguracion;
 import pe.municipalidad.tributario.seguridad.ParametroConfiguracionRepository;
@@ -39,17 +40,19 @@ public class RecordatorioVencimientoService {
     private final AvisoCorreoRepository avisos;
     private final PreferenciaAvisoRepository preferencias;
     private final CorreoGateway correo;
+    private final RecordatorioCorreoHtml correoHtml;
     private final JdbcTemplate jdbc;
     private final Clock reloj;
     private final ParametroConfiguracionRepository parametros;
 
     public RecordatorioVencimientoService(SamnetGateway samnet, AvisoCorreoRepository avisos,
-            PreferenciaAvisoRepository preferencias, CorreoGateway correo, JdbcTemplate jdbc, Clock reloj,
-            ParametroConfiguracionRepository parametros) {
+            PreferenciaAvisoRepository preferencias, CorreoGateway correo, RecordatorioCorreoHtml correoHtml,
+            JdbcTemplate jdbc, Clock reloj, ParametroConfiguracionRepository parametros) {
         this.samnet = samnet;
         this.avisos = avisos;
         this.preferencias = preferencias;
         this.correo = correo;
+        this.correoHtml = correoHtml;
         this.jdbc = jdbc;
         this.reloj = reloj;
         this.parametros = parametros;
@@ -88,18 +91,11 @@ public class RecordatorioVencimientoService {
             }
             String tributo = etiquetaTributo(texto(fila.get("tributo")));
             String nombre = texto(fila.get("nombre"));
-            String asunto = "Recordatorio de vencimiento" + (tributo == null ? "" : ": " + tributo);
-            String cuerpo = "Estimado(a) " + (nombre == null ? "contribuyente" : nombre) + ":\n\n"
-                    + "Le recordamos que su obligación N.° " + id
-                    + (tributo == null ? "" : " (" + tributo + ")")
-                    + " vence el " + fila.get("fecha_vencimiento") + ".\n"
-                    + "Saldo pendiente: S/ " + fila.get("saldo") + ".\n\n"
-                    + "Puede pagar en Servicios en Línea > Estado de cuenta.\n"
-                    + "Si no desea recibir este recordatorio, desactívelo en Servicios en Línea > "
-                    + "Mis datos y notificaciones.";
+            RecordatorioCorreoHtml.Contenido contenido = correoHtml.construir(nombre, id, tributo,
+                    texto(fila.get("fecha_vencimiento")), texto(fila.get("saldo")));
             AvisoCorreo aviso = new AvisoCorreo(TipoAviso.RECORDATORIO_VENCIMIENTO, documento, destino,
                     ahora, null, id);
-            aviso.enviar(correo, asunto, cuerpo, ahora);
+            aviso.enviar(correo, contenido.asunto(), contenido.texto(), contenido.html(), ahora);
             avisos.save(aviso);
             if (aviso.getEstado() == EstadoAviso.ENVIADO) enviados++;
             else if (aviso.getEstado() == EstadoAviso.REGISTRADO) registrados++;

@@ -7,6 +7,7 @@ import {
   calcularFechaProgramada,
   descripcionRecordatorio,
   estadoRecordatorio,
+  etiquetaTributoRecordatorio,
   fechaRecordatorio,
   resumenEnvioRecordatorios,
   textoAnticipacion,
@@ -14,6 +15,7 @@ import {
 } from '../src/utils/recordatorios.js'
 import {
   guardarConfiguracionRecordatorio,
+  listarEnviosRecordatorios,
   obtenerConfiguracionRecordatorio,
   obtenerRecordatorioObligacion,
 } from '../src/services/recordatorioService.js'
@@ -137,4 +139,50 @@ test('HU016: la configuración tiene una ruta y un menú propios solo para el ad
 
 test('HU016: una obligación sin identificador no consulta al servidor', async () => {
   await assert.rejects(obtenerRecordatorioObligacion({}), { codigo: 'OBLIGACION_INVALIDA' })
+})
+
+test('HU016: los tributos del detalle de envíos se muestran legibles', () => {
+  assert.equal(etiquetaTributoRecordatorio('IMPUESTO_PREDIAL'), 'Impuesto predial')
+  assert.equal(etiquetaTributoRecordatorio('ARBITRIOS'), 'Arbitrios')
+  assert.equal(etiquetaTributoRecordatorio('OTRO_TRIBUTO'), 'otro tributo')
+  assert.equal(etiquetaTributoRecordatorio(null), '—')
+})
+
+test('HU016: el detalle de envíos se consulta paginado y se muestra en la tabla del día', async (t) => {
+  let consulta
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    consulta = new URL(url)
+    return json({
+      total: 3,
+      pagina: 1,
+      tamanio: 25,
+      totalPaginas: 2,
+      envios: [{
+        idAviso: 1,
+        idObligacion: '10',
+        documentoContribuyente: '41028765',
+        codigoContribuyente: '014502',
+        nombre: 'GARCÍA TORRES, MARÍA ELENA',
+        correoDestino: 'maria.garcia@correo.test',
+        tributo: 'IMPUESTO_PREDIAL',
+        fechaVencimiento: '2026-11-20',
+        saldo: 250,
+        estado: 'ENVIADO',
+        fechaProgramada: '2026-11-17T10:00:00',
+        fechaEnvio: '2026-11-17T10:00:05',
+      }],
+    })
+  })
+
+  const pagina = await listarEnviosRecordatorios({ pagina: 1, tamanio: 25 })
+  assert.equal(pagina.total, 3)
+  assert.equal(pagina.envios[0].nombre, 'GARCÍA TORRES, MARÍA ELENA')
+  assert.equal(consulta.pathname, '/api/recordatorios-vencimiento/envios')
+  assert.equal(consulta.searchParams.get('pagina'), '1')
+  assert.equal(consulta.searchParams.get('tamanio'), '25')
+
+  const fuente = readFileSync(new URL('../src/pages/ConfiguracionRecordatorios.jsx', import.meta.url), 'utf8')
+  assert.match(fuente, /PaginacionTabla/)
+  assert.match(fuente, /Recordatorios del día/)
+  assert.match(fuente, /listarEnviosRecordatorios/)
 })

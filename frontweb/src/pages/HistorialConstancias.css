@@ -1,0 +1,30 @@
+/* HU020/HU042: archivo de constancias emitidas y solicitudes rechazadas. */
+.historial-constancias { min-width: 0; }
+.historial-cabecera {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 16px; margin-bottom: 16px;
+}
+.historial-cabecera h2 { margin-bottom: 6px; }
+.historial-vistas {
+  display: inline-flex; gap: 4px; padding: 4px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--fondo);
+}
+.historial-vistas button {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 7px 16px; border-radius: 999px;
+  font: inherit; font-weight: 600; color: var(--texto-secundario);
+}
+.historial-vistas button[aria-pressed="true"] {
+  background: var(--marino-osc);
+  color: #fff;
+}
+.historial-vistas button:focus-visible {
+  outline: 2px solid var(--marino-osc);
+  outline-offset: 2px;
+}
+.historial-filtros { margin-bottom: 16px; }
+.historial-buscador { max-width: 360px; }
+.historial-constancias .tabla-scroll .tabla { min-width: 760px; }
+.historial-constancias .paginacion-tabla { margin-top: 12px; }

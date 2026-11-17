@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import {
   buscarCoincidenciasVentanilla,
@@ -230,6 +231,15 @@ test('HU042: la descarga apunta al PDF binario de la constancia', () => {
 
 test('HU042: el texto del documento de firma se decodifica del base64', () => {
   assert.equal(textoDocumento(btoa('SOLICITUD DE CONSTANCIA')), 'SOLICITUD DE CONSTANCIA')
+})
+
+test('HU042: la firma en ventanilla no expone la huella al trabajador', () => {
+  const fuente = readFileSync(new URL('../src/pages/ConstanciaVentanilla.jsx', import.meta.url), 'utf8')
+
+  assert.doesNotMatch(fuente, /SHA-256/)
+  assert.match(fuente, /firmaEnVentanilla\(documentoFirma\.hashSha256\)/)
+  assert.match(fuente, /Resumen de la firma/)
+  assert.match(fuente, /Firma registrada/)
 })
 
 const obligaciones = [

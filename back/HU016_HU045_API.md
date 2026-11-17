@@ -21,11 +21,104 @@ guarda la preferencia y devuelve el mismo objeto. Sin correo registrado, la acti
 omite a quienes lo desactivaron y los cuenta en `desactivados`. La consulta de estado de una obligación sin
 aviso devuelve `DESACTIVADO` cuando el contribuyente apagó el recordatorio.
 
-**Mientras no se configure un servidor de correo**, `CorreoRegistroLocalGateway` registra los mensajes y no los
-entrega por Internet. Es necesario integrar un proveedor real antes de prometer envíos reales.
-La respuesta distingue `enviados` de `registrados`, suma `desactivados` y expone `sinServidorCorreo`. El
-historial guarda esos avisos como `REGISTRADO`; no bloquean el envío posterior con un proveedor real
-(migraciones V47 y V54).
+El envío real se activa con `tributario.correo.modo=smtp` (`CORREO_MODO=smtp`) y las variables
+`MAIL_*` / `CORREO_*`: Gmail con contraseña de aplicación u otro proveedor SMTP. En `registro`, que es
+el valor por defecto, `CorreoRegistroLocalGateway` registra los mensajes sin enviarlos. Las alertas de
+mora (HU012) usan el mismo gateway: en modo `smtp` también se envían por correo real.
+La respuesta distingue `enviados` de `registrados`, suma `desactivados` y expone `sinServidorCorreo`,
+que es `false` cuando el modo es `smtp`. El historial guarda como `REGISTRADO` los avisos del modo
+local; esos avisos no bloquean el envío posterior con el proveedor real (migraciones V47 y V54). Los
+envíos fallidos quedan `FALLIDO` y se reintentan en el siguiente procesamiento; el motivo se registra
+en el log sin guardar el cuerpo del correo. El asunto identifica el tributo y la obligación
+(`Recordatorio de vencimiento: Arbitrios · Obligación N.° 564746`) para que dos cuotas del mismo
+tributo no se agrupen como una sola conversación en la bandeja del contribuyente; el cuerpo se envía
+como HTML institucional con respaldo en texto plano.
+
+Configuración mínima para Gmail:
+
+```env
+CORREO_MODO=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=cuenta@gmail.com
+MAIL_PASSWORD=contraseña-de-aplicación
+MAIL_AUTH=true
+MAIL_STARTTLS=true
+MAIL_SSL=false
+CORREO_REMITENTE=cuenta@gmail.com
+CORREO_NOMBRE_REMITENTE=Municipalidad Distrital de San Miguel
+PORTAL_URL=https://portal.munisanmiguel.gob.pe
+```
+
+La contraseña de aplicación se genera en la cuenta de Google con verificación en dos pasos. No debe
+versionarse: se configura por variable de entorno o en el `.env` del despliegue.
+
+### Datos de prueba
+
+`back/scripts/hu016_datos_prueba.sql` crea siete contribuyentes reservados (970001 a 970007) con cuotas
+relativas a `CURRENT_DATE` para cubrir todos los casos del proceso. El script es idempotente y solo toca
+esos códigos; `back/scripts/hu016_limpiar_datos_prueba.sql` los elimina.
+
+| Código | Caso | Resultado esperado |
+| --- | --- | --- |
+| 970001 | Dos cuotas en la ventana | Se registran o envían las dos |
+| 970002 | Preferencia `recordatorio_vencimiento = false` | `desactivados`, sin aviso |
+| 970003 | Sin correo registrado | `sinCorreo`, sin aviso |
+| 970004 | Aviso `ENVIADO` previo | `duplicados`, sin aviso nuevo |
+| 970005 | Aviso `REGISTRADO` previo | Duplicado en modo `registro`; se reenvía en `smtp` |
+| 970006 | Saldo cero | La función de SAMNET la excluye |
+| 970007 | Vence hoy y fuera de la anticipación | La función de SAMNET las excluye |
+
+```powershell
+psql -h localhost -U municipalidad -d municipalidad -f back/scripts/hu016_datos_prueba.sql
+```
+
+Con 5 días de anticipación la comprobación del script debe devolver 6 filas. El resultado de
+`POST /api/recordatorios-vencimiento/procesar` esperado es: en modo `registro`, `detectados = 6`,
+`registrados = 2`, `duplicados = 2`, `desactivados = 1`, `sinCorreo = 1`; en modo `smtp`,
+`enviados = 3` y `duplicados = 1` (se reenvía 970005). Las cifras pueden incluir cuotas del padrón
+local si el rango cae a fin de mes. La tarea programada corre a las 08:00 de Lima: para preparar los
+datos sin envíos automáticos arranca con `tributario.recordatorios.programacion=-`. El fixture apunta
+todos los buzones a una cuenta real (970003 queda sin correo a propósito); con dominios inexistentes el
+proveedor acepta el mensaje pero rebota.
+
+### Detalle de envíos del día
+
+`GET /api/recordatorios-vencimiento/envios?fecha=2026-11-17&pagina=0&tamanio=10`
+
+Devuelve los recordatorios procesados en el día (`fecha` es opcional; por defecto, hoy en hora de Lima), del
+más reciente al más antiguo, incluidos `ENVIADO`, `REGISTRADO` y `FALLIDO`. `pagina` es 0-based y `tamanio`
+se acota a 100. El detalle de la obligación (`nombre`, `tributo`, `fechaVencimiento`, `saldo`) se consulta a
+SAMNET en bloque para toda la página; si la obligación ya no existe, esos campos llegan en `null`.
+
+```json
+{
+  "total": 3,
+  "pagina": 0,
+  "tamanio": 10,
+  "totalPaginas": 1,
+  "envios": [
+    {
+      "idAviso": 2609,
+      "idObligacion": "564741",
+      "documentoContribuyente": "99000005",
+      "codigoContribuyente": "970005",
+      "nombre": "Prueba HU016 970005",
+      "correoDestino": "adrian.arista2002@gmail.com",
+      "tributo": "ARBITRIOS",
+      "fechaVencimiento": "2026-11-19",
+      "saldo": 300.00,
+      "estado": "ENVIADO",
+      "fechaProgramada": "2026-11-17T10:34:57",
+      "fechaEnvio": "2026-11-17T10:34:57"
+    }
+  ]
+}
+```
+
+La pantalla `/configuracion/recordatorios` muestra esta página en la tarjeta **Envío del día**, siempre
+visible debajo del resumen y con selector de filas por página.
+
 La función SAMNET de esta versión usa la base sintética; el contrato debe adaptarse cuando se
 integre la fuente municipal. La deduplicación de envío externo ante una caída entre el envío y
 la confirmación requerirá soporte de idempotencia o conciliación del proveedor real.

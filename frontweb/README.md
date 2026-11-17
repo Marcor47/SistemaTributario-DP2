@@ -146,9 +146,11 @@ guarda en el backend (`GET/PUT /api/recordatorios-vencimiento/configuracion`), c
 Permite elegir entre 1 y 10 días de anticipación (5 por defecto) y procesar los recordatorios del día.
 
 El resultado del envío separa **Enviados**, **Registrados**, **Sin correo**, **Desactivados**, **Ya notificados**
-y **Fallidos**. Si el backend responde `sinServidorCorreo`, la pantalla avisa que los mensajes quedaron
-registrados y no se enviaron por Internet. Los contribuyentes que desactivan el recordatorio en la app móvil
-(P12) se contabilizan en **Desactivados** y no reciben el correo.
+y **Fallidos**. Con `CORREO_MODO=smtp` el backend envía correos reales por Gmail/SMTP y los avisos quedan
+**Enviados**; en el modo `registro` (por defecto) quedan **Registrados** y la pantalla avisa que no se enviaron
+por Internet. Los contribuyentes que desactivan el recordatorio en la app móvil (P12) se contabilizan en
+**Desactivados** y no reciben el correo. Las alertas de mora (HU012) usan el mismo gateway y también se
+envían reales cuando `CORREO_MODO=smtp`.
 
 En `/contribuyentes`, pestaña **Cobranza**, **Ver etapa** muestra el recordatorio de la obligación
 (`GET /api/recordatorios-vencimiento/obligaciones/{id}`): estado, fecha de envío o programación, anticipación
