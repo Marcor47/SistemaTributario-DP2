@@ -8,12 +8,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 
 /*
- * Registra el envío sin enviarlo: modo fallback cuando CORREO_MODO != smtp.
+ * Registra el envío sin enviarlo: modo fallback cuando tributario.correo.modo != smtp.
  * Se activa automáticamente si no hay ningún otro CorreoGateway en el contexto (p. ej. CorreoSmtpGateway).
  * Útil para desarrollo local y tests sin servidor de correo real.
  */
 @Component
-@ConditionalOnExpression("'${CORREO_MODO:local}' != 'smtp'")
+@ConditionalOnExpression("'${tributario.correo.modo:registro}' != 'smtp'")
 public class CorreoRegistroLocalGateway implements CorreoGateway {
 
     @Override

@@ -12,6 +12,8 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import pe.municipalidad.tributario.etl.LoteETL;
 import pe.municipalidad.tributario.integracion.correo.CorreoGateway;
 
@@ -22,6 +24,8 @@ import pe.municipalidad.tributario.integracion.correo.CorreoGateway;
 @Entity
 @Table(name = "aviso_correo", schema = "operativo")
 public class AvisoCorreo {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AvisoCorreo.class);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -71,12 +75,21 @@ public class AvisoCorreo {
     }
 
     public void enviar(CorreoGateway correo, String asunto, String cuerpo, LocalDateTime ahora) {
+        enviar(correo, asunto, cuerpo, null, ahora);
+    }
+
+    /*
+     * HU016: el recordatorio puede incluir HTML; las alertas de mora (HU012) siguen usando el texto plano.
+     * Si el envío falla, el aviso queda FALLIDO para que el siguiente procesamiento lo reintente.
+     */
+    public void enviar(CorreoGateway correo, String asunto, String cuerpo, String html, LocalDateTime ahora) {
         try {
-            correo.enviarCorreo(correoDestino, asunto, cuerpo);
+            correo.enviarCorreo(correoDestino, asunto, cuerpo, html);
             this.estado = correo.registraSinEnviar() ? EstadoAviso.REGISTRADO : EstadoAviso.ENVIADO;
             this.fechaEnvio = ahora;
         } catch (RuntimeException ex) {
             this.estado = EstadoAviso.FALLIDO;
+            LOG.warn("No se pudo enviar el aviso por correo '{}': {}", asunto, ex.getMessage());
         }
     }
 

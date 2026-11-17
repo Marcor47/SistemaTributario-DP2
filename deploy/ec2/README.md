@@ -32,6 +32,9 @@ Guía rápida para desplegar la solución completa (Base de datos PostgreSQL, Ba
    Edita `deploy/ec2/.env`:
    - Configura una contraseña para `DB_PASSWORD`.
    - Opcionalmente configura un usuario y clave inicial en `INITIAL_ADMIN_USERNAME` y `INITIAL_ADMIN_PASSWORD`.
+   - Para que HU016 envíe correos reales, configura `CORREO_MODO=smtp`, `MAIL_USERNAME`,
+     `MAIL_PASSWORD` (contraseña de aplicación de Gmail), `CORREO_REMITENTE` y `PORTAL_URL`.
+     Sin `CORREO_MODO=smtp`, los recordatorios quedan registrados y no se envían.
 
 ---
 

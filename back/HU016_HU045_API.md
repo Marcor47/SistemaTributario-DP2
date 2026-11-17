@@ -21,11 +21,35 @@ guarda la preferencia y devuelve el mismo objeto. Sin correo registrado, la acti
 omite a quienes lo desactivaron y los cuenta en `desactivados`. La consulta de estado de una obligación sin
 aviso devuelve `DESACTIVADO` cuando el contribuyente apagó el recordatorio.
 
-**Mientras no se configure un servidor de correo**, `CorreoRegistroLocalGateway` registra los mensajes y no los
-entrega por Internet. Es necesario integrar un proveedor real antes de prometer envíos reales.
-La respuesta distingue `enviados` de `registrados`, suma `desactivados` y expone `sinServidorCorreo`. El
-historial guarda esos avisos como `REGISTRADO`; no bloquean el envío posterior con un proveedor real
-(migraciones V47 y V54).
+El envío real se activa con `tributario.correo.modo=smtp` (`CORREO_MODO=smtp`) y las variables
+`MAIL_*` / `CORREO_*`: Gmail con contraseña de aplicación u otro proveedor SMTP. En `registro`, que es
+el valor por defecto, `CorreoRegistroLocalGateway` registra los mensajes sin enviarlos. Las alertas de
+mora (HU012) usan el mismo gateway: en modo `smtp` también se envían por correo real.
+La respuesta distingue `enviados` de `registrados`, suma `desactivados` y expone `sinServidorCorreo`,
+que es `false` cuando el modo es `smtp`. El historial guarda como `REGISTRADO` los avisos del modo
+local; esos avisos no bloquean el envío posterior con el proveedor real (migraciones V47 y V54). Los
+envíos fallidos quedan `FALLIDO` y se reintentan en el siguiente procesamiento; el motivo se registra
+en el log sin guardar el cuerpo del correo.
+
+Configuración mínima para Gmail:
+
+```env
+CORREO_MODO=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=cuenta@gmail.com
+MAIL_PASSWORD=contraseña-de-aplicación
+MAIL_AUTH=true
+MAIL_STARTTLS=true
+MAIL_SSL=false
+CORREO_REMITENTE=cuenta@gmail.com
+CORREO_NOMBRE_REMITENTE=Municipalidad Distrital de San Miguel
+PORTAL_URL=https://portal.munisanmiguel.gob.pe
+```
+
+La contraseña de aplicación se genera en la cuenta de Google con verificación en dos pasos. No debe
+versionarse: se configura por variable de entorno o en el `.env` del despliegue.
+
 La función SAMNET de esta versión usa la base sintética; el contrato debe adaptarse cuando se
 integre la fuente municipal. La deduplicación de envío externo ante una caída entre el envío y
 la confirmación requerirá soporte de idempotencia o conciliación del proveedor real.

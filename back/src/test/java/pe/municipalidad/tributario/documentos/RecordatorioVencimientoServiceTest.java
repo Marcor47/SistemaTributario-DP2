@@ -14,6 +14,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 import pe.municipalidad.tributario.integracion.correo.CorreoGateway;
+import pe.municipalidad.tributario.integracion.correo.RecordatorioCorreoHtml;
 import pe.municipalidad.tributario.integracion.samnet.SamnetGateway;
 import pe.municipalidad.tributario.seguridad.ParametroConfiguracionRepository;
 
@@ -43,8 +44,8 @@ class RecordatorioVencimientoServiceTest {
                 .thenReturn(true);
         when(preferencias.findAllById(any())).thenReturn(List.of(
                 new PreferenciaAviso("021390", false, LocalDateTime.of(2026, 11, 10, 9, 0))));
-        var servicio = new RecordatorioVencimientoService(samnet, avisos, preferencias, correo, jdbc, reloj,
-                parametros);
+        var servicio = new RecordatorioVencimientoService(samnet, avisos, preferencias, correo,
+                new RecordatorioCorreoHtml("http://localhost:5173"), jdbc, reloj, parametros);
         var resultado = servicio.procesar();
         assertThat(resultado.detectados()).isEqualTo(4);
         assertThat(resultado.enviados()).isEqualTo(1);
@@ -52,7 +53,7 @@ class RecordatorioVencimientoServiceTest {
         assertThat(resultado.sinCorreo()).isEqualTo(1);
         assertThat(resultado.desactivados()).isEqualTo(1);
         verify(correo, times(1)).enviarCorreo(eq("prueba@example.org"), contains("Impuesto predial"),
-                contains("Mis datos y notificaciones"));
+                contains("Mis datos y notificaciones"), contains("Saldo pendiente"));
         verify(avisos, times(1)).save(any(AvisoCorreo.class));
     }
 }

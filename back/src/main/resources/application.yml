@@ -24,13 +24,14 @@ spring:
           time_zone: America/Lima
   jackson:
     time-zone: America/Lima
-  # Correo SMTP (RF-013, RF-022): activo cuando CORREO_MODO=smtp.
-  # Sin esas variables el backend arranca igual usando el gateway de registro local (modo mock).
+  # Correo SMTP (RF-013, RF-022, HU016): activo cuando CORREO_MODO=smtp.
+  # Sin esas variables el backend arranca igual usando el gateway de registro local (modo registro).
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
+    default-encoding: UTF-8
     properties:
       mail:
         smtp:
@@ -38,8 +39,11 @@ spring:
           starttls:
             enable: ${MAIL_STARTTLS:true}
             required: ${MAIL_STARTTLS_REQUIRED:true}
-        ssl:
-          enable: ${MAIL_SSL:false}
+          ssl:
+            enable: ${MAIL_SSL:false}
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
   flyway:
     locations: classpath:db/migration
     # Las semillas repetibles retiradas (p. ej. las muestras reemplazadas por el padrón) no impiden migrar.
@@ -58,6 +62,12 @@ server:
         secure: ${SESSION_COOKIE_SECURE:false}
 
 tributario:
+  # HU016: registro (sin envío real) o smtp (Gmail u otro proveedor).
+  correo:
+    modo: ${CORREO_MODO:registro}
+    remitente: ${CORREO_REMITENTE:}
+    nombre-remitente: ${CORREO_NOMBRE_REMITENTE:Municipalidad Distrital de San Miguel}
+    portal-url: ${PORTAL_URL:http://localhost:5173}
   tributos:
     # TIM mensual de los tributos municipales (Código Tributario, art. 33): la fija la ordenanza, como máximo la de
     # SUNAT (0,90 %). Confirmar la ordenanza vigente de San Miguel; la última hallada (408/MDSM, 2020) fijaba 1 %.
